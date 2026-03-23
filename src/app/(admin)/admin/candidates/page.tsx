@@ -83,6 +83,8 @@ export default function CandidateReviewPage() {
   const [speakingLevels, setSpeakingLevels] = useState<Record<string, string>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Record<string, string>>({});
+  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
+  const [showRevisionForm, setShowRevisionForm] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadCandidates();
@@ -98,10 +100,15 @@ export default function CandidateReviewPage() {
 
   async function handleAction(
     candidateId: string,
-    action: "approve" | "reject" | "flag"
+    action: "approve" | "reject" | "flag" | "revision_required"
   ) {
     if (action === "approve" && !speakingLevels[candidateId]) {
       alert("Please select a speaking level before approving.");
+      return;
+    }
+
+    if (action === "revision_required" && (!revisionNotes[candidateId] || revisionNotes[candidateId].trim().length === 0)) {
+      alert("Please write a revision note before sending.");
       return;
     }
 
@@ -114,11 +121,13 @@ export default function CandidateReviewPage() {
         candidateId,
         action,
         speakingLevel: speakingLevels[candidateId] || null,
+        revisionNote: revisionNotes[candidateId] || null,
       }),
     });
 
     setCandidates((prev) => prev.filter((c) => c.id !== candidateId));
     setActionLoading(null);
+    setShowRevisionForm((prev) => ({ ...prev, [candidateId]: false }));
   }
 
   const eventTypeCounts = (events: TestEvent[]) => {
@@ -159,6 +168,7 @@ export default function CandidateReviewPage() {
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
         >
           <option value="pending_speaking_review">Pending Review</option>
+          <option value="revision_required">Revision Required</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
@@ -365,45 +375,91 @@ export default function CandidateReviewPage() {
                           </div>
 
                           {/* Speaking level selector + actions */}
-                          {filter === "pending_speaking_review" && (
-                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-5">
-                              <p className="text-sm font-semibold text-text mb-3">
-                                Assign Speaking Level & Review
-                              </p>
-                              <div className="flex items-end gap-4">
-                                <div className="flex-1">
-                                  <label className="block text-xs font-medium text-text/60 mb-1">
-                                    Speaking Level (required for approval)
-                                  </label>
-                                  <select
-                                    value={speakingLevels[c.id] || ""}
-                                    onChange={(e) =>
-                                      setSpeakingLevels((prev) => ({ ...prev, [c.id]: e.target.value }))
-                                    }
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none"
+                          {(filter === "pending_speaking_review" || filter === "revision_required") && (
+                            <div className="space-y-4">
+                              <div className="rounded-lg border border-primary/20 bg-primary/5 p-5">
+                                <p className="text-sm font-semibold text-text mb-3">
+                                  Assign Speaking Level & Review
+                                </p>
+                                <div className="flex items-end gap-3 flex-wrap">
+                                  <div className="flex-1 min-w-[180px]">
+                                    <label className="block text-xs font-medium text-text/60 mb-1">
+                                      Speaking Level (required for approval)
+                                    </label>
+                                    <select
+                                      value={speakingLevels[c.id] || ""}
+                                      onChange={(e) =>
+                                        setSpeakingLevels((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none"
+                                    >
+                                      <option value="">Select level...</option>
+                                      <option value="fluent">Fluent</option>
+                                      <option value="proficient">Proficient</option>
+                                      <option value="conversational">Conversational</option>
+                                      <option value="basic">Basic</option>
+                                    </select>
+                                  </div>
+                                  <button
+                                    onClick={() => handleAction(c.id, "approve")}
+                                    disabled={actionLoading === c.id || !speakingLevels[c.id]}
+                                    className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    <option value="">Select level...</option>
-                                    <option value="fluent">Fluent</option>
-                                    <option value="proficient">Proficient</option>
-                                    <option value="conversational">Conversational</option>
-                                    <option value="basic">Basic</option>
-                                  </select>
+                                    {actionLoading === c.id ? "..." : "Approve"}
+                                  </button>
+                                  <button
+                                    onClick={() => setShowRevisionForm((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+                                    className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
+                                  >
+                                    Revision Required
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction(c.id, "reject")}
+                                    disabled={actionLoading === c.id}
+                                    className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => handleAction(c.id, "approve")}
-                                  disabled={actionLoading === c.id || !speakingLevels[c.id]}
-                                  className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
-                                >
-                                  {actionLoading === c.id ? "..." : "Approve"}
-                                </button>
-                                <button
-                                  onClick={() => handleAction(c.id, "reject")}
-                                  disabled={actionLoading === c.id}
-                                  className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
-                                >
-                                  Reject
-                                </button>
                               </div>
+
+                              {/* Revision form */}
+                              {showRevisionForm[c.id] && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+                                  <p className="text-sm font-semibold text-amber-900 mb-2">
+                                    Send Revision Request
+                                  </p>
+                                  <textarea
+                                    value={revisionNotes[c.id] || ""}
+                                    onChange={(e) =>
+                                      setRevisionNotes((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                    }
+                                    placeholder="Describe what the candidate needs to update before their profile can be approved..."
+                                    rows={4}
+                                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm text-text placeholder-text/40 focus:border-amber-500 focus:outline-none resize-none"
+                                  />
+                                  <div className="mt-3 flex items-center justify-between">
+                                    <p className="text-xs text-amber-700">
+                                      This will be emailed to {c.email}
+                                    </p>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => setShowRevisionForm((prev) => ({ ...prev, [c.id]: false }))}
+                                        className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleAction(c.id, "revision_required")}
+                                        disabled={actionLoading === c.id || !revisionNotes[c.id]?.trim()}
+                                        className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                                      >
+                                        {actionLoading === c.id ? "Sending..." : "Send & Hold"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
