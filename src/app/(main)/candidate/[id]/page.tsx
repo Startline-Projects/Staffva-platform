@@ -192,11 +192,35 @@ export default async function CandidateProfilePage({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Pending review banner for own profile */}
-      {isOwnProfile && candidate.admin_status !== "approved" && (
+      {/* Status banner for own profile — reads actual admin_status */}
+      {isOwnProfile && candidate.admin_status === "pending_speaking_review" && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-center">
           <p className="text-sm text-amber-800">
-            <strong>Profile under review</strong> — Your profile is not yet visible to clients. We will notify you once your speaking assessment is complete and your profile goes live.
+            <strong>Profile under review</strong> — Your profile is complete and under review. We will notify you within 2 business days once your speaking assessment is complete and your profile goes live.
+          </p>
+        </div>
+      )}
+      {isOwnProfile && candidate.admin_status === "revision_required" && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
+          <p className="text-sm text-red-800">
+            <strong>Action required</strong> — Our team has reviewed your profile and left feedback. Check your email for details on what to update.
+          </p>
+          <Link href="/apply" className="mt-1 inline-block text-sm font-semibold text-red-700 underline hover:text-red-900">
+            Edit your profile
+          </Link>
+        </div>
+      )}
+      {isOwnProfile && candidate.admin_status === "rejected" && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
+          <p className="text-sm text-red-800">
+            <strong>Profile needs updates</strong> — Your profile needs updates before going live. Check your email for instructions from our team.
+          </p>
+        </div>
+      )}
+      {isOwnProfile && candidate.admin_status === "approved" && (
+        <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
+          <p className="text-sm text-green-800">
+            <strong>Your profile is live</strong> — You are visible to clients. You will be notified when a client sends you a message.
           </p>
         </div>
       )}

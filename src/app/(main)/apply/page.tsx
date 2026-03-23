@@ -10,6 +10,7 @@ import TestResult from "@/components/apply/TestResult";
 import VoiceRecording1 from "@/components/apply/VoiceRecording1";
 import VoiceRecording2 from "@/components/apply/VoiceRecording2";
 import ProfileBuilder from "@/components/apply/ProfileBuilder";
+import CandidateStatusScreen from "@/components/apply/CandidateStatusScreen";
 
 export type ApplicationStep =
   | "loading"
@@ -293,65 +294,7 @@ export default function ApplyPage() {
         />
       )}
       {step === "complete" && candidateData && (
-        <div className="mx-auto max-w-xl px-6 py-16 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-text">
-            {candidateData.admin_status === "approved"
-              ? "Your Profile is Live"
-              : "Application Complete"}
-          </h1>
-          <p className="mt-3 text-text/60">
-            {candidateData.admin_status === "approved"
-              ? "Your profile is live and visible to clients. You will be notified when a client sends you a message."
-              : "Your profile is complete and under review. We will notify you within 2 business days once your speaking assessment is complete and your profile is live."}
-          </p>
-
-          {candidateData.admin_status !== "approved" && (
-            <div className="mt-8 text-left mx-auto max-w-sm">
-              <h3 className="font-semibold text-text mb-3">What happens next:</h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-sm text-text/70">Application submitted</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-sm text-text/70">English assessment completed</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-sm text-text/70">Voice recordings submitted</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  <span className="text-sm text-text/70">Profile built</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-primary flex items-center justify-center">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  </div>
-                  <span className="text-sm text-text/70 font-medium">Speaking assessment review — in progress</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-gray-300" />
-                  <span className="text-sm text-text/40">Profile goes live</span>
-                </li>
-              </ul>
-            </div>
-          )}
-        </div>
+        <CandidateStatusScreen adminStatus={candidateData.admin_status} />
       )}
     </main>
   );
