@@ -37,13 +37,48 @@ export default async function CandidateProfilePage({
 }) {
   const { id } = await params;
   const supabase = getAdminClient();
+  const user = await getUser();
+  const isLoggedIn = !!user;
+  const isClient = user?.user_metadata?.role === "client";
+  const isCandidate = user?.user_metadata?.role === "candidate";
+  const isAdmin = user?.user_metadata?.role === "admin";
 
-  const { data: candidate } = await supabase
+  // First try to find approved candidate (public view)
+  let { data: candidate } = await supabase
     .from("candidates")
     .select("*")
     .eq("id", id)
     .eq("admin_status", "approved")
     .single();
+
+  // If not found and user is the candidate themselves, show their own profile
+  let isOwnProfile = false;
+  if (!candidate && isCandidate && user) {
+    const { data: ownCandidate } = await supabase
+      .from("candidates")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (ownCandidate) {
+      candidate = ownCandidate;
+      isOwnProfile = true;
+    }
+  }
+
+  // If not found and user is admin, show any candidate
+  if (!candidate && isAdmin) {
+    const { data: adminCandidate } = await supabase
+      .from("candidates")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (adminCandidate) {
+      candidate = adminCandidate;
+    }
+  }
 
   if (!candidate) {
     return (
@@ -61,10 +96,6 @@ export default async function CandidateProfilePage({
       </div>
     );
   }
-
-  const user = await getUser();
-  const isLoggedIn = !!user;
-  const isClient = user?.user_metadata?.role === "client";
   let clientId: string | null = null;
   let isLockingClient = false;
 
@@ -113,14 +144,23 @@ export default async function CandidateProfilePage({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Pending review banner for own profile */}
+      {isOwnProfile && candidate.admin_status !== "approved" && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-center">
+          <p className="text-sm text-amber-800">
+            <strong>Profile under review</strong> — Your profile is not yet visible to clients. We will notify you once your speaking assessment is complete and your profile goes live.
+          </p>
+        </div>
+      )}
+
       {/* ═══════════ HEADER — Dark Charcoal ═══════════ */}
       <div className="bg-[#1C1B1A]">
         <div className="mx-auto max-w-5xl px-6 py-4">
-          <Link href="/browse" className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
+          <Link href={isOwnProfile ? "/apply" : "/browse"} className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Browse
+            {isOwnProfile ? "Back to Application" : "Back to Browse"}
           </Link>
         </div>
 
