@@ -33,13 +33,13 @@ const SPEAKING_CONFIG: Record<string, { label: string; color: string }> = {
   basic: { label: "Basic", color: "bg-gray-100 text-gray-700" },
 };
 
-const SAMPLE_CANDIDATES = [
-  { display_name: "Maria S.", country: "Philippines", role_category: "Paralegal", monthly_rate: 1200, english_written_tier: "exceptional", speaking_level: "fluent" },
-  { display_name: "Ahmed K.", country: "Lebanon", role_category: "Bookkeeper", monthly_rate: 1400, english_written_tier: "proficient", speaking_level: "proficient" },
-  { display_name: "Sofia R.", country: "Brazil", role_category: "Legal Assistant", monthly_rate: 1100, english_written_tier: "proficient", speaking_level: "conversational" },
-  { display_name: "Grace T.", country: "Philippines", role_category: "Admin", monthly_rate: 900, english_written_tier: "competent", speaking_level: "proficient" },
-  { display_name: "Omar H.", country: "Egypt", role_category: "Bookkeeper", monthly_rate: 1300, english_written_tier: "exceptional", speaking_level: "fluent" },
-  { display_name: "Lea M.", country: "Philippines", role_category: "Paralegal", monthly_rate: 1500, english_written_tier: "exceptional", speaking_level: "fluent" },
+const SAMPLE_CANDIDATES: { display_name: string; country: string; role_category: string; monthly_rate: number; english_written_tier: string; speaking_level: string; profile_photo_url: string | null }[] = [
+  { display_name: "Maria S.", country: "Philippines", role_category: "Paralegal", monthly_rate: 1200, english_written_tier: "exceptional", speaking_level: "fluent", profile_photo_url: null },
+  { display_name: "Ahmed K.", country: "Lebanon", role_category: "Bookkeeper", monthly_rate: 1400, english_written_tier: "proficient", speaking_level: "proficient", profile_photo_url: null },
+  { display_name: "Sofia R.", country: "Brazil", role_category: "Legal Assistant", monthly_rate: 1100, english_written_tier: "proficient", speaking_level: "conversational", profile_photo_url: null },
+  { display_name: "Grace T.", country: "Philippines", role_category: "Admin", monthly_rate: 900, english_written_tier: "competent", speaking_level: "proficient", profile_photo_url: null },
+  { display_name: "Omar H.", country: "Egypt", role_category: "Bookkeeper", monthly_rate: 1300, english_written_tier: "exceptional", speaking_level: "fluent", profile_photo_url: null },
+  { display_name: "Lea M.", country: "Philippines", role_category: "Paralegal", monthly_rate: 1500, english_written_tier: "exceptional", speaking_level: "fluent", profile_photo_url: null },
 ];
 
 export default function LiveCandidatesSection({ candidates }: Props) {
