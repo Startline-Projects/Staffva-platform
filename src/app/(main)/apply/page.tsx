@@ -285,7 +285,7 @@ export default function ApplyPage() {
           candidateId={candidateData.id}
           candidateData={{
             full_name: candidateData.full_name,
-            display_name: candidateData.display_name,
+            display_name: candidateData.display_name ?? undefined,
             role_category: candidateData.role_category,
             monthly_rate: candidateData.monthly_rate,
             bio: candidateData.bio,
