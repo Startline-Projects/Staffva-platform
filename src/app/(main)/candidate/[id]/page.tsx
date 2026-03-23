@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getUser } from "@/lib/auth";
 import Link from "next/link";
 import MessageButton from "@/components/browse/MessageButton";
+import InterviewRequestSection from "@/components/InterviewRequestSection";
 
 async function InterviewNotesPDF({ path }: { path: string }) {
   const supabase = createClient(
@@ -417,6 +418,18 @@ export default async function CandidateProfilePage({
           </div>
         ) : null}
       </div>
+
+      {/* ═══════════ INTERVIEW REQUEST ═══════════ */}
+      {!isOwnProfile && !isCandidate && candidate.admin_status === "approved" && (
+        <div className="mx-auto max-w-5xl px-6 mt-6">
+          <InterviewRequestSection
+            candidateId={candidate.id}
+            candidateName={candidate.display_name || candidate.full_name}
+            isLoggedIn={isLoggedIn}
+            isClient={isClient}
+          />
+        </div>
+      )}
 
       {/* ═══════════ MAIN CONTENT — 2/3 + 1/3 ═══════════ */}
       <div className="mx-auto max-w-5xl px-6 py-8">

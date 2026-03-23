@@ -70,6 +70,95 @@ export async function POST(request: Request) {
       break;
     }
 
+    // ---- Interview checkout completed ----
+
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const interviewRequestId = session.metadata?.interview_request_id;
+      const candidateId = session.metadata?.candidate_id;
+      const clientId = session.metadata?.client_id;
+      const interviewCount = session.metadata?.interview_count;
+
+      if (interviewRequestId) {
+        // Mark request as paid
+        await supabase
+          .from("interview_requests")
+          .update({
+            payment_status: "paid",
+            stripe_payment_id: session.payment_intent as string,
+          })
+          .eq("id", interviewRequestId);
+
+        // Get candidate and client details for notification emails
+        const { data: candidate } = await supabase
+          .from("candidates")
+          .select("display_name, full_name, email")
+          .eq("id", candidateId)
+          .single();
+
+        const { data: client } = await supabase
+          .from("clients")
+          .select("full_name, email")
+          .eq("id", clientId)
+          .single();
+
+        if (process.env.RESEND_API_KEY && candidate && client) {
+          // Notify admin
+          try {
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: "StaffVA <noreply@staffva.com>",
+                to: "admin@staffva.com",
+                subject: `New Interview Request — ${candidate.display_name || candidate.full_name} — ${interviewCount} interview(s)`,
+                html: `<div style="font-family: sans-serif; max-width: 500px;">
+                  <h2>New Interview Request</h2>
+                  <p><strong>Candidate:</strong> ${candidate.full_name} (${candidate.email})</p>
+                  <p><strong>Client:</strong> ${client.full_name} (${client.email})</p>
+                  <p><strong>Interviews:</strong> ${interviewCount}</p>
+                  <p><strong>Amount Paid:</strong> $${((session.amount_total || 0) / 100).toFixed(2)}</p>
+                  <p><strong>Expected Delivery:</strong> Within 48 hours</p>
+                  <a href="https://staffva.com/admin/candidates" style="display:inline-block;background:#fe6e3e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Admin Panel</a>
+                </div>`,
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to notify admin:", err);
+          }
+
+          // Confirm to client
+          try {
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: "StaffVA <noreply@staffva.com>",
+                to: client.email,
+                subject: `Interview Request Confirmed — ${candidate.display_name || candidate.full_name}`,
+                html: `<div style="font-family: sans-serif; max-width: 500px;">
+                  <h2>Interview Request Confirmed</h2>
+                  <p>Hi ${client.full_name},</p>
+                  <p>Your request for ${interviewCount} interview${Number(interviewCount) > 1 ? "s" : ""} with <strong>${candidate.display_name || candidate.full_name}</strong> has been confirmed.</p>
+                  <p>Our team will conduct the interview${Number(interviewCount) > 1 ? "s" : ""} and deliver notes within <strong>48 hours</strong>. You will receive an email with the scores and PDF notes when ready.</p>
+                  <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
+                </div>`,
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to confirm to client:", err);
+          }
+        }
+      }
+      break;
+    }
+
     // ---- Escrow payments (v5) ----
 
     case "payment_intent.succeeded": {
