@@ -53,16 +53,6 @@ export default function ClientSignupPage() {
           email: session.user.email,
           role: "client",
           fullName,
-        }),
-      });
-      // Ensure client row exists
-      await fetch("/api/ensure-client", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: session.user.id,
-          email: session.user.email,
-          fullName,
           companyName: companyName || null,
         }),
       });

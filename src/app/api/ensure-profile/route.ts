@@ -9,7 +9,7 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
-  const { userId, email, role, fullName } = await request.json();
+  const { userId, email, role, fullName, companyName } = await request.json();
 
   if (!userId || !email || !role) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -17,29 +17,43 @@ export async function POST(request: Request) {
 
   const supabase = getAdminClient();
 
-  // Check if profile already exists
-  const { data: existing } = await supabase
+  // Upsert profile — create if missing, skip if exists
+  const { error: profileError } = await supabase
     .from("profiles")
-    .select("id")
-    .eq("id", userId)
-    .single();
+    .upsert(
+      {
+        id: userId,
+        email,
+        role,
+        full_name: fullName || "",
+      },
+      { onConflict: "id", ignoreDuplicates: true }
+    );
 
-  if (existing) {
-    return NextResponse.json({ ok: true, existed: true });
+  if (profileError) {
+    console.error("ensure-profile: profile upsert failed:", profileError);
+    return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
-  // Create profile using service role (bypasses RLS)
-  const { error } = await supabase.from("profiles").insert({
-    id: userId,
-    email,
-    role,
-    full_name: fullName || "",
-  });
+  // If client, also ensure clients row exists
+  if (role === "client") {
+    const { error: clientError } = await supabase
+      .from("clients")
+      .upsert(
+        {
+          user_id: userId,
+          full_name: fullName || "",
+          email,
+          company_name: companyName || null,
+        },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      );
 
-  if (error) {
-    console.error("ensure-profile error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (clientError) {
+      console.error("ensure-profile: client upsert failed:", clientError);
+      // Non-fatal — profile was created
+    }
   }
 
-  return NextResponse.json({ ok: true, created: true });
+  return NextResponse.json({ ok: true });
 }
