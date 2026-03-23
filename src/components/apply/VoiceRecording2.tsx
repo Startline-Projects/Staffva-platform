@@ -132,7 +132,7 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
             <ol className="mt-4 space-y-2 text-sm text-text/80">
               <li className="flex gap-2">
                 <span className="font-semibold text-primary">1.</span>
-                Your name and the country you are based in
+                Your <strong>first name only</strong> and the country you are based in
               </li>
               <li className="flex gap-2">
                 <span className="font-semibold text-primary">2.</span>
@@ -153,6 +153,17 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
             <p className="mt-4 text-sm text-text/80">
               You have 30 seconds to prepare. Your recording will begin
               automatically. You have one take — speak naturally and clearly.
+            </p>
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm text-amber-800 flex items-center gap-2">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <strong>Important:</strong> Only mention your <strong>first name</strong> — do not share your last name in the recording.
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-text/50">
+              This recording may be shared with prospective clients as part of your profile. Our team reviews all recordings before publishing.
             </p>
           </div>
           <button
@@ -204,7 +215,7 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
             <ol className="space-y-2 text-sm text-text/70">
               <li className="flex gap-2">
                 <span className="font-semibold text-primary shrink-0">1.</span>
-                Your name and the country you are based in
+                Your <strong>first name only</strong> and the country you are based in
               </li>
               <li className="flex gap-2">
                 <span className="font-semibold text-primary shrink-0">2.</span>

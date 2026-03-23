@@ -133,11 +133,11 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
             <ul className="mt-4 space-y-2 text-sm text-text/70">
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">1</span>
-                Click the button below to reveal the passage and start a <strong>30-second silent reading</strong> countdown.
+                Click the button below to start a <strong>30-second countdown</strong>.
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">2</span>
-                After 30 seconds, your <strong>microphone will activate automatically</strong> and recording begins.
+                After 30 seconds, the passage will appear and your <strong>microphone will activate automatically</strong>.
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">3</span>
@@ -150,14 +150,14 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
-              The passage is hidden until you click Start. Your 30-second silent read begins the moment you click.
+              The passage is hidden until recording starts. A 30-second countdown begins when you click Start.
             </p>
           </div>
           <button
             onClick={startSilentRead}
             className="mt-6 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
           >
-            Start Silent Read — Reveal Passage
+            Start 30-Second Countdown
           </button>
         </>
       )}
@@ -167,12 +167,13 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
             <span className="text-3xl font-bold text-primary">{countdown}</span>
           </div>
-          <p className="mt-4 text-sm text-text/60">
-            Read the passage silently. Recording starts automatically.
+          <p className="mt-4 text-lg font-semibold text-text">Preparing your recording...</p>
+          <p className="mt-2 text-sm text-text/60">
+            Your microphone will activate in {countdown} seconds. The passage will appear when recording begins.
           </p>
-          <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <p className="text-sm leading-relaxed text-text/80">
-              {ORAL_PASSAGE}
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm text-amber-800">
+              Get ready — the passage will appear and recording will start automatically. Read it out loud clearly at a natural pace.
             </p>
           </div>
         </div>

@@ -26,6 +26,10 @@ interface WorkEntry {
   industry: string;
   duration: string;
   description: string;
+  start_date: string;
+  end_date: string;
+  tools_used: string[];
+  skills_gained: string[];
 }
 
 interface PortfolioItem {
@@ -106,7 +110,7 @@ export default function ProfileBuilder({
 
   // Step 4 — Work Experience
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
-    { role_title: "", industry: "", duration: "", description: "" },
+    { role_title: "", industry: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
   ]);
 
   // Step 5 — Portfolio and Resume
@@ -126,6 +130,11 @@ export default function ProfileBuilder({
   const [showCropper, setShowCropper] = useState(false);
   const [rawImageUrl, setRawImageUrl] = useState<string | null>(null);
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const cropImgRef = useRef<HTMLImageElement>(null);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -160,16 +169,29 @@ export default function ProfileBuilder({
     const img = new window.Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      const size = Math.min(img.width, img.height);
       canvas.width = 400;
       canvas.height = 400;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Center crop to square
-      const sx = (img.width - size) / 2;
-      const sy = (img.height - size) / 2;
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
+      // Calculate crop area based on drag offset and zoom
+      const containerSize = 280; // matches the CSS container
+      const scale = Math.min(img.width, img.height) / containerSize;
+      const cropSize = containerSize / cropZoom * scale;
+
+      const centerX = img.width / 2 - (cropOffset.x * scale);
+      const centerY = img.height / 2 - (cropOffset.y * scale);
+
+      const sx = Math.max(0, Math.min(centerX - cropSize / 2, img.width - cropSize));
+      const sy = Math.max(0, Math.min(centerY - cropSize / 2, img.height - cropSize));
+
+      // Clip to circle
+      ctx.beginPath();
+      ctx.arc(200, 200, 200, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 400, 400);
 
       canvas.toBlob((blob) => {
         if (blob) {
@@ -179,6 +201,8 @@ export default function ProfileBuilder({
         }
         setShowCropper(false);
         setRawImageUrl(null);
+        setCropOffset({ x: 0, y: 0 });
+        setCropZoom(1);
       }, "image/jpeg", 0.9);
     };
     img.src = rawImageUrl;
@@ -187,6 +211,41 @@ export default function ProfileBuilder({
   function cancelCrop() {
     setShowCropper(false);
     setRawImageUrl(null);
+    setCropOffset({ x: 0, y: 0 });
+    setCropZoom(1);
+  }
+
+  function handleCropMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+  }
+
+  function handleCropMouseMove(e: React.MouseEvent) {
+    if (!isDragging) return;
+    setCropOffset({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
+  }
+
+  function handleCropMouseUp() {
+    setIsDragging(false);
+  }
+
+  function handleCropTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX - cropOffset.x, y: touch.clientY - cropOffset.y });
+  }
+
+  function handleCropTouchMove(e: React.TouchEvent) {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    setCropOffset({
+      x: touch.clientX - dragStart.x,
+      y: touch.clientY - dragStart.y,
+    });
   }
 
   function toggleTool(tool: string) {
@@ -203,7 +262,7 @@ export default function ProfileBuilder({
     if (workEntries.length >= 3) return;
     setWorkEntries([
       ...workEntries,
-      { role_title: "", industry: "", duration: "", description: "" },
+      { role_title: "", industry: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
     ]);
   }
 
@@ -211,9 +270,23 @@ export default function ProfileBuilder({
     setWorkEntries(workEntries.filter((_, i) => i !== index));
   }
 
-  function updateWorkEntry(index: number, field: keyof WorkEntry, value: string) {
+  function updateWorkEntry(index: number, field: keyof WorkEntry, value: string | string[]) {
     const updated = [...workEntries];
     updated[index] = { ...updated[index], [field]: value };
+    setWorkEntries(updated);
+  }
+
+  function addWorkEntryTag(index: number, field: "tools_used" | "skills_gained", tag: string) {
+    const updated = [...workEntries];
+    const arr = updated[index][field];
+    if (arr.length >= 5 || arr.includes(tag)) return;
+    updated[index] = { ...updated[index], [field]: [...arr, tag] };
+    setWorkEntries(updated);
+  }
+
+  function removeWorkEntryTag(index: number, field: "tools_used" | "skills_gained", tag: string) {
+    const updated = [...workEntries];
+    updated[index] = { ...updated[index], [field]: updated[index][field].filter(t => t !== tag) };
     setWorkEntries(updated);
   }
 
@@ -525,23 +598,58 @@ export default function ProfileBuilder({
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={cancelCrop}>
                   <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-lg font-semibold text-text mb-2">Crop Your Photo</h3>
-                    <p className="text-xs text-text/50 mb-4">Your photo will be center-cropped to a square.</p>
-                    <div className="flex items-center justify-center rounded-lg bg-gray-100 p-4">
-                      <div className="relative">
+                    <p className="text-xs text-text/50 mb-4">Drag the image to position it within the circle. Use the slider to zoom.</p>
+                    <div className="flex items-center justify-center rounded-lg bg-gray-900 p-4">
+                      <div
+                        className="relative overflow-hidden select-none"
+                        style={{ width: 280, height: 280, cursor: isDragging ? "grabbing" : "grab" }}
+                        onMouseDown={handleCropMouseDown}
+                        onMouseMove={handleCropMouseMove}
+                        onMouseUp={handleCropMouseUp}
+                        onMouseLeave={handleCropMouseUp}
+                        onTouchStart={handleCropTouchStart}
+                        onTouchMove={handleCropTouchMove}
+                        onTouchEnd={() => setIsDragging(false)}
+                      >
                         <img
+                          ref={cropImgRef}
                           src={rawImageUrl}
-                          alt="Preview"
-                          className="max-h-64 max-w-full rounded"
+                          alt="Crop"
+                          draggable={false}
+                          className="absolute"
+                          style={{
+                            left: `calc(50% + ${cropOffset.x}px)`,
+                            top: `calc(50% + ${cropOffset.y}px)`,
+                            transform: `translate(-50%, -50%) scale(${cropZoom})`,
+                            minWidth: "100%",
+                            minHeight: "100%",
+                            maxWidth: "none",
+                          }}
                         />
-                        {/* Square crop overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="border-2 border-white/80 rounded-full shadow-lg" style={{
-                            width: "80%",
-                            height: "0",
-                            paddingBottom: "80%",
-                          }} />
-                        </div>
+                        {/* Circle overlay mask */}
+                        <div className="absolute inset-0 pointer-events-none" style={{
+                          boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                          borderRadius: "50%",
+                        }} />
+                        <div className="absolute inset-0 pointer-events-none rounded-full border-2 border-white/50" />
                       </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-3">
+                      <svg className="h-4 w-4 text-text/40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
+                      </svg>
+                      <input
+                        type="range"
+                        min="1"
+                        max="3"
+                        step="0.05"
+                        value={cropZoom}
+                        onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                        className="flex-1 accent-primary"
+                      />
+                      <svg className="h-4 w-4 text-text/40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                      </svg>
                     </div>
                     <div className="mt-4 flex gap-2 justify-end">
                       <button onClick={cancelCrop} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-text hover:bg-gray-50">
@@ -695,49 +803,105 @@ export default function ProfileBuilder({
                   }
                   className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                 />
+                <select
+                  value={entry.industry}
+                  onChange={(e) => updateWorkEntry(i, "industry", e.target.value)}
+                  className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select industry</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
                 <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={entry.industry}
-                    onChange={(e) =>
-                      updateWorkEntry(i, "industry", e.target.value)
-                    }
-                    className="rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Industry</option>
-                    {INDUSTRIES.map((ind) => (
-                      <option key={ind} value={ind}>
-                        {ind}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={entry.duration}
-                    onChange={(e) =>
-                      updateWorkEntry(i, "duration", e.target.value)
-                    }
-                    className="rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Duration</option>
-                    {DURATIONS.map((dur) => (
-                      <option key={dur} value={dur}>
-                        {dur}
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-xs text-text/50 mb-1">From</label>
+                    <input
+                      type="month"
+                      value={entry.start_date}
+                      onChange={(e) => updateWorkEntry(i, "start_date", e.target.value)}
+                      className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text/50 mb-1">To</label>
+                    <input
+                      type="month"
+                      value={entry.end_date}
+                      onChange={(e) => updateWorkEntry(i, "end_date", e.target.value)}
+                      placeholder="Present"
+                      className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                    <label className="mt-1 flex items-center gap-1.5 text-xs text-text/50">
+                      <input
+                        type="checkbox"
+                        checked={entry.end_date === "present"}
+                        onChange={(e) => updateWorkEntry(i, "end_date", e.target.checked ? "present" : "")}
+                        className="accent-primary"
+                      />
+                      Currently working here
+                    </label>
+                  </div>
                 </div>
                 <input
                   type="text"
                   maxLength={120}
                   placeholder="One sentence description (max 120 characters)"
                   value={entry.description}
-                  onChange={(e) =>
-                    updateWorkEntry(i, "description", e.target.value)
-                  }
+                  onChange={(e) => updateWorkEntry(i, "description", e.target.value)}
                   className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                 />
-                <p className="text-right text-xs text-text/40">
-                  {entry.description.length}/120
-                </p>
+                <p className="text-right text-xs text-text/40">{entry.description.length}/120</p>
+
+                {/* Tools Used */}
+                <div>
+                  <label className="block text-xs font-medium text-text/70 mb-1">Tools used in this role (up to 5)</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {entry.tools_used.map((t) => (
+                      <span key={t} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                        {t}
+                        <button type="button" onClick={() => removeWorkEntryTag(i, "tools_used", t)} className="text-primary/60 hover:text-primary">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Type a tool and press Enter"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const val = (e.target as HTMLInputElement).value.trim().replace(",", "");
+                        if (val) { addWorkEntryTag(i, "tools_used", val); (e.target as HTMLInputElement).value = ""; }
+                      }
+                    }}
+                    className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Skills Gained */}
+                <div>
+                  <label className="block text-xs font-medium text-text/70 mb-1">Skills gained (up to 5)</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {entry.skills_gained.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700">
+                        {s}
+                        <button type="button" onClick={() => removeWorkEntryTag(i, "skills_gained", s)} className="text-green-500 hover:text-green-700">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Type a skill and press Enter"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const val = (e.target as HTMLInputElement).value.trim().replace(",", "");
+                        if (val) { addWorkEntryTag(i, "skills_gained", val); (e.target as HTMLInputElement).value = ""; }
+                      }
+                    }}
+                    className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
               </div>
             ))}
             {workEntries.length < 3 && (
@@ -787,7 +951,7 @@ export default function ProfileBuilder({
                 <span className="text-text/40 font-normal">(optional)</span>
               </h3>
               <p className="text-xs text-text/50">
-                Up to 3 items. PDF or image, max 5MB each.
+                Up to 3 items. PDF or image, max 5MB each. Examples: a cover letter, work sample, certificate, or project screenshot.
               </p>
               {portfolioItems.map((item, i) => (
                 <div

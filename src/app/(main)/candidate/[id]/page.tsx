@@ -683,47 +683,62 @@ export default async function CandidateProfilePage({
                   </>
                 )}
 
-                {candidate.linkedin_url && (
-                  <a href={candidate.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:text-orange-600 transition-colors">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                    LinkedIn Profile
-                  </a>
+                {candidate.linkedin_url && isAdmin && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text/30 mb-1">Admin Only</p>
+                    <a href={candidate.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:text-orange-600 transition-colors">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
+                      LinkedIn Profile
+                    </a>
+                  </div>
                 )}
               </div>
 
               {/* Gated assets — portfolio + resume */}
+              {/* Resume — admin only */}
+              {isAdmin && candidate.resume_url && (
+                <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+                  <p className="text-[10px] uppercase tracking-wider text-text/30">Admin Only — Internal Documents</p>
+                  <a
+                    href={candidate.resume_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded bg-red-100">
+                      <span className="text-xs font-bold text-red-600">PDF</span>
+                    </div>
+                    <span className="text-sm font-medium text-text">Download Resume</span>
+                  </a>
+                </div>
+              )}
+
+              {/* Portfolio — visible to logged-in clients and admin */}
               {canViewGated ? (
                 <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
-                  {candidate.resume_url && (
-                    <a
-                      href={candidate.resume_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded bg-red-100">
-                        <span className="text-xs font-bold text-red-600">PDF</span>
-                      </div>
-                      <span className="text-sm font-medium text-text">Download Resume</span>
-                    </a>
+                  {(portfolioItems || []).length > 0 ? (
+                    <>
+                      <p className="text-xs font-medium text-text/50 uppercase tracking-wider">Portfolio</p>
+                      {(portfolioItems || []).map((item) => (
+                        <a
+                          key={item.id}
+                          href={item.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
+                            <span className="text-xs font-bold uppercase text-primary">{item.file_type}</span>
+                          </div>
+                          <span className="text-sm text-text">{item.description || "Portfolio item"}</span>
+                        </a>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-xs text-text/40 text-center py-2">No portfolio items uploaded</p>
                   )}
-
-                  {(portfolioItems || []).map((item) => (
-                    <a
-                      key={item.id}
-                      href={item.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
-                        <span className="text-xs font-bold uppercase text-primary">{item.file_type}</span>
-                      </div>
-                      <span className="text-sm text-text">{item.description || "Portfolio item"}</span>
-                    </a>
-                  ))}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-5 text-center">
@@ -731,7 +746,7 @@ export default async function CandidateProfilePage({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                   <p className="mt-2 text-xs text-text/50">
-                    {isLoggedIn ? "Resume and portfolio visible to client accounts." : "Create a free account to view resume and portfolio."}
+                    {isLoggedIn ? "Portfolio visible to client accounts." : "Create a free account to view portfolio."}
                   </p>
                   {!isLoggedIn && (
                     <Link
