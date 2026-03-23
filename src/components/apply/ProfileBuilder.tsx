@@ -112,9 +112,10 @@ export default function ProfileBuilder({
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [payoutMethod, setPayoutMethod] = useState("");
 
-  // Step 6 — Availability
+  // Step 6 — Availability + Consent
   const [availability, setAvailability] = useState<string>("");
   const [availabilityDate, setAvailabilityDate] = useState("");
+  const [interviewConsent, setInterviewConsent] = useState(false);
 
   const firstName = candidateData.full_name?.split(" ")[0] || "";
   const lastInitial = candidateData.full_name?.split(" ")[1]?.[0] || "";
@@ -266,6 +267,11 @@ export default function ProfileBuilder({
   async function handleSubmit() {
     if (!validateStep()) return;
 
+    if (!interviewConsent) {
+      setError("You must agree to the interview consent to submit your profile.");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -347,6 +353,7 @@ export default function ProfileBuilder({
           availability === "available_by_date" ? availabilityDate : null,
         admin_status: "pending_speaking_review",
         profile_completed_at: new Date().toISOString(),
+        interview_consent: interviewConsent,
       };
 
       if (photoUrl) updateData.profile_photo_url = photoUrl;
@@ -852,6 +859,21 @@ export default function ProfileBuilder({
                 </div>
               </button>
             </div>
+
+            {/* Interview consent */}
+            <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={interviewConsent}
+                  onChange={(e) => setInterviewConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-text/70 leading-relaxed">
+                  By submitting your profile you agree that StaffVA may conduct video interviews and share interview notes and scores with prospective clients as part of our vetting process.
+                </span>
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -882,7 +904,7 @@ export default function ProfileBuilder({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || (currentStep === 6 && !interviewConsent)}
             className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
           >
             {saving ? "Submitting..." : "Submit Profile"}
