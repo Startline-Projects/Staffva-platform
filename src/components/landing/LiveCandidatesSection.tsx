@@ -13,6 +13,7 @@ interface LiveCandidate {
   lock_status: string;
   bio: string | null;
   us_client_experience: string;
+  profile_photo_url: string | null;
 }
 
 interface Props {
@@ -64,19 +65,32 @@ export default function LiveCandidatesSection({ candidates }: Props) {
                   key={c.id}
                   className="rounded-xl border border-gray-200 bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text">
-                        {c.display_name}
-                      </h3>
-                      <p className="text-sm text-text/60 mt-0.5">{c.country}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                      {c.profile_photo_url ? (
+                        <img src={c.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-text/30">
+                          {c.display_name?.[0] || "?"}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-lg font-bold text-primary">
-                      ${c.monthly_rate.toLocaleString()}
-                      <span className="text-xs font-normal text-text/40">
-                        /mo
-                      </span>
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-text">
+                            {c.display_name}
+                          </h3>
+                          <p className="text-sm text-text/60 mt-0.5">{c.country}</p>
+                        </div>
+                        <p className="text-lg font-bold text-primary shrink-0">
+                          ${c.monthly_rate.toLocaleString()}
+                          <span className="text-xs font-normal text-text/40">
+                            /mo
+                          </span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Role pill */}
@@ -140,19 +154,32 @@ export default function LiveCandidatesSection({ candidates }: Props) {
                   key={c.display_name}
                   className="rounded-xl border border-gray-200 bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text">
-                        {c.display_name}
-                      </h3>
-                      <p className="text-sm text-text/60 mt-0.5">{c.country}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                      {c.profile_photo_url ? (
+                        <img src={c.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-text/30">
+                          {c.display_name?.[0] || "?"}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-lg font-bold text-primary">
-                      ${c.monthly_rate.toLocaleString()}
-                      <span className="text-xs font-normal text-text/40">
-                        /mo
-                      </span>
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-text">
+                            {c.display_name}
+                          </h3>
+                          <p className="text-sm text-text/60 mt-0.5">{c.country}</p>
+                        </div>
+                        <p className="text-lg font-bold text-primary shrink-0">
+                          ${c.monthly_rate.toLocaleString()}
+                          <span className="text-xs font-normal text-text/40">
+                            /mo
+                          </span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-3">

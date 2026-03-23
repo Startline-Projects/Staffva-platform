@@ -10,6 +10,7 @@ interface HeroCandidate {
   monthly_rate: number;
   english_written_tier: string | null;
   country: string;
+  profile_photo_url: string | null;
 }
 
 interface Props {
@@ -157,18 +158,31 @@ export default function HeroSection({ heroPreview }: Props) {
                       animationDelay: pos.delay,
                     }}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-white">
-                          {c.display_name}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {c.country}
-                        </p>
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-700">
+                        {c.profile_photo_url ? (
+                          <img src={c.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-400">
+                            {c.display_name?.[0] || "?"}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-primary font-bold text-sm">
-                        ${c.monthly_rate.toLocaleString()}/mo
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {c.display_name}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {c.country}
+                            </p>
+                          </div>
+                          <span className="text-primary font-bold text-sm shrink-0">
+                            ${c.monthly_rate.toLocaleString()}/mo
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">

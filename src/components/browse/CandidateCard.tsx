@@ -26,6 +26,7 @@ interface CandidateCardData {
   bio: string | null;
   total_earnings_usd: number;
   committed_hours: number;
+  profile_photo_url: string | null;
 }
 
 function getAvailabilityDisplay(committedHours: number) {
@@ -63,17 +64,34 @@ export default function CandidateCard({ candidate }: Props) {
       className="block rounded-xl border border-gray-200 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md"
     >
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-text">{candidate.display_name}</h3>
-          <p className="mt-0.5 text-sm text-text/60">
-            {candidate.country} &middot; {candidate.role_category}
-          </p>
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
+          {candidate.profile_photo_url ? (
+            <img
+              src={candidate.profile_photo_url}
+              alt={candidate.display_name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-lg font-bold text-text/30">
+              {candidate.display_name?.[0] || "?"}
+            </div>
+          )}
         </div>
-        <p className="text-lg font-bold text-text">
-          ${candidate.monthly_rate.toLocaleString()}
-          <span className="text-xs font-normal text-text/40">/mo</span>
-        </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-semibold text-text">{candidate.display_name}</h3>
+              <p className="mt-0.5 text-sm text-text/60">
+                {candidate.country} &middot; {candidate.role_category}
+              </p>
+            </div>
+            <p className="text-lg font-bold text-text shrink-0">
+              ${candidate.monthly_rate.toLocaleString()}
+              <span className="text-xs font-normal text-text/40">/mo</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Availability status */}
