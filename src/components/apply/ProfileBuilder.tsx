@@ -121,12 +121,16 @@ export default function ProfileBuilder({
   const lastInitial = candidateData.full_name?.split(" ")[1]?.[0] || "";
   const displayName = `${firstName} ${lastInitial}.`;
 
+  const [showCropper, setShowCropper] = useState(false);
+  const [rawImageUrl, setRawImageUrl] = useState<string | null>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file (JPG, PNG, etc.)");
+      setError("Please upload an image file (JPG or PNG)");
       return;
     }
 
@@ -141,12 +145,47 @@ export default function ProfileBuilder({
         setError("Photo must be at least 200x200 pixels");
         return;
       }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
       setError("");
+      setRawImageUrl(URL.createObjectURL(file));
+      setShowCropper(true);
     };
     img.src = URL.createObjectURL(file);
   }, []);
+
+  function applyCrop() {
+    if (!rawImageUrl) return;
+
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = Math.min(img.width, img.height);
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Center crop to square
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const croppedFile = new File([blob], "profile-photo.jpg", { type: "image/jpeg" });
+          setPhotoFile(croppedFile);
+          setPhotoPreview(URL.createObjectURL(blob));
+        }
+        setShowCropper(false);
+        setRawImageUrl(null);
+      }, "image/jpeg", 0.9);
+    };
+    img.src = rawImageUrl;
+  }
+
+  function cancelCrop() {
+    setShowCropper(false);
+    setRawImageUrl(null);
+  }
 
   function toggleTool(tool: string) {
     setSelectedTools((prev) => {
@@ -435,12 +474,12 @@ export default function ProfileBuilder({
                 Profile Photo <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-text/50">
-                Min 200×200px. JPG or PNG. Max 5MB.
+                Min 200×200px. JPG or PNG. Max 5MB. Will be cropped to a square.
               </p>
               <div className="mt-3 flex items-center gap-6">
                 <div
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition-colors hover:border-primary"
+                  className="flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition-colors hover:border-primary"
                 >
                   {photoPreview ? (
                     <img
@@ -449,24 +488,70 @@ export default function ProfileBuilder({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-2xl text-gray-400">📷</span>
+                    <div className="text-center">
+                      <svg className="mx-auto h-8 w-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                      </svg>
+                      <p className="mt-1 text-[10px] text-gray-400">Upload</p>
+                    </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-text hover:bg-gray-50"
-                >
-                  {photoPreview ? "Change Photo" : "Upload Photo"}
-                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-text hover:bg-gray-50"
+                  >
+                    {photoPreview ? "Change Photo" : "Upload Your Photo"}
+                  </button>
+                  {photoPreview && (
+                    <p className="mt-1 text-xs text-green-600">Photo ready — cropped to square</p>
+                  )}
+                </div>
                 <input
                   ref={photoInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png"
                   onChange={handlePhotoChange}
                   className="hidden"
                 />
               </div>
+
+              {/* Cropper modal */}
+              {showCropper && rawImageUrl && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={cancelCrop}>
+                  <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-lg font-semibold text-text mb-2">Crop Your Photo</h3>
+                    <p className="text-xs text-text/50 mb-4">Your photo will be center-cropped to a square.</p>
+                    <div className="flex items-center justify-center rounded-lg bg-gray-100 p-4">
+                      <div className="relative">
+                        <img
+                          src={rawImageUrl}
+                          alt="Preview"
+                          className="max-h-64 max-w-full rounded"
+                        />
+                        {/* Square crop overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="border-2 border-white/80 rounded-full shadow-lg" style={{
+                            width: "80%",
+                            height: "0",
+                            paddingBottom: "80%",
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex gap-2 justify-end">
+                      <button onClick={cancelCrop} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-text hover:bg-gray-50">
+                        Cancel
+                      </button>
+                      <button onClick={applyCrop} className="rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                        Crop & Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

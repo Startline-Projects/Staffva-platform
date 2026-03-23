@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
 import CandidatePreviewModal from "@/components/admin/CandidatePreviewModal";
 import InterviewPanel from "@/components/admin/InterviewPanel";
+import PhotoReviewModal from "@/components/admin/PhotoReviewModal";
 
 const TIER_LABELS: Record<string, string> = {
   exceptional: "Exceptional",
@@ -105,6 +106,7 @@ export default function CandidateReviewPage() {
   const [earningsModal, setEarningsModal] = useState<{ id: string; current: number } | null>(null);
   const [earningsValue, setEarningsValue] = useState("");
   const [actionsOpen, setActionsOpen] = useState<string | null>(null);
+  const [photoReviewCandidate, setPhotoReviewCandidate] = useState<Candidate | null>(null);
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
@@ -345,11 +347,15 @@ export default function CandidateReviewPage() {
                           <p className="font-medium text-text text-sm">
                             {c.display_name || c.full_name}
                             {c.photo_pending_review && (
-                              <span className="ml-1.5 inline-flex items-center" title="Photo pending review">
-                                <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setPhotoReviewCandidate(c); }}
+                                className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 p-0.5 hover:bg-amber-200 transition-colors"
+                                title="Photo pending review — click to review"
+                              >
+                                <svg className="w-3.5 h-3.5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" />
                                 </svg>
-                              </span>
+                              </button>
                             )}
                           </p>
                           <p className="text-xs text-text/40">{c.country}</p>
@@ -740,6 +746,21 @@ export default function CandidateReviewPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Photo Review Modal */}
+      {photoReviewCandidate && (
+        <PhotoReviewModal
+          candidateId={photoReviewCandidate.id}
+          candidateName={photoReviewCandidate.full_name}
+          currentPhotoUrl={photoReviewCandidate.profile_photo_url}
+          pendingPhotoUrl={photoReviewCandidate.pending_photo_url}
+          onClose={() => setPhotoReviewCandidate(null)}
+          onComplete={() => {
+            setPhotoReviewCandidate(null);
+            loadCandidates();
+          }}
+        />
       )}
 
       {/* Preview Modal */}
