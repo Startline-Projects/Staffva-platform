@@ -55,6 +55,8 @@ export interface CandidateData {
   retake_available_at: string | null;
   application_step: string;
   profile_completed_at: string | null;
+  skills: string[];
+  tools: string[];
 }
 
 export default function ApplyPage() {
@@ -289,6 +291,8 @@ export default function ApplyPage() {
             bio: candidateData.bio,
             english_written_tier: candidateData.english_written_tier,
             speaking_level: candidateData.speaking_level,
+            skills: candidateData.skills || [],
+            tools: candidateData.tools || [],
           }}
           onComplete={handleProfileComplete}
         />

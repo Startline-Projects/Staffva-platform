@@ -13,6 +13,8 @@ interface ProfileBuilderProps {
     bio?: string;
     english_written_tier?: string;
     speaking_level?: string;
+    skills?: string[];
+    tools?: string[];
   };
   onComplete: () => void;
 }
@@ -100,7 +102,7 @@ export default function ProfileBuilder({
 
   // Step 3 — Tools
   const roleTools = TOOLS_BY_ROLE[candidateData.role_category] || TOOLS_BY_ROLE["Admin"];
-  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [selectedTools, setSelectedTools] = useState<string[]>(candidateData.tools || []);
 
   // Step 4 — Work Experience
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
