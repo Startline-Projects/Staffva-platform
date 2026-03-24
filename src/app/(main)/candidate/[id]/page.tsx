@@ -5,6 +5,7 @@ import MessageButton from "@/components/browse/MessageButton";
 import InterviewRequestSection from "@/components/InterviewRequestSection";
 import NotifyButton from "@/components/browse/NotifyButton";
 import ServicePurchaseSection from "@/components/ServicePurchaseSection";
+import ProfileViewTracker from "@/components/ProfileViewTracker";
 
 async function InterviewNotesPDF({ path }: { path: string }) {
   const supabase = createClient(
@@ -248,6 +249,9 @@ export default async function CandidateProfilePage({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Track profile view for logged-in clients */}
+      {isClient && !isOwnProfile && <ProfileViewTracker candidateId={id} />}
+
       {/* Status banner for own profile — reads actual admin_status */}
       {isOwnProfile && candidate.admin_status === "pending_speaking_review" && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-center">

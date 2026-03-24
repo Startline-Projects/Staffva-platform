@@ -350,7 +350,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
             <>
               {role === "candidate" && (
                 <>
-                  <Link href="/apply" className={`text-[14px] font-medium transition-colors ${textColor}`}>My Application</Link>
+                  <Link href="/candidate/dashboard" className={`text-[14px] font-medium transition-colors ${textColor}`}>Dashboard</Link>
                   <Link href="/candidate/me" className={`text-[14px] font-medium transition-colors ${textColor}`}>My Profile</Link>
                   <Link href="/services" className={`text-[14px] font-medium transition-colors ${textColor}`}>My Services</Link>
                 </>
