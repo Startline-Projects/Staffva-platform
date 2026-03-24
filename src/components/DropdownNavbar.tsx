@@ -342,7 +342,6 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
               </div>
             </div>
           </div>
-        </div>
 
           {/* Tech Team link */}
           <a
