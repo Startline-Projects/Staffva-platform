@@ -52,6 +52,7 @@ interface CandidateResult {
   total_earnings_usd: number;
   committed_hours: number;
   profile_photo_url: string | null;
+  needs_availability_update: boolean;
 }
 
 function BrowseContent() {

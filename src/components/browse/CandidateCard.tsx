@@ -27,6 +27,7 @@ interface CandidateCardData {
   total_earnings_usd: number;
   committed_hours: number;
   profile_photo_url: string | null;
+  needs_availability_update?: boolean;
 }
 
 function getAvailabilityDisplay(committedHours: number) {
@@ -100,6 +101,11 @@ export default function CandidateCard({ candidate }: Props) {
         <span className={`text-xs font-medium ${avail.textColor}`}>
           {avail.text}
         </span>
+        {candidate.needs_availability_update && (
+          <span className="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+            Availability unconfirmed
+          </span>
+        )}
       </div>
 
       {/* Badges */}
