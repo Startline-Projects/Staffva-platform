@@ -191,6 +191,12 @@ export default function ApplicationForm({ onComplete }: Props) {
   const [usDescription, setUsDescription] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [tools, setTools] = useState<string[]>([]);
+  const [computerSpecs, setComputerSpecs] = useState("");
+  const [hasHeadset, setHasHeadset] = useState(false);
+  const [hasWebcam, setHasWebcam] = useState(false);
+  const [speedTestFile, setSpeedTestFile] = useState<File | null>(null);
+  const [speedTestPreview, setSpeedTestPreview] = useState<string | null>(null);
+  const [equipmentError, setEquipmentError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -219,6 +225,20 @@ export default function ApplicationForm({ onComplete }: Props) {
 
     if (roleCategory === "Other" && !customRoleDescription.trim()) {
       setError("Please describe your role");
+      return;
+    }
+
+    // Equipment validation
+    if (!computerSpecs.trim()) {
+      setError("Please enter your computer specs");
+      return;
+    }
+    if (!hasHeadset || !hasWebcam) {
+      setError("A headset and webcam are required to work with US clients on StaffVA.");
+      return;
+    }
+    if (!speedTestFile) {
+      setError("Please upload your internet speed test screenshot");
       return;
     }
 
@@ -254,6 +274,27 @@ export default function ApplicationForm({ onComplete }: Props) {
 
     const finalRole = roleCategory === "Other" ? customRoleDescription.trim() : roleCategory;
 
+    // Upload speed test screenshot
+    let speedTestUrl: string | null = null;
+    if (speedTestFile) {
+      const ext = speedTestFile.name.split(".").pop() || "png";
+      const fileName = `speed_tests/${user.id}_${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("speed-tests")
+        .upload(fileName, speedTestFile, { contentType: speedTestFile.type });
+
+      if (uploadError) {
+        setError("Failed to upload speed test screenshot: " + uploadError.message);
+        setLoading(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("speed-tests")
+        .getPublicUrl(fileName);
+      speedTestUrl = urlData.publicUrl;
+    }
+
     const candidateRecord = {
       user_id: user.id,
       full_name: fullName,
@@ -271,6 +312,10 @@ export default function ApplicationForm({ onComplete }: Props) {
       custom_role_description: roleCategory === "Other" ? customRoleDescription.trim() : null,
       skills: skills,
       tools: tools,
+      computer_specs: computerSpecs.trim(),
+      has_headset: hasHeadset,
+      has_webcam: hasWebcam,
+      speed_test_url: speedTestUrl,
     };
 
     const { data, error: insertError } = await supabase
@@ -545,6 +590,106 @@ export default function ApplicationForm({ onComplete }: Props) {
               <p className="mt-1 text-xs text-text/40">{usDescription.length}/200</p>
             </div>
           )}
+        </div>
+
+        {/* ─── Setup & Equipment ─── */}
+        <div className="border-t border-gray-200 pt-6">
+          <h2 className="text-lg font-semibold text-text">Setup &amp; Equipment</h2>
+          <p className="mt-1 text-sm text-text/60">
+            US clients expect reliable equipment and internet. Tell us about your setup.
+          </p>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-text">
+              What type of computer do you use? <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              maxLength={100}
+              value={computerSpecs}
+              onChange={(e) => setComputerSpecs(e.target.value)}
+              placeholder="e.g. MacBook Pro 2021, Windows Dell Inspiron 15"
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasHeadset}
+                onChange={(e) => setHasHeadset(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-text">I have a headset</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasWebcam}
+                onChange={(e) => setHasWebcam(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-text">I have a webcam / computer camera</span>
+            </label>
+            {equipmentError && (
+              <p className="text-sm text-red-600">{equipmentError}</p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-text">
+              Upload your internet speed test result <span className="text-red-500">*</span>
+            </label>
+            <p className="mt-1 text-xs text-text/50">
+              Go to <a href="https://fast.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">fast.com</a>,
+              click &quot;Show more info&quot; to reveal your upload speed, then take a screenshot
+              that includes both download and upload speed. Upload that screenshot here.
+            </p>
+            <div className="mt-2">
+              <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-primary hover:bg-orange-50/30">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setEquipmentError("");
+                    if (!file) return;
+                    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                      setEquipmentError("Only JPG, PNG, or WEBP files are accepted.");
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      setEquipmentError("File must be under 5MB.");
+                      return;
+                    }
+                    setSpeedTestFile(file);
+                    setSpeedTestPreview(URL.createObjectURL(file));
+                  }}
+                />
+                {speedTestPreview ? (
+                  <div className="text-center">
+                    <img
+                      src={speedTestPreview}
+                      alt="Speed test"
+                      className="mx-auto max-h-40 rounded-lg"
+                    />
+                    <p className="mt-2 text-xs text-primary font-medium">Click to replace</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-500">Click to upload speed test screenshot</p>
+                    <p className="text-xs text-gray-400">JPG, PNG, or WEBP · Max 5MB</p>
+                  </div>
+                )}
+              </label>
+            </div>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

@@ -88,6 +88,10 @@ interface Candidate {
   pending_photo_url: string | null;
   assigned_recruiter: string | null;
   test_events: TestEvent[];
+  computer_specs: string | null;
+  has_headset: boolean | null;
+  has_webcam: boolean | null;
+  speed_test_url: string | null;
 }
 
 export default function CandidateReviewPage() {
@@ -649,6 +653,44 @@ export default function CandidateReviewPage() {
                             <div><p className="text-xs text-text/40">US Client</p><p className="text-text">{US_EXP_LABELS[c.us_client_experience] || "N/A"}</p></div>
                             <div><p className="text-xs text-text/40">Availability</p><p className="text-text capitalize">{c.availability_status?.replace(/_/g, " ") || "—"}</p></div>
                             <div className="col-span-2"><p className="text-xs text-text/40">Bio</p><p className="text-text">{c.bio || "—"}</p></div>
+                          </div>
+
+                          {/* Equipment & Setup */}
+                          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Setup &amp; Equipment</p>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <p className="text-xs text-text/40">Computer</p>
+                                <p className="text-text">{c.computer_specs || "—"}</p>
+                              </div>
+                              <div className="flex gap-3">
+                                <div>
+                                  <p className="text-xs text-text/40">Headset</p>
+                                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${c.has_headset ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                    {c.has_headset ? "Yes" : "No"}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-text/40">Webcam</p>
+                                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${c.has_webcam ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                    {c.has_webcam ? "Yes" : "No"}
+                                  </span>
+                                </div>
+                              </div>
+                              {c.speed_test_url && (
+                                <div className="col-span-2">
+                                  <p className="text-xs text-text/40 mb-1">Speed Test</p>
+                                  <a href={c.speed_test_url} target="_blank" rel="noopener noreferrer" className="inline-block">
+                                    <img
+                                      src={c.speed_test_url}
+                                      alt="Speed test result"
+                                      className="max-h-32 rounded-lg border border-gray-200 hover:border-primary transition-colors cursor-pointer"
+                                    />
+                                    <p className="text-xs text-primary mt-1">Click to view full size ↗</p>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
