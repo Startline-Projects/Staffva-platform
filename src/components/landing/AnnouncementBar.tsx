@@ -23,7 +23,7 @@ export default function AnnouncementBar() {
   if (!visible) return null;
 
   return (
-    <div className="relative z-[60] bg-[#FFFBF5] border-b border-gray-200">
+    <div className="relative z-[60] bg-[#FAFAFA] border-b border-gray-200">
       <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-2.5">
         <p className="text-xs sm:text-sm text-[#1C1B1A] text-center">
           Now accepting applications from paralegals, bookkeepers, and legal
