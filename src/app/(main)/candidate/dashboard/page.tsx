@@ -21,11 +21,98 @@ interface CandidateData {
   profile_photo_url: string | null;
   english_written_tier: string | null;
   speaking_level: string | null;
+  tagline: string | null;
+  bio: string | null;
+  skills: string[] | null;
+  tools: string[] | null;
+  work_experience: unknown[] | null;
+  resume_url: string | null;
+  payout_method: string | null;
+}
+
+interface CompletenessItem {
+  label: string;
+  points: number;
+  complete: boolean;
+  tip: string;
+  link: string;
+}
+
+function calculateCompleteness(c: CandidateData, hasPortfolio: boolean): { score: number; items: CompletenessItem[] } {
+  const items: CompletenessItem[] = [
+    {
+      label: "Profile photo",
+      points: 10,
+      complete: !!c.profile_photo_url,
+      tip: "Upload a professional photo to make your profile stand out",
+      link: "/apply",
+    },
+    {
+      label: "Tagline",
+      points: 10,
+      complete: !!c.tagline && c.tagline.length > 0,
+      tip: "Add a short tagline describing your expertise",
+      link: "/apply",
+    },
+    {
+      label: "Bio",
+      points: 10,
+      complete: !!c.bio && c.bio.length > 0,
+      tip: "Write a bio telling clients about your background",
+      link: "/apply",
+    },
+    {
+      label: "At least 3 skills",
+      points: 10,
+      complete: Array.isArray(c.skills) && c.skills.length >= 3,
+      tip: "Add at least 3 key skills to your profile",
+      link: "/apply",
+    },
+    {
+      label: "At least 3 tools",
+      points: 10,
+      complete: Array.isArray(c.tools) && c.tools.length >= 3,
+      tip: "List the tools and software you use regularly",
+      link: "/apply",
+    },
+    {
+      label: "Work experience",
+      points: 15,
+      complete: Array.isArray(c.work_experience) && c.work_experience.length >= 1,
+      tip: "Add at least one work experience entry",
+      link: "/apply",
+    },
+    {
+      label: "Resume uploaded",
+      points: 15,
+      complete: !!c.resume_url,
+      tip: "Upload your resume so clients can review your full background",
+      link: "/apply",
+    },
+    {
+      label: "Portfolio item",
+      points: 10,
+      complete: hasPortfolio,
+      tip: "Add a work sample, cover letter, or certificate",
+      link: "/apply",
+    },
+    {
+      label: "Payout method",
+      points: 10,
+      complete: !!c.payout_method,
+      tip: "Set up your payout method to receive payments",
+      link: "/apply",
+    },
+  ];
+
+  const score = items.reduce((sum, item) => sum + (item.complete ? item.points : 0), 0);
+  return { score, items };
 }
 
 export default function CandidateDashboardPage() {
   const [candidate, setCandidate] = useState<CandidateData | null>(null);
   const [viewStats, setViewStats] = useState<ViewStats | null>(null);
+  const [hasPortfolio, setHasPortfolio] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,16 +121,23 @@ export default function CandidateDashboardPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Load candidate data
       const { data: c } = await supabase
         .from("candidates")
-        .select("id, display_name, admin_status, role_category, monthly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level")
+        .select("id, display_name, admin_status, role_category, monthly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method")
         .eq("user_id", session.user.id)
         .single();
 
-      if (c) setCandidate(c);
+      if (c) {
+        setCandidate(c as CandidateData);
 
-      // Load view stats
+        // Check portfolio
+        const { count } = await supabase
+          .from("portfolio_items")
+          .select("*", { count: "exact", head: true })
+          .eq("candidate_id", c.id);
+        setHasPortfolio((count || 0) > 0);
+      }
+
       try {
         const res = await fetch("/api/profile-views", {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -52,9 +146,7 @@ export default function CandidateDashboardPage() {
           const stats = await res.json();
           setViewStats(stats);
         }
-      } catch {
-        // silent
-      }
+      } catch { /* silent */ }
 
       setLoading(false);
     }
@@ -90,6 +182,8 @@ export default function CandidateDashboardPage() {
   };
 
   const status = statusConfig[candidate.admin_status] || statusConfig.pending_speaking_review;
+  const { score: completenessScore, items: completenessItems } = calculateCompleteness(candidate, hasPortfolio);
+  const nextTip = completenessItems.find((item) => !item.complete);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -128,11 +222,71 @@ export default function CandidateDashboardPage() {
         <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4">
           <p className="text-sm font-medium text-orange-800">Action required</p>
           <p className="mt-1 text-sm text-orange-700">Our team has reviewed your profile and left feedback. Check your email for details on what to update.</p>
-          <Link href="/apply" className="mt-2 inline-block text-sm font-medium text-[#FE6E3E] hover:underline">
-            Edit my profile →
-          </Link>
+          <Link href="/apply" className="mt-2 inline-block text-sm font-medium text-[#FE6E3E] hover:underline">Edit my profile →</Link>
         </div>
       )}
+
+      {/* Profile Completeness */}
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Profile Completeness</h2>
+          <span className={`text-lg font-bold ${completenessScore === 100 ? "text-green-600" : completenessScore >= 70 ? "text-[#FE6E3E]" : "text-yellow-600"}`}>
+            {completenessScore}%
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${completenessScore === 100 ? "bg-green-500" : "bg-[#FE6E3E]"}`}
+            style={{ width: `${completenessScore}%` }}
+          />
+        </div>
+
+        {/* Next tip */}
+        {nextTip && completenessScore < 100 && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
+            <svg className="h-4 w-4 shrink-0 text-[#FE6E3E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xs text-[#1C1B1A]">
+              <span className="font-medium">Next step (+{nextTip.points}%):</span>{" "}
+              {nextTip.tip}
+            </p>
+            <Link href={nextTip.link} className="ml-auto shrink-0 text-xs font-medium text-[#FE6E3E] hover:underline">
+              Complete →
+            </Link>
+          </div>
+        )}
+
+        {completenessScore === 100 && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-3 py-2">
+            <svg className="h-4 w-4 shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-xs text-green-700 font-medium">Your profile is 100% complete. You&apos;re maximizing your visibility to clients.</p>
+          </div>
+        )}
+
+        {/* Checklist */}
+        <div className="mt-4 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {completenessItems.map((item) => (
+            <div key={item.label} className="flex items-center gap-2 text-sm">
+              {item.complete ? (
+                <svg className="h-4 w-4 shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <div className="h-4 w-4 shrink-0 rounded-full border-2 border-gray-300" />
+              )}
+              <span className={item.complete ? "text-gray-500 line-through" : "text-[#1C1B1A]"}>
+                {item.label}
+              </span>
+              <span className="text-xs text-gray-400">+{item.points}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Stats grid */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
