@@ -86,6 +86,7 @@ interface Candidate {
   profile_completed_at: string;
   photo_pending_review: boolean;
   pending_photo_url: string | null;
+  assigned_recruiter: string | null;
   test_events: TestEvent[];
 }
 
@@ -323,6 +324,7 @@ export default function CandidateReviewPage() {
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Lock</th>
                 <th className="pb-3 pr-4">Earnings</th>
+                <th className="pb-3 pr-4">Recruiter</th>
                 <th className="pb-3 pr-4">Applied</th>
                 <th className="pb-3 pr-4">Actions</th>
               </tr>
@@ -382,6 +384,15 @@ export default function CandidateReviewPage() {
                       <span className={`text-xs font-medium ${Number(c.total_earnings_usd) > 0 ? "text-green-600" : "text-text/30"}`}>
                         ${Number(c.total_earnings_usd || 0).toLocaleString()}
                       </span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      {c.assigned_recruiter ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.assigned_recruiter === "Shelly" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+                          {c.assigned_recruiter}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-text/30">—</span>
+                      )}
                     </td>
                     <td className="py-3 pr-4">
                       <span className="text-xs text-text/40">
@@ -471,6 +482,25 @@ export default function CandidateReviewPage() {
                               </button>
                             </>
                           )}
+                          {/* Recruiter reassignment */}
+                          <div className="border-t border-gray-100 my-1" />
+                          <button
+                            onClick={async () => {
+                              const newRecruiter = c.assigned_recruiter === "Shelly" ? "Jerome" : "Shelly";
+                              const res = await fetch("/api/admin/candidates/review", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ candidateId: c.id, action: "update_field", updates: { assigned_recruiter: newRecruiter } }),
+                              });
+                              if (res.ok) {
+                                setCandidates((prev) => prev.map((x) => x.id === c.id ? { ...x, assigned_recruiter: newRecruiter } : x));
+                              }
+                              setActionsOpen(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-xs text-text hover:bg-gray-50"
+                          >
+                            Reassign to {c.assigned_recruiter === "Shelly" ? "Jerome" : "Shelly"}
+                          </button>
                         </div>
                       )}
                     </td>
