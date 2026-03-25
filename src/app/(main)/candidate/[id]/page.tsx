@@ -285,6 +285,45 @@ export default async function CandidateProfilePage({
         </div>
       )}
 
+      {/* Own profile action button — visible only to the candidate viewing their own profile */}
+      {isOwnProfile && (() => {
+        const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70;
+        const hasRecordings = !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
+        const profileDone = !!candidate.profile_photo_url && !!candidate.resume_url;
+        const aiDone = (completedInterviews || []).some((i: { interview_number: number }) => i.interview_number === 1);
+
+        if (aiDone) return null;
+
+        let label = "";
+        let href = "/apply";
+
+        if (!hasPassedTest && !hasRecordings) {
+          label = candidate.english_mc_score ? "Continue English Test" : "Continue Application";
+        } else if (hasPassedTest && !hasRecordings) {
+          label = "Continue Application";
+        } else if (hasRecordings && !profileDone) {
+          label = "Continue Profile Setup";
+        } else if (profileDone && !aiDone) {
+          label = "Start AI Interview";
+          href = `https://interview.staffva.com?candidate=${candidate.id}`;
+        }
+
+        if (!label) return null;
+
+        return (
+          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3 text-center">
+            <a
+              href={href}
+              target={href.startsWith("http") ? "_blank" : undefined}
+              rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+            >
+              {label} →
+            </a>
+          </div>
+        );
+      })()}
+
       {/* ═══════════ HEADER — Dark Charcoal ═══════════ */}
       <div className="bg-[#1C1B1A]">
         <div className="mx-auto max-w-5xl px-6 py-4">
