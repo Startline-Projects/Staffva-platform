@@ -378,8 +378,14 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                   <Link href="/services" className={`text-[14px] font-medium transition-colors ${textColor}`}>Purchases</Link>
                 </>
               )}
+              {role === "recruiter" && (
+                <Link href="/recruiter" className={`text-[14px] font-medium transition-colors ${textColor}`}>Recruiter</Link>
+              )}
               {role === "admin" && (
-                <Link href="/admin" className={`text-[14px] font-medium transition-colors ${textColor}`}>Admin</Link>
+                <>
+                  <Link href="/admin" className={`text-[14px] font-medium transition-colors ${textColor}`}>Admin</Link>
+                  <Link href="/recruiter" className={`text-[14px] font-medium transition-colors ${textColor}`}>Recruiter</Link>
+                </>
               )}
               <form action="/auth/signout" method="POST">
                 <button
