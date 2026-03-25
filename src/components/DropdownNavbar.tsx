@@ -387,6 +387,18 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                   <Link href="/recruiter" className={`text-[14px] font-medium transition-colors ${textColor}`}>Recruiter</Link>
                 </>
               )}
+              {(role === "recruiter" || role === "admin") && (
+                <Link
+                  href="/account/change-password"
+                  className={`text-[14px] font-medium transition-colors ${
+                    isDark
+                      ? "text-white/70 hover:text-white"
+                      : "text-[#1C1B1A] hover:text-primary"
+                  }`}
+                >
+                  Account
+                </Link>
+              )}
               <form action="/auth/signout" method="POST">
                 <button
                   type="submit"
