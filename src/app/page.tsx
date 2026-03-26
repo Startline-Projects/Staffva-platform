@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import AnnouncementBar from "@/components/landing/AnnouncementBar";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import HeroSection from "@/components/landing/HeroSection";
@@ -14,6 +15,16 @@ import QuickMatchButton from "@/components/landing/QuickMatchButton";
 
 export default async function Home() {
   const supabase = await createClient();
+
+  // Redirect logged-in users to their dashboard
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const role = user.user_metadata?.role;
+    if (role === "candidate") redirect("/candidate/dashboard");
+    if (role === "client") redirect("/browse");
+    if (role === "admin") redirect("/admin");
+    if (role === "recruiter") redirect("/recruiter");
+  }
 
   // Fetch approved available candidates for hero preview + live section
   const { data: candidates } = await supabase
