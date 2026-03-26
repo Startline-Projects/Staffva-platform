@@ -44,18 +44,34 @@ interface InterviewData {
   role_knowledge_score: number | null;
 }
 
+interface AIInterviewData {
+  id: string;
+  status: string;
+  overall_score: number | null;
+  badge_level: string | null;
+  passed: boolean;
+  created_at: string;
+  completed_at: string | null;
+  second_interview_status: string | null;
+}
+
+interface RetakeData {
+  next_retake_available_at: string | null;
+  attempt_number: number;
+}
+
 type StepStatus = "completed" | "current" | "upcoming";
 
-function getProgressSteps(c: CandidateData, interviews: InterviewData[]): { label: string; status: StepStatus; detail?: string }[] {
+function getProgressSteps(c: CandidateData, interviews: InterviewData[], aiInterviewData: AIInterviewData | null, retake: RetakeData | null): { label: string; status: StepStatus; detail?: string }[] {
   // Determine completion state for each step based on actual data only
   const step1Done = true; // Candidate record exists = application submitted
   const step2Done = (c.english_mc_score ?? 0) > 0;
   const step3Done = c.id_verification_status === "passed" || !!c.voice_recording_1_url;
   const step4Done = !!c.profile_photo_url && !!c.resume_url;
-  const aiInterview = interviews.find((i) => i.interview_number === 1 && i.status === "completed");
-  const step5Done = !!aiInterview;
-  const secondInterview = interviews.find((i) => i.interview_number === 2 && i.status === "completed");
-  const step6Done = !!secondInterview;
+
+  // Use AI interview data from ai_interviews table (new system)
+  const step5Done = !!aiInterviewData && aiInterviewData.status === "completed" && aiInterviewData.passed;
+  const step6Done = aiInterviewData?.second_interview_status === "completed";
   const step7Done = c.admin_status === "approved";
 
   function status(done: boolean, prevDone: boolean): StepStatus {
@@ -88,14 +104,39 @@ function getProgressSteps(c: CandidateData, interviews: InterviewData[]): { labe
     {
       label: "AI First Interview",
       status: status(step5Done, step4Done),
-      detail: step5Done
-        ? `Score: ${Math.round((((aiInterview?.communication_score || 0) + (aiInterview?.demeanor_score || 0) + (aiInterview?.role_knowledge_score || 0)) / 15) * 100)}/100`
-        : step4Done ? "Start your AI-powered interview" : undefined,
+      detail: (() => {
+        if (step5Done && aiInterviewData) {
+          return `Score: ${aiInterviewData.overall_score}/100 — ${aiInterviewData.badge_level?.charAt(0).toUpperCase()}${aiInterviewData.badge_level?.slice(1) || ""}`;
+        }
+        if (aiInterviewData && aiInterviewData.status === "completed" && !aiInterviewData.passed) {
+          // Failed — check retake lockout
+          if (retake?.next_retake_available_at) {
+            const retakeDate = new Date(retake.next_retake_available_at);
+            const now = new Date();
+            if (retakeDate > now) {
+              const days = Math.ceil((retakeDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              return `Score: ${aiInterviewData.overall_score}/100 — Retake available in ${days} day${days === 1 ? "" : "s"}`;
+            }
+            return `Score: ${aiInterviewData.overall_score}/100 — Retake available now`;
+          }
+          return `Score: ${aiInterviewData.overall_score}/100 — Did not pass`;
+        }
+        if (aiInterviewData && aiInterviewData.status === "in_progress") {
+          return "Interview in progress";
+        }
+        if (step4Done) return "Start your AI-powered interview";
+        return undefined;
+      })(),
     },
     {
       label: "Second Interview",
       status: status(step6Done, step5Done),
-      detail: step6Done ? undefined : step5Done ? "Scheduled by StaffVA team" : undefined,
+      detail: (() => {
+        if (step6Done) return "Second interview completed";
+        if (aiInterviewData?.second_interview_status === "scheduled") return "Second interview scheduled — your recruiter will contact you";
+        if (step5Done) return "Awaiting assignment by StaffVA team";
+        return undefined;
+      })(),
     },
     {
       label: "Profile Live",
@@ -190,6 +231,8 @@ export default function CandidateDashboardPage() {
   const [candidate, setCandidate] = useState<CandidateData | null>(null);
   const [viewStats, setViewStats] = useState<ViewStats | null>(null);
   const [interviews, setInterviews] = useState<InterviewData[]>([]);
+  const [aiInterview, setAiInterview] = useState<AIInterviewData | null>(null);
+  const [retakeData, setRetakeData] = useState<RetakeData | null>(null);
   const [hasPortfolio, setHasPortfolio] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -215,12 +258,32 @@ export default function CandidateDashboardPage() {
           .eq("candidate_id", c.id);
         setHasPortfolio((count || 0) > 0);
 
-        // Load interviews
+        // Load interviews (legacy)
         const { data: interviewData } = await supabase
           .from("candidate_interviews")
           .select("interview_number, status, communication_score, demeanor_score, role_knowledge_score")
           .eq("candidate_id", c.id);
         if (interviewData) setInterviews(interviewData as InterviewData[]);
+
+        // Load AI interview (new system)
+        const { data: aiData } = await supabase
+          .from("ai_interviews")
+          .select("id, status, overall_score, badge_level, passed, created_at, completed_at, second_interview_status")
+          .eq("candidate_id", c.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (aiData) setAiInterview(aiData as AIInterviewData);
+
+        // Load retake data
+        const { data: retake } = await supabase
+          .from("interview_attempts")
+          .select("next_retake_available_at, attempt_number")
+          .eq("candidate_id", c.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (retake) setRetakeData(retake as RetakeData);
       }
 
       try {
@@ -301,7 +364,7 @@ export default function CandidateDashboardPage() {
         const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70 && (candidate.english_written_tier !== null);
         const hasRecordings = !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
         const profileDone = !!candidate.profile_photo_url && !!candidate.resume_url;
-        const aiDone = interviews.some((i) => i.interview_number === 1 && i.status === "completed");
+        const aiDone = !!aiInterview && aiInterview.status === "completed" && aiInterview.passed;
 
         if (aiDone) return null; // No button needed — green badge shows in tracker
 
@@ -315,8 +378,20 @@ export default function CandidateDashboardPage() {
         } else if (hasRecordings && !profileDone) {
           label = "Continue Profile Setup";
         } else if (profileDone && !aiDone) {
-          label = "Start AI Interview";
-          href = `https://interview.staffva.com?candidate=${candidate.id}`;
+          // Check if retake is locked
+          if (aiInterview && aiInterview.status === "completed" && !aiInterview.passed && retakeData?.next_retake_available_at) {
+            const retakeDate = new Date(retakeData.next_retake_available_at);
+            if (retakeDate > new Date()) {
+              // Retake locked — don't show button
+              label = "";
+            } else {
+              label = "Retake AI Interview";
+              href = `https://interview.staffva.com?candidate=${candidate.id}`;
+            }
+          } else {
+            label = "Start AI Interview";
+            href = `https://interview.staffva.com?candidate=${candidate.id}`;
+          }
         }
 
         if (!label) return null;
@@ -342,9 +417,8 @@ export default function CandidateDashboardPage() {
 
       {/* Progress Tracker */}
       {(() => {
-        const steps = getProgressSteps(candidate, interviews);
-        const aiInterview = interviews.find((i) => i.interview_number === 1 && i.status === "completed");
-        const aiInterviewPending = interviews.find((i) => i.interview_number === 1 && i.status !== "completed");
+        const steps = getProgressSteps(candidate, interviews, aiInterview, retakeData);
+        const aiCompleted = !!aiInterview && aiInterview.status === "completed" && aiInterview.passed;
         const profileBuilderDone = !!candidate.profile_photo_url && !!candidate.resume_url;
 
         return (
@@ -393,7 +467,7 @@ export default function CandidateDashboardPage() {
             </div>
 
             {/* AI Interview Button */}
-            {profileBuilderDone && !aiInterview && !aiInterviewPending && (
+            {profileBuilderDone && !aiCompleted && !aiInterview && (
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <a
                   href={`https://interview.staffva.com?candidate=${candidate.id}`}
@@ -410,14 +484,29 @@ export default function CandidateDashboardPage() {
               </div>
             )}
 
-            {aiInterview && (
+            {aiCompleted && aiInterview && (
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-green-50 border border-green-200 px-4 py-2">
                   <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="text-sm font-medium text-green-700">
-                    AI Interview Complete — {Math.round((((aiInterview.communication_score || 0) + (aiInterview.demeanor_score || 0) + (aiInterview.role_knowledge_score || 0)) / 15) * 100)}/100
+                    AI Interview Complete — {aiInterview.overall_score}/100 — {aiInterview.badge_level?.charAt(0).toUpperCase()}{aiInterview.badge_level?.slice(1)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {aiInterview && aiInterview.status === "completed" && !aiInterview.passed && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-2">
+                  <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-sm font-medium text-amber-700">
+                    Score: {aiInterview.overall_score}/100 — {retakeData?.next_retake_available_at && new Date(retakeData.next_retake_available_at) > new Date()
+                      ? `Retake available in ${Math.ceil((new Date(retakeData.next_retake_available_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days`
+                      : "Retake available"}
                   </span>
                 </div>
               </div>
