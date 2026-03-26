@@ -96,8 +96,8 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
 
         {/* Desktop nav — centered */}
         <div className="hidden lg:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
-          {/* Hire Staff */}
-          <div
+          {/* Hire Staff — visible to visitors, clients, admins, recruiters. Hidden from candidates */}
+          {role !== "candidate" && <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("hire-staff")}
             onMouseLeave={handleMouseLeave}
@@ -192,10 +192,10 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
 
-          {/* Hire Freelancer */}
-          <div
+          {/* Hire Freelancer — visible to visitors, clients, admins, recruiters. Hidden from candidates */}
+          {role !== "candidate" && <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("hire-freelancer")}
             onMouseLeave={handleMouseLeave}
@@ -296,10 +296,10 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
 
-          {/* For Professionals */}
-          <div
+          {/* For Professionals — visible to visitors and candidates only. Hidden from clients */}
+          {role !== "client" && <div
             className="relative"
             onMouseEnter={() => handleMouseEnter("for-professionals")}
             onMouseLeave={handleMouseLeave}
@@ -313,51 +313,99 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
 
             <div className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-150 ${activeDropdown === "for-professionals" ? "opacity-100 visible translate-y-0" : "opacity-0 invisible -translate-y-2"}`}>
               <div className="w-[280px] rounded-xl bg-white shadow-lg border border-[#E0E0E0] overflow-hidden p-4 space-y-1">
-                <Link
-                  href="/apply"
-                  onClick={() => setActiveDropdown(null)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-text">Apply as a Professional</p>
-                    <p className="text-xs text-text/50">Join our vetted talent pool</p>
-                  </div>
-                </Link>
-                <Link
-                  href="/login"
-                  onClick={() => setActiveDropdown(null)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-text/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-text">Sign in to my account</p>
-                    <p className="text-xs text-text/50">Manage your profile</p>
-                  </div>
-                </Link>
+                {role === "candidate" ? (
+                  <>
+                    <Link
+                      href="/candidate/dashboard"
+                      onClick={() => setActiveDropdown(null)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-text">My Dashboard</p>
+                        <p className="text-xs text-text/50">Progress and stats</p>
+                      </div>
+                    </Link>
+                    <Link
+                      href="/candidate/me"
+                      onClick={() => setActiveDropdown(null)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-text/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-text">My Profile</p>
+                        <p className="text-xs text-text/50">View and edit your profile</p>
+                      </div>
+                    </Link>
+                    <Link
+                      href="/apply"
+                      onClick={() => setActiveDropdown(null)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-text/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-text">My Application</p>
+                        <p className="text-xs text-text/50">Continue or edit</p>
+                      </div>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/apply"
+                      onClick={() => setActiveDropdown(null)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-text">Apply as a Professional</p>
+                        <p className="text-xs text-text/50">Join our vetted talent pool</p>
+                      </div>
+                    </Link>
+                    <Link
+                      href="/login"
+                      onClick={() => setActiveDropdown(null)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-text/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-text">Sign in to my account</p>
+                        <p className="text-xs text-text/50">Manage your profile</p>
+                      </div>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
-          </div>
+          </div>}
 
-          {/* Tech Team link */}
-          <a
-            href="https://startline.build"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group px-3.5 py-1.5 text-[14px] font-medium text-[#1C1B1A] hover:text-[#FE6E3E] transition-colors"
-          >
-            <span className="group-hover:hidden">Tech Team</span>
-            <span className="hidden group-hover:inline-flex items-center gap-1">
-              Tech Team: Startline
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </span>
-          </a>
+          {/* Tech Team link — hidden from candidates */}
+          {role !== "candidate" && (
+            <a
+              href="https://startline.build"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group px-3.5 py-1.5 text-[14px] font-medium text-[#1C1B1A] hover:text-[#FE6E3E] transition-colors"
+            >
+              <span className="group-hover:hidden">Tech Team</span>
+              <span className="hidden group-hover:inline-flex items-center gap-1">
+                Tech Team: Startline
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </span>
+            </a>
+          )}
         </div>
 
         {/* Right side — auth buttons or logged-in nav */}
