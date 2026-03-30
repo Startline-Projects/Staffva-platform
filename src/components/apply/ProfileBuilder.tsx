@@ -468,6 +468,8 @@ export default function ProfileBuilder({
         admin_status: "pending_speaking_review",
         profile_completed_at: new Date().toISOString(),
         interview_consent: interviewConsent,
+        interview_consent_at: interviewConsent ? new Date().toISOString() : null,
+        interview_consent_version: interviewConsent ? "v1.0" : null,
       };
 
       if (photoUrl) updateData.profile_photo_url = photoUrl;
@@ -1111,18 +1113,23 @@ export default function ProfileBuilder({
               </button>
             </div>
 
-            {/* Interview consent */}
+            {/* Voice recording consent */}
             <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={interviewConsent}
                   onChange={(e) => setInterviewConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#FE6E3E] focus:ring-[#FE6E3E]"
                 />
-                <span className="text-sm text-text/70 leading-relaxed">
-                  By submitting your profile you agree that StaffVA may conduct video interviews and share interview notes and scores with prospective clients as part of our vetting process.
-                </span>
+                <div>
+                  <span className="text-sm text-[#1C1B1A]/70 leading-relaxed">
+                    I consent to my voice recordings being made available to registered clients on StaffVA for the purpose of hiring evaluation. I understand my recordings will be visible to logged-in clients browsing my profile.
+                  </span>
+                  <p className="mt-2 text-xs text-gray-400 italic">
+                    Your voice is your strongest profile feature. Clients hear you before they hire you — this is what sets StaffVA apart.
+                  </p>
+                </div>
               </label>
             </div>
           </div>
