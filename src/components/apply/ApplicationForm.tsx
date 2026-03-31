@@ -199,6 +199,7 @@ export default function ApplicationForm({ onComplete }: Props) {
   const [equipmentError, setEquipmentError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [queueId, setQueueId] = useState<string | null>(null);
 
   const roleGroup = getRoleGroup(roleCategory);
   const suggestedSkills = SKILLS_BY_GROUP[roleGroup] || SKILLS_BY_GROUP.other;
@@ -295,10 +296,8 @@ export default function ApplicationForm({ onComplete }: Props) {
       speedTestUrl = urlData.publicUrl;
     }
 
-    const candidateRecord = {
-      user_id: user.id,
+    const applicationData = {
       full_name: fullName,
-      email,
       country,
       role_category: finalRole,
       years_experience: yearsExperience,
@@ -315,28 +314,112 @@ export default function ApplicationForm({ onComplete }: Props) {
       computer_specs: computerSpecs.trim(),
       has_headset: hasHeadset,
       has_webcam: hasWebcam,
-      speed_test_url: speedTestUrl,
     };
 
-    const { data, error: insertError } = await supabase
-      .from("candidates")
-      .insert(candidateRecord)
-      .select()
-      .single();
+    // Submit to queue for async processing
+    const queueRes = await fetch("/api/application-queue/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applicationData, speedTestUrl }),
+    });
 
-    if (insertError) {
-      setError(insertError.message);
+    const queueData = await queueRes.json();
+
+    if (!queueRes.ok) {
+      // If already submitted (409), try to fetch existing candidate
+      if (queueRes.status === 409 && queueData.candidate_id) {
+        const { data: existingCandidate } = await supabase
+          .from("candidates")
+          .select("*")
+          .eq("id", queueData.candidate_id)
+          .single();
+
+        if (existingCandidate) {
+          onComplete(existingCandidate as CandidateData);
+          return;
+        }
+      }
+      setError(queueData.error || "Failed to submit application");
       setLoading(false);
       return;
     }
 
-    fetch("/api/screening", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ candidateId: data.id }),
-    }).catch(() => {});
+    // Poll for queue completion (max 30 seconds)
+    const queueId = queueData.queue_id;
+    let attempts = 0;
+    const maxAttempts = 30;
 
-    onComplete(data as CandidateData);
+    const pollInterval = setInterval(async () => {
+      attempts++;
+
+      try {
+        const statusRes = await fetch("/api/application-queue/submit");
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "complete" && statusData.candidate_id) {
+          clearInterval(pollInterval);
+          const { data: candidateData } = await supabase
+            .from("candidates")
+            .select("*")
+            .eq("id", statusData.candidate_id)
+            .single();
+
+          if (candidateData) {
+            onComplete(candidateData as CandidateData);
+          } else {
+            setError("Application processed but candidate record not found. Please refresh the page.");
+            setLoading(false);
+          }
+        } else if (statusData.status === "failed" && statusData.error) {
+          clearInterval(pollInterval);
+          setError(`Application processing failed: ${statusData.error}. Please try again.`);
+          setLoading(false);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          // Show queue confirmation — processing will complete in background
+          setError("");
+          setQueueId(queueId);
+          setLoading(false);
+        }
+      } catch {
+        // Network error — keep polling
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setQueueId(queueId);
+          setLoading(false);
+        }
+      }
+    }, 1000);
+  }
+
+  // ─── QUEUE CONFIRMATION ───
+  if (queueId) {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-[#1C1B1A]">Application Received</h1>
+        <p className="mt-3 text-gray-500">
+          Check your email within the next hour for next steps.
+        </p>
+        <div className="mt-6 rounded-lg bg-gray-50 border border-gray-200 p-4">
+          <p className="text-xs text-gray-400">Queue Reference</p>
+          <p className="mt-1 text-sm font-mono text-[#1C1B1A]">{queueId}</p>
+        </div>
+        <p className="mt-4 text-sm text-gray-400">
+          Your application is being processed. This page will update automatically.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 text-sm font-medium text-[#FE6E3E] hover:underline"
+        >
+          Refresh status
+        </button>
+      </div>
+    );
   }
 
   // ─── DEGREE GATE ───
