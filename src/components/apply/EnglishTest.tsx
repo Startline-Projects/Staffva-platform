@@ -3,6 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { CandidateData } from "@/app/(main)/apply/page";
+import {
+  saveProgressLocal,
+  loadProgressLocal,
+  clearProgressLocal,
+  syncProgressToDb,
+  startBackgroundSync,
+  stopBackgroundSync,
+  isMobileBrowser,
+  supportsFullscreen,
+  type TestProgress,
+} from "@/lib/testProgress";
 
 interface TestQuestion {
   id: string;
@@ -31,14 +42,48 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
   const [showWarning, setShowWarning] = useState(false);
   const [showComprehensionTransition, setShowComprehensionTransition] = useState(false);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const questionStartTime = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef<TestProgress | null>(null);
 
-  // Fetch questions on mount
+  // Detect mobile on mount
+  useEffect(() => {
+    setIsMobile(isMobileBrowser());
+  }, []);
+
+  // Save progress to localStorage on every state change
+  useEffect(() => {
+    if (!loading && questions.length > 0) {
+      const section = questions[currentIndex]?.section || "grammar";
+      const progress: TestProgress = {
+        candidateId,
+        section,
+        questionIndex: currentIndex,
+        answers,
+        timerRemaining: timeLeft,
+        isMobile,
+        updatedAt: new Date().toISOString(),
+      };
+      progressRef.current = progress;
+      saveProgressLocal(progress);
+    }
+  }, [currentIndex, answers, timeLeft, loading, questions, candidateId, isMobile]);
+
+  // Fetch questions on mount + restore progress
   useEffect(() => {
     fetchQuestions();
+
+    // Start background DB sync every 60 seconds
+    startBackgroundSync(() => progressRef.current, 60000);
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      stopBackgroundSync();
+      // Final sync on unmount
+      if (progressRef.current) {
+        syncProgressToDb(progressRef.current);
+      }
     };
   }, []);
 
@@ -61,17 +106,28 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     };
   }, [loading, questions.length, timerPaused]);
 
-  // Anti-cheat: mouse leave, tab switch, paste, fullscreen
+  // Anti-cheat: mouse leave, tab switch, paste, fullscreen (mobile-aware)
   useEffect(() => {
     if (loading) return;
 
+    const mobile = isMobileBrowser();
+
     function logEvent(eventType: string) {
       const supabase = createClient();
+
+      // On mobile, log as mobile_device event instead of strict enforcement
+      const finalType = mobile && eventType === "fullscreen_exit" ? "mobile_device" : eventType;
+
       supabase.from("test_events").insert({
         candidate_id: candidateId,
-        event_type: eventType,
+        event_type: finalType,
         question_number: currentIndex + 1,
       });
+
+      // Mobile gets fewer flags for non-critical events
+      if (mobile && (eventType === "mouse_leave" || eventType === "fullscreen_exit")) {
+        return; // Don't increment flag count for these on mobile
+      }
 
       setFlagCount((prev) => {
         const newCount = prev + 1;
@@ -79,7 +135,6 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
         return newCount;
       });
 
-      // Update cheat count on candidate
       supabase
         .from("candidates")
         .update({ cheat_flag_count: flagCount + 1 })
@@ -87,7 +142,7 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     }
 
     function handleMouseLeave() {
-      logEvent("mouse_leave");
+      if (!mobile) logEvent("mouse_leave"); // Skip on mobile — touch events trigger this
     }
 
     function handleVisibilityChange() {
@@ -112,7 +167,8 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     }
 
     function handleFullscreenChange() {
-      if (!document.fullscreenElement) {
+      // Only enforce on desktop browsers that support fullscreen
+      if (!mobile && supportsFullscreen() && !document.fullscreenElement) {
         logEvent("fullscreen_exit");
       }
     }
@@ -123,6 +179,16 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    // Log mobile device flag once
+    if (mobile) {
+      const supabase = createClient();
+      supabase.from("test_events").insert({
+        candidate_id: candidateId,
+        event_type: "mobile_device",
+        question_number: 0,
+      });
+    }
 
     return () => {
       document.removeEventListener("mouseleave", handleMouseLeave);
@@ -148,12 +214,20 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     const data = await res.json();
     setQuestions(data.questions);
 
-    // Record test start
-    const supabase = createClient();
-    await supabase
-      .from("candidates")
-      .update({ test_started_at: new Date().toISOString() })
-      .eq("id", candidateId);
+    // Try to restore progress from localStorage (same-session refresh)
+    const savedProgress = loadProgressLocal();
+    if (savedProgress && savedProgress.candidateId === candidateId) {
+      setCurrentIndex(savedProgress.questionIndex);
+      setAnswers(savedProgress.answers);
+      setTimeLeft(savedProgress.timerRemaining > 0 ? savedProgress.timerRemaining : TOTAL_TIME);
+    } else {
+      // Record test start (new session)
+      const supabase = createClient();
+      await supabase
+        .from("candidates")
+        .update({ test_started_at: new Date().toISOString() })
+        .eq("id", candidateId);
+    }
 
     setLoading(false);
     questionStartTime.current = Date.now();
@@ -182,6 +256,10 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
 
     // Exit fullscreen
     document.exitFullscreen?.().catch(() => {});
+
+    // Clean up progress — test is done
+    clearProgressLocal();
+    stopBackgroundSync();
 
     onComplete(result.passed, result.candidate);
   }, [submitting, candidateId, answers, timeLeft, onComplete]);
@@ -235,6 +313,11 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     setShowComprehensionTransition(false);
     setTimerPaused(false);
     questionStartTime.current = Date.now();
+
+    // Sync to DB on section transition (grammar → comprehension)
+    if (progressRef.current) {
+      syncProgressToDb(progressRef.current);
+    }
   }
 
   const formatTime = (seconds: number) => {
