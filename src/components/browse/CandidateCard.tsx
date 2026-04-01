@@ -1,18 +1,31 @@
 import Link from "next/link";
 import InlineAudioPreview from "./InlineAudioPreview";
 
-const TIER_CONFIG: Record<string, { label: string; color: string }> = {
-  exceptional: { label: "Exceptional", color: "bg-emerald-100 text-emerald-700" },
-  proficient: { label: "Proficient", color: "bg-blue-100 text-blue-700" },
-  competent: { label: "Competent", color: "bg-gray-100 text-gray-700" },
+// Step 6 — Badge visual hierarchy
+const TIER_CONFIG: Record<string, { label: string; style: string }> = {
+  exceptional: { label: "Exceptional", style: "bg-[rgba(254,110,62,0.10)] text-[#FE6E3E] font-medium" },
+  proficient: { label: "Proficient", style: "bg-[#f2efe8] text-[#5a5550] font-normal" },
+  competent: { label: "Competent", style: "bg-[#f2efe8] text-[#9a9590] font-normal" },
 };
 
-const SPEAKING_CONFIG: Record<string, { label: string; color: string }> = {
-  fluent: { label: "Fluent", color: "bg-emerald-100 text-emerald-700" },
-  proficient: { label: "Proficient", color: "bg-blue-100 text-blue-700" },
-  conversational: { label: "Conversational", color: "bg-amber-100 text-amber-700" },
-  basic: { label: "Basic", color: "bg-gray-100 text-gray-700" },
+const SPEAKING_CONFIG: Record<string, { label: string; style: string }> = {
+  fluent: { label: "Fluent", style: "bg-[rgba(99,102,241,0.10)] text-[#6366f1] font-medium" },
+  proficient: { label: "Proficient", style: "bg-[#f2efe8] text-[#5a5550] font-normal" },
+  conversational: { label: "Conversational", style: "bg-[#f2efe8] text-[#9a9590] font-normal" },
+  basic: { label: "Basic", style: "bg-[#f2efe8] text-[#9a9590] font-normal" },
 };
+
+// Static waveform bars for audio badge
+function StaticWaveform() {
+  const heights = [3, 8, 5, 10, 4, 7, 6, 11];
+  return (
+    <div className="flex items-end gap-[2px] ml-auto">
+      {heights.map((h, i) => (
+        <div key={i} className="rounded-[1px]" style={{ width: 2, height: h, background: "#FE6E3E", opacity: 0.45 }} />
+      ))}
+    </div>
+  );
+}
 
 export interface CandidateCardData {
   id: string;
@@ -63,7 +76,7 @@ export default function CandidateCard({ candidate, isLoggedIn = false }: Props) 
   const avail = getAvailabilityDisplay(candidate.committed_hours || 0);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-card transition-all hover:border-primary/30 hover:shadow-md">
+    <div className="rounded-xl border border-gray-200 bg-card cursor-pointer" style={{ transition: "border-color 0.15s ease" }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#FE6E3E")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "")}>
       <Link
         href={`/candidate/${candidate.id}`}
         className="block p-5 pb-3"
@@ -112,20 +125,20 @@ export default function CandidateCard({ candidate, isLoggedIn = false }: Props) 
           )}
         </div>
 
-        {/* Badges */}
+        {/* Badges — Step 6 visual hierarchy */}
         <div className="mt-3 flex flex-wrap gap-1.5">
           {tier && (
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tier.color}`}>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs ${tier.style}`}>
               {tier.label}
             </span>
           )}
           {speaking && (
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${speaking.color}`}>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs ${speaking.style}`}>
               {speaking.label}
             </span>
           )}
           {hasUSExperience && (
-            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "rgba(34,197,94,0.10)", color: "#16a34a" }}>
               US Experience
             </span>
           )}
@@ -134,6 +147,20 @@ export default function CandidateCard({ candidate, isLoggedIn = false }: Props) 
               International
             </span>
           )}
+        </div>
+
+        {/* Step 4 — Voice recording audio badge */}
+        <div
+          className="mt-2.5 flex items-center gap-[7px] rounded-[8px] px-[10px] py-[8px] mb-[10px]"
+          style={{ background: "#f8f6f2", border: "0.5px solid #e4e0d8" }}
+        >
+          <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#FE6E3E] shrink-0">
+            <svg className="w-[8px] h-[8px] text-white ml-[1px]" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+          <span className="text-[10px] text-[#9a9590]">Voice recording available</span>
+          <StaticWaveform />
         </div>
 
         {/* Verified earnings */}

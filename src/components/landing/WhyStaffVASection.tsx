@@ -1,57 +1,61 @@
 export default function WhyStaffVASection() {
   const cards = [
     {
-      title: "Candidates keep 100% of what they earn",
+      title: "Hear them before you hire.",
       description:
-        "Other platforms take 5-20% from your hire\u2019s paycheck. StaffVA charges candidates nothing. Ever. They stay because they want to.",
+        "Every profile includes two voice recordings — an oral reading and a professional introduction. No other platform has this. You know how they communicate before you spend a dollar.",
       icon: (
-        <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg className="w-5 h-5 text-[#FE6E3E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
         </svg>
       ),
     },
     {
-      title: "Human-reviewed. Not algorithm-matched.",
+      title: "Human-reviewed. Badge locked.",
       description:
-        "Every candidate passed a written English test and a live speaking assessment reviewed by a real person. Their badge is locked. They cannot edit it.",
+        "Every English and speaking badge is assigned by a real reviewer and permanently locked. Candidates cannot edit it. We reject more than 70% of applicants.",
       icon: (
-        <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        <svg className="w-5 h-5 text-[#FE6E3E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
         </svg>
       ),
     },
     {
-      title: "Your money is protected before work starts",
+      title: "Your money is protected.",
       description:
-        "Payments go into escrow before each period begins. You only release when satisfied. A dedicated team handles the rare dispute.",
+        "Every payment goes into escrow before work begins. You release funds only when satisfied. A dedicated dispute team handles the rare exception.",
       icon: (
-        <svg className="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        <svg className="w-5 h-5 text-[#FE6E3E]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
         </svg>
       ),
     },
   ];
 
   return (
-    <section className="bg-card py-20">
+    <section className="bg-[#1C1B1A] py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <h2 className="text-center text-3xl font-bold text-text">
+        <h2 className="text-center text-3xl font-bold text-white">
           Built differently. On purpose.
         </h2>
 
-        <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
           {cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-xl border border-gray-200 p-7 hover:shadow-md transition-shadow"
+              className="rounded-[16px] p-7"
+              style={{ border: "0.5px solid rgba(255,255,255,0.08)" }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-[10px]"
+                style={{ background: "rgba(254,110,62,0.10)" }}
+              >
                 {card.icon}
               </div>
-              <h3 className="mt-5 text-lg font-semibold text-text">
+              <h3 className="mt-5 text-[15px] font-medium text-white">
                 {card.title}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-text/60">
+              <p className="mt-3 text-[13px] leading-[1.75] text-white/[0.45]">
                 {card.description}
               </p>
             </div>

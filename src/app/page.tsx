@@ -12,6 +12,7 @@ import ForCandidatesSection from "@/components/landing/ForCandidatesSection";
 import FinalCTASection from "@/components/landing/FinalCTASection";
 import Footer from "@/components/landing/Footer";
 import QuickMatchButton from "@/components/landing/QuickMatchButton";
+import StatsStripSection from "@/components/landing/StatsStripSection";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -61,6 +62,7 @@ export default async function Home() {
       <AnnouncementBar />
       <LandingNavbar />
       <HeroSection heroPreview={heroPreview} />
+      <StatsStripSection />
       <CommonSearchesSection />
       <BrowseByRoleSection />
       <LiveCandidatesSection candidates={liveCandidates} />
