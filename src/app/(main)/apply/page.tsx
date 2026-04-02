@@ -11,10 +11,14 @@ import VoiceRecording1 from "@/components/apply/VoiceRecording1";
 import VoiceRecording2 from "@/components/apply/VoiceRecording2";
 import ProfileBuilder from "@/components/apply/ProfileBuilder";
 import CandidateStatusScreen from "@/components/apply/CandidateStatusScreen";
+import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
+import IDVerification from "@/components/apply/IDVerification";
 
 export type ApplicationStep =
   | "loading"
   | "application_form"
+  | "id_consent"
+  | "id_verification"
   | "device_check"
   | "test_instructions"
   | "english_test"
@@ -58,6 +62,7 @@ export interface CandidateData {
   profile_photo_url: string | null;
   tagline: string | null;
   interview_consent: boolean;
+  id_verification_consent: boolean;
   skills: string[];
   tools: string[];
 }
@@ -135,10 +140,21 @@ export default function ApplyPage() {
     }
 
     // --- SESSION RESTORE LOGIC ---
-    // Determine step from actual data, not saved step
-    // This handles both page refresh AND cross-session return
+    // New flow: form → id_consent → id_verification → device_check → test → recordings → profile
 
-    // Step: Check if test was taken and passed
+    // Step 1: Check ID verification consent + status
+    if (!candidate.id_verification_consent) {
+      setStep("id_consent");
+      return;
+    }
+
+    if (candidate.id_verification_status !== "passed") {
+      // Verification not complete — show ID verification screen
+      setStep("id_verification");
+      return;
+    }
+
+    // Step 2: Check if test was taken
     if (candidate.english_mc_score !== null) {
       const passed =
         candidate.english_mc_score >= 70 &&
@@ -149,12 +165,21 @@ export default function ApplyPage() {
         setStep("test_result");
         return;
       }
+    } else {
+      // No test score — go to device check (pre-test flow)
+      const savedStep = candidate.application_step as ApplicationStep;
+      const midTestSteps: ApplicationStep[] = ["device_check", "test_instructions", "english_test"];
+
+      if (midTestSteps.includes(savedStep)) {
+        setStep("device_check");
+      } else {
+        setStep("device_check");
+      }
+      return;
     }
 
     // Both recordings done → profile builder
     if (candidate.voice_recording_1_url && candidate.voice_recording_2_url) {
-      // Cross-session: always start profile builder from step 1
-      // In-session refresh: sessionStorage preserves the current step
       setStep("profile_builder");
       return;
     }
@@ -176,34 +201,28 @@ export default function ApplyPage() {
       }
     }
 
-    // Cross-session return: if saved step is mid-test, restart test from beginning
-    const savedStep = candidate.application_step as ApplicationStep;
-    const midTestSteps: ApplicationStep[] = ["device_check", "test_instructions", "english_test"];
-
-    if (midTestSteps.includes(savedStep)) {
-      // Cross-session: restart test flow from device check
-      // In-session refresh: sessionStorage in EnglishTest handles answer preservation
-      setStep("device_check");
-      return;
-    }
-
-    // Use saved step if valid, otherwise start from beginning
-    const validSteps: ApplicationStep[] = [
-      "application_form", "device_check", "test_instructions",
-      "english_test", "test_result", "voice_recording_1",
-      "voice_recording_2", "profile_builder", "complete"
-    ];
-
-    if (validSteps.includes(savedStep)) {
-      setStep(savedStep);
-    } else {
-      setStep("application_form");
-    }
+    // Fallback
+    setStep("device_check");
   }
 
+  // New flow: form → id_consent → id_verification → device_check → test
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
-    goToStep("device_check", data.id);
+    goToStep("id_consent", data.id);
+  }
+
+  function handleIDConsentComplete() {
+    if (candidateData) {
+      setCandidateData({ ...candidateData, id_verification_consent: true });
+    }
+    goToStep("id_verification", candidateData?.id);
+  }
+
+  function handleIDVerificationComplete() {
+    if (candidateData) {
+      setCandidateData({ ...candidateData, id_verification_status: "passed" });
+    }
+    goToStep("device_check", candidateData?.id);
   }
 
   function handleDeviceCheckPass() {
@@ -323,6 +342,19 @@ export default function ApplyPage() {
 
       {step === "application_form" && (
         <ApplicationForm onComplete={handleFormComplete} />
+      )}
+      {step === "id_consent" && candidateData && (
+        <IDVerificationConsent
+          candidateId={candidateData.id}
+          onConsented={handleIDConsentComplete}
+        />
+      )}
+      {step === "id_verification" && candidateData && (
+        <IDVerification
+          candidateId={candidateData.id}
+          verificationStatus={candidateData.id_verification_status || "pending"}
+          onComplete={handleIDVerificationComplete}
+        />
       )}
       {step === "device_check" && (
         <DeviceCheck onPass={handleDeviceCheckPass} />
