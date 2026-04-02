@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
+import GiveawayTracker from "@/components/GiveawayTracker";
 
 interface ViewStats {
   weekViews: number;
@@ -643,6 +644,9 @@ export default function CandidateDashboardPage() {
       {/* Escrow Status */}
       <div className="mb-6">
         <EscrowStatusPanel role="candidate" />
+      </div>
+      <div className="mb-6">
+        <GiveawayTracker />
       </div>
 
       {/* Quick actions */}
