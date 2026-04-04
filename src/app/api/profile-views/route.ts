@@ -45,26 +45,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, recorded: false });
     }
 
-    // Don't record duplicate views within 1 hour from same client
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recentView } = await supabase
-      .from("profile_views")
-      .select("id")
-      .eq("candidate_id", candidate_id)
-      .eq("client_id", client.id)
-      .gte("viewed_at", oneHourAgo)
-      .limit(1)
-      .single();
-
-    if (recentView) {
-      return NextResponse.json({ success: true, recorded: false, reason: "duplicate" });
-    }
-
-    // Record the view
-    await supabase.from("profile_views").insert({
-      candidate_id,
-      client_id: client.id,
-    });
+    // Upsert — update viewed_at if same client+candidate pair already exists
+    await supabase.from("profile_views").upsert(
+      {
+        candidate_id,
+        client_id: client.id,
+        viewed_at: new Date().toISOString(),
+      },
+      { onConflict: "client_id,candidate_id" }
+    );
 
     return NextResponse.json({ success: true, recorded: true });
   } catch (err) {
