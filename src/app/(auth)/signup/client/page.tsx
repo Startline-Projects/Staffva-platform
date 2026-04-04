@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ClientSignupPage() {
-  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,6 +12,8 @@ export default function ClientSignupPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +22,7 @@ export default function ClientSignupPage() {
 
     const supabase = createClient();
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -41,37 +41,73 @@ export default function ClientSignupPage() {
       return;
     }
 
-    // Check if session exists (email confirmation disabled = auto-logged in)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      // Ensure profile + client rows exist (trigger may have failed)
+    // Ensure profile + client rows exist
+    if (signUpData?.user) {
       await fetch("/api/ensure-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: session.user.id,
-          email: session.user.email,
+          userId: signUpData.user.id,
+          email,
           role: "client",
           fullName,
           companyName: companyName || null,
         }),
       });
-      router.push("/browse");
-      return;
     }
+
+    // Sign out immediately — user must verify email first
+    await supabase.auth.signOut();
+
+    // Send verification email
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
 
     setSuccess(true);
     setLoading(false);
   }
 
+  async function handleResend() {
+    setResending(true);
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setResent(true);
+    setResending(false);
+    setTimeout(() => setResent(false), 5000);
+  }
+
   if (success) {
     return (
       <div className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <svg className="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
         <h1 className="text-2xl font-bold text-text">Check your email</h1>
         <p className="mt-3 text-sm text-text/60">
-          We sent a confirmation link to <strong>{email}</strong>. Click the link
-          to activate your account and start browsing talent.
+          We sent a verification link to <strong>{email}</strong>. Click the link
+          to verify your email and start browsing talent.
         </p>
+        <p className="mt-4 text-xs text-text/40">
+          Didn&apos;t receive the email? Check your spam folder or{" "}
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="text-primary hover:underline disabled:opacity-50"
+          >
+            {resending ? "sending..." : resent ? "sent!" : "resend it"}
+          </button>
+        </p>
+        <Link href="/login" className="mt-6 inline-block text-sm font-medium text-primary hover:text-primary-dark">
+          Go to Sign In
+        </Link>
       </div>
     );
   }

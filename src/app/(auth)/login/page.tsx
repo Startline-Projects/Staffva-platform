@@ -14,10 +14,15 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const authError = searchParams.get("error");
+  const verified = searchParams.get("verified");
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
     setLoading(true);
 
     const supabase = createClient();
@@ -29,6 +34,23 @@ function LoginForm() {
 
     if (signInError) {
       setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Check email verification status
+    const profileRes = await fetch("/api/auth/check-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: data.user?.id }),
+    });
+
+    const profileData = await profileRes.json();
+
+    if (profileData.verified === false) {
+      // Not verified — sign out and show message
+      await supabase.auth.signOut();
+      setNeedsVerification(true);
       setLoading(false);
       return;
     }
@@ -46,6 +68,18 @@ function LoginForm() {
     }
   }
 
+  async function handleResendFromLogin() {
+    setResending(true);
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setResent(true);
+    setResending(false);
+    setTimeout(() => setResent(false), 5000);
+  }
+
   return (
     <>
       <h1 className="text-2xl font-bold text-text">Sign In</h1>
@@ -53,6 +87,16 @@ function LoginForm() {
         Welcome back to StaffVA.
       </p>
 
+      {verified === "true" && (
+        <div className="mt-4 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+          <p className="text-sm text-green-700 font-medium">Email verified successfully! You can now sign in.</p>
+        </div>
+      )}
+      {verified === "already" && (
+        <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+          <p className="text-sm text-blue-700">Your email is already verified. Please sign in.</p>
+        </div>
+      )}
       {authError === "auth" && (
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
           Authentication failed. Please try again.
@@ -62,6 +106,26 @@ function LoginForm() {
         <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
           Email verification failed. Please request a new link.
         </p>
+      )}
+      {authError === "invalid_token" && (
+        <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          Invalid or expired verification link. Please request a new one.
+        </p>
+      )}
+      {needsVerification && (
+        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-3">
+          <p className="text-sm text-amber-800 font-medium">Please verify your email first</p>
+          <p className="mt-1 text-xs text-amber-700">
+            We sent a verification link to <strong>{email}</strong>. Check your inbox and spam folder.
+          </p>
+          <button
+            onClick={handleResendFromLogin}
+            disabled={resending}
+            className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
+          >
+            {resending ? "Sending..." : resent ? "Sent!" : "Resend verification email"}
+          </button>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
