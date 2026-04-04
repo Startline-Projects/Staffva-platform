@@ -1,11 +1,29 @@
 @import "tailwindcss";
 
 @theme {
+  /* Brand */
   --color-primary: #fe6e3e;
   --color-primary-dark: #e55a2b;
+
+  /* Surfaces */
   --color-background: #FAFAFA;
   --color-card: #FFFFFF;
+  --color-surface-warm: #f8f6f2;
+
+  /* Text */
   --color-text: #1c1b1a;
+  --color-text-secondary: #5a5550;
+  --color-text-tertiary: #9a9590;
+  --color-text-muted: #666666;
+
+  /* Borders */
+  --color-border: #e4e0d8;
+  --color-border-light: #e0e0e0;
+
+  /* Dark surfaces */
+  --color-charcoal: #1c1b1a;
+
+  /* Animation */
   --animate-fade-in-up: fade-in-up 0.6s ease-out both;
 }
 
@@ -18,4 +36,9 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes waveform {
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1.0); }
 }

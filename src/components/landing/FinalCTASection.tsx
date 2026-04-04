@@ -10,18 +10,14 @@ export default function FinalCTASection() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (query.trim()) {
-      router.push(`/browse?search=${encodeURIComponent(query.trim())}`);
-    } else {
-      router.push("/browse");
-    }
+    router.push(query.trim() ? `/browse?search=${encodeURIComponent(query.trim())}` : "/browse");
   }
 
   return (
     <section className="bg-primary py-20">
       <div className="mx-auto max-w-2xl px-6 text-center">
         <h2 className="text-3xl sm:text-4xl font-bold text-white">
-          Start browsing in 10 seconds.
+          See who&apos;s available.
         </h2>
 
         <form onSubmit={handleSearch} className="mt-8 flex gap-2 max-w-lg mx-auto">
@@ -34,14 +30,14 @@ export default function FinalCTASection() {
           />
           <button
             type="submit"
-            className="rounded-lg bg-[#1C1B1A] px-6 py-3.5 text-sm font-semibold text-white hover:bg-[#2a2928] transition-colors whitespace-nowrap"
+            className="rounded-lg bg-charcoal px-6 py-3.5 text-sm font-semibold text-white hover:bg-charcoal/90 transition-colors whitespace-nowrap"
           >
             Search
           </button>
         </form>
 
         <p className="mt-5 text-sm text-white/80">
-          No signup required. No subscription. No catch.
+          No signup. No subscription. No catch.
         </p>
 
         <Link
