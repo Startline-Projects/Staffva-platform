@@ -324,83 +324,99 @@ export default async function CandidateProfilePage({
         );
       })()}
 
-      {/* ═══════════ HEADER ═══════════ */}
-      <div className="border-b border-border-light bg-card">
+      {/* ═══════════ HEADER — Dark Charcoal ═══════════ */}
+      <div className="bg-[#1C1B1A]">
         <div className="mx-auto max-w-5xl px-6 py-4">
-          <Link href={isOwnProfile ? "/apply" : "/browse"} className="inline-flex items-center gap-1.5 text-sm text-text-tertiary hover:text-text transition-colors">
+          <Link href={isOwnProfile ? "/apply" : "/browse"} className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {isOwnProfile ? "Application" : "Browse"}
+            {isOwnProfile ? "Back to Application" : "Back to Browse"}
           </Link>
         </div>
 
         <div className="mx-auto max-w-5xl px-6 pb-10">
+          {/* No lock banner — profiles always visible */}
+
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="flex items-start gap-5">
-              <div className="flex-shrink-0 h-20 w-20 rounded-full overflow-hidden bg-background">
+              {/* Profile photo */}
+              <div className="flex-shrink-0 h-20 w-20 rounded-full overflow-hidden border-2 border-white/20 bg-white/10">
                 {candidate.profile_photo_url ? (
-                  <img src={candidate.profile_photo_url} alt={displayedName || ""} className="h-full w-full object-cover" />
+                  <img
+                    src={candidate.profile_photo_url}
+                    alt={displayedName || ""}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <span className="text-3xl font-semibold text-text-tertiary">{candidate.display_name?.charAt(0) || "?"}</span>
+                    <span className="text-3xl font-bold text-white/60">
+                      {candidate.display_name?.charAt(0) || "?"}
+                    </span>
                   </div>
                 )}
               </div>
 
               <div>
-                <h1 className="text-2xl font-semibold text-text">{displayedName}</h1>
-                <p className="mt-0.5 text-text-muted">{candidate.country} · {candidate.role_category}</p>
+                <h1 className="text-2xl font-bold text-white">{displayedName}</h1>
+                <p className="mt-0.5 text-white/50">{candidate.country}</p>
                 {candidate.tagline && (
-                  <p className="mt-2 text-sm text-text-muted">{candidate.tagline}</p>
+                  <p className="mt-2 text-sm text-white/70">{candidate.tagline}</p>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                {/* Badges */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
+                    {candidate.role_category}
+                  </span>
                   {tier && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                      candidate.english_written_tier === "exceptional" ? "bg-primary/10 text-primary" : "bg-background text-text-secondary"
-                    }`}>
-                      {tier.label}
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tier.bg} ${tier.color}`}>
+                      English: {tier.label}
                     </span>
                   )}
                   {speaking && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                      candidate.speaking_level === "fluent" ? "bg-indigo-50 text-indigo-600" : "bg-background text-text-secondary"
-                    }`}>
-                      {speaking.label}
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${speaking.bg} ${speaking.color}`}>
+                      Speaking: {speaking.label}
                     </span>
                   )}
                   {hasUSExperience && (
-                    <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-medium text-green-700">US exp.</span>
+                    <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-semibold text-white">
+                      US Experience
+                    </span>
                   )}
                   {interviewCount > 0 && (
-                    <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-[11px] font-medium text-purple-700">
-                      Interviewed
+                    <span className="rounded-full bg-purple-600 px-3 py-1 text-xs font-semibold text-white">
+                      {interviewCount === 1 ? "Interviewed Once by StaffVA" : "Interviewed Twice by StaffVA"}
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
+            {/* Rate + availability */}
             <div className="text-right flex-shrink-0">
-              <p className="text-3xl font-semibold text-text tabular-nums">
+              <p className="text-4xl font-bold text-primary">
                 ${candidate.monthly_rate?.toLocaleString()}
-                <span className="text-sm font-normal text-text-tertiary">/mo</span>
               </p>
+              <p className="text-xs text-white/40 mt-1">per month</p>
               <div className="mt-3">
-                <span className={`inline-flex items-center gap-1.5 text-xs ${
-                  availabilityComputed === "available" ? "text-green-600"
-                  : availabilityComputed === "partial" ? "text-amber-600"
-                  : "text-text-tertiary"
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                  availabilityComputed === "available"
+                    ? "bg-green-500/20 text-green-400"
+                    : availabilityComputed === "partial"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-white/10 text-white/50"
                 }`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${
-                    availabilityComputed === "available" ? "bg-green-500"
-                    : availabilityComputed === "partial" ? "bg-amber-500"
-                    : "bg-gray-300"
+                    availabilityComputed === "available" ? "bg-green-400"
+                    : availabilityComputed === "partial" ? "bg-amber-400"
+                    : "bg-gray-400"
                   }`} />
-                  {availabilityComputed === "available" ? "Available"
-                    : availabilityComputed === "partial" ? `${remainingHours} hrs/week open`
-                    : "Engaged"}
+                  {availabilityComputed === "available"
+                    ? "Available"
+                    : availabilityComputed === "partial"
+                    ? `Available — ${remainingHours} hrs/week remaining`
+                    : "Not Available — Currently Engaged"}
                 </span>
               </div>
             </div>
@@ -435,7 +451,7 @@ export default async function CandidateProfilePage({
               </svg>
               <p className="mt-2 text-xs text-text/40">Oral Reading Assessment</p>
               <p className="mt-1 text-xs text-primary">
-                {isLoggedIn ? "Visible to client accounts" : "Sign in to listen"}
+                {isLoggedIn ? "Visible to client accounts" : "Create a free account to listen"}
               </p>
             </div>
             <div className="rounded-xl border border-dashed border-gray-300 bg-white p-5 text-center">
@@ -444,7 +460,7 @@ export default async function CandidateProfilePage({
               </svg>
               <p className="mt-2 text-xs text-text/40">Professional Introduction</p>
               <p className="mt-1 text-xs text-primary">
-                {isLoggedIn ? "Visible to client accounts" : "Sign in to listen"}
+                {isLoggedIn ? "Visible to client accounts" : "Create a free account to listen"}
               </p>
             </div>
           </div>
@@ -472,16 +488,16 @@ export default async function CandidateProfilePage({
 
             {/* About */}
             {candidate.bio && (
-              <div className="rounded-2xl border border-border-light bg-card p-6">
-                <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest">About</h2>
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">About</h2>
                 <p className="mt-3 text-sm leading-relaxed text-text/80">{candidate.bio}</p>
               </div>
             )}
 
             {/* Tools & Software */}
             {tools.length > 0 && (
-              <div className="rounded-2xl border border-border-light bg-card p-6">
-                <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest">Tools & Software</h2>
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Tools & Software</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {tools.map((tool: string) => (
                     <span
@@ -497,8 +513,8 @@ export default async function CandidateProfilePage({
 
             {/* Work Experience */}
             {workExperience.length > 0 && (
-              <div className="rounded-2xl border border-border-light bg-card p-6">
-                <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest">Work Experience</h2>
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Work Experience</h2>
                 <div className="mt-4 space-y-5">
                   {workExperience.map((entry, i) => (
                     <div key={i} className="relative pl-6 border-l-2 border-primary/20">
@@ -518,8 +534,8 @@ export default async function CandidateProfilePage({
 
             {/* Services — active packages */}
             {(servicePackages || []).length > 0 && (
-              <div className="rounded-2xl border border-border-light bg-card p-6">
-                <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest flex items-center gap-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
@@ -599,7 +615,7 @@ export default async function CandidateProfilePage({
             {/* Interview Notes — visible to logged-in clients and admin only */}
             {(canViewGated || isAdmin) && completedInterviews && completedInterviews.length > 0 && (
               <div className="rounded-xl border border-purple-200 bg-white p-6">
-                <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider flex items-center gap-2">
                   <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 3h1a2.25 2.25 0 012.25 2.25c0 .232-.035.45-.1.664M13.5 3c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664" />
                   </svg>
@@ -643,8 +659,8 @@ export default async function CandidateProfilePage({
             )}
 
             {/* Details */}
-            <div className="rounded-2xl border border-border-light bg-card p-6">
-              <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest">Details</h2>
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Details</h2>
               <div className="mt-4 grid grid-cols-2 gap-y-4 gap-x-8">
                 <div>
                   <p className="text-xs text-text/40">Experience</p>
@@ -671,9 +687,9 @@ export default async function CandidateProfilePage({
 
             {/* Reviews */}
             {(reviews || []).length > 0 && (
-              <div className="rounded-2xl border border-border-light bg-card p-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-medium text-text-tertiary uppercase tracking-widest">Client Reviews</h2>
+                  <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Client Reviews</h2>
                   <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -715,7 +731,7 @@ export default async function CandidateProfilePage({
 
               {/* CTA Card — different for candidates vs clients */}
               {isOwnProfile ? (
-                <div className="rounded-2xl border border-border-light bg-card p-6">
+                <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <p className="text-center text-2xl font-bold text-primary">
                     ${candidate.monthly_rate?.toLocaleString()}
                     <span className="text-sm font-normal text-text/40">/mo</span>
@@ -734,7 +750,7 @@ export default async function CandidateProfilePage({
                   </div>
                 </div>
               ) : !isCandidate ? (
-                <div className="rounded-2xl border border-border-light bg-card p-6">
+                <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <p className="text-center text-2xl font-bold text-primary">
                     ${candidate.monthly_rate?.toLocaleString()}
                     <span className="text-sm font-normal text-text/40">/mo</span>
@@ -758,7 +774,7 @@ export default async function CandidateProfilePage({
               ) : null}
 
               {/* Verified info card */}
-              <div className="rounded-2xl border border-border-light bg-card p-6 space-y-3">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
                 {Number(candidate.total_earnings_usd) > 0 && (
                   <>
                     <div className="flex items-center justify-between">
@@ -815,7 +831,7 @@ export default async function CandidateProfilePage({
               {/* Gated assets — portfolio + resume */}
               {/* Resume — admin only */}
               {isAdmin && candidate.resume_url && (
-                <div className="rounded-2xl border border-border-light bg-card p-6 space-y-4">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
                   <p className="text-[10px] uppercase tracking-wider text-text/30">Admin Only — Internal Documents</p>
                   <a
                     href={candidate.resume_url}
@@ -833,7 +849,7 @@ export default async function CandidateProfilePage({
 
               {/* Portfolio — visible to logged-in clients and admin */}
               {canViewGated ? (
-                <div className="rounded-2xl border border-border-light bg-card p-6 space-y-4">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
                   {(portfolioItems || []).length > 0 ? (
                     <>
                       <p className="text-xs font-medium text-text/50 uppercase tracking-wider">Portfolio</p>
