@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import ScreeningQueueWidget from "@/components/admin/ScreeningQueueWidget";
+import IdentitySummaryWidget from "@/components/admin/IdentitySummaryWidget";
 
 interface Metrics {
   liveCandidates: number;
@@ -95,6 +96,9 @@ export default function AdminDashboard() {
       {/* Screening Queue Widget */}
       <div className="mt-6">
         <ScreeningQueueWidget />
+      </div>
+      <div className="mt-4">
+        <IdentitySummaryWidget />
       </div>
 
       {/* Activity */}
