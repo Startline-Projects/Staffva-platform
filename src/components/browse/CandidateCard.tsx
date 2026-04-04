@@ -32,6 +32,8 @@ export interface CandidateCardData {
   voice_recording_1_preview_url?: string | null;
   english_mc_score?: number | null;
   english_comprehension_score?: number | null;
+  reputation_score?: number | null;
+  reputation_tier?: string | null;
   ai_interview?: {
     overall_score: number | null;
     technical_knowledge_score: number | null;
@@ -82,7 +84,15 @@ export default function CandidateCard({ candidate, isLoggedIn = false }: Props) 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-text">{candidate.display_name}</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-text">{candidate.display_name}</h3>
+                  {candidate.reputation_tier === "Elite" && (
+                    <span className="rounded-full bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold text-amber-100">Elite</span>
+                  )}
+                  {candidate.reputation_tier === "Top Rated" && (
+                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-white">Top Rated</span>
+                  )}
+                </div>
                 <p className="mt-0.5 text-xs text-text-tertiary">{candidate.country} · {candidate.role_category}</p>
               </div>
               <p className="text-base font-semibold text-text shrink-0 tabular-nums">

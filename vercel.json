@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/expire-offers",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/calculate-reputation",
+      "schedule": "0 2 * * *"
     }
   ]
 }

@@ -323,6 +323,106 @@ function ContractsSection() {
   );
 }
 
+interface ReputationData {
+  aiScore: number;
+  reviewScore: number;
+  completenessScore: number;
+  aiContribution: number;
+  reviewContribution: number;
+  completenessContribution: number;
+  totalScore: number;
+  tier: string | null;
+  percentile: number | null;
+}
+
+const TIER_COLORS: Record<string, { bg: string; text: string }> = {
+  Elite: { bg: "bg-amber-700", text: "text-amber-100" },
+  "Top Rated": { bg: "bg-[#FE6E3E]", text: "text-white" },
+  Rising: { bg: "bg-amber-500", text: "text-white" },
+  Established: { bg: "bg-gray-500", text: "text-white" },
+};
+
+function ReputationSection() {
+  const [rep, setRep] = useState<ReputationData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/reputation");
+        const data = await res.json();
+        if (res.ok) setRep(data);
+      } catch { /* silent */ }
+      setLoaded(true);
+    }
+    load();
+  }, []);
+
+  if (!loaded || !rep || rep.totalScore === 0) return null;
+
+  const tierStyle = rep.tier ? TIER_COLORS[rep.tier] : null;
+
+  return (
+    <div className="mb-6">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Reputation Score</h2>
+      <div className="rounded-xl border border-gray-200 bg-white p-5">
+        {/* Header with score + tier */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-3xl font-bold text-[#1C1B1A]">{rep.totalScore}<span className="text-lg font-normal text-gray-400">/100</span></p>
+            {rep.tier && tierStyle && (
+              <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${tierStyle.bg} ${tierStyle.text}`}>
+                {rep.tier}
+              </span>
+            )}
+          </div>
+          {rep.percentile && (
+            <div className="text-right">
+              <p className="text-sm font-semibold text-[#FE6E3E]">Top {100 - rep.percentile + 1}%</p>
+              <p className="text-xs text-gray-400">of StaffVA professionals</p>
+            </div>
+          )}
+        </div>
+
+        {/* Breakdown bars */}
+        <div className="mt-5 space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-500">AI Assessment (40%)</span>
+              <span className="text-xs font-semibold text-[#1C1B1A] tabular-nums">{rep.aiContribution} pts</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-100">
+              <div className="h-2 rounded-full bg-[#FE6E3E]" style={{ width: `${Math.min((rep.aiContribution / 40) * 100, 100)}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-500">Client Reviews (40%)</span>
+              <span className="text-xs font-semibold text-[#1C1B1A] tabular-nums">{rep.reviewContribution} pts</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-100">
+              <div className="h-2 rounded-full bg-amber-500" style={{ width: `${Math.min((rep.reviewContribution / 40) * 100, 100)}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-500">Profile Completeness (20%)</span>
+              <span className="text-xs font-semibold text-[#1C1B1A] tabular-nums">{rep.completenessContribution} pts</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-100">
+              <div className="h-2 rounded-full bg-green-500" style={{ width: `${Math.min((rep.completenessContribution / 20) * 100, 100)}%` }} />
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-4 text-[11px] text-gray-400">
+          Score updates daily. Improve by completing your AI interview, earning client reviews, and filling out your profile.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function CandidateDashboardPage() {
   const [candidate, setCandidate] = useState<CandidateData | null>(null);
   const [viewStats, setViewStats] = useState<ViewStats | null>(null);
@@ -763,6 +863,9 @@ export default function CandidateDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Reputation Score */}
+      <ReputationSection />
 
       {/* Escrow Status */}
       <div className="mb-6">
