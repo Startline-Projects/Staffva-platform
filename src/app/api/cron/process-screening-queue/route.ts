@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     // Fetch candidate data
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("full_name, email, country, role_category, years_experience, monthly_rate, bio, us_client_experience, us_client_description, skills, tools")
+      .select("full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, us_client_description, skills, tools")
       .eq("id", item.candidate_id)
       .single();
 
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
       country: candidate.country,
       role: candidate.role_category,
       experience: candidate.years_experience,
-      rate: `$${candidate.monthly_rate}/month`,
+      rate: `$${candidate.hourly_rate}/hrnth`,
       bio: candidate.bio || "No bio provided",
       us_experience: candidate.us_client_experience,
       us_description: candidate.us_client_description || "N/A",

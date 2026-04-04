@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const { data: candidate } = await supabase
       .from("candidates")
       .select(
-        "full_name, email, country, role_category, years_experience, monthly_rate, bio, us_client_experience, us_client_description"
+        "full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, us_client_description"
       )
       .eq("id", candidateId)
       .single();
@@ -46,7 +46,7 @@ Full Name: ${candidate.full_name}
 Country: ${candidate.country}
 Role Category: ${candidate.role_category}
 Years of Experience: ${candidate.years_experience}
-Monthly Rate: $${candidate.monthly_rate}
+Monthly Rate: $${candidate.hourly_rate}
 Bio: ${candidate.bio || "Not provided"}
 US Client Experience: ${candidate.us_client_experience}
 US Client Description: ${candidate.us_client_description || "Not provided"}

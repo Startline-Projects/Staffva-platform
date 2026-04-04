@@ -275,7 +275,7 @@ function testCandidateProfile() {
 
   for (const vp of VIEWPORTS) {
     // Profile header
-    const hasHeader = content.includes("display_name") && content.includes("monthly_rate");
+    const hasHeader = content.includes("display_name") && content.includes("hourly_rate");
     addResult("Candidate Profile", vp.name, "Header renders", hasHeader, hasHeader ? "Name + rate in header" : "Missing header data");
 
     // Audio players

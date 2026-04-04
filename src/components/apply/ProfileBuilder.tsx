@@ -9,7 +9,7 @@ interface ProfileBuilderProps {
     full_name: string;
     display_name?: string;
     role_category: string;
-    monthly_rate: number;
+    hourly_rate: number;
     bio?: string;
     english_written_tier?: string;
     speaking_level?: string;
@@ -98,7 +98,7 @@ export default function ProfileBuilder({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [tagline, setTagline] = useState("");
-  const [monthlyRate, setMonthlyRate] = useState(candidateData.monthly_rate || 0);
+  const [monthlyRate, setMonthlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — About
@@ -457,7 +457,7 @@ export default function ProfileBuilder({
       // Update candidate record
       const updateData: Record<string, unknown> = {
         tagline,
-        monthly_rate: monthlyRate,
+        hourly_rate: monthlyRate,
         bio,
         tools: selectedTools,
         work_experience: validWorkEntries,

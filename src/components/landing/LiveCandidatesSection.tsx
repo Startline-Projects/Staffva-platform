@@ -5,7 +5,7 @@ interface LiveCandidate {
   display_name: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   english_written_tier: string | null;
   speaking_level: string | null;
   availability_status: string;
@@ -80,8 +80,8 @@ export default function LiveCandidatesSection({ candidates }: Props) {
                         <p className="mt-0.5 text-xs text-text-tertiary">{c.country} · {c.role_category}</p>
                       </div>
                       <p className="text-base font-semibold text-text shrink-0 tabular-nums">
-                        ${c.monthly_rate.toLocaleString()}
-                        <span className="text-xs font-normal text-text-tertiary">/mo</span>
+                        ${c.hourly_rate.toLocaleString()}
+                        <span className="text-xs font-normal text-text-tertiary">/hr</span>
                       </p>
                     </div>
                   </div>

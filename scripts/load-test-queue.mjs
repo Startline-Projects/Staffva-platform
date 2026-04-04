@@ -29,7 +29,7 @@ async function runLoadTest() {
       country: "Philippines",
       role_category: "Paralegal",
       years_experience: "3-5",
-      monthly_rate: 1000 + i,
+      hourly_rate: 8 + (i % 30),
       time_zone: "Asia/Manila",
       bio: `Load test application #${i}`,
       us_client_experience: "none",

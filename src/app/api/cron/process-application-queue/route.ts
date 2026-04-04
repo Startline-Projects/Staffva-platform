@@ -168,7 +168,7 @@ async function processApplication(
     country: appData.country as string,
     role_category: appData.role_category as string,
     years_experience: appData.years_experience as string,
-    monthly_rate: appData.monthly_rate as number,
+    hourly_rate: appData.hourly_rate as number,
     time_zone: appData.time_zone as string,
     linkedin_url: (appData.linkedin_url as string) || null,
     bio: (appData.bio as string) || null,

@@ -83,7 +83,7 @@ export async function POST(request: Request) {
           country: "Pending",
           role_category: roleCategory || "VA",
           years_experience: "0-1",
-          monthly_rate: candidateRateUsd,
+          hourly_rate: candidateRateUsd,
           time_zone: "UTC",
           admin_status: "approved", // Direct contracts skip English test
           id_verification_status: "pending", // Still required

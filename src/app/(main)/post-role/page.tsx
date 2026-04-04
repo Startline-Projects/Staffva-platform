@@ -25,10 +25,10 @@ const HOURS_OPTIONS = [
 ];
 
 const BUDGET_OPTIONS = [
-  { label: "Under $800", sublabel: "/month", value: "Under $800" },
-  { label: "$800 – $1,200", sublabel: "/month", value: "$800 - $1,200" },
-  { label: "$1,200 – $2,000", sublabel: "/month", value: "$1,200 - $2,000" },
-  { label: "Over $2,000", sublabel: "/month", value: "Over $2,000" },
+  { label: "Under $800", sublabel: "/hrnth", value: "Under $800" },
+  { label: "$800 – $1,200", sublabel: "/hrnth", value: "$800 - $1,200" },
+  { label: "$1,200 – $2,000", sublabel: "/hrnth", value: "$1,200 - $2,000" },
+  { label: "Over $2,000", sublabel: "/hrnth", value: "Over $2,000" },
 ];
 
 const START_OPTIONS = [

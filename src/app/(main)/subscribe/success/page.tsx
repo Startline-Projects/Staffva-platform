@@ -23,7 +23,7 @@ export default function SubscriptionSuccessPage() {
           Subscription Activated
         </h1>
         <p className="mt-3 text-text/60">
-          Your $99/month subscription is now active. You can message any
+          Your $99/hrnth subscription is now active. You can message any
           candidate directly from their profile.
         </p>
         <Link

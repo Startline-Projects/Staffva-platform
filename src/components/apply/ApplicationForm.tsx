@@ -301,7 +301,7 @@ export default function ApplicationForm({ onComplete }: Props) {
       country,
       role_category: finalRole,
       years_experience: yearsExperience,
-      monthly_rate: parseInt(monthlyRate),
+      hourly_rate: parseInt(monthlyRate),
       time_zone: timeZone,
       linkedin_url: linkedinUrl || null,
       bio: bio || null,
@@ -600,10 +600,10 @@ export default function ApplicationForm({ onComplete }: Props) {
         {/* Rate and Timezone */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-text">Monthly Rate Expectation (USD)</label>
+            <label className="block text-sm font-medium text-text">Hourly Rate (USD)</label>
             <input
-              type="number" required min="1" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)}
-              placeholder="e.g. 800"
+              type="number" required min="1" max="500" step="0.01" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)}
+              placeholder="e.g. 12"
               className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>

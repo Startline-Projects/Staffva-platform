@@ -44,7 +44,7 @@ export async function GET() {
 
   const { data: allCandidates } = await supabase
     .from("candidates")
-    .select("id, role_category, screening_tag, admin_status, display_name, full_name, country, monthly_rate, created_at, profile_photo_url");
+    .select("id, role_category, screening_tag, admin_status, display_name, full_name, country, hourly_rate, created_at, profile_photo_url");
 
   const recruiterIds = recruiters.map((r) => r.id);
   const { data: authData } = await supabase.auth.admin.listUsers();
@@ -92,7 +92,7 @@ export async function GET() {
         display_name: c.display_name || c.full_name,
         country: c.country,
         role_category: c.role_category,
-        monthly_rate: c.monthly_rate,
+        hourly_rate: c.hourly_rate,
         screening_tag: c.screening_tag,
         admin_status: c.admin_status,
         profile_photo_url: c.profile_photo_url,

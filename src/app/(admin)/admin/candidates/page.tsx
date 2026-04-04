@@ -54,7 +54,7 @@ interface Candidate {
   country: string;
   role_category: string;
   years_experience: string;
-  monthly_rate: number;
+  hourly_rate: number;
   bio: string;
   tagline: string;
   profile_photo_url: string;
@@ -398,7 +398,7 @@ export default function CandidateReviewPage() {
                       <span className="text-xs text-text/70">{c.role_category}</span>
                     </td>
                     <td className="py-3 pr-4">
-                      <span className="font-semibold text-text">${c.monthly_rate?.toLocaleString()}</span>
+                      <span className="font-semibold text-text">${c.hourly_rate?.toLocaleString()}</span>
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${badge.color}`}>
@@ -578,7 +578,7 @@ export default function CandidateReviewPage() {
                         )}
                       </p>
                       <p className="text-xs text-text/60">
-                        {c.country} &middot; {c.role_category} &middot; ${c.monthly_rate}/mo
+                        {c.country} &middot; {c.role_category} &middot; ${c.hourly_rate}/hr
                       </p>
                     </div>
                   </div>

@@ -8,7 +8,7 @@ interface HeroCandidate {
   id: string;
   display_name: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   english_written_tier: string | null;
   country: string;
   profile_photo_url: string | null;

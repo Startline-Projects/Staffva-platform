@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("candidates")
     .select(
-      "id, display_name, country, role_category, monthly_rate, english_written_tier, speaking_level, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, needs_availability_update, voice_recording_1_preview_url, created_at",
+      "id, display_name, country, role_category, hourly_rate, english_written_tier, speaking_level, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, needs_availability_update, voice_recording_1_preview_url, created_at",
       { count: "exact" }
     )
     .eq("admin_status", "approved");
@@ -51,11 +51,11 @@ export async function GET(request: Request) {
   }
 
   if (minRate) {
-    query = query.gte("monthly_rate", parseInt(minRate));
+    query = query.gte("hourly_rate", parseInt(minRate));
   }
 
-  if (maxRate && parseInt(maxRate) < 3000) {
-    query = query.lte("monthly_rate", parseInt(maxRate));
+  if (maxRate && parseInt(maxRate) < 150) {
+    query = query.lte("hourly_rate", parseInt(maxRate));
   }
 
   // Availability filter based on committed_hours
@@ -83,10 +83,10 @@ export async function GET(request: Request) {
   // Sorting
   switch (sort) {
     case "rate_low":
-      query = query.order("monthly_rate", { ascending: true });
+      query = query.order("hourly_rate", { ascending: true });
       break;
     case "rate_high":
-      query = query.order("monthly_rate", { ascending: false });
+      query = query.order("hourly_rate", { ascending: false });
       break;
     case "earnings":
       query = query.order("total_earnings_usd", { ascending: false });

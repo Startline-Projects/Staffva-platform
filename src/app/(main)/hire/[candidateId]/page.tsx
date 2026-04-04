@@ -36,7 +36,7 @@ export default function HirePage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("candidates")
-      .select("display_name, monthly_rate, lock_status")
+      .select("display_name, hourly_rate, lock_status")
       .eq("id", candidateId)
       .single();
 
@@ -46,8 +46,8 @@ export default function HirePage() {
     }
 
     setCandidateName(data.display_name);
-    setCandidateRate(data.monthly_rate);
-    setRateOverride(data.monthly_rate.toString());
+    setCandidateRate(data.hourly_rate);
+    setRateOverride(data.hourly_rate.toString());
     setLoading(false);
   }
 
@@ -202,7 +202,7 @@ export default function HirePage() {
             className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <p className="mt-1 text-xs text-text/40">
-            Candidate listed rate: ${candidateRate.toLocaleString()}/mo
+            Candidate listed rate: ${candidateRate.toLocaleString()}/hr
           </p>
         </div>
 

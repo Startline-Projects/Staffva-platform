@@ -31,7 +31,7 @@ interface Candidate {
   country: string;
   role_category: string;
   years_experience: string;
-  monthly_rate: number;
+  hourly_rate: number;
   bio: string;
   tagline: string;
   profile_photo_url: string;
@@ -145,7 +145,7 @@ export default function CandidatePreviewModal({
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-4xl font-bold text-primary">${c.monthly_rate?.toLocaleString()}</p>
+                <p className="text-4xl font-bold text-primary">${c.hourly_rate?.toLocaleString()}</p>
                 <p className="text-xs text-white/40 mt-1">per month</p>
                 <div className="mt-3">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
@@ -248,7 +248,7 @@ export default function CandidatePreviewModal({
             <div className="lg:col-span-1 space-y-4">
               <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
                 <p className="text-center text-2xl font-bold text-primary">
-                  ${c.monthly_rate?.toLocaleString()}<span className="text-sm font-normal text-text/40">/mo</span>
+                  ${c.hourly_rate?.toLocaleString()}<span className="text-sm font-normal text-text/40">/hr</span>
                 </p>
                 {Number(c.total_earnings_usd) > 0 && (
                   <>

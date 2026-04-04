@@ -8,7 +8,7 @@ interface Candidate {
   display_name: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   screening_tag: string;
   screening_score: number;
   admin_status: string;

@@ -18,7 +18,7 @@ interface CandidateData {
   display_name: string;
   admin_status: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   availability_status: string;
   total_earnings_usd: number;
   profile_photo_url: string | null;
@@ -247,7 +247,7 @@ export default function CandidateDashboardPage() {
 
       const { data: c } = await supabase
         .from("candidates")
-        .select("id, display_name, admin_status, role_category, monthly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, application_step")
+        .select("id, display_name, admin_status, role_category, hourly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, application_step")
         .eq("user_id", session.user.id)
         .single();
 
@@ -693,7 +693,7 @@ export default function CandidateDashboardPage() {
           </div>
           <div>
             <p className="text-gray-500">Monthly Rate</p>
-            <p className="font-medium text-[#FE6E3E]">${candidate.monthly_rate?.toLocaleString()}/mo</p>
+            <p className="font-medium text-[#FE6E3E]">${candidate.hourly_rate?.toLocaleString()}/hr</p>
           </div>
           <div>
             <p className="text-gray-500">Availability</p>

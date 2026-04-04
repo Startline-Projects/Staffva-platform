@@ -8,7 +8,7 @@ interface RecruiterCandidate {
   display_name: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   screening_tag: string;
   admin_status: string;
   profile_photo_url: string | null;
@@ -260,7 +260,7 @@ export default function AdminRecruitersPage() {
                                 <span className="text-xs text-gray-600">{c.role_category}</span>
                               </td>
                               <td className="px-3 py-2">
-                                <span className="text-xs font-semibold text-[#1C1B1A]">${c.monthly_rate?.toLocaleString()}</span>
+                                <span className="text-xs font-semibold text-[#1C1B1A]">${c.hourly_rate?.toLocaleString()}</span>
                               </td>
                               <td className="px-3 py-2">
                                 {c.screening_tag && (

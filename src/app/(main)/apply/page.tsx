@@ -36,7 +36,7 @@ export interface CandidateData {
   country: string;
   role_category: string;
   years_experience: string;
-  monthly_rate: number;
+  hourly_rate: number;
   time_zone: string;
   linkedin_url: string;
   bio: string;
@@ -390,7 +390,7 @@ export default function ApplyPage() {
             full_name: candidateData.full_name,
             display_name: candidateData.display_name ?? undefined,
             role_category: candidateData.role_category,
-            monthly_rate: candidateData.monthly_rate,
+            hourly_rate: candidateData.hourly_rate,
             bio: candidateData.bio ?? undefined,
             english_written_tier: candidateData.english_written_tier ?? undefined,
             speaking_level: candidateData.speaking_level ?? undefined,

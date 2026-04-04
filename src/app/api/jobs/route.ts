@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     const { data: candidates } = await supabase
       .from("candidates")
       .select(
-        "id, full_name, display_name, country, role_category, years_experience, monthly_rate, english_written_tier, speaking_level, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url"
+        "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, speaking_level, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url"
       )
       .eq("admin_status", "approved")
       .in("availability_status", availabilityFilter);
@@ -154,9 +154,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Budget fit (15 points)
-      if (c.monthly_rate >= budgetMin && c.monthly_rate <= budgetMax) {
+      if (c.hourly_rate >= budgetMin && c.hourly_rate <= budgetMax) {
         score += 15;
-      } else if (c.monthly_rate >= budgetMin * 0.8 && c.monthly_rate <= budgetMax * 1.2) {
+      } else if (c.hourly_rate >= budgetMin * 0.8 && c.hourly_rate <= budgetMax * 1.2) {
         score += 8;
       }
 

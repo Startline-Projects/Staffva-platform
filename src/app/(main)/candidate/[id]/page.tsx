@@ -396,7 +396,7 @@ export default async function CandidateProfilePage({
             {/* Rate + availability */}
             <div className="text-right flex-shrink-0">
               <p className="text-4xl font-bold text-primary">
-                ${candidate.monthly_rate?.toLocaleString()}
+                ${candidate.hourly_rate?.toLocaleString()}
               </p>
               <p className="text-xs text-white/40 mt-1">per month</p>
               <div className="mt-3">
@@ -733,8 +733,8 @@ export default async function CandidateProfilePage({
               {isOwnProfile ? (
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <p className="text-center text-2xl font-bold text-primary">
-                    ${candidate.monthly_rate?.toLocaleString()}
-                    <span className="text-sm font-normal text-text/40">/mo</span>
+                    ${candidate.hourly_rate?.toLocaleString()}
+                    <span className="text-sm font-normal text-text/40">/hr</span>
                   </p>
                   <p className="mt-1 text-center text-xs text-text/40">Your listed rate</p>
                   <div className="mt-5">
@@ -752,8 +752,8 @@ export default async function CandidateProfilePage({
               ) : !isCandidate ? (
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <p className="text-center text-2xl font-bold text-primary">
-                    ${candidate.monthly_rate?.toLocaleString()}
-                    <span className="text-sm font-normal text-text/40">/mo</span>
+                    ${candidate.hourly_rate?.toLocaleString()}
+                    <span className="text-sm font-normal text-text/40">/hr</span>
                   </p>
                   <p className="mt-1 text-center text-xs text-text/40">+ 10% platform fee</p>
                   <div className="mt-5">

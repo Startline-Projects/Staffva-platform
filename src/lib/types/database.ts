@@ -97,7 +97,7 @@ export interface Candidate {
   country: string;
   role_category: string;
   years_experience: string;
-  monthly_rate: number;
+  hourly_rate: number;
   time_zone: string;
   linkedin_url: string | null;
   bio: string | null;

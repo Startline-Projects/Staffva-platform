@@ -18,7 +18,7 @@ export default function DeviceCheck({ onPass }: Props) {
   function checkDevice() {
     const ua = navigator.userAgent.toLowerCase();
     const isMobile =
-      /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(ua);
+      /hrbile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(ua);
     const isTablet = /tablet|ipad/i.test(ua);
 
     if (isMobile || isTablet) {

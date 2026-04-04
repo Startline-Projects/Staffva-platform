@@ -19,7 +19,7 @@ export interface CandidateCardData {
   display_name: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   english_written_tier: string | null;
   speaking_level: string | null;
   availability_status: string;
@@ -76,8 +76,8 @@ export default function CandidateCard({ candidate, isLoggedIn = false }: Props) 
                 <p className="mt-0.5 text-xs text-text-tertiary">{candidate.country} · {candidate.role_category}</p>
               </div>
               <p className="text-base font-semibold text-text shrink-0 tabular-nums">
-                ${candidate.monthly_rate.toLocaleString()}
-                <span className="text-xs font-normal text-text-tertiary">/mo</span>
+                ${candidate.hourly_rate.toLocaleString()}
+                <span className="text-xs font-normal text-text-tertiary">/hr</span>
               </p>
             </div>
           </div>

@@ -44,7 +44,7 @@ interface CandidateResult {
   display_name: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   english_written_tier: string | null;
   speaking_level: string | null;
   availability_status: string;
@@ -73,7 +73,7 @@ function BrowseContent() {
   const [role, setRole] = useState(searchParams.get("role") || "All");
   const [country, setCountry] = useState("");
   const [minRate, setMinRate] = useState(0);
-  const [maxRate, setMaxRate] = useState(3000);
+  const [maxRate, setMaxRate] = useState(150);
   const [availability, setAvailability] = useState(
     searchParams.get("availability") || ""
   );
@@ -92,7 +92,7 @@ function BrowseContent() {
     if (role && role !== "All") params.set("role", role);
     if (country) params.set("country", country);
     if (minRate > 0) params.set("minRate", minRate.toString());
-    if (maxRate < 3000) params.set("maxRate", maxRate.toString());
+    if (maxRate < 150) params.set("maxRate", maxRate.toString());
     if (availability) params.set("availability", availability);
     if (tier !== "any") params.set("tier", tier);
     if (speakingLevel !== "any") params.set("speakingLevel", speakingLevel);
@@ -129,7 +129,7 @@ function BrowseContent() {
     setRole("All");
     setCountry("");
     setMinRate(0);
-    setMaxRate(3000);
+    setMaxRate(150);
     setAvailability("");
     setTier("any");
     setSpeakingLevel("any");
@@ -150,7 +150,7 @@ function BrowseContent() {
     role !== "All",
     country,
     minRate > 0,
-    maxRate < 3000,
+    maxRate < 150,
     availability,
     tier !== "any",
     speakingLevel !== "any",
@@ -296,10 +296,10 @@ function BrowseContent() {
                 />
               </div>
 
-              {/* Monthly Rate */}
+              {/* Hourly Rate */}
               <div>
                 <label className="block text-xs font-medium text-text/50 mb-1.5">
-                  Monthly Rate (USD)
+                  Hourly Rate (USD)
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -317,9 +317,9 @@ function BrowseContent() {
                   <input
                     type="number"
                     min={0}
-                    value={maxRate >= 3000 ? "" : maxRate}
+                    value={maxRate >= 150 ? "" : maxRate}
                     onChange={(e) => {
-                      setMaxRate(parseInt(e.target.value) || 3000);
+                      setMaxRate(parseInt(e.target.value) || 150);
                       setPage(1);
                     }}
                     placeholder="Max"

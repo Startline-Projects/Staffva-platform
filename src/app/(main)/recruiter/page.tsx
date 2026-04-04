@@ -12,7 +12,7 @@ interface Candidate {
   email: string;
   country: string;
   role_category: string;
-  monthly_rate: number;
+  hourly_rate: number;
   english_written_tier: string;
   speaking_level: string;
   screening_tag: string;
@@ -205,7 +205,7 @@ export default function RecruiterDashboardPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-semibold text-[#1C1B1A] text-sm">{c.display_name || c.full_name}</p>
-                        <p className="text-xs text-gray-500">{c.country} · {c.role_category} · ${c.monthly_rate?.toLocaleString()}/mo</p>
+                        <p className="text-xs text-gray-500">{c.country} · {c.role_category} · ${c.hourly_rate?.toLocaleString()}/hr</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {c.screening_tag && (

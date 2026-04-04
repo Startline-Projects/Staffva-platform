@@ -31,7 +31,7 @@ export default async function Home() {
   const { data: candidates } = await supabase
     .from("candidates")
     .select(
-      "id, display_name, country, role_category, monthly_rate, english_written_tier, speaking_level, availability_status, total_earnings_usd, lock_status, bio, us_client_experience, profile_photo_url"
+      "id, display_name, country, role_category, hourly_rate, english_written_tier, speaking_level, availability_status, total_earnings_usd, lock_status, bio, us_client_experience, profile_photo_url"
     )
     .eq("admin_status", "approved")
     .order("created_at", { ascending: false })
