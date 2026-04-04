@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { CandidateData } from "@/app/(main)/apply/page";
 
@@ -90,6 +90,76 @@ const US_EXPERIENCE_OPTIONS = [
   { value: "international_only", label: "No, but I have worked with other international clients" },
   { value: "none", label: "No, this would be my first international role" },
 ];
+
+// ─── Queue Poller — keeps polling until candidate record is ready ───
+function QueuePoller({ queueId, onComplete }: { queueId: string; onComplete: (data: CandidateData) => void }) {
+  const [dots, setDots] = useState("");
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Animate dots
+    const dotInterval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 500);
+
+    // Poll for completion
+    intervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/application-queue/submit");
+        const data = await res.json();
+
+        if (data.status === "complete" && data.candidate_id) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          clearInterval(dotInterval);
+
+          const supabase = createClient();
+          const { data: candidateData } = await supabase
+            .from("candidates")
+            .select("*")
+            .eq("id", data.candidate_id)
+            .single();
+
+          if (candidateData) {
+            onComplete(candidateData as CandidateData);
+          } else {
+            // Candidate record not found yet — keep polling
+          }
+        } else if (data.status === "failed") {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          clearInterval(dotInterval);
+          window.location.reload();
+        }
+      } catch { /* keep polling */ }
+    }, 2000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      clearInterval(dotInterval);
+    };
+  }, [queueId, onComplete]);
+
+  return (
+    <div className="mx-auto max-w-xl px-6 py-16 text-center">
+      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </div>
+      <h1 className="text-2xl font-bold text-[#1C1B1A]">Application Received</h1>
+      <p className="mt-3 text-gray-500">
+        Setting up your account{dots}
+      </p>
+      <div className="mt-6">
+        <div className="mx-auto h-1.5 w-48 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-full animate-pulse rounded-full bg-[#FE6E3E]" style={{ width: "60%" }} />
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-gray-400">
+        This will only take a moment. You&apos;ll be redirected automatically.
+      </p>
+    </div>
+  );
+}
 
 interface Props {
   onComplete: (data: CandidateData) => void;
@@ -392,33 +462,10 @@ export default function ApplicationForm({ onComplete }: Props) {
     }, 1000);
   }
 
-  // ─── QUEUE CONFIRMATION ───
+  // ─── QUEUE CONFIRMATION — auto-poll until processed ───
   if (queueId) {
     return (
-      <div className="mx-auto max-w-xl px-6 py-16 text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-[#1C1B1A]">Application Received</h1>
-        <p className="mt-3 text-gray-500">
-          Check your email within the next hour for next steps.
-        </p>
-        <div className="mt-6 rounded-lg bg-gray-50 border border-gray-200 p-4">
-          <p className="text-xs text-gray-400">Queue Reference</p>
-          <p className="mt-1 text-sm font-mono text-[#1C1B1A]">{queueId}</p>
-        </div>
-        <p className="mt-4 text-sm text-gray-400">
-          Your application is being processed. This page will update automatically.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 text-sm font-medium text-[#FE6E3E] hover:underline"
-        >
-          Refresh status
-        </button>
-      </div>
+      <QueuePoller queueId={queueId} onComplete={onComplete} />
     );
   }
 

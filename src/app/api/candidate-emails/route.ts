@@ -31,15 +31,16 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
     body: (name) => `
       <h2 style="color:#1C1B1A;">Application Received</h2>
       <p>Hi ${name},</p>
-      <p>Your application to StaffVA has been received and is being processed.</p>
-      <p><strong>What happens next:</strong></p>
+      <p>Your application to StaffVA has been received. You can continue your application process right now — no need to wait.</p>
+      <p><strong>Next steps:</strong></p>
       <ul>
-        <li>You will receive an English test invitation within the next hour</li>
-        <li>Complete the test to move to the next step</li>
-        <li>Candidates who complete all steps are eligible for our monthly giveaway</li>
+        <li>Complete identity verification</li>
+        <li>Take the English assessment (15 minutes)</li>
+        <li>Record voice samples</li>
+        <li>Build your profile</li>
       </ul>
-      <p>Keep an eye on your inbox — your test invitation is coming soon.</p>
-      <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Check Application Status</a>
+      <p>Candidates who complete all steps are eligible for our $3,000 monthly giveaway.</p>
+      <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Continue Application</a>
     `,
   },
 
