@@ -558,6 +558,103 @@ export default function CandidateDashboardPage() {
         </div>
       </div>
 
+      {/* ═══ PROGRESS TRACKER + NEXT STEP ═══ */}
+      {(() => {
+        const idVerified = candidate.id_verification_status === "passed";
+        const testDone = (candidate.english_mc_score ?? 0) > 0;
+        const aiDone = !!aiInterview && aiInterview.status === "completed" && aiInterview.passed;
+        const recruiterDone = aiInterview?.second_interview_status === "completed";
+        const profileLive = candidate.admin_status === "approved";
+
+        const stages = [
+          { label: "Application", done: true },
+          { label: "ID Verified", done: idVerified },
+          { label: "English Test", done: testDone },
+          { label: "AI Interview", done: aiDone },
+          { label: "Recruiter", done: recruiterDone },
+          { label: "Profile Live", done: profileLive },
+        ];
+
+        let currentIndex = stages.findIndex((s) => !s.done);
+        if (currentIndex === -1) currentIndex = stages.length;
+
+        let nextHeading = "";
+        let nextBody = "";
+        let nextHref = "";
+        let nextLabel = "";
+
+        if (!idVerified && !testDone) {
+          nextHeading = "Complete your application";
+          nextBody = "Continue your application to move to the English assessment.";
+          nextHref = "/apply"; nextLabel = "Continue Application";
+        } else if (!testDone) {
+          nextHeading = "Your English assessment is ready";
+          nextBody = "Complete it now to move forward. The test takes about 15 minutes.";
+          nextHref = "/apply"; nextLabel = "Start Assessment";
+        } else if (!idVerified) {
+          nextHeading = "Verify your identity";
+          nextBody = "Complete identity verification to unlock your test results.";
+          nextHref = "/apply"; nextLabel = "Verify Identity";
+        } else if (!aiDone) {
+          nextHeading = "You passed your English test";
+          nextBody = "Take your AI interview next to boost your profile ranking.";
+          nextHref = `https://interview.staffva.com?candidate=${candidate.id}`;
+          nextLabel = "Start AI Interview";
+        } else if (!recruiterDone) {
+          nextHeading = "Your application is with our team";
+          nextBody = "A recruiter will contact you within 48 hours to schedule your final interview.";
+        } else if (!profileLive) {
+          nextHeading = "Almost there";
+          nextBody = "Your profile is being reviewed by our team.";
+        } else {
+          nextHeading = "Your profile is live";
+          nextBody = "Clients can find you right now. Keep your profile updated to attract more attention.";
+          nextHref = `/candidate/${candidate.id}`; nextLabel = "View My Profile";
+        }
+
+        return (
+          <div className="mb-8">
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                {stages.map((stage, i) => (
+                  <div key={stage.label} className="flex items-center">
+                    <div className="flex flex-col items-center">
+                      {stage.done ? (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
+                          <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        </div>
+                      ) : i === currentIndex ? (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FE6E3E]/20 ring-2 ring-[#FE6E3E]">
+                          <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#FE6E3E]" />
+                        </div>
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
+                          <div className="h-2 w-2 rounded-full bg-gray-300" />
+                        </div>
+                      )}
+                      <span className={`mt-1.5 text-[9px] font-medium text-center leading-tight ${stage.done ? "text-green-600" : i === currentIndex ? "text-[#1C1B1A]" : "text-gray-400"}`}>{stage.label}</span>
+                    </div>
+                    {i < stages.length - 1 && (
+                      <div className={`mx-1 h-0.5 w-4 sm:w-8 lg:w-12 ${stage.done ? "bg-green-400" : "bg-gray-200"}`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 rounded-xl border border-[#FE6E3E]/20 bg-[#FE6E3E]/5 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#FE6E3E]">What to do next</p>
+              <h3 className="mt-1 text-lg font-semibold text-[#1C1B1A]">{nextHeading}</h3>
+              <p className="mt-1 text-sm text-gray-500">{nextBody}</p>
+              {nextHref && nextLabel && (
+                <a href={nextHref} target={nextHref.startsWith("http") ? "_blank" : undefined} rel={nextHref.startsWith("http") ? "noopener noreferrer" : undefined} className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors">
+                  {nextLabel}
+                </a>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Next Step Action Button */}
       {(() => {
         const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70 && (candidate.english_written_tier !== null);
