@@ -176,16 +176,56 @@ export async function POST(request: Request) {
 
   if (action === "update_spoken_score") {
     const { spokenScore, spokenResult } = body;
+    if (!spokenScore || spokenScore < 1 || spokenScore > 100) {
+      return NextResponse.json({ error: "Score must be between 1 and 100" }, { status: 400 });
+    }
+    if (spokenResult !== "pass" && spokenResult !== "fail") {
+      return NextResponse.json({ error: "Result must be pass or fail" }, { status: 400 });
+    }
+
     const supabaseAdmin = getAdminClient();
+
+    // Set admin_status based on result
+    const newAdminStatus = spokenResult === "pass" ? "under_review" : "rejected";
+
     await supabaseAdmin
       .from("candidates")
       .update({
         spoken_english_score: spokenScore,
         spoken_english_result: spokenResult,
+        admin_status: newAdminStatus,
       })
       .eq("id", candidateId);
 
-    return NextResponse.json({ success: true, action: "spoken_score_updated" });
+    // If fail — send rejection email
+    if (spokenResult === "fail") {
+      const { data: candidate } = await supabaseAdmin
+        .from("candidates")
+        .select("email, display_name, full_name")
+        .eq("id", candidateId)
+        .single();
+
+      if (candidate?.email) {
+        const firstName = (candidate.display_name || candidate.full_name || "").split(" ")[0] || "there";
+        await sendEmail(
+          candidate.email,
+          "Your StaffVA application was not successful",
+          `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+            <h2 style="color:#1C1B1A;">Application Update</h2>
+            <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
+            <p style="color:#444;font-size:14px;">Thank you for completing your interviews with StaffVA. After careful review, we are unable to approve your application at this time.</p>
+            <p style="color:#444;font-size:14px;">You are welcome to reapply in 90 days. We encourage you to continue building your skills and experience.</p>
+            <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
+          </div>`
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      action: "spoken_score_updated",
+      adminStatus: newAdminStatus,
+    });
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });

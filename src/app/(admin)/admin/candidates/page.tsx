@@ -146,7 +146,7 @@ function RecruiterScoringPanel({ candidate, onUpdate }: { candidate: Candidate; 
     setSavingSpoken(true);
 
     try {
-      await fetch("/api/admin/candidates/review", {
+      const res = await fetch("/api/admin/candidates/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -156,6 +156,12 @@ function RecruiterScoringPanel({ candidate, onUpdate }: { candidate: Candidate; 
           spokenResult,
         }),
       });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to save"); setSavingSpoken(false); return; }
+      // Show result feedback before reload
+      if (spokenResult === "fail") {
+        alert("Spoken English result: Fail. Candidate status set to rejected. Rejection email sent.");
+      }
       onUpdate();
     } catch {
       setError("Failed to save");
