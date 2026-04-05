@@ -312,12 +312,12 @@ export default function ApplyPage() {
       !!latest.payout_method &&
       latest.interview_consent !== false;
 
-    if (allComplete && latest.admin_status !== "approved") {
-      // Auto-approve profile — candidate can start AI interview immediately
+    if (allComplete && !["approved", "under_review", "changes_requested", "pending_speaking_review"].includes(latest.admin_status)) {
+      // Set to pending — candidate enters the recruiter pipeline
       await supabase
         .from("candidates")
         .update({
-          admin_status: "approved",
+          admin_status: "pending_speaking_review",
           profile_completed_at: new Date().toISOString(),
         })
         .eq("id", latest.id);

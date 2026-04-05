@@ -736,28 +736,20 @@ export default function CandidateDashboardPage() {
         const changesRequested = candidate.admin_status === "changes_requested";
         const profileLive = candidate.admin_status === "approved";
 
-        // 7-stage progress bar with correct completion conditions
-        // If admin_status is approved, all prior stages are implicitly complete
-        // (candidate may have been approved through legacy or admin-override flow)
-        const isApproved = candidate.admin_status === "approved";
-
-        const englishTestDone = testSubmitted && (!!candidate.results_display_unlocked || isApproved);
-        const recruiterInterviewDone = (recruiterDone && spokenScored) || isApproved;
-        const profileReviewDone = isApproved;
-        const profileLiveConfirmed = isApproved && !!candidate.profile_went_live_at;
-
-        // If approved, mark all stages before Review as done
-        const aiDoneForTracker = aiDone || isApproved;
-        const idVerifiedForTracker = idVerified || isApproved;
+        // 7-stage progress bar — each stage reflects actual DB state
+        const englishTestDone = testSubmitted && !!candidate.results_display_unlocked;
+        const recruiterInterviewDone = recruiterDone && spokenScored;
+        const profileReviewDone = candidate.admin_status === "approved";
+        const profileLiveConfirmed = profileLive && !!candidate.profile_went_live_at;
 
         const stages = [
           { label: "Application", done: true },
-          { label: "English Test", done: englishTestDone || isApproved },
-          { label: "ID Verified", done: idVerifiedForTracker },
-          { label: "AI Interview", done: aiDoneForTracker },
+          { label: "English Test", done: englishTestDone },
+          { label: "ID Verified", done: idVerified },
+          { label: "AI Interview", done: aiDone },
           { label: "Recruiter", done: recruiterInterviewDone },
           { label: "Review", done: profileReviewDone },
-          { label: "Live", done: profileLiveConfirmed || isApproved },
+          { label: "Live", done: profileLiveConfirmed },
         ];
 
         // Profile Review is active during both under_review and changes_requested
@@ -779,12 +771,7 @@ export default function CandidateDashboardPage() {
         let nextHref = "";
         let nextLabel = "";
 
-        if (isApproved) {
-          // Stage 9: Profile live — override all other checks
-          nextHeading = "Your profile is live";
-          nextBody = "Clients can find you right now.";
-          nextHref = `/candidate/${candidate.id}`; nextLabel = "View My Profile";
-        } else if (!testSubmitted) {
+        if (!testSubmitted) {
           // Stage 1: English test not started
           nextHeading = "Your application is received";
           nextBody = "Your English assessment is ready when you are.";

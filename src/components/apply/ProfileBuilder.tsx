@@ -518,7 +518,7 @@ export default function ProfileBuilder({
         availability_status: availability,
         availability_date:
           availability === "available_by_date" ? availabilityDate : null,
-        admin_status: "approved",
+        admin_status: "pending_speaking_review",
         profile_completed_at: new Date().toISOString(),
         interview_consent: interviewConsent,
         interview_consent_at: interviewConsent ? new Date().toISOString() : null,
