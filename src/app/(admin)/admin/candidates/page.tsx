@@ -271,6 +271,178 @@ function RecruiterScoringPanel({ candidate, onUpdate }: { candidate: Candidate; 
           </div>
         )}
       </div>
+
+      {/* Step 3: Profile Review — unlocked only on pass */}
+      <ProfileReviewStep candidate={candidate} step2Done={step2Done} />
+    </div>
+  );
+}
+
+// ─── Step 3: Profile Review ───
+function ProfileReviewStep({ candidate, step2Done }: { candidate: Candidate; step2Done: boolean }) {
+  const step3Unlocked = step2Done && candidate.spoken_english_result === "pass";
+  const alreadyApproved = candidate.admin_status === "approved";
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [changeAreas, setChangeAreas] = useState<Record<string, boolean>>({});
+  const [changeInstructions, setChangeInstructions] = useState<Record<string, string>>({});
+  const [generalNote, setGeneralNote] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  const AREAS = ["Profile Photo", "Bio and Tagline", "Work Experience", "Key Skills", "Tools and Softwares", "Voice Recordings", "Other"];
+
+  async function handleApprove() {
+    if (!confirm("Approve this candidate and push their profile live?")) return;
+    setProcessing(true);
+    await fetch("/api/admin/profile-review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidateId: candidate.id, action: "approve" }),
+    });
+    window.location.reload();
+  }
+
+  async function handleSubmitChanges() {
+    const items = AREAS.filter((a) => changeAreas[a]).map((a) => ({
+      area: a,
+      instruction: changeInstructions[a]?.trim() || "Please update this section",
+    }));
+    if (items.length === 0) return;
+    setProcessing(true);
+    await fetch("/api/admin/profile-review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidateId: candidate.id, action: "request_changes", changeItems: items, generalNote: generalNote.trim() || null }),
+    });
+    window.location.reload();
+  }
+
+  const tools = candidate.tools || [];
+  const workExp = candidate.work_experience || [];
+
+  return (
+    <div className={`rounded-xl border p-5 ${!step3Unlocked ? "opacity-40 pointer-events-none border-gray-200 bg-gray-50" : alreadyApproved ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-white"}`}>
+      <div className="flex items-center gap-2 mb-3">
+        {alreadyApproved ? (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+          </div>
+        ) : (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-300 text-white text-xs font-bold">3</div>
+        )}
+        <p className="text-sm font-semibold text-[#1C1B1A]">Profile Review</p>
+        {!step3Unlocked && <span className="text-[10px] text-gray-400 ml-auto">Complete Step 2 with Pass first</span>}
+        {alreadyApproved && <span className="text-[10px] text-green-600 ml-auto">Profile is live</span>}
+      </div>
+
+      {step3Unlocked && !alreadyApproved && (
+        <>
+          {/* Profile Preview */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                {candidate.profile_photo_url ? (
+                  <img src={candidate.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-400">{candidate.display_name?.[0]}</div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#1C1B1A]">{candidate.full_name}</p>
+                <p className="text-xs text-gray-500">{candidate.role_category} &middot; {candidate.country}</p>
+              </div>
+            </div>
+
+            {candidate.tagline && <p className="text-xs text-gray-600 italic">{candidate.tagline}</p>}
+            {candidate.bio && <p className="text-xs text-gray-600">{candidate.bio}</p>}
+
+            {/* Badges */}
+            <div className="flex flex-wrap gap-1.5">
+              {candidate.english_written_tier && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">{candidate.english_written_tier}</span>}
+              {candidate.speaking_level && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">{candidate.speaking_level}</span>}
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{candidate.years_experience} yrs</span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">${candidate.hourly_rate}/hr</span>
+            </div>
+
+            {/* Skills & Tools */}
+            {tools.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Tools</p>
+                <div className="flex flex-wrap gap-1">{tools.map((t) => <span key={t} className="rounded bg-white border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">{t}</span>)}</div>
+              </div>
+            )}
+
+            {/* Work Experience */}
+            {workExp.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Experience</p>
+                {workExp.map((e, i) => (
+                  <p key={i} className="text-[10px] text-gray-600">{e.role_title} — {e.industry} ({e.duration})</p>
+                ))}
+              </div>
+            )}
+
+            {/* Audio */}
+            {candidate.voice_recording_1_url && (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Voice Recordings</p>
+                <AudioPlayer storagePath={candidate.voice_recording_1_url} label="Oral Reading" />
+                {candidate.voice_recording_2_url && <div className="mt-2"><AudioPlayer storagePath={candidate.voice_recording_2_url} label="Self Introduction" /></div>}
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button onClick={handleApprove} disabled={processing} className="flex-1 rounded-lg bg-[#FE6E3E] py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50">
+              {processing ? "Processing..." : "Approve & Push Live"}
+            </button>
+            <button onClick={() => setShowChangeModal(true)} disabled={processing} className="flex-1 rounded-lg border-2 border-[#1C1B1A] py-2.5 text-sm font-semibold text-[#1C1B1A] hover:bg-gray-50 disabled:opacity-50">
+              Request Changes
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Change Request Modal */}
+      {showChangeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowChangeModal(false)}>
+          <div className="mx-auto w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-[#1C1B1A]">Request Profile Changes</h2>
+            <p className="mt-1 text-xs text-gray-500">Check all areas that need changes and describe what is needed.</p>
+
+            <div className="mt-4 space-y-3">
+              {AREAS.map((area) => (
+                <div key={area}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={!!changeAreas[area]} onChange={(e) => setChangeAreas({ ...changeAreas, [area]: e.target.checked })} className="accent-[#FE6E3E] h-4 w-4" />
+                    <span className="text-sm font-medium text-[#1C1B1A]">{area}</span>
+                  </label>
+                  {changeAreas[area] && (
+                    <input
+                      value={changeInstructions[area] || ""}
+                      onChange={(e) => setChangeInstructions({ ...changeInstructions, [area]: e.target.value })}
+                      placeholder="Describe the specific change needed"
+                      className="mt-1.5 ml-6 w-[calc(100%-24px)] rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-500 mb-1">General Note (optional)</label>
+              <textarea value={generalNote} onChange={(e) => setGeneralNote(e.target.value)} rows={2} placeholder="Any additional notes for the candidate" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]" />
+            </div>
+
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => setShowChangeModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSubmitChanges} disabled={processing || !AREAS.some((a) => changeAreas[a])} className="rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50">
+                {processing ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
