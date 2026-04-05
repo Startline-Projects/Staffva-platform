@@ -50,6 +50,8 @@ interface CandidateData {
   spoken_english_score: number | null;
   spoken_english_result: string | null;
   id_verification_consent: boolean | null;
+  results_display_unlocked: boolean | null;
+  profile_went_live_at: string | null;
   video_intro_admin_note: string | null;
 }
 
@@ -348,6 +350,57 @@ const TIER_COLORS: Record<string, { bg: string; text: string }> = {
   Established: { bg: "bg-gray-500", text: "text-white" },
 };
 
+function MobileProgressTracker({ currentIndex, currentStageName, progressPercent, stages }: {
+  currentIndex: number; currentStageName: string; progressPercent: number;
+  stages: { label: string; done: boolean }[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="sm:hidden">
+      {/* Collapsed view */}
+      <button onClick={() => setExpanded(!expanded)} className="w-full text-left">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400">Stage {Math.min(currentIndex + 1, stages.length)} of {stages.length}</p>
+            <p className="text-sm font-semibold text-[#1C1B1A]">{currentStageName}</p>
+          </div>
+          <svg className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </div>
+        <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+          <div className="h-1.5 rounded-full bg-[#FE6E3E] transition-all" style={{ width: `${progressPercent}%` }} />
+        </div>
+      </button>
+
+      {/* Expanded: all 7 stages */}
+      {expanded && (
+        <div className="mt-4 space-y-2">
+          {stages.map((stage, i) => (
+            <div key={stage.label} className="flex items-center gap-3">
+              {stage.done ? (
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500">
+                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                </div>
+              ) : i === currentIndex ? (
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FE6E3E]/20 ring-2 ring-[#FE6E3E]">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-[#FE6E3E]" />
+                </div>
+              ) : (
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                </div>
+              )}
+              <span className={`text-sm ${stage.done ? "text-green-600 font-medium" : i === currentIndex ? "text-[#1C1B1A] font-medium" : "text-gray-400"}`}>{stage.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AIInterviewDimensions({ candidateId }: { candidateId: string }) {
   const [dimensions, setDimensions] = useState<{ label: string; score: number }[] | null>(null);
 
@@ -494,7 +547,7 @@ export default function CandidateDashboardPage() {
 
       const { data: c } = await supabase
         .from("candidates")
-        .select("id, display_name, admin_status, role_category, hourly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, id_verification_consent, application_step, video_intro_status, video_intro_url, video_intro_admin_note, spoken_english_score, spoken_english_result")
+        .select("id, display_name, admin_status, role_category, hourly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, id_verification_consent, application_step, video_intro_status, video_intro_url, video_intro_admin_note, spoken_english_score, spoken_english_result, results_display_unlocked, profile_went_live_at")
         .eq("user_id", session.user.id)
         .single();
 
@@ -639,19 +692,34 @@ export default function CandidateDashboardPage() {
         const changesRequested = candidate.admin_status === "changes_requested";
         const profileLive = candidate.admin_status === "approved";
 
-        // 7-stage progress bar
+        // 7-stage progress bar with correct completion conditions
+        const englishTestDone = testSubmitted && !!candidate.results_display_unlocked;
+        const recruiterInterviewDone = recruiterDone && spokenScored;
+        const profileReviewDone = candidate.admin_status === "approved";
+        const profileLiveConfirmed = profileLive && !!candidate.profile_went_live_at;
+
         const stages = [
           { label: "Application", done: true },
-          { label: "English Test", done: testSubmitted },
+          { label: "English Test", done: englishTestDone },
           { label: "ID Verified", done: idVerified },
           { label: "AI Interview", done: aiDone },
-          { label: "Recruiter", done: recruiterDone },
-          { label: "Review", done: profileLive },
-          { label: "Live", done: profileLive },
+          { label: "Recruiter", done: recruiterInterviewDone },
+          { label: "Review", done: profileReviewDone },
+          { label: "Live", done: profileLiveConfirmed },
         ];
 
+        // Profile Review is active during both under_review and changes_requested
+        const reviewIsActive = recruiterInterviewDone && !profileReviewDone &&
+          (candidate.admin_status === "under_review" || changesRequested);
+
         let currentIndex = stages.findIndex((s) => !s.done);
+        // Override: if review is active, force currentIndex to 5 (Review stage)
+        if (reviewIsActive) currentIndex = 5;
         if (currentIndex === -1) currentIndex = stages.length;
+
+        const completedCount = stages.filter((s) => s.done).length;
+        const progressPercent = Math.round((completedCount / stages.length) * 100);
+        const currentStageName = currentIndex < stages.length ? stages[currentIndex].label : "Complete";
 
         // Determine which of the 9 message stages we're in
         let nextHeading = "";
@@ -727,7 +795,8 @@ export default function CandidateDashboardPage() {
         return (
           <div className="mb-8">
             <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <div className="flex items-center justify-between">
+              {/* Desktop: full horizontal tracker */}
+              <div className="hidden sm:flex items-center justify-between">
                 {stages.map((stage, i) => (
                   <div key={stage.label} className="flex items-center">
                     <div className="flex flex-col items-center">
@@ -747,11 +816,19 @@ export default function CandidateDashboardPage() {
                       <span className={`mt-1.5 text-[9px] font-medium text-center leading-tight ${stage.done ? "text-green-600" : i === currentIndex ? "text-[#1C1B1A]" : "text-gray-400"}`}>{stage.label}</span>
                     </div>
                     {i < stages.length - 1 && (
-                      <div className={`mx-1 h-0.5 w-4 sm:w-8 lg:w-12 ${stage.done ? "bg-green-400" : "bg-gray-200"}`} />
+                      <div className={`mx-1 h-0.5 w-6 lg:w-12 ${stage.done ? "bg-green-400" : "bg-gray-200"}`} />
                     )}
                   </div>
                 ))}
               </div>
+
+              {/* Mobile: collapsed view */}
+              <MobileProgressTracker
+                currentIndex={currentIndex}
+                currentStageName={currentStageName}
+                progressPercent={progressPercent}
+                stages={stages}
+              />
             </div>
             <div className="mt-3 rounded-xl border border-[#FE6E3E]/20 bg-[#FE6E3E]/5 p-5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#FE6E3E]">What to do next</p>
