@@ -29,6 +29,16 @@ const ROLE_CATEGORIES = [
   { group: "Other", roles: ["Other"] },
 ];
 
+const SKILLS_SUGGESTIONS = [
+  "Legal Research", "Contract Drafting", "Client Communication", "Document Review", "Case Management",
+  "Bookkeeping", "Financial Reporting", "Data Analysis", "Report Writing", "Project Management",
+  "Cold Calling", "Lead Generation", "Sales Outreach", "Appointment Setting", "CRM Management",
+  "SEO Strategy", "Content Strategy", "Email Marketing", "Social Media Management", "Paid Advertising",
+  "Written Communication", "Time Management", "Problem Solving", "Attention to Detail", "Organization",
+  "Medical Billing", "Insurance Verification", "Patient Scheduling", "HIPAA Compliance",
+  "Calendar Management", "Travel Coordination", "Customer Service", "Data Entry",
+];
+
 const TOOLS_SUGGESTIONS = ["Microsoft Office", "Google Workspace", "Zoom", "Slack", "Asana", "Trello", "Notion", "HubSpot", "Salesforce", "QuickBooks", "Clio", "Excel", "Canva", "Adobe"];
 
 const EXPERIENCE_OPTIONS = ["0-1", "1-3", "3-5", "5-10", "10+"];
@@ -282,6 +292,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
   const [tagline, setTagline] = useState(existingCandidate?.tagline || "");
   const [yearsExperience, setYearsExperience] = useState(existingCandidate?.years_experience || "");
   const [bio, setBio] = useState(existingCandidate?.bio || "");
+  const [skills, setSkills] = useState<string[]>(existingCandidate?.skills || []);
   const [tools, setTools] = useState<string[]>(existingCandidate?.tools || []);
   const [usExperience, setUsExperience] = useState(existingCandidate?.us_client_experience || "");
   const [usDescription, setUsDescription] = useState(existingCandidate?.us_client_description || "");
@@ -460,6 +471,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       tagline: tagline.trim(),
       years_experience: yearsExperience,
       bio: bio.trim(),
+      skills,
       tools,
       us_client_experience: usExperience,
       us_client_description: showUsDescription ? usDescription.trim() : null,
@@ -605,6 +617,11 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
             <label className="block text-sm font-medium text-text">Short Bio <span className="text-red-500">*</span></label>
             <textarea required maxLength={400} rows={4} value={bio} onChange={(e) => setBio(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Describe your background, key strengths, and what you bring to a client." />
             <p className="mt-1 text-xs text-gray-400">{bio.length}/400</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text mb-1">Key Skills</label>
+            <TagInput tags={skills} setTags={setSkills} max={10} placeholder="Type a skill and press Enter" suggestions={SKILLS_SUGGESTIONS} />
           </div>
 
           <div>
