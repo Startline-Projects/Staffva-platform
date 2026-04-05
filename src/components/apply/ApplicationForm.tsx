@@ -129,7 +129,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
   const [email, setEmail] = useState("");
   const [country, setCountry] = useState("");
   const [roleCategory, setRoleCategory] = useState("");
-  const [hasDegree, setHasDegree] = useState<boolean | null>(null);
 
   // Stage 2 fields
   const [tagline, setTagline] = useState(existingCandidate?.tagline || "");
@@ -348,57 +347,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
     }
 
     setLoading(false);
-  }
-
-  // ═══ DEGREE GATE ═══
-  if (stage === 0 && hasDegree === null) {
-    return (
-      <div className="mx-auto max-w-xl px-6 py-16 text-center">
-        <h1 className="text-2xl font-bold text-text">Before We Begin</h1>
-        <p className="mt-3 text-text/60">
-          StaffVA connects pre-vetted professionals with U.S. businesses. To ensure quality
-          standards, we require all candidates to hold at least a college-level degree or equivalent
-          professional certification.
-        </p>
-        <div className="mt-8 space-y-4">
-          <p className="text-sm font-medium text-text">
-            Do you have a college degree or equivalent professional certification?
-          </p>
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => setHasDegree(true)}
-              className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-            >
-              Yes, I do
-            </button>
-            <button
-              onClick={() => setHasDegree(false)}
-              className="rounded-lg border border-gray-300 px-8 py-3 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
-            >
-              No, I don&apos;t
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (stage === 0 && hasDegree === false) {
-    return (
-      <div className="mx-auto max-w-xl px-6 py-16 text-center">
-        <h1 className="text-2xl font-bold text-text">We Appreciate Your Interest</h1>
-        <p className="mt-3 text-text/60">
-          At this time, StaffVA requires a college degree or equivalent professional certification.
-          If you earn one in the future, we&apos;d love to have you apply again.
-        </p>
-        <button
-          onClick={() => setHasDegree(null)}
-          className="mt-6 text-sm text-primary hover:underline"
-        >
-          Go back
-        </button>
-      </div>
-    );
   }
 
   // ═══ STAGE 1: GET STARTED ═══
