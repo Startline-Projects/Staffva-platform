@@ -17,10 +17,9 @@ interface Props {
 }
 
 export default function VoiceRecording1({ candidateId, onComplete }: Props) {
-  const [phase, setPhase] = useState<"ready" | "recording" | "uploading">("ready");
+  const [phase, setPhase] = useState<"ready" | "recording">("ready");
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState("");
-  const [uploadProgress, setUploadProgress] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,38 +85,37 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
       return;
     }
 
-    await autoUpload(blob);
+    // Advance immediately — upload in background
+    const timestamp = Date.now();
+    const fullFileName = `${candidateId}/oral-reading-${timestamp}.webm`;
+    onComplete(fullFileName);
+
+    // Background upload with retries
+    backgroundUpload(blob, fullFileName, 3);
   }
 
-  async function autoUpload(blob: Blob) {
-    setPhase("uploading");
-    setUploadProgress("Uploading recording...");
-
+  async function backgroundUpload(blob: Blob, fileName: string, retriesLeft: number) {
     try {
       const supabase = createClient();
-      const timestamp = Date.now();
-      const fullFileName = `${candidateId}/oral-reading-${timestamp}.webm`;
 
       const { error: uploadError } = await supabase.storage
         .from("voice-recordings")
-        .upload(fullFileName, blob);
+        .upload(fileName, blob);
 
-      if (uploadError) {
-        setError("Failed to upload recording: " + uploadError.message);
-        setPhase("ready");
-        return;
-      }
+      if (uploadError) throw uploadError;
 
-      setUploadProgress("Saving...");
       await supabase
         .from("candidates")
-        .update({ voice_recording_1_url: fullFileName })
+        .update({ voice_recording_1_url: fileName })
         .eq("id", candidateId);
-
-      onComplete(fullFileName);
-    } catch {
-      setError("Upload failed. Please try again.");
-      setPhase("ready");
+    } catch (err) {
+      if (retriesLeft > 1) {
+        // Retry after 2 seconds
+        setTimeout(() => backgroundUpload(blob, fileName, retriesLeft - 1), 2000);
+      } else {
+        console.error("Background upload failed after retries:", err);
+        setError("We had trouble saving your recording. Please re-record this section.");
+      }
     }
   }
 
@@ -181,15 +179,6 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
               Minimum {MIN_RECORDING_SECONDS} seconds required ({MIN_RECORDING_SECONDS - recordingTime}s remaining)
             </p>
           )}
-        </div>
-      )}
-
-      {phase === "uploading" && (
-        <div className="mt-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" />
-          </div>
-          <p className="mt-4 text-sm text-gray-500">{uploadProgress}</p>
         </div>
       )}
 
