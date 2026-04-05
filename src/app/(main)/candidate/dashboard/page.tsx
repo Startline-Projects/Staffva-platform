@@ -47,6 +47,9 @@ interface CandidateData {
   application_step: string | null;
   video_intro_status: string | null;
   video_intro_url: string | null;
+  spoken_english_score: number | null;
+  spoken_english_result: string | null;
+  id_verification_consent: boolean | null;
   video_intro_admin_note: string | null;
 }
 
@@ -480,6 +483,7 @@ export default function CandidateDashboardPage() {
   const [aiInterview, setAiInterview] = useState<AIInterviewData | null>(null);
   const [retakeData, setRetakeData] = useState<RetakeData | null>(null);
   const [hasPortfolio, setHasPortfolio] = useState(false);
+  const [changeRequests, setChangeRequests] = useState<{ area: string; instruction: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -490,7 +494,7 @@ export default function CandidateDashboardPage() {
 
       const { data: c } = await supabase
         .from("candidates")
-        .select("id, display_name, admin_status, role_category, hourly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, application_step, video_intro_status, video_intro_url, video_intro_admin_note")
+        .select("id, display_name, admin_status, role_category, hourly_rate, availability_status, total_earnings_usd, profile_photo_url, english_written_tier, speaking_level, tagline, bio, skills, tools, work_experience, resume_url, payout_method, english_mc_score, voice_recording_1_url, voice_recording_2_url, profile_completed_at, id_verification_status, id_verification_consent, application_step, video_intro_status, video_intro_url, video_intro_admin_note, spoken_english_score, spoken_english_result")
         .eq("user_id", session.user.id)
         .single();
 
@@ -530,6 +534,21 @@ export default function CandidateDashboardPage() {
           .limit(1)
           .maybeSingle();
         if (retake) setRetakeData(retake as RetakeData);
+      }
+
+      // Load pending change requests
+      if (c && c.admin_status === "changes_requested") {
+        const { data: cr } = await supabase
+          .from("candidate_change_requests")
+          .select("change_items")
+          .eq("candidate_id", c!.id)
+          .eq("status", "pending")
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cr?.change_items && Array.isArray(cr.change_items)) {
+          setChangeRequests(cr.change_items as { area: string; instruction: string }[]);
+        }
       }
 
       try {
@@ -605,45 +624,57 @@ export default function CandidateDashboardPage() {
         </div>
       </div>
 
-      {/* ═══ PROGRESS TRACKER + NEXT STEP ═══ */}
+      {/* ═══ PROGRESS TRACKER + NEXT STEP (9-stage pipeline) ═══ */}
       {(() => {
+        // Derive stage from actual DB fields
+        const testSubmitted = (candidate.english_mc_score ?? 0) > 0;
+        const idConsentGiven = !!candidate.id_verification_consent;
         const idVerified = candidate.id_verification_status === "passed";
-        const testDone = (candidate.english_mc_score ?? 0) > 0;
+        const idManualReview = candidate.id_verification_status === "manual_review";
         const aiDone = !!aiInterview && aiInterview.status === "completed" && aiInterview.passed;
+        const recruiterScheduled = aiInterview?.second_interview_status === "scheduled";
         const recruiterDone = aiInterview?.second_interview_status === "completed";
+        const spokenScored = (candidate.spoken_english_score ?? 0) > 0;
+        const profileUnderReview = recruiterDone && spokenScored && candidate.admin_status !== "approved" && candidate.admin_status !== "changes_requested";
+        const changesRequested = candidate.admin_status === "changes_requested";
         const profileLive = candidate.admin_status === "approved";
 
+        // 7-stage progress bar
         const stages = [
           { label: "Application", done: true },
+          { label: "English Test", done: testSubmitted },
           { label: "ID Verified", done: idVerified },
-          { label: "English Test", done: testDone },
           { label: "AI Interview", done: aiDone },
           { label: "Recruiter", done: recruiterDone },
-          { label: "Profile Live", done: profileLive },
+          { label: "Review", done: profileLive },
+          { label: "Live", done: profileLive },
         ];
 
         let currentIndex = stages.findIndex((s) => !s.done);
         if (currentIndex === -1) currentIndex = stages.length;
 
+        // Determine which of the 9 message stages we're in
         let nextHeading = "";
         let nextBody = "";
         let nextHref = "";
         let nextLabel = "";
 
-        if (!idVerified && !testDone) {
-          nextHeading = "Complete your application";
-          nextBody = "Continue your application to move to the English assessment.";
-          nextHref = "/apply"; nextLabel = "Continue Application";
-        } else if (!testDone) {
-          nextHeading = "Your English assessment is ready";
-          nextBody = "Complete it now to move forward. The test takes about 15 minutes.";
+        if (!testSubmitted) {
+          // Stage 1: English test not started
+          nextHeading = "Your application is received";
+          nextBody = "Your English assessment is ready when you are.";
           nextHref = "/apply"; nextLabel = "Start Assessment";
-        } else if (!idVerified) {
-          nextHeading = "Verify your identity";
-          nextBody = "Complete identity verification to unlock your test results.";
-          nextHref = "/apply"; nextLabel = "Verify Identity";
-        } else if (!aiDone) {
-          // Check if AI interview was completed but failed
+        } else if (testSubmitted && !idConsentGiven && !idVerified) {
+          // Stage 2: Test submitted, awaiting ID verification
+          nextHeading = "Your assessment has been submitted";
+          nextBody = "Complete your identity verification to see your results.";
+          nextHref = "/apply"; nextLabel = "Verify My Identity";
+        } else if (idManualReview && !idVerified) {
+          // Stage 3: ID verification pending manual review
+          nextHeading = "Your identity is being reviewed by our team";
+          nextBody = "You will receive your results by email within 48 hours.";
+        } else if (idVerified && !aiDone) {
+          // Stage 4: ID verified, AI interview not started
           const aiFailed = !!aiInterview && aiInterview.status === "completed" && !aiInterview.passed;
           const aiInProgress = !!aiInterview && aiInterview.status === "in_progress";
           if (aiFailed) {
@@ -655,21 +686,42 @@ export default function CandidateDashboardPage() {
             nextHref = `https://interview.staffva.com?candidate=${candidate.id}`;
             nextLabel = "Continue Interview";
           } else {
-            nextHeading = "You passed your English test";
-            nextBody = "Take your AI interview next to boost your profile ranking.";
+            nextHeading = "Your English test results are ready";
+            nextBody = "Complete your AI interview to continue.";
             nextHref = `https://interview.staffva.com?candidate=${candidate.id}`;
             nextLabel = "Start AI Interview";
           }
-        } else if (!recruiterDone) {
+        } else if (aiDone && !recruiterScheduled && !recruiterDone) {
+          // Stage 5: AI interview complete, awaiting recruiter
           nextHeading = "Your AI interview is complete";
           nextBody = "A recruiter will contact you within 48 hours to schedule your second interview.";
-        } else if (!profileLive) {
-          nextHeading = "Almost there";
-          nextBody = "Your profile is being reviewed by our team.";
-        } else {
+        } else if (recruiterScheduled && !recruiterDone) {
+          // Stage 6: Recruiter interview scheduled
+          nextHeading = "Your recruiter interview is scheduled";
+          nextBody = "Check your email for the details.";
+        } else if (profileUnderReview) {
+          // Stage 7: Recruiter interview complete + spoken scored, under review
+          nextHeading = "Your profile is under review";
+          nextBody = "Our team is carefully reviewing your profile, voice recordings, and experience. We will be in touch soon.";
+        } else if (changesRequested) {
+          // Stage 8: Recruiter requested changes
+          nextHeading = "Your reviewer has requested some updates";
+          nextBody = "Your profile needs a few updates before it can go live. See the requested changes below and resubmit when ready.";
+          nextHref = "/apply"; nextLabel = "Update My Profile";
+        } else if (profileLive) {
+          // Stage 9: Profile live
           nextHeading = "Your profile is live";
-          nextBody = "Clients can find you right now. Keep your profile updated to attract more attention.";
+          nextBody = "Clients can find you right now.";
           nextHref = `/candidate/${candidate.id}`; nextLabel = "View My Profile";
+        } else if (recruiterDone && !spokenScored) {
+          // Recruiter done but spoken not scored yet — waiting
+          nextHeading = "Your recruiter interview is complete";
+          nextBody = "Our team is processing your results. We will be in touch soon.";
+        } else {
+          // Fallback
+          nextHeading = "Continue your application";
+          nextBody = "Complete the next step to move forward.";
+          nextHref = "/apply"; nextLabel = "Continue";
         }
 
         return (
@@ -705,6 +757,19 @@ export default function CandidateDashboardPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#FE6E3E]">What to do next</p>
               <h3 className="mt-1 text-lg font-semibold text-[#1C1B1A]">{nextHeading}</h3>
               <p className="mt-1 text-sm text-gray-500">{nextBody}</p>
+
+              {/* Change requests list for Stage 8 */}
+              {changesRequested && changeRequests.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {changeRequests.map((cr, idx) => (
+                    <div key={idx} className="rounded-lg bg-white border border-gray-200 px-3 py-2">
+                      <p className="text-xs font-semibold text-[#1C1B1A]">{cr.area}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{cr.instruction}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {nextHref && nextLabel && (
                 <a href={nextHref} target={nextHref.startsWith("http") ? "_blank" : undefined} rel={nextHref.startsWith("http") ? "noopener noreferrer" : undefined} className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors">
                   {nextLabel}
