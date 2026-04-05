@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   validateAudio,
-  createPlaybackUrl,
-  revokePlaybackUrl,
 } from "@/lib/audioUtils";
 
 const ORAL_PASSAGE = `Thank you for taking the time to meet with me today. I wanted to follow up on the invoices we discussed last week. Three of them are still showing as unpaid in our system, and the due dates have already passed. I have attached the updated statements to this email for your reference. Please let me know if there is anything missing or if you need me to resend any of the original documents. I am available this week if you would like to schedule a call to go over the details together.`;
@@ -26,7 +24,6 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
   const [countdown, setCountdown] = useState(SILENT_READ_TIME);
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState("");
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -37,9 +34,8 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       mediaRecorderRef.current?.stream?.getTracks().forEach((t) => t.stop());
-      if (playbackUrl) revokePlaybackUrl(playbackUrl);
     };
-  }, [playbackUrl]);
+  }, []);
 
   function startSilentRead() {
     setPhase("silent_read");
@@ -112,57 +108,43 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
       return;
     }
 
-    // Create playback URL for review
-    const url = createPlaybackUrl(blob);
-    setPlaybackUrl(url);
-    setPhase("review");
+    // Skip review for oral reading — upload immediately and advance
+    await autoUpload(blob);
   }
 
-  async function confirmAndUpload() {
-    if (!recordedBlobRef.current) return;
+  async function autoUpload(blob: Blob) {
     setPhase("uploading");
-    setError("");
+    setUploadProgress("Uploading recording...");
 
     try {
-      setUploadProgress("Uploading recording...");
       const supabase = createClient();
       const timestamp = Date.now();
       const fullFileName = `${candidateId}/oral-reading-${timestamp}.webm`;
 
-      // Upload raw recording directly — no compression or preview generation
       const { error: uploadError } = await supabase.storage
         .from("voice-recordings")
-        .upload(fullFileName, recordedBlobRef.current);
+        .upload(fullFileName, blob);
 
       if (uploadError) {
         setError("Failed to upload recording: " + uploadError.message);
-        setPhase("review");
+        setPhase("instructions");
         return;
       }
 
-      // Update candidate record
       setUploadProgress("Saving...");
       await supabase
         .from("candidates")
-        .update({
-          voice_recording_1_url: fullFileName,
-        })
+        .update({ voice_recording_1_url: fullFileName })
         .eq("id", candidateId);
-
-      // Clean up playback URL
-      if (playbackUrl) revokePlaybackUrl(playbackUrl);
-      setPlaybackUrl(null);
 
       onComplete(fullFileName);
     } catch {
       setError("Upload failed. Please try again.");
-      setPhase("review");
+      setPhase("instructions");
     }
   }
 
   function retryRecording() {
-    if (playbackUrl) revokePlaybackUrl(playbackUrl);
-    setPlaybackUrl(null);
     recordedBlobRef.current = null;
     setError("");
     setPhase("instructions");
@@ -305,57 +287,7 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
         </div>
       )}
 
-      {phase === "review" && playbackUrl && (
-        <div className="mt-8">
-          <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <svg
-                className="h-6 w-6 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-[#1C1B1A]">
-              Review Your Recording
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Listen to your recording and confirm it is clear before
-              submitting.
-            </p>
-
-            <div className="mt-4">
-              <audio
-                controls
-                src={playbackUrl}
-                className="mx-auto w-full max-w-md"
-              />
-            </div>
-
-            <div className="mt-6 flex justify-center gap-3">
-              <button
-                onClick={retryRecording}
-                className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors"
-              >
-                Re-record
-              </button>
-              <button
-                onClick={confirmAndUpload}
-                className="rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-              >
-                Confirm &amp; Submit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Oral reading skips review — uploads and advances automatically */}
 
       {phase === "uploading" && (
         <div className="mt-8 text-center">
