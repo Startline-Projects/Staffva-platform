@@ -95,6 +95,178 @@ interface Candidate {
   has_headset: boolean | null;
   has_webcam: boolean | null;
   speed_test_url: string | null;
+  second_interview_status: string | null;
+  spoken_english_score: number | null;
+  spoken_english_result: string | null;
+  recruiter_ai_score_results: { dimension: string; score: number; justification: string }[] | null;
+}
+
+// ─── Recruiter Post-Interview Scoring Panel ───
+function RecruiterScoringPanel({ candidate, onUpdate }: { candidate: Candidate; onUpdate: () => void }) {
+  const [notes, setNotes] = useState("");
+  const [scoring, setScoring] = useState(false);
+  const [error, setError] = useState("");
+  const [results, setResults] = useState<{ dimension: string; score: number; justification: string }[] | null>(
+    candidate.recruiter_ai_score_results || null
+  );
+
+  // Step 2 state
+  const [spokenScore, setSpokenScore] = useState(candidate.spoken_english_score || 0);
+  const [spokenResult, setSpokenResult] = useState(candidate.spoken_english_result || "");
+  const [savingSpoken, setSavingSpoken] = useState(false);
+
+  const step1Done = !!results && results.length > 0;
+  const step2Done = (candidate.spoken_english_score ?? 0) > 0;
+
+  async function handleAIScoring() {
+    if (!notes.trim()) { setError("Please enter interview notes"); return; }
+    setScoring(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/recruiter-scoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: candidate.id, interviewNotes: notes.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "AI scoring failed"); setScoring(false); return; }
+      setResults(data.scores);
+      onUpdate();
+    } catch {
+      setError("AI scoring failed. Please try again.");
+    }
+    setScoring(false);
+  }
+
+  async function handleSaveSpoken() {
+    if (!step1Done) { setError("Please complete the AI scoring step first."); return; }
+    if (spokenScore < 1 || spokenScore > 100) { setError("Score must be between 1 and 100"); return; }
+    if (!spokenResult) { setError("Please select Pass or Fail"); return; }
+    setSavingSpoken(true);
+
+    try {
+      await fetch("/api/admin/candidates/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidateId: candidate.id,
+          action: "update_spoken_score",
+          spokenScore,
+          spokenResult,
+        }),
+      });
+      onUpdate();
+    } catch {
+      setError("Failed to save");
+    }
+    setSavingSpoken(false);
+  }
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-sm font-semibold text-[#1C1B1A]">Post-Interview Scoring</h3>
+
+      {/* Step 1: AI Interview Scoring */}
+      <div className={`rounded-xl border p-5 ${step1Done ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-white"}`}>
+        <div className="flex items-center gap-2 mb-3">
+          {step1Done ? (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+              <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+            </div>
+          ) : (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FE6E3E] text-white text-xs font-bold">1</div>
+          )}
+          <p className="text-sm font-semibold text-[#1C1B1A]">AI Interview Scoring</p>
+        </div>
+
+        {!step1Done && (
+          <>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={5}
+              placeholder="Enter your interview notes and observations from the second interview."
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
+            />
+            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+            <button
+              onClick={handleAIScoring}
+              disabled={scoring}
+              className="mt-3 rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors disabled:opacity-50"
+            >
+              {scoring ? "Scoring..." : "Submit to AI Scoring"}
+            </button>
+          </>
+        )}
+
+        {/* Display AI scoring results */}
+        {results && results.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {results.map((r) => (
+              <div key={r.dimension} className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-[#1C1B1A]">{r.dimension}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{r.justification}</p>
+                </div>
+                <span className="shrink-0 text-sm font-bold text-[#FE6E3E]">{r.score}/5</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Step 2: Spoken English Scoring — locked until Step 1 done */}
+      <div className={`rounded-xl border p-5 ${!step1Done ? "opacity-50 pointer-events-none border-gray-200 bg-gray-50" : step2Done ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-white"}`}>
+        <div className="flex items-center gap-2 mb-3">
+          {step2Done ? (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+              <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+            </div>
+          ) : (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-300 text-white text-xs font-bold">2</div>
+          )}
+          <p className="text-sm font-semibold text-[#1C1B1A]">Spoken English Scoring</p>
+          {!step1Done && <span className="text-[10px] text-gray-400 ml-auto">Complete Step 1 first</span>}
+        </div>
+
+        {step1Done && !step2Done && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Spoken English Score (1-100)</label>
+              <input type="number" min={1} max={100} value={spokenScore || ""} onChange={(e) => setSpokenScore(parseInt(e.target.value) || 0)} className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Spoken English Result</label>
+              <select value={spokenResult} onChange={(e) => setSpokenResult(e.target.value)} className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]">
+                <option value="">Select</option>
+                <option value="pass">Pass</option>
+                <option value="fail">Fail</option>
+              </select>
+            </div>
+            <button onClick={handleSaveSpoken} disabled={savingSpoken} className="rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50">
+              {savingSpoken ? "Saving..." : "Save Spoken Score"}
+            </button>
+          </div>
+        )}
+
+        {step2Done && (
+          <div className="flex gap-4">
+            <div className="rounded-lg bg-white border border-gray-200 px-4 py-2 text-center">
+              <p className="text-xs text-gray-400">Score</p>
+              <p className="text-lg font-bold text-[#1C1B1A]">{candidate.spoken_english_score}/100</p>
+            </div>
+            <div className="rounded-lg bg-white border border-gray-200 px-4 py-2 text-center">
+              <p className="text-xs text-gray-400">Result</p>
+              <p className={`text-lg font-bold ${candidate.spoken_english_result === "pass" ? "text-green-600" : "text-red-600"}`}>
+                {candidate.spoken_english_result === "pass" ? "Pass" : "Fail"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function CandidateReviewPage() {
@@ -613,7 +785,7 @@ export default function CandidateReviewPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-200">
                     <div className="flex border-b border-gray-200 px-6">
-                      {["overview", "recordings", "interviews", "profile", "test"].map((t) => (
+                      {[...["overview", "recordings", "interviews", "profile", "test"], ...(c.second_interview_status === "completed" ? ["scoring"] : [])].map((t) => (
                         <button
                           key={t}
                           onClick={() => setTab(c.id, t)}
@@ -835,6 +1007,10 @@ export default function CandidateReviewPage() {
                             })()}
                           </div>
                         </div>
+                      )}
+
+                      {tab === "scoring" && c.second_interview_status === "completed" && (
+                        <RecruiterScoringPanel candidate={c} onUpdate={() => window.location.reload()} />
                       )}
                     </div>
                   </div>

@@ -49,7 +49,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const { candidateId, action, speakingLevel, revisionNote } = await request.json();
+  const body = await request.json();
+  const { candidateId, action, speakingLevel, revisionNote } = body;
 
   if (!candidateId || !action) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -171,6 +172,20 @@ export async function POST(request: Request) {
 
   if (action === "flag") {
     return NextResponse.json({ success: true, action: "flagged" });
+  }
+
+  if (action === "update_spoken_score") {
+    const { spokenScore, spokenResult } = body;
+    const supabaseAdmin = getAdminClient();
+    await supabaseAdmin
+      .from("candidates")
+      .update({
+        spoken_english_score: spokenScore,
+        spoken_english_result: spokenResult,
+      })
+      .eq("id", candidateId);
+
+    return NextResponse.json({ success: true, action: "spoken_score_updated" });
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
