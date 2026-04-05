@@ -311,8 +311,8 @@ export default function ProfileBuilder({
           setError("Tagline is required");
           return false;
         }
-        if (monthlyRate < 100) {
-          setError("Monthly rate must be at least $100");
+        if (monthlyRate < 3) {
+          setError("Hourly rate must be at least $3/hr");
           return false;
         }
         return true;
@@ -696,16 +696,17 @@ export default function ProfileBuilder({
 
             <div>
               <label htmlFor="rate" className="block text-sm font-medium text-text">
-                Monthly Rate (USD) <span className="text-red-500">*</span>
+                Hourly Rate (USD) <span className="text-red-500">*</span>
               </label>
               <input
                 id="rate"
                 type="number"
-                min={100}
+                min={3}
                 value={monthlyRate || ""}
                 onChange={(e) => setMonthlyRate(parseInt(e.target.value) || 0)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
               />
+              <p className="mt-1 text-xs text-gray-400">Minimum $3/hr. Clients see this rate on your profile.</p>
             </div>
           </div>
         )}
