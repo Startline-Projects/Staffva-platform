@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("candidates")
     .select(
-      "id, display_name, country, role_category, hourly_rate, english_written_tier, speaking_level, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, needs_availability_update, voice_recording_1_preview_url, created_at, english_mc_score, english_comprehension_score, reputation_score, reputation_tier, video_intro_status",
+      "id, display_name, country, role_category, hourly_rate, english_written_tier, speaking_level, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, needs_availability_update, voice_recording_1_preview_url, created_at, english_mc_score, english_comprehension_score, reputation_score, reputation_tier, video_intro_status, skills, tagline",
       { count: "exact" }
     )
     .eq("admin_status", "approved");

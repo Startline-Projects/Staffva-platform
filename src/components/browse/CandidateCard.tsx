@@ -1,19 +1,6 @@
 import Link from "next/link";
 import InlineAudioPreview from "./InlineAudioPreview";
 
-const TIER_STYLE: Record<string, string> = {
-  exceptional: "bg-primary/10 text-primary",
-  advanced: "bg-background text-text-secondary",
-  professional: "bg-background text-text-tertiary",
-};
-
-const SPEAKING_STYLE: Record<string, string> = {
-  fluent: "bg-indigo-50 text-indigo-600",
-  proficient: "bg-background text-text-secondary",
-  conversational: "bg-background text-text-tertiary",
-  developing: "bg-background text-text-tertiary",
-};
-
 export interface CandidateCardData {
   id: string;
   display_name: string;
@@ -25,6 +12,7 @@ export interface CandidateCardData {
   availability_status: string;
   us_client_experience: string;
   bio: string | null;
+  tagline?: string | null;
   total_earnings_usd: number;
   committed_hours: number;
   profile_photo_url: string | null;
@@ -35,6 +23,7 @@ export interface CandidateCardData {
   reputation_score?: number | null;
   reputation_tier?: string | null;
   video_intro_status?: string | null;
+  skills?: string[] | null;
   ai_interview?: {
     overall_score: number | null;
     technical_knowledge_score: number | null;
@@ -46,9 +35,9 @@ export interface CandidateCardData {
 }
 
 function getAvailability(hours: number) {
-  if (!hours || hours === 0) return { dot: "bg-green-500", text: "Available", color: "text-green-600" };
-  if (hours < 40) return { dot: "bg-amber-500", text: `${50 - hours} hrs/week open`, color: "text-amber-600" };
-  return { dot: "bg-gray-300", text: "Engaged", color: "text-text-tertiary" };
+  if (!hours || hours === 0) return "bg-green-500";
+  if (hours < 40) return "bg-amber-500";
+  return "bg-gray-300";
 }
 
 interface Props {
@@ -57,126 +46,227 @@ interface Props {
 }
 
 export default function CandidateCard({ candidate, isLoggedIn = false }: Props) {
-  const tier = candidate.english_written_tier ? TIER_STYLE[candidate.english_written_tier] : null;
-  const tierLabel = candidate.english_written_tier
-    ? candidate.english_written_tier.charAt(0).toUpperCase() + candidate.english_written_tier.slice(1)
+  const availDot = getAvailability(candidate.committed_hours || 0);
+  const skills = candidate.skills || [];
+  const maxSkills = 6;
+  const visibleSkills = skills.slice(0, maxSkills);
+  const overflowCount = skills.length - maxSkills;
+
+  const earningsLabel = candidate.total_earnings_usd >= 10000 ? "$10K+ earned"
+    : candidate.total_earnings_usd >= 1000 ? `$${Math.floor(candidate.total_earnings_usd / 1000)}K+ earned`
+    : candidate.total_earnings_usd > 0 ? `$${Math.round(candidate.total_earnings_usd)} earned`
     : null;
-  const speaking = candidate.speaking_level ? SPEAKING_STYLE[candidate.speaking_level] : null;
-  const speakingLabel = candidate.speaking_level
-    ? candidate.speaking_level.charAt(0).toUpperCase() + candidate.speaking_level.slice(1)
-    : null;
-  const hasUS = candidate.us_client_experience === "full_time" || candidate.us_client_experience === "part_time_contract";
-  const avail = getAvailability(candidate.committed_hours || 0);
 
   return (
-    <div className="group rounded-2xl border border-border-light bg-card hover:border-text/20 transition-colors">
-      <Link href={`/candidate/${candidate.id}`} className="block p-5">
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-background">
-            {candidate.profile_photo_url ? (
-              <img src={candidate.profile_photo_url} alt={candidate.display_name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-text-tertiary">
-                {candidate.display_name?.[0] || "?"}
-              </div>
+    <div className="group relative border-b border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
+      {/* ═══ DESKTOP LAYOUT ═══ */}
+      <div className="hidden md:flex items-start gap-4 p-5">
+        {/* Left — Photo */}
+        <Link href={`/candidate/${candidate.id}`} className="shrink-0">
+          <div className="relative">
+            <div className="h-14 w-14 overflow-hidden rounded-full bg-gray-100">
+              {candidate.profile_photo_url ? (
+                <img src={candidate.profile_photo_url} alt={candidate.display_name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-text-tertiary">
+                  {candidate.display_name?.[0] || "?"}
+                </div>
+              )}
+            </div>
+            <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${availDot}`} />
+          </div>
+        </Link>
+
+        {/* Center — Info */}
+        <Link href={`/candidate/${candidate.id}`} className="flex-1 min-w-0">
+          {/* Row 1: Name + tier */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
+            {candidate.reputation_tier === "Elite" && (
+              <span className="shrink-0 rounded-full bg-amber-700 px-2 py-0.5 text-[9px] font-bold text-amber-100">Elite</span>
+            )}
+            {candidate.reputation_tier === "Top Rated" && (
+              <span className="shrink-0 rounded-full bg-[#FE6E3E] px-2 py-0.5 text-[9px] font-bold text-white">Top Rated</span>
+            )}
+            {candidate.reputation_tier === "Rising" && (
+              <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold text-white">Rising</span>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm font-semibold text-text">{candidate.display_name}</h3>
-                  {candidate.reputation_tier === "Elite" && (
-                    <span className="rounded-full bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold text-amber-100">Elite</span>
-                  )}
-                  {candidate.reputation_tier === "Top Rated" && (
-                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-white">Top Rated</span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-text-tertiary">{candidate.country} · {candidate.role_category}</p>
-              </div>
-              <p className="text-base font-semibold text-text shrink-0 tabular-nums">
-                ${candidate.hourly_rate.toLocaleString()}
-                <span className="text-xs font-normal text-text-tertiary">/hr</span>
-              </p>
-            </div>
+
+          {/* Row 2: Tagline */}
+          {(candidate.tagline || candidate.role_category) && (
+            <p className="mt-0.5 text-xs text-text-secondary truncate">
+              {candidate.tagline || candidate.role_category}
+            </p>
+          )}
+
+          {/* Row 3: Country */}
+          <p className="mt-0.5 text-[11px] text-text-tertiary">{candidate.country}</p>
+
+          {/* Row 4: Rate + reputation + earnings */}
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+            <span className="font-semibold text-[#FE6E3E]">${candidate.hourly_rate}/hr</span>
+            {candidate.reputation_score && candidate.reputation_score > 0 && (
+              <>
+                <span className="text-gray-300">&middot;</span>
+                <span className="text-text-secondary">{candidate.reputation_score}% reputation</span>
+              </>
+            )}
+            {earningsLabel && (
+              <>
+                <span className="text-gray-300">&middot;</span>
+                <span className="text-green-600">{earningsLabel}</span>
+              </>
+            )}
           </div>
-        </div>
 
-        {/* Availability */}
-        <div className="mt-3 flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${avail.dot}`} />
-          <span className={`text-xs ${avail.color}`}>{avail.text}</span>
-        </div>
+          {/* Row 5: Skill tags */}
+          {visibleSkills.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {visibleSkills.map((s) => (
+                <span key={s} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">{s}</span>
+              ))}
+              {overflowCount > 0 && (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-tertiary">+{overflowCount}</span>
+              )}
+            </div>
+          )}
 
-        {/* Badges */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {tier && <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${tier}`}>{tierLabel}</span>}
-          {speaking && <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${speaking}`}>{speakingLabel}</span>}
-          {hasUS && <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-medium text-green-700">US exp.</span>}
-          {candidate.video_intro_status === "approved" && (
-            <span className="group/video relative" title="This professional has a video introduction">
-              <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden w-44 rounded-lg bg-charcoal px-2 py-1 text-[10px] text-white text-center group-hover/video:block z-10">
-                Video introduction available — view profile to watch
-              </span>
-            </span>
+          {/* Row 6: Bio excerpt */}
+          {candidate.bio && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted italic line-clamp-2">{candidate.bio}</p>
+          )}
+        </Link>
+
+        {/* Right — Actions */}
+        <div className="shrink-0 w-[140px] flex flex-col items-end gap-2">
+          {/* Audio player */}
+          <div className="w-full" onClick={(e) => e.stopPropagation()}>
+            <InlineAudioPreview
+              previewUrl={candidate.voice_recording_1_preview_url || null}
+              isLoggedIn={isLoggedIn}
+              candidateName={candidate.display_name}
+            />
+          </div>
+
+          {/* View Profile button */}
+          <Link
+            href={`/candidate/${candidate.id}`}
+            className="w-full rounded-lg bg-[#FE6E3E] py-2 text-center text-xs font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            View Profile
+          </Link>
+        </div>
+      </div>
+
+      {/* ═══ MOBILE LAYOUT ═══ */}
+      <div className="md:hidden p-4 space-y-2.5">
+        {/* Row 1: Photo + Name */}
+        <Link href={`/candidate/${candidate.id}`} className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100">
+              {candidate.profile_photo_url ? (
+                <img src={candidate.profile_photo_url} alt={candidate.display_name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-text-tertiary">{candidate.display_name?.[0] || "?"}</div>
+              )}
+            </div>
+            <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${availDot}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
+              {candidate.reputation_tier === "Elite" && <span className="shrink-0 rounded-full bg-amber-700 px-1.5 py-0.5 text-[8px] font-bold text-amber-100">Elite</span>}
+              {candidate.reputation_tier === "Top Rated" && <span className="shrink-0 rounded-full bg-[#FE6E3E] px-1.5 py-0.5 text-[8px] font-bold text-white">Top Rated</span>}
+            </div>
+            <p className="text-[11px] text-text-tertiary">{candidate.country}</p>
+          </div>
+        </Link>
+
+        {/* Row 2: Headline */}
+        {(candidate.tagline || candidate.role_category) && (
+          <p className="text-xs text-text-secondary truncate">{candidate.tagline || candidate.role_category}</p>
+        )}
+
+        {/* Row 3: Rate + signals */}
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-semibold text-[#FE6E3E]">${candidate.hourly_rate}/hr</span>
+          {candidate.reputation_score && candidate.reputation_score > 0 && (
+            <>
+              <span className="text-gray-300">&middot;</span>
+              <span className="text-text-secondary">{candidate.reputation_score}%</span>
+            </>
+          )}
+          {earningsLabel && (
+            <>
+              <span className="text-gray-300">&middot;</span>
+              <span className="text-green-600 text-[11px]">{earningsLabel}</span>
+            </>
           )}
         </div>
 
-        {/* AI Score Display */}
-        {candidate.ai_interview?.overall_score ? (() => {
-          const score = candidate.ai_interview.overall_score;
-          const borderColor = score >= 80 ? "border-primary" : score >= 60 ? "border-amber-500" : "border-gray-300";
-          const textColor = score >= 80 ? "text-primary" : score >= 60 ? "text-amber-600" : "text-gray-400";
-          return (
-            <div className="mt-3 flex items-center gap-2.5 group/score relative">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${borderColor}`}>
-                <span className={`text-sm font-bold ${textColor}`}>{score}</span>
-              </div>
-              <span className="text-[11px] text-text-tertiary">AI Interview Score</span>
-              <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-56 rounded-lg bg-charcoal px-3 py-2 text-[11px] text-white shadow-lg group-hover/score:block z-10">
-                Scores are generated by AI-administered assessments and verified by our team. They are locked and cannot be edited by the candidate.
-              </div>
-            </div>
-          );
-        })() : (candidate.english_mc_score && candidate.english_comprehension_score) ? (
-          <div className="mt-3 flex items-center gap-1.5 group/score relative">
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-              Reading {candidate.english_comprehension_score}
-            </span>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-              Language {candidate.english_mc_score}
-            </span>
-            <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-56 rounded-lg bg-charcoal px-3 py-2 text-[11px] text-white shadow-lg group-hover/score:block z-10">
-              Scores are generated by AI-administered assessments and verified by our team. They are locked and cannot be edited by the candidate.
-            </div>
+        {/* Row 4: Skill tags */}
+        {visibleSkills.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {visibleSkills.slice(0, 4).map((s) => (
+              <span key={s} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-secondary">{s}</span>
+            ))}
+            {skills.length > 4 && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-text-tertiary">+{skills.length - 4}</span>}
           </div>
-        ) : null}
-
-        {/* Earnings */}
-        {candidate.total_earnings_usd > 0 && (
-          <p className="mt-2.5 text-xs text-text-tertiary">
-            ${Number(candidate.total_earnings_usd).toLocaleString()} earned
-          </p>
         )}
 
-        {/* Bio */}
-        {candidate.bio && (
-          <p className="mt-2 text-[13px] leading-relaxed text-text-muted line-clamp-2">{candidate.bio}</p>
-        )}
-      </Link>
+        {/* Row 5: Audio + View Profile */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1" onClick={(e) => e.stopPropagation()}>
+            <InlineAudioPreview
+              previewUrl={candidate.voice_recording_1_preview_url || null}
+              isLoggedIn={isLoggedIn}
+              candidateName={candidate.display_name}
+            />
+          </div>
+          <Link
+            href={`/candidate/${candidate.id}`}
+            className="shrink-0 rounded-lg bg-[#FE6E3E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+          >
+            View Profile
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* Audio */}
-      <div className="px-5 pb-4">
-        <InlineAudioPreview
-          previewUrl={candidate.voice_recording_1_preview_url || null}
-          isLoggedIn={isLoggedIn}
-          candidateName={candidate.display_name}
-        />
+// ─── Skeleton Card ───
+export function CandidateCardSkeleton() {
+  return (
+    <div className="border-b border-gray-100 bg-white p-5 animate-pulse">
+      <div className="hidden md:flex items-start gap-4">
+        <div className="h-14 w-14 rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-40 rounded bg-gray-200" />
+          <div className="h-3 w-64 rounded bg-gray-100" />
+          <div className="h-3 w-24 rounded bg-gray-100" />
+          <div className="h-3 w-48 rounded bg-gray-100" />
+          <div className="flex gap-1 mt-1">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-5 w-16 rounded-full bg-gray-100" />)}
+          </div>
+        </div>
+        <div className="w-[140px] space-y-2">
+          <div className="h-8 w-full rounded-lg bg-gray-100" />
+          <div className="h-8 w-full rounded-lg bg-gray-200" />
+        </div>
+      </div>
+      <div className="md:hidden space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-gray-200" />
+          <div className="space-y-1 flex-1">
+            <div className="h-4 w-32 rounded bg-gray-200" />
+            <div className="h-3 w-20 rounded bg-gray-100" />
+          </div>
+        </div>
+        <div className="h-3 w-48 rounded bg-gray-100" />
+        <div className="h-3 w-32 rounded bg-gray-100" />
       </div>
     </div>
   );

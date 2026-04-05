@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import CandidateCard from "@/components/browse/CandidateCard";
+import CandidateCard, { CandidateCardSkeleton } from "@/components/browse/CandidateCard";
 import { createClient } from "@/lib/supabase/client";
 
 const ROLE_CATEGORIES = [
@@ -446,12 +446,9 @@ function BrowseContent() {
           {/* Candidate grid */}
           <div className="flex-1 min-w-0">
             {loading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="h-52 animate-pulse rounded-xl bg-gray-100"
-                  />
+                  <CandidateCardSkeleton key={i} />
                 ))}
               </div>
             ) : candidates.length === 0 ? (
@@ -469,7 +466,7 @@ function BrowseContent() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
                   {candidates.map((candidate) => (
                     <CandidateCard key={candidate.id} candidate={candidate} isLoggedIn={isLoggedIn} />
                   ))}
