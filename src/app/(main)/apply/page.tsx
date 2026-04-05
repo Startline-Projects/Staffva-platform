@@ -15,6 +15,7 @@ import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
 import IDVerification from "@/components/apply/IDVerification";
 import IntegrityPledge from "@/components/apply/IntegrityPledge";
 import PostTestVerification from "@/components/apply/PostTestVerification";
+import FocusEnforcement from "@/components/apply/FocusEnforcement";
 
 export type ApplicationStep =
   | "loading"
@@ -378,10 +379,12 @@ export default function ApplyPage() {
         <IntegrityPledge onAccept={handlePledgeAccepted} />
       )}
       {step === "english_test" && candidateData && (
-        <EnglishTest
-          candidateId={candidateData.id}
-          onComplete={handleTestComplete}
-        />
+        <FocusEnforcement candidateId={candidateData.id} testSection="english_test">
+          <EnglishTest
+            candidateId={candidateData.id}
+            onComplete={handleTestComplete}
+          />
+        </FocusEnforcement>
       )}
       {step === "post_test_verification" && (
         <PostTestVerification onVerify={handlePostTestVerify} />
