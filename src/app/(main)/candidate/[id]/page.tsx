@@ -251,7 +251,17 @@ export default async function CandidateProfilePage({
   const displayedName = candidate.display_name || candidate.full_name;
   const canViewGated = isLoggedIn && (isClient || isOwnProfile || isAdmin);
   const tools: string[] = candidate.tools || [];
-  const workExperience: { role_title: string; industry: string; duration: string; description: string }[] = candidate.work_experience || [];
+  const rawWorkExperience: { role_title: string; industry: string; duration: string; description: string; start_date?: string; end_date?: string }[] = candidate.work_experience || [];
+  const workExperience = [...rawWorkExperience].sort((a, b) => {
+    const aIsCurrent = !a.end_date || a.end_date === "present";
+    const bIsCurrent = !b.end_date || b.end_date === "present";
+    if (aIsCurrent && !bIsCurrent) return -1;
+    if (!aIsCurrent && bIsCurrent) return 1;
+    if (aIsCurrent && bIsCurrent) return (b.start_date || "").localeCompare(a.start_date || "");
+    const endCompare = (b.end_date || "").localeCompare(a.end_date || "");
+    if (endCompare !== 0) return endCompare;
+    return (b.start_date || "").localeCompare(a.start_date || "");
+  });
 
   // Fetch active service packages
   const { data: servicePackages } = await supabase

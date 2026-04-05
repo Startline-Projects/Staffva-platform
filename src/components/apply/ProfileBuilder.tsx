@@ -292,11 +292,30 @@ export default function ProfileBuilder({
     });
   }
 
+  function sortWorkEntries(entries: WorkEntry[]): WorkEntry[] {
+    return [...entries].sort((a, b) => {
+      // Current positions (present/empty end_date) first
+      const aIsCurrent = !a.end_date || a.end_date === "present";
+      const bIsCurrent = !b.end_date || b.end_date === "present";
+      if (aIsCurrent && !bIsCurrent) return -1;
+      if (!aIsCurrent && bIsCurrent) return 1;
+
+      // Both current — sort by start_date descending
+      if (aIsCurrent && bIsCurrent) return (b.start_date || "").localeCompare(a.start_date || "");
+
+      // Both have end dates — sort by end_date descending, then start_date descending
+      const endCompare = (b.end_date || "").localeCompare(a.end_date || "");
+      if (endCompare !== 0) return endCompare;
+      return (b.start_date || "").localeCompare(a.start_date || "");
+    });
+  }
+
   function addWorkEntry() {
     if (workEntries.length >= 3) return;
+    // Insert new entry at top (most recent position)
     setWorkEntries([
-      ...workEntries,
       { role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
+      ...workEntries,
     ]);
   }
 
@@ -486,7 +505,7 @@ export default function ProfileBuilder({
       }
 
       // Filter valid work entries
-      const validWorkEntries = workEntries.filter((e) => e.role_title.trim());
+      const validWorkEntries = sortWorkEntries(workEntries.filter((e) => e.role_title.trim()));
 
       // Update candidate record
       const updateData: Record<string, unknown> = {
