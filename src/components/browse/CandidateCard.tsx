@@ -45,9 +45,10 @@ interface Props {
   isLoggedIn?: boolean;
   onSkillClick?: (skill: string) => void;
   activeSkills?: string[];
+  onCardClick?: (id: string) => void;
 }
 
-export default function CandidateCard({ candidate, isLoggedIn = false, onSkillClick, activeSkills = [] }: Props) {
+export default function CandidateCard({ candidate, isLoggedIn = false, onSkillClick, activeSkills = [], onCardClick }: Props) {
   const availDot = getAvailability(candidate.committed_hours || 0);
   const skills = candidate.skills || [];
   const maxSkills = 6;
@@ -64,7 +65,7 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
       {/* ═══ DESKTOP LAYOUT ═══ */}
       <div className="hidden md:flex items-start gap-4 p-5">
         {/* Left — Photo */}
-        <Link href={`/candidate/${candidate.id}`} className="shrink-0">
+        <div onClick={() => onCardClick?.(candidate.id)} className="shrink-0 cursor-pointer">
           <div className="relative">
             <div className="h-14 w-14 overflow-hidden rounded-full bg-gray-100">
               {candidate.profile_photo_url ? (
@@ -77,10 +78,10 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
             </div>
             <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${availDot}`} />
           </div>
-        </Link>
+        </div>
 
         {/* Center — Info */}
-        <Link href={`/candidate/${candidate.id}`} className="flex-1 min-w-0">
+        <div onClick={() => onCardClick?.(candidate.id)} className="flex-1 min-w-0 cursor-pointer">
           {/* Row 1: Name + tier */}
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
@@ -152,7 +153,7 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
           {candidate.bio && (
             <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted italic line-clamp-2">{candidate.bio}</p>
           )}
-        </Link>
+        </div>
 
         {/* Right — Actions */}
         <div className="shrink-0 w-[140px] flex flex-col items-end gap-2">
@@ -179,7 +180,7 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
       {/* ═══ MOBILE LAYOUT ═══ */}
       <div className="md:hidden p-4 space-y-2.5">
         {/* Row 1: Photo + Name */}
-        <Link href={`/candidate/${candidate.id}`} className="flex items-center gap-3">
+        <div onClick={() => onCardClick?.(candidate.id)} className="flex items-center gap-3 cursor-pointer">
           <div className="relative shrink-0">
             <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100">
               {candidate.profile_photo_url ? (
@@ -198,7 +199,7 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
             </div>
             <p className="text-[11px] text-text-tertiary">{candidate.country}</p>
           </div>
-        </Link>
+        </div>
 
         {/* Row 2: Headline */}
         {(candidate.tagline || candidate.role_category) && (

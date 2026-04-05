@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import CandidateCard, { CandidateCardSkeleton } from "@/components/browse/CandidateCard";
+import CandidatePreviewPanel from "@/components/browse/CandidatePreviewPanel";
 import { createClient } from "@/lib/supabase/client";
 
 const ROLE_CATEGORIES = [
@@ -90,6 +91,7 @@ function BrowseContent() {
   // lockStatus removed — availability computed from committed_hours
   const [sort, setSort] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [skillFilters, setSkillFilters] = useState<string[]>(() => {
     const s = searchParams.get("skills");
     return s ? s.split(",").map((x) => decodeURIComponent(x.trim())).filter(Boolean) : [];
@@ -190,7 +192,7 @@ function BrowseContent() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`min-h-screen bg-background transition-all duration-250 ${previewId ? "md:mr-[480px]" : ""}`}>
       {/* Search header */}
       <div className="border-b border-border-light bg-card">
         <div className="mx-auto max-w-6xl px-6 py-8">
@@ -510,7 +512,7 @@ function BrowseContent() {
               <>
                 <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
                   {candidates.map((candidate) => (
-                    <CandidateCard key={candidate.id} candidate={candidate} isLoggedIn={isLoggedIn} onSkillClick={toggleSkillFilter} activeSkills={skillFilters} />
+                    <CandidateCard key={candidate.id} candidate={candidate} isLoggedIn={isLoggedIn} onSkillClick={toggleSkillFilter} activeSkills={skillFilters} onCardClick={setPreviewId} />
                   ))}
                 </div>
 
@@ -558,6 +560,13 @@ function BrowseContent() {
           </div>
         </div>
       </div>
+
+      {/* Preview Panel */}
+      <CandidatePreviewPanel
+        candidateId={previewId}
+        onClose={() => setPreviewId(null)}
+        onSkillClick={toggleSkillFilter}
+      />
     </div>
   );
 }
