@@ -173,6 +173,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid role" }, { status: 403 });
   }
 
+  // Check if there's an active engagement (contract in place)
+  const { data: activeEngagement } = await admin
+    .from("engagements")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("candidate_id", candidateId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  // If no active engagement, filter contact information
+  if (!activeEngagement) {
+    const contactPatterns = [
+      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i, // email
+      /\+?\d{1,4}[\s.-]?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}/i, // phone
+      /(?:instagram|ig)\s*[:\-@]\s*\S+/i, // instagram
+      /@[a-zA-Z0-9._]{2,30}/i, // social handles
+      /whatsapp/i, // whatsapp
+      /linkedin\.com/i, // linkedin
+      /facebook\.com|fb\.com/i, // facebook
+      /t\.me\//i, // telegram
+      /twitter\.com|x\.com/i, // twitter/x
+      /discord/i, // discord
+      /skype/i, // skype
+      /viber/i, // viber
+      /signal/i, // signal app
+    ];
+
+    const trimmedBody = body.trim();
+    const matchedPattern = contactPatterns.find((p) => p.test(trimmedBody));
+
+    if (matchedPattern) {
+      // Log the blocked attempt
+      const recipientId = role === "client" ? candidateId : clientId;
+      try {
+        await admin.from("message_blocks").insert({
+          sender_id: senderId,
+          recipient_id: recipientId,
+          message_preview: trimmedBody.substring(0, 50),
+          block_reason: "contact_info_detected",
+        });
+      } catch { /* silent */ }
+
+      return NextResponse.json({
+        error: "Contact information cannot be shared before a contract is in place. This keeps both parties protected.",
+      }, { status: 400 });
+    }
+  }
+
   const threadId = `${clientId}:${candidateId}`;
 
   const { data: message, error } = await admin

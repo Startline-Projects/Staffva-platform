@@ -206,7 +206,7 @@ export default function EscrowStatusPanel({ role }: { role: "client" | "candidat
         </div>
         <div className="text-right">
           <p className="text-xs text-gray-500">Total in escrow</p>
-          <p className="text-lg font-bold text-[#FE6E3E]">
+          <p className="text-lg font-bold text-[#FE6E3E] whitespace-nowrap">
             ${data.total_in_escrow.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </p>
         </div>
@@ -233,7 +233,7 @@ export default function EscrowStatusPanel({ role }: { role: "client" | "candidat
                 </div>
 
                 {/* Title / context */}
-                <p className="text-sm font-medium text-[#1C1B1A]">
+                <p className="text-sm font-medium text-[#1C1B1A] truncate">
                   {item.title || (
                     item.period_start && item.period_end
                       ? `${formatShortDate(item.period_start)} — ${formatShortDate(item.period_end)}`
@@ -251,7 +251,7 @@ export default function EscrowStatusPanel({ role }: { role: "client" | "candidat
               </div>
 
               <div className="text-right shrink-0">
-                <p className="text-sm font-bold text-[#1C1B1A]">
+                <p className="text-sm font-bold text-[#1C1B1A] whitespace-nowrap">
                   ${Number(item.amount_usd).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
                 {item.funded_at && (

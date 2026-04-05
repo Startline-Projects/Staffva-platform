@@ -1081,6 +1081,26 @@ export default async function CandidateProfilePage({
           </div>
         </div>
       )}
+
+      {/* ═══════════ FIXED MOBILE HIRE BAR ═══════════ */}
+      {!isOwnProfile && !isCandidate && candidate.admin_status === "approved" && isClient && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3 md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 12px)" }}>
+          <div className="flex items-center gap-4">
+            <div className="shrink-0">
+              <p className="text-lg font-bold text-primary">${candidate.hourly_rate?.toLocaleString()}<span className="text-xs font-normal text-text-muted">/hr</span></p>
+            </div>
+            <Link
+              href={`/hire/${candidate.id}/offer`}
+              className="flex-1 rounded-lg bg-primary py-3 text-center text-sm font-semibold text-white hover:bg-primary-dark transition-colors min-h-[44px] flex items-center justify-center"
+            >
+              Hire {candidate.display_name?.split(" ")[0]}
+            </Link>
+          </div>
+        </div>
+      )}
+      {!isOwnProfile && !isCandidate && candidate.admin_status === "approved" && isClient && (
+        <div className="h-20 md:hidden" />
+      )}
     </div>
   );
 }

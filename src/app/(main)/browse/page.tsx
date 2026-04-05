@@ -262,13 +262,29 @@ function BrowseContent() {
         </div>
 
         <div className="mt-6 flex gap-8">
-          {/* Filters sidebar */}
+          {/* Mobile bottom sheet backdrop */}
+          {showFilters && (
+            <div
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+              onClick={() => setShowFilters(false)}
+            />
+          )}
+
+          {/* Filters sidebar / mobile bottom sheet */}
           <aside
             className={`${
-              showFilters ? "block" : "hidden"
-            } w-64 shrink-0 lg:block`}
+              showFilters ? "translate-y-0" : "translate-y-full"
+            } fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl transition-transform duration-300 lg:translate-y-0 lg:relative lg:z-auto lg:max-h-none lg:rounded-xl lg:shadow-none lg:block w-full lg:w-64 lg:shrink-0`}
           >
-            <div className="sticky top-24 space-y-5 rounded-xl border border-gray-200 bg-card p-5">
+            {/* Mobile drag handle */}
+            <div
+              className="sticky top-0 z-10 flex justify-center bg-card pt-3 pb-2 lg:hidden cursor-pointer min-h-[44px] items-center"
+              onClick={() => setShowFilters(false)}
+            >
+              <div className="h-1 w-10 rounded-full bg-gray-300" />
+            </div>
+
+            <div className="space-y-5 p-5 lg:sticky lg:top-24 lg:rounded-xl lg:border lg:border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text">Filters</h2>
                 <button
@@ -409,6 +425,14 @@ function BrowseContent() {
               </div>
 
               {/* Lock status checkbox removed — availability now computed from committed_hours */}
+
+              {/* Mobile apply button */}
+              <button
+                onClick={() => setShowFilters(false)}
+                className="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors lg:hidden min-h-[44px]"
+              >
+                Apply Filters
+              </button>
             </div>
           </aside>
 

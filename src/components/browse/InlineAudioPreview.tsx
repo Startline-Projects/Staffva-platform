@@ -68,13 +68,16 @@ export default function InlineAudioPreview({
     if (signedUrl) return signedUrl;
 
     try {
-      const res = await fetch(
-        `/api/storage/signed-url?bucket=voice-recordings&path=${encodeURIComponent(previewUrl!)}`
-      );
+      const res = await fetch("/api/storage/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bucket: "voice-recordings", path: previewUrl }),
+      });
       if (res.ok) {
         const data = await res.json();
-        setSignedUrl(data.url);
-        return data.url;
+        const url = data.signedUrl || data.url;
+        setSignedUrl(url);
+        return url;
       }
     } catch {
       // silent
@@ -174,7 +177,7 @@ export default function InlineAudioPreview({
       <button
         onClick={togglePlay}
         disabled={loading}
-        className="flex h-10 w-10 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-[#FE6E3E] text-white hover:bg-[#E55A2B] transition-colors disabled:opacity-50"
+        className="flex h-11 w-11 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-[#FE6E3E] text-white hover:bg-[#E55A2B] transition-colors disabled:opacity-50"
         aria-label={playing ? `Pause ${candidateName} preview` : `Play ${candidateName} preview`}
       >
         {loading ? (
