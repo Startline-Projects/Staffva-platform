@@ -58,6 +58,7 @@ export interface CandidateData {
   retake_count: number;
   retake_available_at: string | null;
   application_step: string;
+  application_stage: number;
   profile_completed_at: string | null;
   profile_photo_url: string | null;
   tagline: string | null;
@@ -112,6 +113,12 @@ export default function ApplyPage() {
     }
 
     setCandidateData(candidate);
+
+    // If application stages not complete, show the form at the right stage
+    if ((candidate.application_stage || 0) < 3) {
+      setStep("application_form");
+      return;
+    }
 
     // If permanently blocked from retakes, show result
     if (candidate.permanently_blocked) {
@@ -341,7 +348,11 @@ export default function ApplyPage() {
       )}
 
       {step === "application_form" && (
-        <ApplicationForm onComplete={handleFormComplete} />
+        <ApplicationForm
+          onComplete={handleFormComplete}
+          initialStage={candidateData?.application_stage || 0}
+          existingCandidate={candidateData}
+        />
       )}
       {step === "id_consent" && candidateData && (
         <IDVerificationConsent
