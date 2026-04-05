@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { CandidateData } from "@/app/(main)/apply/page";
 
@@ -37,6 +37,143 @@ const US_EXPERIENCE_OPTIONS = [
   { value: "international_only", label: "No, but I have worked with other international clients" },
   { value: "none", label: "No, this would be my first international role" },
 ];
+
+// ─── Searchable Role Select ───
+function SearchableRoleSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Build flat list of all roles
+  const allRoles = ROLE_CATEGORIES.flatMap((g) => g.roles.map((r) => ({ role: r, group: g.group })));
+
+  // Filter by search
+  const filtered = search.trim()
+    ? allRoles.filter((r) => r.role.toLowerCase().includes(search.toLowerCase()) || r.group.toLowerCase().includes(search.toLowerCase()))
+    : allRoles;
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  // Focus search when opened
+  useEffect(() => {
+    if (open && searchRef.current) searchRef.current.focus();
+  }, [open]);
+
+  // Reset highlight when search changes
+  useEffect(() => { setHighlightIndex(-1); }, [search]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setOpen(false); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlightIndex((prev) => Math.min(prev + 1, filtered.length - 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setHighlightIndex((prev) => Math.max(prev - 1, 0)); }
+    if (e.key === "Enter" && highlightIndex >= 0 && filtered[highlightIndex]) {
+      e.preventDefault();
+      onChange(filtered[highlightIndex].role);
+      setOpen(false);
+      setSearch("");
+    }
+  }, [filtered, highlightIndex, onChange]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightIndex >= 0 && listRef.current) {
+      const el = listRef.current.children[highlightIndex] as HTMLElement;
+      if (el) el.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIndex]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`mt-1 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm text-left focus:outline-none focus:ring-1 ${
+          open ? "border-primary ring-1 ring-primary" : "border-gray-300"
+        } ${value ? "text-text" : "text-gray-400"}`}
+      >
+        <span className="truncate">{value || "Select your role"}</span>
+        <svg className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {/* Backdrop for mobile */}
+      {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
+
+      {/* Dropdown / bottom sheet */}
+      {open && (
+        <div
+          className={`
+            fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] rounded-t-2xl bg-white shadow-2xl
+            lg:absolute lg:top-full lg:bottom-auto lg:left-0 lg:right-0 lg:mt-1 lg:max-h-80 lg:rounded-xl lg:border lg:border-gray-200
+          `}
+          onKeyDown={handleKeyDown}
+        >
+          {/* Mobile drag handle */}
+          <div className="flex justify-center pt-3 pb-1 lg:hidden">
+            <div className="h-1 w-10 rounded-full bg-gray-300" />
+          </div>
+
+          {/* Search input */}
+          <div className="px-3 pb-2 pt-1">
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search roles..."
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Role list */}
+          <div ref={listRef} className="overflow-y-auto px-1 pb-3" style={{ maxHeight: "calc(85vh - 100px)" }}>
+            {filtered.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-gray-400">No roles found — try a different search.</p>
+              </div>
+            ) : (
+              (() => {
+                let currentGroup = "";
+                return filtered.map((item, i) => {
+                  const showGroup = item.group !== currentGroup;
+                  currentGroup = item.group;
+                  return (
+                    <div key={`${item.group}-${item.role}`}>
+                      {showGroup && (
+                        <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{item.group}</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { onChange(item.role); setOpen(false); setSearch(""); }}
+                        className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                          i === highlightIndex ? "bg-primary/10 text-primary" : value === item.role ? "bg-gray-100 text-text font-medium" : "text-text hover:bg-gray-50"
+                        }`}
+                      >
+                        {item.role}
+                      </button>
+                    </div>
+                  );
+                });
+              })()
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Tag Input Component ───
 function TagInput({ tags, setTags, max, placeholder, suggestions }: {
@@ -388,14 +525,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
           <div>
             <label className="block text-sm font-medium text-text">Primary Role <span className="text-red-500">*</span></label>
-            <select required value={roleCategory} onChange={(e) => setRoleCategory(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
-              <option value="">Select your role</option>
-              {ROLE_CATEGORIES.map((g) => (
-                <optgroup key={g.group} label={g.group}>
-                  {g.roles.map((r) => <option key={r} value={r}>{r}</option>)}
-                </optgroup>
-              ))}
-            </select>
+            <SearchableRoleSelect value={roleCategory} onChange={setRoleCategory} />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
