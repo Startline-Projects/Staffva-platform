@@ -14,6 +14,7 @@ import CandidateStatusScreen from "@/components/apply/CandidateStatusScreen";
 import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
 import IDVerification from "@/components/apply/IDVerification";
 import IntegrityPledge from "@/components/apply/IntegrityPledge";
+import PostTestVerification from "@/components/apply/PostTestVerification";
 
 export type ApplicationStep =
   | "loading"
@@ -24,6 +25,7 @@ export type ApplicationStep =
   | "test_instructions"
   | "integrity_pledge"
   | "english_test"
+  | "post_test_verification"
   | "test_result"
   | "voice_recording_1"
   | "voice_recording_2"
@@ -63,6 +65,7 @@ export interface CandidateData {
   retake_available_at: string | null;
   application_step: string;
   application_stage: number;
+  results_display_unlocked: boolean;
   profile_completed_at: string | null;
   profile_photo_url: string | null;
   tagline: string | null;
@@ -151,89 +154,60 @@ export default function ApplyPage() {
     }
 
     // --- SESSION RESTORE LOGIC ---
-    // New flow: form → id_consent → id_verification → device_check → test → recordings → profile
+    // New flow: form → device_check → test → post_test_verification → id_consent → id_verification → results → recordings → profile
 
-    // Step 1: Check ID verification consent + status
+    // Step 1: Check if test was taken
+    if (candidate.english_mc_score === null) {
+      // No test score — go to device check (pre-test flow)
+      setStep("device_check");
+      return;
+    }
+
+    // Test taken — check if ID verification is done
+    const testPassed = candidate.english_mc_score >= 70 && (candidate.english_comprehension_score ?? 0) >= 70;
+    setTestPassed(testPassed);
+
     if (!candidate.id_verification_consent) {
-      setStep("id_consent");
+      // Test done but no ID consent yet — show post-test verification transition
+      setStep("post_test_verification");
       return;
     }
 
     if (candidate.id_verification_status !== "passed") {
-      // Verification not complete — show ID verification screen
-      setStep("id_verification");
-      return;
-    }
-
-    // Step 2: Check if test was taken
-    if (candidate.english_mc_score !== null) {
-      const passed =
-        candidate.english_mc_score >= 70 &&
-        (candidate.english_comprehension_score ?? 0) >= 70;
-      setTestPassed(passed);
-
-      if (!passed) {
-        setStep("test_result");
-        return;
-      }
-    } else {
-      // No test score — go to device check (pre-test flow)
-      const savedStep = candidate.application_step as ApplicationStep;
-      const midTestSteps: ApplicationStep[] = ["device_check", "test_instructions", "integrity_pledge", "english_test"];
-
-      if (midTestSteps.includes(savedStep)) {
-        setStep("device_check");
+      if (candidate.id_verification_status === "manual_review") {
+        // Pending manual review — don't show results
+        setStep("id_verification");
       } else {
-        setStep("device_check");
+        // Not passed yet (pending or failed) — show ID verification
+        setStep("id_verification");
       }
       return;
     }
 
-    // Both recordings done → profile builder
+    // ID verified — results unlocked
+    if (!testPassed) {
+      setStep("test_result");
+      return;
+    }
+
+    // Test passed + ID verified → check recordings
     if (candidate.voice_recording_1_url && candidate.voice_recording_2_url) {
       setStep("profile_builder");
       return;
     }
 
-    // Recording 1 done but not 2 → recording 2
     if (candidate.voice_recording_1_url && !candidate.voice_recording_2_url) {
       setStep("voice_recording_2");
       return;
     }
 
-    // Test passed but no recordings → recording 1
-    if (candidate.english_mc_score !== null && !candidate.voice_recording_1_url) {
-      const passed =
-        candidate.english_mc_score >= 70 &&
-        (candidate.english_comprehension_score ?? 0) >= 70;
-      if (passed) {
-        setStep("voice_recording_1");
-        return;
-      }
-    }
-
-    // Fallback
-    setStep("device_check");
+    setStep("voice_recording_1");
   }
 
-  // New flow: form → id_consent → id_verification → device_check → test
+  // New flow: form → device_check → test → post_test_verification → id_consent → id_verification → results
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
-    goToStep("id_consent", data.id);
-  }
-
-  function handleIDConsentComplete() {
-    if (candidateData) {
-      setCandidateData({ ...candidateData, id_verification_consent: true });
-    }
-    goToStep("id_verification", candidateData?.id);
-  }
-
-  function handleIDVerificationComplete() {
-    if (candidateData) {
-      setCandidateData({ ...candidateData, id_verification_status: "passed" });
-    }
-    goToStep("device_check", candidateData?.id);
+    goToStep("device_check", data.id);
   }
 
   function handleDeviceCheckPass() {
@@ -245,7 +219,6 @@ export default function ApplyPage() {
   }
 
   async function handlePledgeAccepted() {
-    // Record pledge acceptance
     if (candidateData?.id) {
       const supabase = createClient();
       await supabase.from("candidates").update({
@@ -259,10 +232,33 @@ export default function ApplyPage() {
   function handleTestComplete(passed: boolean, updatedCandidate: CandidateData) {
     setCandidateData(updatedCandidate);
     setTestPassed(passed);
-    if (passed) {
-      goToStep("voice_recording_1", updatedCandidate.id);
+    // Don't show results yet — route to ID verification
+    goToStep("post_test_verification", updatedCandidate.id);
+  }
+
+  function handlePostTestVerify() {
+    goToStep("id_consent");
+  }
+
+  function handleIDConsentComplete() {
+    if (candidateData) {
+      setCandidateData({ ...candidateData, id_verification_consent: true });
+    }
+    goToStep("id_verification", candidateData?.id);
+  }
+
+  async function handleIDVerificationComplete() {
+    if (candidateData) {
+      setCandidateData({ ...candidateData, id_verification_status: "passed", results_display_unlocked: true });
+      // Unlock results display
+      const supabase = createClient();
+      await supabase.from("candidates").update({ results_display_unlocked: true }).eq("id", candidateData.id);
+    }
+    // Now show results
+    if (testPassed) {
+      goToStep("voice_recording_1", candidateData?.id);
     } else {
-      goToStep("test_result", updatedCandidate.id);
+      goToStep("test_result", candidateData?.id);
     }
   }
 
@@ -344,17 +340,19 @@ export default function ApplyPage() {
       {step !== "complete" && step !== "test_result" && (
         <div className="mx-auto max-w-3xl px-6 pt-6">
           <div className="flex items-center gap-1">
-            {["application_form", "english_test", "voice_recording_1", "voice_recording_2", "profile_builder"].map((s, i) => {
-              const stepOrder = ["application_form", "device_check", "test_instructions", "english_test", "test_result", "voice_recording_1", "voice_recording_2", "profile_builder"];
+            {["application_form", "english_test", "id_verification", "voice_recording_1", "profile_builder"].map((s, i) => {
+              const stepOrder = ["application_form", "device_check", "test_instructions", "integrity_pledge", "english_test", "post_test_verification", "id_consent", "id_verification", "test_result", "voice_recording_1", "voice_recording_2", "profile_builder"];
               const currentIndex = stepOrder.indexOf(step);
               const thisIndex = stepOrder.indexOf(s);
               const isComplete = currentIndex > thisIndex;
-              const isCurrent = step === s || (s === "english_test" && (step === "device_check" || step === "test_instructions" || step === "integrity_pledge" || step === "english_test"));
+              const isCurrent = step === s
+                || (s === "english_test" && ["device_check", "test_instructions", "integrity_pledge", "english_test"].includes(step))
+                || (s === "id_verification" && ["post_test_verification", "id_consent", "id_verification"].includes(step));
               return (
                 <div key={s} className="flex-1">
                   <div className={`h-1.5 rounded-full ${isComplete ? "bg-primary" : isCurrent ? "bg-primary/50" : "bg-gray-200"}`} />
                   <p className="mt-1 text-[10px] text-text/40 text-center">
-                    {["Application", "English Test", "Reading", "Introduction", "Profile"][i]}
+                    {["Application", "English Test", "Identity", "Recordings", "Profile"][i]}
                   </p>
                 </div>
               );
@@ -370,19 +368,6 @@ export default function ApplyPage() {
           existingCandidate={candidateData}
         />
       )}
-      {step === "id_consent" && candidateData && (
-        <IDVerificationConsent
-          candidateId={candidateData.id}
-          onConsented={handleIDConsentComplete}
-        />
-      )}
-      {step === "id_verification" && candidateData && (
-        <IDVerification
-          candidateId={candidateData.id}
-          verificationStatus={candidateData.id_verification_status || "pending"}
-          onComplete={handleIDVerificationComplete}
-        />
-      )}
       {step === "device_check" && (
         <DeviceCheck onPass={handleDeviceCheckPass} />
       )}
@@ -396,6 +381,22 @@ export default function ApplyPage() {
         <EnglishTest
           candidateId={candidateData.id}
           onComplete={handleTestComplete}
+        />
+      )}
+      {step === "post_test_verification" && (
+        <PostTestVerification onVerify={handlePostTestVerify} />
+      )}
+      {step === "id_consent" && candidateData && (
+        <IDVerificationConsent
+          candidateId={candidateData.id}
+          onConsented={handleIDConsentComplete}
+        />
+      )}
+      {step === "id_verification" && candidateData && (
+        <IDVerification
+          candidateId={candidateData.id}
+          verificationStatus={candidateData.id_verification_status || "pending"}
+          onComplete={handleIDVerificationComplete}
         />
       )}
       {step === "test_result" && candidateData && (
