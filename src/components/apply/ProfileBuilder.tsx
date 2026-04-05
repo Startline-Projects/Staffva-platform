@@ -168,30 +168,49 @@ export default function ProfileBuilder({
 
     const img = new window.Image();
     img.onload = () => {
+      const outSize = 400; // output pixel size
       const canvas = document.createElement("canvas");
-      canvas.width = 400;
-      canvas.height = 400;
+      canvas.width = outSize;
+      canvas.height = outSize;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Calculate crop area based on drag offset and zoom
-      const containerSize = 280; // matches the CSS container
-      const scale = Math.min(img.width, img.height) / containerSize;
-      const cropSize = containerSize / cropZoom * scale;
+      // The crop container is 280x280 CSS pixels.
+      // The image is rendered with min-width:100% and min-height:100%,
+      // meaning its shorter dimension fills 280px exactly.
+      const containerSize = 280;
 
-      const centerX = img.width / 2 - (cropOffset.x * scale);
-      const centerY = img.height / 2 - (cropOffset.y * scale);
+      // Rendered scale: how many CSS pixels per natural pixel
+      const renderedScale = containerSize / Math.min(img.width, img.height);
 
-      const sx = Math.max(0, Math.min(centerX - cropSize / 2, img.width - cropSize));
-      const sy = Math.max(0, Math.min(centerY - cropSize / 2, img.height - cropSize));
+      // The image's rendered size in CSS pixels (before zoom)
+      const renderedW = img.width * renderedScale;
+      const renderedH = img.height * renderedScale;
 
-      // Clip to circle
-      ctx.beginPath();
-      ctx.arc(200, 200, 200, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
+      // With zoom applied, the image is scaled up further
+      const zoomedW = renderedW * cropZoom;
+      const zoomedH = renderedH * cropZoom;
 
-      ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 400, 400);
+      // The visible crop area (280x280) maps to this region of the zoomed image.
+      // The image center is at (zoomedW/2 + offsetX, zoomedH/2 + offsetY) in CSS coords.
+      // The crop window center is at (140, 140).
+      // So the crop window's top-left in zoomed-image coords is:
+      const cropLeftInZoomed = (zoomedW / 2 + cropOffset.x) - containerSize / 2;
+      const cropTopInZoomed = (zoomedH / 2 + cropOffset.y) - containerSize / 2;
+
+      // Convert from zoomed CSS coords to natural image pixels:
+      const pixelsPerCSS = 1 / (renderedScale * cropZoom);
+      const sx = Math.max(0, cropLeftInZoomed * pixelsPerCSS);
+      const sy = Math.max(0, cropTopInZoomed * pixelsPerCSS);
+      const sSize = containerSize * pixelsPerCSS;
+
+      // Clamp to image bounds
+      const clampedSx = Math.min(sx, Math.max(0, img.width - sSize));
+      const clampedSy = Math.min(sy, Math.max(0, img.height - sSize));
+      const clampedSize = Math.min(sSize, img.width - clampedSx, img.height - clampedSy);
+
+      // Draw cropped square (no circle clip — let CSS handle rounded display)
+      ctx.drawImage(img, clampedSx, clampedSy, clampedSize, clampedSize, 0, 0, outSize, outSize);
 
       canvas.toBlob((blob) => {
         if (blob) {
@@ -203,7 +222,7 @@ export default function ProfileBuilder({
         setRawImageUrl(null);
         setCropOffset({ x: 0, y: 0 });
         setCropZoom(1);
-      }, "image/jpeg", 0.9);
+      }, "image/jpeg", 0.92);
     };
     img.src = rawImageUrl;
   }
