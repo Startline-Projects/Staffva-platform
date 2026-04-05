@@ -21,13 +21,13 @@ type EmailType =
   | "profile_approved";
 
 interface EmailTemplate {
-  subject: string;
+  subject: string | ((data?: Record<string, string>) => string);
   body: (name: string, data?: Record<string, string>) => string;
 }
 
 const TEMPLATES: Record<EmailType, EmailTemplate> = {
   application_received: {
-    subject: "Your StaffVA application is in",
+    subject: "You're in — here's what happens next",
     body: (name) => `
       <h2 style="color:#1C1B1A;">Application Received</h2>
       <p>Hi ${name},</p>
@@ -45,7 +45,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   english_test_invitation: {
-    subject: "Complete your English test — StaffVA",
+    subject: "One test stands between you and your first client",
     body: (name) => `
       <h2 style="color:#1C1B1A;">Your English Test is Ready</h2>
       <p>Hi ${name},</p>
@@ -62,7 +62,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   english_test_passed: {
-    subject: "You passed — next step inside",
+    subject: "You passed. Most people don't.",
     body: (name, data) => `
       <h2 style="color:#1C1B1A;">Congratulations, ${name}!</h2>
       <p>You passed the StaffVA English assessment${data?.tier ? ` with a <strong>${data.tier}</strong> rating` : ""}.</p>
@@ -73,7 +73,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   ai_interview_passed: {
-    subject: "AI interview complete — recruiter will be in touch within 48 hours",
+    subject: (data) => `Your AI interview scored ${data?.score || "—"}/100 — a recruiter is reviewing you now`,
     body: (name, data) => `
       <h2 style="color:#1C1B1A;">AI Interview Complete</h2>
       <p>Hi ${name},</p>
@@ -96,7 +96,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   second_interview_scheduled: {
-    subject: "Your StaffVA interview is confirmed",
+    subject: "Your interview is confirmed — here's what to expect",
     body: (name, data) => `
       <h2 style="color:#1C1B1A;">Interview Scheduled</h2>
       <p>Hi ${name},</p>
@@ -117,7 +117,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   profile_approved: {
-    subject: "You are live on StaffVA",
+    subject: "You're live. Clients can find you right now.",
     body: (name, data) => `
       <h2 style="color:#1C1B1A;">Your Profile is Live!</h2>
       <p>Hi ${name},</p>
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: "StaffVA <notifications@staffva.com>",
         to: candidate.email,
-        subject: template.subject,
+        subject: typeof template.subject === "function" ? template.subject(data) : template.subject,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
           ${template.body(firstName, data)}
           <p style="color:#999;margin-top:32px;font-size:12px;border-top:1px solid #e0e0e0;padding-top:16px;">— The StaffVA Team</p>

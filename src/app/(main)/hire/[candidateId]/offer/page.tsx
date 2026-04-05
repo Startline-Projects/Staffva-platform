@@ -135,10 +135,9 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
             <h3 className="text-sm font-semibold text-text">Offer Preview</h3>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-text-muted">Candidate rate</span><span className="font-medium text-text">${hourlyRate}/hr × {hoursPerWeek} hrs</span></div>
+              <div className="flex justify-between"><span className="text-text-muted">Professional&apos;s rate</span><span className="font-medium text-text">${hourlyRate}/hr × {hoursPerWeek} hrs</span></div>
               <div className="flex justify-between"><span className="text-text-muted">Monthly equivalent</span><span className="font-medium text-text">${monthlyCandidate.toFixed(0)}</span></div>
-              <div className="flex justify-between"><span className="text-text-muted">Platform fee (10%)</span><span className="text-text-muted">${platformFee.toFixed(0)}</span></div>
-              <div className="border-t border-border-light pt-3 flex justify-between"><span className="font-semibold text-text">Client total/month</span><span className="font-semibold text-text">${clientMonthly.toFixed(0)}</span></div>
+              <div className="border-t border-border-light pt-3 flex justify-between"><span className="font-semibold text-text">Total/month</span><span className="font-semibold text-text">${clientMonthly.toFixed(0)}</span></div>
               <div className="flex justify-between"><span className="text-text-muted">Contract total ({contractLength})</span><span className="text-text">${contractTotal.toFixed(0)}</span></div>
               {signingBonus && Number(signingBonus) > 0 && (
                 <div className="flex justify-between"><span className="text-text-muted">Signing bonus</span><span className="text-text">${Number(signingBonus).toFixed(0)}</span></div>

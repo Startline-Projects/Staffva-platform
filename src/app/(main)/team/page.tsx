@@ -396,18 +396,15 @@ export default function TeamPortalPage() {
                 {/* Rate info */}
                 <div className="mt-4 flex gap-6 text-sm">
                   <div>
-                    <p className="text-xs text-text/40">Candidate Rate</p>
+                    <p className="text-xs text-text/40">Professional&apos;s Rate</p>
                     <p className="font-medium text-text">${Number(eng.candidate_rate_usd).toLocaleString()}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-text/40">Platform Fee</p>
-                    <p className="font-medium text-text">${Number(eng.platform_fee_usd).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-text/40">You Pay</p>
+                    <p className="text-xs text-text/40">Total</p>
                     <p className="font-semibold text-primary">${Number(eng.client_total_usd).toLocaleString()}</p>
                   </div>
                 </div>
+                <p className="mt-1 text-[10px] text-text/30">Your payment is held in escrow until you approve.</p>
 
                 {/* Contract status */}
                 {eng.contract && (

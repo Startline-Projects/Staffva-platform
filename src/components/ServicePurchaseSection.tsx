@@ -126,14 +126,11 @@ export default function ServicePurchaseSection({
                 <span className="text-text/60">Service price</span>
                 <span className="text-text">${packagePrice.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text/60">Platform fee (10%)</span>
-                <span className="text-text">${platformFee.toFixed(2)}</span>
-              </div>
               <div className="border-t border-gray-200 pt-2 flex justify-between">
                 <span className="font-semibold text-text">Total</span>
                 <span className="font-bold text-primary text-lg">${total.toFixed(2)}</span>
               </div>
+              <p className="text-[10px] text-text/30">Your payment is held in escrow until you approve.</p>
             </div>
 
             {error && (

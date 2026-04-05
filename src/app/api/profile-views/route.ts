@@ -119,7 +119,7 @@ async function sendProfileViewNotification(
       await resend.emails.send({
         from: "StaffVA <notifications@staffva.com>",
         to: candidate.email,
-        subject: "Your StaffVA profile is getting attention",
+        subject: "A client just viewed your profile",
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
           <h2 style="color:#1C1B1A;">Your profile is getting noticed</h2>
           <p style="color:#444;font-size:14px;">Hi ${firstName},</p>

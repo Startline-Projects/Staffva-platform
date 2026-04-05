@@ -104,15 +104,15 @@ function getAdminClient() {
 
 const TIER_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   exceptional: { label: "Exceptional", color: "text-white", bg: "bg-emerald-600" },
-  proficient: { label: "Proficient", color: "text-white", bg: "bg-blue-600" },
-  competent: { label: "Competent", color: "text-white", bg: "bg-gray-500" },
+  advanced: { label: "Advanced", color: "text-white", bg: "bg-blue-600" },
+  professional: { label: "Professional", color: "text-white", bg: "bg-gray-500" },
 };
 
 const SPEAKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   fluent: { label: "Fluent", color: "text-white", bg: "bg-emerald-600" },
   proficient: { label: "Proficient", color: "text-white", bg: "bg-blue-600" },
   conversational: { label: "Conversational", color: "text-white", bg: "bg-amber-600" },
-  basic: { label: "Basic", color: "text-white", bg: "bg-gray-500" },
+  developing: { label: "Developing", color: "text-white", bg: "bg-gray-500" },
 };
 
 const US_EXPERIENCE_LABELS: Record<string, string> = {
@@ -902,7 +902,7 @@ export default async function CandidateProfilePage({
                     ${candidate.hourly_rate?.toLocaleString()}
                     <span className="text-sm font-normal text-text/40">/hr</span>
                   </p>
-                  <p className="mt-1 text-center text-xs text-text/40">+ 10% platform fee</p>
+                  <p className="mt-1 text-center text-xs text-text/40">per hour</p>
                   <div className="mt-5">
                     {availabilityComputed === "unavailable" ? (
                       <NotifyButton candidateId={candidate.id} isLoggedIn={isLoggedIn} />

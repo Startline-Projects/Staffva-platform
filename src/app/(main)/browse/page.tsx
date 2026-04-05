@@ -19,8 +19,8 @@ const ROLE_CATEGORIES = [
 const TIER_OPTIONS = [
   { value: "any", label: "Any English Level" },
   { value: "exceptional", label: "Exceptional" },
-  { value: "proficient", label: "Proficient" },
-  { value: "competent", label: "Competent" },
+  { value: "advanced", label: "Advanced" },
+  { value: "professional", label: "Professional" },
 ];
 
 const SPEAKING_OPTIONS = [
@@ -28,7 +28,7 @@ const SPEAKING_OPTIONS = [
   { value: "fluent", label: "Fluent" },
   { value: "proficient", label: "Proficient" },
   { value: "conversational", label: "Conversational" },
-  { value: "basic", label: "Basic" },
+  { value: "developing", label: "Developing" },
 ];
 
 const SORT_OPTIONS = [

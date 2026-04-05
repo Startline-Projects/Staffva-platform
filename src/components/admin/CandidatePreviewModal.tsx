@@ -5,15 +5,15 @@ import AudioPlayer from "@/components/AudioPlayer";
 
 const TIER_CONFIG: Record<string, { label: string; bg: string }> = {
   exceptional: { label: "Exceptional", bg: "bg-emerald-600" },
-  proficient: { label: "Proficient", bg: "bg-blue-600" },
-  competent: { label: "Competent", bg: "bg-gray-500" },
+  advanced: { label: "Advanced", bg: "bg-blue-600" },
+  professional: { label: "Professional", bg: "bg-gray-500" },
 };
 
 const SPEAKING_CONFIG: Record<string, { label: string; bg: string }> = {
   fluent: { label: "Fluent", bg: "bg-emerald-600" },
   proficient: { label: "Proficient", bg: "bg-blue-600" },
   conversational: { label: "Conversational", bg: "bg-amber-600" },
-  basic: { label: "Basic", bg: "bg-gray-500" },
+  developing: { label: "Developing", bg: "bg-gray-500" },
 };
 
 const US_EXP_LABELS: Record<string, string> = {
@@ -321,7 +321,7 @@ export default function CandidatePreviewModal({
                     <option value="fluent">Fluent</option>
                     <option value="proficient">Proficient</option>
                     <option value="conversational">Conversational</option>
-                    <option value="basic">Basic</option>
+                    <option value="developing">Developing</option>
                   </select>
                 </div>
                 <button

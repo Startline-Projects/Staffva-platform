@@ -62,7 +62,7 @@ export default function InterviewRequestSection({ candidateId, candidateName, is
         <div className="rounded-xl border border-purple-200 bg-white p-5">
           <div className="flex items-baseline justify-between mb-2">
             <h4 className="font-semibold text-text">Interview Once</h4>
-            <p className="text-2xl font-bold text-purple-700">$50</p>
+            <p className="text-2xl font-bold text-purple-700">$150</p>
           </div>
           <p className="text-xs text-text/60 mb-4">
             One 20-minute structured interview. Notes and scores added to profile. Emailed to you.
@@ -83,7 +83,7 @@ export default function InterviewRequestSection({ candidateId, candidateName, is
           </span>
           <div className="flex items-baseline justify-between mb-2">
             <h4 className="font-semibold text-text">Interview Twice</h4>
-            <p className="text-2xl font-bold text-purple-700">$90</p>
+            <p className="text-2xl font-bold text-purple-700">$250</p>
           </div>
           <p className="text-xs text-text/60 mb-4">
             Two separate interviews for deeper evaluation. Both sets of notes and scores added to profile. Both emailed to you.

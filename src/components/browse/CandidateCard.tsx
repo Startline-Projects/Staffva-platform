@@ -3,15 +3,15 @@ import InlineAudioPreview from "./InlineAudioPreview";
 
 const TIER_STYLE: Record<string, string> = {
   exceptional: "bg-primary/10 text-primary",
-  proficient: "bg-background text-text-secondary",
-  competent: "bg-background text-text-tertiary",
+  advanced: "bg-background text-text-secondary",
+  professional: "bg-background text-text-tertiary",
 };
 
 const SPEAKING_STYLE: Record<string, string> = {
   fluent: "bg-indigo-50 text-indigo-600",
   proficient: "bg-background text-text-secondary",
   conversational: "bg-background text-text-tertiary",
-  basic: "bg-background text-text-tertiary",
+  developing: "bg-background text-text-tertiary",
 };
 
 export interface CandidateCardData {

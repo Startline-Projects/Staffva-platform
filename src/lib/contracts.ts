@@ -55,7 +55,7 @@ export async function generateContractHtml(params: ContractParams): Promise<stri
 - Contract Start Date: ${params.startDate}
 - Platform: StaffVA
 - Platform Operator: Stafva LLC, Dearborn, Michigan
-- Platform Fee: 10% (paid by the client, separate from contractor compensation)
+- Service Fee: Included in the client's total payment, separate from contractor compensation
 
 Generate the complete agreement now.`;
 
@@ -147,7 +147,7 @@ function generateFallbackHtml(params: ContractParams): string {
 
 <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 18px; color: #1C1B1A;">2. Compensation and Payment</h2>
 <p>The Client agrees to compensate the Contractor at a rate of <strong>$${params.hourlyRate} USD per hour</strong>. Payment shall be processed on a <strong>${params.paymentCycle}</strong> basis through the StaffVA escrow payment system.</p>
-<p>All payments are held in escrow by the Platform until release conditions are met. The Platform charges a service fee of 10% on top of the Contractor's rate, which is the sole responsibility of the Client. The Contractor receives 100% of their stated rate.</p>
+<p>All payments are held in escrow by the Platform until release conditions are met. A service fee is included in the Client's total payment and is the sole responsibility of the Client. The Contractor receives 100% of their stated rate.</p>
 <p>The Contractor is responsible for all applicable taxes, including but not limited to income taxes, self-employment taxes, and any other withholdings required by their jurisdiction.</p>
 
 <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 18px; color: #1C1B1A;">3. Term and Termination</h2>

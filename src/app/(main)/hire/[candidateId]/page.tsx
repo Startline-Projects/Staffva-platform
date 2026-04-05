@@ -334,7 +334,7 @@ export default function HirePage() {
           <h3 className="text-sm font-semibold text-text">Cost Summary</h3>
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-text/60">Candidate rate</span>
+              <span className="text-text/60">Professional&apos;s rate</span>
               <span className="text-text">
                 ${rate.toLocaleString()}
                 {contractType === "ongoing" && (
@@ -344,17 +344,13 @@ export default function HirePage() {
                 )}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-text/60">Platform fee (10%)</span>
-              <span className="text-text">${platformFee.toLocaleString()}</span>
-            </div>
             <div className="flex justify-between border-t border-gray-200 pt-2 font-semibold">
-              <span className="text-text">You pay</span>
+              <span className="text-text">Total</span>
               <span className="text-primary">${clientTotal.toLocaleString()}</span>
             </div>
           </div>
           <p className="mt-3 text-xs text-text/40">
-            Candidate receives 100% of their rate. Always.
+            Your payment is held in escrow until you approve.
           </p>
         </div>
 

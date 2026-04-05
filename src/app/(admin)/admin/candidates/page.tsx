@@ -8,15 +8,15 @@ import PhotoReviewModal from "@/components/admin/PhotoReviewModal";
 
 const TIER_LABELS: Record<string, string> = {
   exceptional: "Exceptional",
-  proficient: "Proficient",
-  competent: "Competent",
+  advanced: "Advanced",
+  professional: "Professional",
 };
 
 const SPEAKING_LABELS: Record<string, string> = {
   fluent: "Fluent",
   proficient: "Proficient",
   conversational: "Conversational",
-  basic: "Basic",
+  developing: "Developing",
 };
 
 const US_EXP_LABELS: Record<string, string> = {
@@ -717,7 +717,7 @@ export default function CandidateReviewPage() {
                                     <option value="fluent">Fluent</option>
                                     <option value="proficient">Proficient</option>
                                     <option value="conversational">Conversational</option>
-                                    <option value="basic">Basic</option>
+                                    <option value="developing">Developing</option>
                                   </select>
                                 </div>
                                 <button onClick={() => handleAction(c.id, "approve")} disabled={actionLoading === c.id || !speakingLevels[c.id]} className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50">

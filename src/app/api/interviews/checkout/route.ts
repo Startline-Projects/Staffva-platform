@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const amount = interviewCount === 1 ? 5000 : 9000; // $50 or $90 in cents
+  const amount = interviewCount === 1 ? 15000 : 25000; // $150 or $250 in cents
   const description = interviewCount === 1
     ? `StaffVA Interview (1x) — ${candidate.display_name || candidate.full_name}`
     : `StaffVA Interview (2x) — ${candidate.display_name || candidate.full_name}`;
