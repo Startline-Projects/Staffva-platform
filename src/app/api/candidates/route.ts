@@ -24,93 +24,38 @@ export async function GET(request: Request) {
   const sort = searchParams.get("sort") || "newest";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = 24;
-  const offset = (page - 1) * limit;
 
   const supabase = getAdminClient();
 
-  let query = supabase
-    .from("candidates")
-    .select(
-      "id, display_name, country, role_category, hourly_rate, english_written_tier, speaking_level, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, needs_availability_update, voice_recording_1_preview_url, created_at, english_mc_score, english_comprehension_score, reputation_score, reputation_tier, video_intro_status, skills, tools, tagline, ai_insight_1, ai_insight_2",
-      { count: "exact" }
-    )
-    .eq("admin_status", "approved");
-
-  // Text search
-  if (search) {
-    query = query.or(
-      `role_category.ilike.%${search}%,display_name.ilike.%${search}%,country.ilike.%${search}%,bio.ilike.%${search}%`
-    );
-  }
-
-  if (role) {
-    query = query.ilike("role_category", `%${role}%`);
-  }
-
-  if (country) {
-    query = query.ilike("country", `%${country}%`);
-  }
-
-  if (minRate) {
-    query = query.gte("hourly_rate", parseInt(minRate));
-  }
-
-  if (maxRate && parseInt(maxRate) < 150) {
-    query = query.lte("hourly_rate", parseInt(maxRate));
-  }
-
-  // Availability filter based on committed_hours
-  if (availability === "available") {
-    query = query.eq("committed_hours", 0);
-  } else if (availability === "partially_available") {
-    query = query.gt("committed_hours", 0).lt("committed_hours", 40);
-  }
-  // "all" shows everyone including not available
-
-  if (tier && tier !== "any") {
-    query = query.eq("english_written_tier", tier);
-  }
-
-  if (speakingLevel && speakingLevel !== "any") {
-    query = query.eq("speaking_level", speakingLevel);
-  }
-
-  if (usExperience === "yes") {
-    query = query.in("us_client_experience", ["full_time", "part_time_contract"]);
-  } else if (usExperience === "no") {
-    query = query.in("us_client_experience", ["international_only", "none"]);
-  }
-
-  // Sorting
-  switch (sort) {
-    case "rate_low":
-      query = query.order("hourly_rate", { ascending: true });
-      break;
-    case "rate_high":
-      query = query.order("hourly_rate", { ascending: false });
-      break;
-    case "earnings":
-      query = query.order("total_earnings_usd", { ascending: false });
-      break;
-    case "tier":
-      query = query.order("english_percentile", { ascending: false });
-      break;
-    case "newest":
-    default:
-      query = query.order("created_at", { ascending: false });
-      break;
-  }
-
-  query = query.range(offset, offset + limit - 1);
-
-  const { data, count, error } = await query;
+  // Call the get_candidates_with_skills RPC — single query handles
+  // all filtering, sorting, pagination, and skills aggregation
+  const { data: rpcResult, error } = await supabase.rpc("get_candidates_with_skills", {
+    p_search: search || null,
+    p_role: role || null,
+    p_country: country || null,
+    p_min_rate: minRate ? parseInt(minRate) : null,
+    p_max_rate: (maxRate && parseInt(maxRate) < 150) ? parseInt(maxRate) : null,
+    p_availability: availability || null,
+    p_tier: tier || null,
+    p_speaking_level: speakingLevel || null,
+    p_us_experience: usExperience || null,
+    p_skills: skillsParam ? skillsParam.split(",").map((s) => s.trim()).filter(Boolean) : null,
+    p_sort: sort,
+    p_page: page,
+    p_page_size: limit,
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const data = rpcResult?.candidates || [];
+  const totalCount = rpcResult?.total || 0;
+  const skillAggregation = rpcResult?.skill_aggregation || [];
+
   // Batch-fetch completed AI interviews for all returned candidates
-  const candidateIds = (data || []).map((c) => c.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const candidateIds = (data || []).map((c: any) => c.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let aiInterviewMap: Record<string, any> = {};
 
@@ -133,26 +78,16 @@ export async function GET(request: Request) {
   }
 
   // Merge AI interview data into candidates
-  let enriched = (data || []).map((c) => ({
+  const enriched = (data || []).map((c: Record<string, unknown>) => ({
     ...c,
-    ai_interview: aiInterviewMap[c.id] || null,
+    ai_interview: aiInterviewMap[c.id as string] || null,
   }));
-
-  // Filter by skills (client-side since Supabase JSONB contains is limited)
-  if (skillsParam) {
-    const requiredSkills = skillsParam.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-    if (requiredSkills.length > 0) {
-      enriched = enriched.filter((c) => {
-        const candidateSkills = [...(c.skills || []), ...(c.tools || [])].map((s: string) => s.toLowerCase());
-        return requiredSkills.every((rs) => candidateSkills.some((cs) => cs.includes(rs) || rs.includes(cs)));
-      });
-    }
-  }
 
   return NextResponse.json({
     candidates: enriched,
-    total: skillsParam ? enriched.length : (count || 0),
+    total: totalCount,
     page,
-    totalPages: skillsParam ? 1 : Math.ceil((count || 0) / limit),
+    totalPages: Math.ceil(totalCount / limit),
+    skillAggregation,
   });
 }

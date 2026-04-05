@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import CandidateCard, { CandidateCardSkeleton } from "@/components/browse/CandidateCard";
 import CandidatePreviewPanel from "@/components/browse/CandidatePreviewPanel";
@@ -75,6 +75,8 @@ function BrowseContent() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [skillAggregation, setSkillAggregation] = useState<{ skill: string; count: number }[]>([]);
+  const [showAllSkills, setShowAllSkills] = useState(false);
 
   // Initialize from URL params
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -129,6 +131,7 @@ function BrowseContent() {
     setCandidates(data.candidates || []);
     setTotal(data.total || 0);
     setTotalPages(data.totalPages || 1);
+    setSkillAggregation(data.skillAggregation || []);
     setLoading(false);
   }, [search, role, country, minRate, maxRate, availability, tier, speakingLevel, usExperience, skillFilters, sort, page]);
 
@@ -145,6 +148,44 @@ function BrowseContent() {
 
   function clearSkillFilters() {
     setSkillFilters([]);
+    setPage(1);
+  }
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const autocompleteTimer = useRef<NodeJS.Timeout | null>(null);
+
+  function handleSearchInput(value: string) {
+    setSearch(value);
+    if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    autocompleteTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/candidates/autocomplete?q=${encodeURIComponent(value.trim())}`);
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setSuggestions(data);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } catch {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 200);
+  }
+
+  function selectSuggestion(value: string) {
+    setSearch(value);
+    setSuggestions([]);
+    setShowSuggestions(false);
     setPage(1);
   }
 
@@ -171,12 +212,14 @@ function BrowseContent() {
     // lockStatus removed
     setSort("newest");
     setPage(1);
+    setShowAllSkills(false);
     router.replace("/browse");
   }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setPage(1);
+    setShowSuggestions(false);
     fetchCandidates();
   }
 
@@ -204,10 +247,34 @@ function BrowseContent() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                onBlur={() => { setTimeout(() => setShowSuggestions(false), 150); }}
                 placeholder='Search by role, name, or country'
                 className="w-full rounded-full border border-border-light bg-background pl-11 pr-4 py-3 text-sm text-text placeholder-text-tertiary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
               />
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-50 top-full mt-1 w-full rounded-xl border border-border-light bg-white shadow-lg overflow-hidden">
+                  {suggestions.map((s, i) => {
+                    const idx = s.toLowerCase().indexOf(search.toLowerCase());
+                    const before = s.slice(0, idx);
+                    const match = s.slice(idx, idx + search.length);
+                    const after = s.slice(idx + search.length);
+                    return (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectSuggestion(s)}
+                          className="w-full px-4 py-2.5 text-left text-sm text-text hover:bg-gray-50 transition-colors"
+                        >
+                          {before}<span className="font-bold">{match}</span>{after}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
             <button type="submit" className="rounded-full bg-charcoal px-5 py-3 text-sm font-medium text-white hover:bg-charcoal/90 transition-colors">
               Search
@@ -459,6 +526,39 @@ function BrowseContent() {
               </div>
 
               {/* Lock status checkbox removed — availability now computed from committed_hours */}
+
+              {/* Dynamic Skills — populated from result set aggregation */}
+              {skillAggregation.length >= 2 && (
+                <div>
+                  <label className="block text-xs font-medium text-text/50 mb-1.5">
+                    Skills
+                  </label>
+                  <div className="space-y-1.5">
+                    {(showAllSkills ? skillAggregation : skillAggregation.slice(0, 8)).map((s) => (
+                      <label key={s.skill} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={skillFilters.includes(s.skill)}
+                          onChange={() => toggleSkillFilter(s.skill)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer"
+                        />
+                        <span className="text-sm text-text group-hover:text-primary transition-colors truncate">
+                          {s.skill}
+                        </span>
+                        <span className="ml-auto text-xs text-text/30 shrink-0">{s.count}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {skillAggregation.length > 8 && (
+                    <button
+                      onClick={() => setShowAllSkills((prev) => !prev)}
+                      className="mt-2 text-xs font-medium text-primary hover:text-primary-dark transition-colors"
+                    >
+                      {showAllSkills ? "See less" : `See more (${skillAggregation.length - 8})`}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Mobile apply button */}
               <button

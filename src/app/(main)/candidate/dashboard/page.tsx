@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
 import GiveawayTracker from "@/components/GiveawayTracker";
@@ -538,6 +539,7 @@ export default function CandidateDashboardPage() {
   const [hasPortfolio, setHasPortfolio] = useState(false);
   const [changeRequests, setChangeRequests] = useState<{ area: string; instruction: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     async function load() {
@@ -672,13 +674,10 @@ export default function CandidateDashboardPage() {
   }
 
   if (!candidate) {
+    router.replace("/apply");
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-xl font-bold text-[#1C1B1A]">No profile found</h1>
-        <p className="mt-2 text-sm text-gray-500">Complete your application to see your dashboard.</p>
-        <Link href="/apply" className="mt-4 inline-block rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B]">
-          Start Application
-        </Link>
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" />
       </div>
     );
   }
