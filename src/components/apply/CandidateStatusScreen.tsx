@@ -4,6 +4,7 @@ import Link from "next/link";
 
 interface Props {
   adminStatus: string;
+  candidateId?: string;
 }
 
 const STATUS_CONFIG: Record<string, {
@@ -12,23 +13,20 @@ const STATUS_CONFIG: Record<string, {
   iconColor: string;
   title: string;
   message: string;
-  showChecklist: boolean;
 }> = {
-  pending_speaking_review: {
-    icon: "clock",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-    title: "Profile Under Review",
-    message: "Your profile is complete and under review. We will notify you within 2 business days once your speaking assessment is complete and your profile goes live.",
-    showChecklist: true,
-  },
   approved: {
     icon: "check",
     iconBg: "bg-green-100",
     iconColor: "text-green-600",
-    title: "Your Profile is Live",
-    message: "Your profile is live and visible to clients. You will be notified when a client sends you a message.",
-    showChecklist: false,
+    title: "Your Profile is Live!",
+    message: "Your profile is approved and visible to clients. Complete the AI interview to boost your profile ranking and attract more clients.",
+  },
+  pending_speaking_review: {
+    icon: "check",
+    iconBg: "bg-green-100",
+    iconColor: "text-green-600",
+    title: "Your Profile is Live!",
+    message: "Your profile is approved and visible to clients. Complete the AI interview to boost your profile ranking and attract more clients.",
   },
   rejected: {
     icon: "x",
@@ -36,7 +34,6 @@ const STATUS_CONFIG: Record<string, {
     iconColor: "text-red-600",
     title: "Profile Needs Updates",
     message: "Your profile needs updates before going live. Check your email for instructions from our team.",
-    showChecklist: false,
   },
   revision_required: {
     icon: "alert",
@@ -44,12 +41,11 @@ const STATUS_CONFIG: Record<string, {
     iconColor: "text-amber-600",
     title: "Action Required",
     message: "Our team has reviewed your profile and left feedback. Check your email for details on what to update.",
-    showChecklist: false,
   },
 };
 
-export default function CandidateStatusScreen({ adminStatus }: Props) {
-  const config = STATUS_CONFIG[adminStatus] || STATUS_CONFIG.pending_speaking_review;
+export default function CandidateStatusScreen({ adminStatus, candidateId }: Props) {
+  const config = STATUS_CONFIG[adminStatus] || STATUS_CONFIG.approved;
 
   return (
     <div className="mx-auto max-w-xl px-6 py-16 text-center">
@@ -86,30 +82,15 @@ export default function CandidateStatusScreen({ adminStatus }: Props) {
             href="/apply"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-            </svg>
             Edit Your Profile
           </Link>
         </div>
       )}
 
-      {/* Approved — show view profile button */}
-      {adminStatus === "approved" && (
-        <div className="mt-6">
-          <Link
-            href="/candidate/me"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-          >
-            View Your Profile
-          </Link>
-        </div>
-      )}
-
-      {/* Pending review checklist */}
-      {config.showChecklist && (
+      {/* Approved or pending — show next steps */}
+      {(adminStatus === "approved" || adminStatus === "pending_speaking_review") && (
         <div className="mt-8 text-left mx-auto max-w-sm">
-          <h3 className="font-semibold text-text mb-3">What happens next:</h3>
+          <h3 className="font-semibold text-text mb-3">What you can do now:</h3>
           <ul className="space-y-2">
             <li className="flex items-start gap-2">
               <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -133,24 +114,39 @@ export default function CandidateStatusScreen({ adminStatus }: Props) {
               <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              <span className="text-sm text-text/70">Profile built</span>
+              <span className="text-sm text-text/70">Profile live and visible to clients</span>
             </li>
             <li className="flex items-start gap-2">
               <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-primary flex items-center justify-center">
                 <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               </div>
-              <span className="text-sm text-text/70 font-medium">Speaking assessment review — in progress</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-gray-300" />
-              <span className="text-sm text-text/40">Profile goes live</span>
+              <span className="text-sm text-text/70 font-medium">Take the AI interview to boost your ranking</span>
             </li>
           </ul>
+
+          <div className="mt-6 space-y-3">
+            {candidateId && (
+              <a
+                href={`https://interview.staffva.com?candidate=${candidateId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full rounded-lg bg-primary px-6 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
+              >
+                Start AI Interview
+              </a>
+            )}
+            <Link
+              href="/candidate/dashboard"
+              className="block w-full rounded-lg border border-gray-200 px-6 py-2.5 text-center text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+            >
+              Go to Dashboard
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* View profile link for all statuses */}
-      <div className="mt-8">
+      {/* View profile link */}
+      <div className="mt-6">
         <Link
           href="/candidate/me"
           className="text-sm text-primary hover:text-primary/80 transition-colors"

@@ -292,12 +292,12 @@ export default function ApplyPage() {
       !!latest.payout_method &&
       latest.interview_consent !== false;
 
-    if (allComplete && latest.admin_status !== "approved" && latest.admin_status !== "pending_speaking_review") {
-      // Set to pending_speaking_review only when everything is complete
+    if (allComplete && latest.admin_status !== "approved") {
+      // Auto-approve profile — candidate can start AI interview immediately
       await supabase
         .from("candidates")
         .update({
-          admin_status: "pending_speaking_review",
+          admin_status: "approved",
           profile_completed_at: new Date().toISOString(),
         })
         .eq("id", latest.id);
@@ -401,7 +401,7 @@ export default function ApplyPage() {
         />
       )}
       {step === "complete" && candidateData && (
-        <CandidateStatusScreen adminStatus={candidateData.admin_status} />
+        <CandidateStatusScreen adminStatus={candidateData.admin_status} candidateId={candidateData.id} />
       )}
     </main>
   );
