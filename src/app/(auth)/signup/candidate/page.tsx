@@ -5,7 +5,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CandidateSignupPage() {
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,6 +21,8 @@ export default function CandidateSignupPage() {
     setLoading(true);
 
     const supabase = createClient();
+
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -117,19 +120,37 @@ export default function CandidateSignupPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div>
-          <label htmlFor="fullName" className="block text-sm font-medium text-text">
-            Full Name
-          </label>
-          <input
-            id="fullName"
-            type="text"
-            required
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Your full name"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="firstName" className="block text-sm font-medium text-text">
+              First Name
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              required
+              maxLength={50}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="e.g. Maria"
+            />
+          </div>
+          <div>
+            <label htmlFor="lastName" className="block text-sm font-medium text-text">
+              Last Name
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              required
+              maxLength={50}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="e.g. Santos"
+            />
+          </div>
         </div>
 
         <div>
