@@ -24,6 +24,7 @@ type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
 interface WorkEntry {
   role_title: string;
   industry: string;
+  industry_other?: string;
   duration: string;
   description: string;
   start_date: string;
@@ -69,12 +70,26 @@ const TOOLS_BY_ROLE: Record<string, string[]> = {
 };
 
 const INDUSTRIES = [
-  "Legal",
-  "Accounting & Finance",
+  "Accounting and Finance",
+  "Banking and Financial Services",
+  "Consulting",
+  "Construction and Real Estate",
+  "E-Commerce",
+  "Education",
+  "Government",
   "Healthcare",
+  "Hospitality and Tourism",
+  "Human Resources",
+  "Insurance",
+  "Legal Services",
+  "Logistics and Supply Chain",
+  "Manufacturing",
+  "Marketing and Advertising",
+  "Media and Entertainment",
+  "Non-Profit",
   "Real Estate",
-  "Technology",
-  "E-commerce",
+  "Retail",
+  "Technology and SaaS",
   "Other",
 ];
 
@@ -110,7 +125,7 @@ export default function ProfileBuilder({
 
   // Step 4 — Work Experience
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
-    { role_title: "", industry: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
+    { role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
   ]);
 
   // Step 5 — Portfolio and Resume
@@ -281,7 +296,7 @@ export default function ProfileBuilder({
     if (workEntries.length >= 3) return;
     setWorkEntries([
       ...workEntries,
-      { role_title: "", industry: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
+      { role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
     ]);
   }
 
@@ -827,7 +842,7 @@ export default function ProfileBuilder({
                 />
                 <select
                   value={entry.industry}
-                  onChange={(e) => updateWorkEntry(i, "industry", e.target.value)}
+                  onChange={(e) => { updateWorkEntry(i, "industry", e.target.value); if (e.target.value !== "Other") updateWorkEntry(i, "industry_other", ""); }}
                   className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select industry</option>
@@ -835,6 +850,16 @@ export default function ProfileBuilder({
                     <option key={ind} value={ind}>{ind}</option>
                   ))}
                 </select>
+                {entry.industry === "Other" && (
+                  <input
+                    type="text"
+                    value={entry.industry_other || ""}
+                    onChange={(e) => updateWorkEntry(i, "industry_other", e.target.value)}
+                    placeholder="Type your industry"
+                    maxLength={100}
+                    className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-text/50 mb-1">From</label>
