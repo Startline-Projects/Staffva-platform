@@ -1246,15 +1246,6 @@ export default function CandidateDashboardPage() {
               <p className="text-xs text-gray-500">Update your info and skills</p>
             </div>
           </Link>
-          {candidate.admin_status === "approved" && (
-            <Link href="/services" className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 text-lg">📦</span>
-              <div>
-                <p className="text-sm font-semibold text-[#1C1B1A]">My Services</p>
-                <p className="text-xs text-gray-500">Manage service packages</p>
-              </div>
-            </Link>
-          )}
         </div>
       </div>
 

@@ -10,7 +10,7 @@ interface DropdownNavbarProps {
   variant?: "light" | "dark";
 }
 
-type DropdownKey = "build-team" | "get-it-done" | "for-professionals" | null;
+type DropdownKey = "build-team" | "for-professionals" | null;
 
 const BUILD_TEAM_NEEDS = [
   { label: "Legal and compliance work", href: "/browse?role=Paralegal" },
@@ -29,21 +29,6 @@ const BUILD_TEAM_AVAILABILITY = [
   { label: "Flexible — under 15 hours/week", href: "/browse", desc: "As-needed support" },
 ];
 
-const GET_IT_DONE_NEEDS = [
-  { label: "Get something reviewed", href: "/services?category=Contract+Review" },
-  { label: "Get something written", href: "/services?category=Document+Drafting" },
-  { label: "Get something designed", href: "/services?category=Creative" },
-  { label: "Get something organized", href: "/services?category=Administrative+Support" },
-  { label: "Get something built", href: "/services?category=Technical" },
-  { label: "Get something managed", href: "/services?category=Research+and+Reports" },
-];
-
-const GET_IT_DONE_TIMELINE = [
-  { label: "Within 24 hours", href: "/services?delivery=1", icon: "⚡" },
-  { label: "Within 3 days", href: "/services?delivery=3", icon: "🕐" },
-  { label: "Within 7 days", href: "/services?delivery=7", icon: "📅" },
-  { label: "Flexible timeline", href: "/services", icon: "🔄" },
-];
 
 export default function DropdownNavbar({ user, variant = "light" }: DropdownNavbarProps) {
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey>(null);
@@ -100,11 +85,11 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
 
         {/* Desktop nav — centered */}
         <div className="hidden lg:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
-          {/* Build Your Team — hidden from candidates */}
+          {/* Hire Staff — hidden from candidates */}
           {role !== "candidate" && (
             <div className="relative" onMouseEnter={() => handleMouseEnter("build-team")} onMouseLeave={handleMouseLeave}>
               <button className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}>
-                Build Your Team
+                Hire Staff
                 <svg className={`w-3.5 h-3.5 transition-transform ${activeDropdown === "build-team" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -144,55 +129,6 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                     <p className="text-xs text-white/60">Every professional passed a live English and speaking assessment.</p>
                     <Link href="/browse" onClick={() => setActiveDropdown(null)} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition-colors flex-shrink-0">
                       Browse All Professionals
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Get It Done — hidden from candidates */}
-          {role !== "candidate" && (
-            <div className="relative" onMouseEnter={() => handleMouseEnter("get-it-done")} onMouseLeave={handleMouseLeave}>
-              <button className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}>
-                Get It Done
-                <svg className={`w-3.5 h-3.5 transition-transform ${activeDropdown === "get-it-done" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              <div className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-150 ${activeDropdown === "get-it-done" ? "opacity-100 visible translate-y-0" : "opacity-0 invisible -translate-y-2"}`}>
-                <div className="w-[560px] rounded-xl bg-white shadow-lg border border-[#E0E0E0] overflow-hidden">
-                  <div className="grid grid-cols-2 p-6 gap-8">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-text/40 mb-3">What do you need done?</p>
-                      <div className="space-y-0.5">
-                        {GET_IT_DONE_NEEDS.map((item) => (
-                          <Link key={item.label} href={item.href} onClick={() => setActiveDropdown(null)} className="block rounded-lg px-3 py-2 text-sm text-text/80 hover:bg-primary/5 hover:text-primary transition-colors">
-                            {item.label}
-                          </Link>
-                        ))}
-                        <Link href="/services" onClick={() => setActiveDropdown(null)} className="block px-3 py-2 text-sm font-semibold text-primary hover:text-orange-600 transition-colors">
-                          View all services &rarr;
-                        </Link>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-text/40 mb-3">When do you need it?</p>
-                      <div className="space-y-1">
-                        {GET_IT_DONE_TIMELINE.map((item) => (
-                          <Link key={item.label} href={item.href} onClick={() => setActiveDropdown(null)} className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors">
-                            <span className="text-lg">{item.icon}</span>
-                            <p className="text-sm font-medium text-text">{item.label}</p>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-[#1C1B1A] px-6 py-4 flex items-center justify-between">
-                    <p className="text-xs text-white/60">Browse pre-packaged services from vetted professionals.</p>
-                    <Link href="/services" onClick={() => setActiveDropdown(null)} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition-colors flex-shrink-0">
-                      Browse All Services
                     </Link>
                   </div>
                 </div>
@@ -275,7 +211,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                 Sign In
               </Link>
               <button onClick={() => setShowSignupModal(true)} className="rounded-lg bg-primary px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#E55A2B] transition-colors">
-                Start Now
+                Get Started
               </button>
             </>
           )}
@@ -299,10 +235,10 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
         <div className={`lg:hidden border-t ${isDark ? "bg-[#1C1B1A] border-white/10" : "bg-white border-gray-200"} max-h-[80vh] overflow-y-auto`}>
           <div className="px-6 py-4 space-y-3">
 
-            {/* Build Your Team card */}
+            {/* Hire Staff card */}
             <div className="rounded-xl bg-[#1C1B1A] overflow-hidden">
               <button onClick={() => toggleMobileAccordion("build-team")} className="flex w-full items-center justify-between p-4">
-                <span className="text-sm font-semibold text-white">Build Your Team</span>
+                <span className="text-sm font-semibold text-white">Hire Staff</span>
                 <svg className={`w-4 h-4 text-white/60 transition-transform ${mobileAccordion === "build-team" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -316,28 +252,6 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                   ))}
                   <Link href="/browse" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-semibold text-primary">
                     View all &rarr;
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Get It Done card */}
-            <div className="rounded-xl bg-primary overflow-hidden">
-              <button onClick={() => toggleMobileAccordion("get-it-done")} className="flex w-full items-center justify-between p-4">
-                <span className="text-sm font-semibold text-white">Get It Done</span>
-                <svg className={`w-4 h-4 text-white/60 transition-transform ${mobileAccordion === "get-it-done" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {mobileAccordion === "get-it-done" && (
-                <div className="px-4 pb-4 space-y-1">
-                  {GET_IT_DONE_NEEDS.map((item) => (
-                    <Link key={item.label} href={item.href} onClick={() => setMobileOpen(false)} className="block py-2 text-sm text-white/80 hover:text-white">
-                      {item.label}
-                    </Link>
-                  ))}
-                  <Link href="/services" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-semibold text-white">
-                    View all services &rarr;
                   </Link>
                 </div>
               )}
@@ -378,7 +292,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
               <div className="space-y-2 pt-2">
                 <Link href="/login" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-text">Sign In</Link>
                 <button onClick={() => { setMobileOpen(false); setShowSignupModal(true); }} className="block w-full rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-white hover:bg-orange-600">
-                  Start Now
+                  Get Started
                 </button>
               </div>
             )}

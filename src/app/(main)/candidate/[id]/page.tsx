@@ -4,7 +4,6 @@ import Link from "next/link";
 import MessageButton from "@/components/browse/MessageButton";
 import InterviewRequestSection from "@/components/InterviewRequestSection";
 import NotifyButton from "@/components/browse/NotifyButton";
-import ServicePurchaseSection from "@/components/ServicePurchaseSection";
 import ProfileViewTracker from "@/components/ProfileViewTracker";
 
 async function InterviewNotesPDF({ path }: { path: string }) {
@@ -262,14 +261,6 @@ export default async function CandidateProfilePage({
     if (endCompare !== 0) return endCompare;
     return (b.start_date || "").localeCompare(a.start_date || "");
   });
-
-  // Fetch active service packages
-  const { data: servicePackages } = await supabase
-    .from("service_packages")
-    .select("*")
-    .eq("candidate_id", id)
-    .eq("status", "active")
-    .order("price_usd", { ascending: true });
 
   const { data: portfolioItems } = await supabase
     .from("portfolio_items")
@@ -683,86 +674,6 @@ export default async function CandidateProfilePage({
                       {entry.description && (
                         <p className="mt-1 text-sm text-text/70">{entry.description}</p>
                       )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Services — active packages */}
-            {(servicePackages || []).length > 0 && (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider flex items-center gap-2">
-                  <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                  Services
-                </h2>
-                <div className="mt-4 grid grid-cols-1 gap-4">
-                  {(servicePackages || []).map((pkg: { id: string; title: string; description: string; whats_included: string[]; delivery_days: number; price_usd: number; tier: string; category: string; max_concurrent_orders: number }) => (
-                    <div key={pkg.id} className="rounded-lg border border-gray-200 p-5 hover:border-primary/30 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-text">{pkg.title}</h3>
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
-                              {pkg.tier}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-xs text-text/50">{pkg.category}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-primary">${Number(pkg.price_usd).toFixed(0)}</p>
-                          <p className="text-[10px] text-text/40">+ 10% fee</p>
-                        </div>
-                      </div>
-
-                      <p className="mt-3 text-sm text-text/70">{pkg.description}</p>
-
-                      <div className="mt-3">
-                        <ul className="space-y-1">
-                          {(pkg.whats_included || []).slice(0, 3).map((item: string, i: number) => (
-                            <li key={i} className="flex items-center gap-2 text-sm text-text/70">
-                              <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              {item}
-                            </li>
-                          ))}
-                          {(pkg.whats_included || []).length > 3 && (
-                            <li className="text-xs text-text/40 pl-5">
-                              +{(pkg.whats_included || []).length - 3} more items
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-xs text-text/50">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {pkg.delivery_days} day{pkg.delivery_days !== 1 ? "s" : ""} delivery
-                        </span>
-
-                        {isClient ? (
-                          <ServicePurchaseSection
-                            packageId={pkg.id}
-                            packageTitle={pkg.title}
-                            packagePrice={Number(pkg.price_usd)}
-                            deliveryDays={pkg.delivery_days}
-                            whatsIncluded={pkg.whats_included || []}
-                            candidateName={displayedName || ""}
-                          />
-                        ) : !isLoggedIn ? (
-                          <Link
-                            href="/signup/client"
-                            className="rounded-lg border border-primary px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
-                          >
-                            Sign in to purchase
-                          </Link>
-                        ) : null}
-                      </div>
                     </div>
                   ))}
                 </div>

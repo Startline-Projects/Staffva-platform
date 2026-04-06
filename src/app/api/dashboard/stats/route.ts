@@ -85,22 +85,6 @@ export async function GET() {
       totalSpend = (periods || []).reduce((sum, p) => sum + Number(p.amount_usd || 0), 0);
     }
 
-    // Add service_orders spend
-    try {
-      const { data: orders } = await admin
-        .from("service_orders")
-        .select("service_packages(price_usd)")
-        .eq("client_id", clientId)
-        .in("status", ["completed", "in_progress", "submitted"]);
-
-      if (orders) {
-        for (const o of orders) {
-          const pkg = o.service_packages as unknown as { price_usd: number } | null;
-          if (pkg) totalSpend += Number(pkg.price_usd || 0);
-        }
-      }
-    } catch { /* table may not exist */ }
-
     // ═══ HIRING ACTIVITY (monthly hires for past 12 months) ═══
     const { data: allEngagements } = await admin
       .from("engagements")

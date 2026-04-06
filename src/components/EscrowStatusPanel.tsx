@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface EscrowItem {
-  type: "payment_period" | "milestone" | "service_order";
+  type: "payment_period" | "milestone";
   id: string;
   engagement_id?: string;
   candidate_name?: string;
@@ -93,26 +93,6 @@ function getStatusMessage(item: EscrowItem, role: "client" | "candidate"): strin
     return "Milestone funded. Complete the work to release payment.";
   }
 
-  if (item.type === "service_order") {
-    if (item.status === "submitted") {
-      if (role === "client") {
-        const releaseInfo = item.auto_release_at
-          ? `Auto-releases to candidate on ${formatDate(item.auto_release_at)} if no action taken.`
-          : `Review and approve the delivery.`;
-        return `Delivery submitted. ${releaseInfo}`;
-      } else {
-        const releaseInfo = item.auto_release_at
-          ? `Auto-releases on ${formatDate(item.auto_release_at)} if client takes no action.`
-          : `Waiting for client review.`;
-        return `Delivery submitted. ${releaseInfo}`;
-      }
-    }
-    if (role === "client") {
-      return "Order in progress. Funds held in escrow.";
-    }
-    return "Order in progress. Complete and submit delivery to release funds.";
-  }
-
   return "Funds held in escrow.";
 }
 
@@ -120,7 +100,6 @@ function getTypeLabel(type: string): string {
   switch (type) {
     case "payment_period": return "Payment Period";
     case "milestone": return "Milestone";
-    case "service_order": return "Service Order";
     default: return "Payment";
   }
 }
@@ -129,7 +108,6 @@ function getTypeIcon(type: string): string {
   switch (type) {
     case "payment_period": return "🔄";
     case "milestone": return "🎯";
-    case "service_order": return "📦";
     default: return "💰";
   }
 }

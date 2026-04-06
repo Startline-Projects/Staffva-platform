@@ -9,7 +9,7 @@ function getAdminClient() {
 }
 
 interface EscrowItem {
-  type: "payment_period" | "milestone" | "service_order";
+  type: "payment_period" | "milestone";
   id: string;
   engagement_id?: string;
   candidate_name?: string;
@@ -140,35 +140,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Service orders in escrow
-      const { data: orders } = await supabase
-        .from("service_orders")
-        .select(`
-          id, candidate_amount_usd, platform_fee_usd, amount_paid_usd, status,
-          ordered_at, submitted_at, auto_release_at,
-          candidates!inner(display_name),
-          service_packages!inner(title)
-        `)
-        .eq("client_id", client.id)
-        .in("status", ["in_progress", "submitted"]);
-
-      if (orders) {
-        for (const o of orders) {
-          const cand = o.candidates as unknown as Record<string, unknown>;
-          const pkg = o.service_packages as unknown as Record<string, unknown>;
-          items.push({
-            type: "service_order",
-            id: o.id,
-            candidate_name: (cand?.display_name as string) || "Unknown",
-            amount_usd: o.amount_paid_usd,
-            status: o.status,
-            funded_at: o.ordered_at,
-            auto_release_at: o.auto_release_at,
-            submitted_at: o.submitted_at,
-            title: (pkg?.title as string) || "Service",
-          });
-        }
-      }
     } else if (profile.role === "candidate") {
       // Get candidate record
       const { data: candidate } = await supabase
@@ -242,32 +213,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Service orders
-      const { data: orders } = await supabase
-        .from("service_orders")
-        .select(`
-          id, candidate_amount_usd, status,
-          ordered_at, submitted_at, auto_release_at,
-          service_packages!inner(title)
-        `)
-        .eq("candidate_id", candidate.id)
-        .in("status", ["in_progress", "submitted"]);
-
-      if (orders) {
-        for (const o of orders) {
-          const pkg = o.service_packages as unknown as Record<string, unknown>;
-          items.push({
-            type: "service_order",
-            id: o.id,
-            amount_usd: o.candidate_amount_usd,
-            status: o.status,
-            funded_at: o.ordered_at,
-            auto_release_at: o.auto_release_at,
-            submitted_at: o.submitted_at,
-            title: (pkg?.title as string) || "Service",
-          });
-        }
-      }
     }
 
     // Calculate totals

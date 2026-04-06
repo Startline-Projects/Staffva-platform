@@ -43,18 +43,12 @@ export default function HeroSection({ heroPreview: _heroPreview }: Props) {
           you reach out.
         </p>
 
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="mt-10 flex items-center justify-center">
           <Link
             href="/browse"
             className="w-full sm:w-auto rounded-full bg-primary px-8 py-3.5 text-center text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
           >
-            Build Your Team
-          </Link>
-          <Link
-            href="/services"
-            className="w-full sm:w-auto rounded-full border border-border px-8 py-3.5 text-center text-sm font-semibold text-text hover:border-text transition-colors"
-          >
-            Get It Done
+            Browse Talent
           </Link>
         </div>
 

@@ -858,7 +858,7 @@ export default function ProfileBuilder({
                 <div>
                   <input
                     type="text"
-                    placeholder="e.g. McKinsey & Company, freelance, self-employed"
+                    placeholder="e.g. McKinsey & Company, self-employed"
                     value={entry.company_name}
                     maxLength={80}
                     onChange={(e) =>
