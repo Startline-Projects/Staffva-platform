@@ -783,6 +783,16 @@ export default function ProfileBuilder({
             setError("Each entry needs a role title, industry, and start date");
             return false;
           }
+          if (entry.end_date && entry.end_date !== "present" && entry.start_date) {
+            const [startYear, startMonth] = entry.start_date.split("-").map(Number);
+            const [endYear, endMonth] = entry.end_date.split("-").map(Number);
+            const startTotal = startYear * 12 + startMonth;
+            const endTotal = endYear * 12 + endMonth;
+            if (startTotal > endTotal) {
+              setError(`The start date cannot be after the end date for "${entry.role_title || entry.company_name}". Please fix the dates before continuing.`);
+              return false;
+            }
+          }
         }
         return true;
       }
