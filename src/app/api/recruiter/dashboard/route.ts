@@ -17,17 +17,14 @@ async function getRecruiterUser(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ).auth.getUser(token);
   if (!user) return null;
-  // Role lives in user_metadata (same pattern as recruiting-manager/approve)
-  const role = user.user_metadata?.role;
-  if (!role || !["recruiter", "recruiting_manager"].includes(role)) return null;
   const supabase = getAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, calendar_link, daily_interview_target, recruiter_type")
     .eq("id", user.id)
     .single();
-  if (!profile) return null;
-  return { user, profile: { ...profile, role } };
+  if (!profile || (profile.role !== "recruiter" && profile.role !== "recruiting_manager")) return null;
+  return { user, profile };
 }
 
 export async function GET(req: NextRequest) {
