@@ -133,6 +133,7 @@ export default function ManagerDashboard() {
   const [assigning, setAssigning] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [expandedApproval, setExpandedApproval] = useState<string | null>(null);
+  const [failedApprovals, setFailedApprovals] = useState<Record<string, string[]>>({});
 
   // Personal recruiter data (for "Mine" tab)
   const [personalData, setPersonalData] = useState<{
@@ -191,7 +192,15 @@ export default function ManagerDashboard() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ candidateId }),
       });
-      if (res.ok) loadDashboard();
+      if (res.ok) {
+        setFailedApprovals((prev) => { const next = { ...prev }; delete next[candidateId]; return next; });
+        loadDashboard();
+      } else if (res.status === 400) {
+        const body = await res.json();
+        if (body.failingConditions) {
+          setFailedApprovals((prev) => ({ ...prev, [candidateId]: body.failingConditions }));
+        }
+      }
     } catch { /* silent */ }
     setApprovingId(null);
   }
@@ -367,6 +376,8 @@ export default function ManagerDashboard() {
                 const gates = getGateChecks(c);
                 const passCount = gates.filter((g) => g.pass).length;
                 const allGreen = passCount === gates.length;
+                const hasFailed = !!failedApprovals[c.id];
+                const ringColor = hasFailed ? "#ef4444" : allGreen ? "#22c55e" : "#ef4444";
                 const daysSince = c.second_interview_completed_at ? Math.floor((Date.now() - new Date(c.second_interview_completed_at).getTime()) / (1000 * 60 * 60 * 24)) : null;
                 const isExpanded = expandedApproval === c.id;
 
@@ -383,7 +394,7 @@ export default function ManagerDashboard() {
                       <div className="relative h-10 w-10 shrink-0">
                         <svg viewBox="0 0 40 40" className="h-10 w-10 -rotate-90">
                           <circle cx="20" cy="20" r="17" fill="none" stroke="#e5e7eb" strokeWidth="3" />
-                          <circle cx="20" cy="20" r="17" fill="none" stroke={allGreen ? "#22c55e" : "#ef4444"} strokeWidth="3"
+                          <circle cx="20" cy="20" r="17" fill="none" stroke={ringColor} strokeWidth="3"
                             strokeDasharray={`${(2 * Math.PI * 17 * passCount) / gates.length} ${2 * Math.PI * 17}`}
                             strokeLinecap="round"
                           />
@@ -473,6 +484,21 @@ export default function ManagerDashboard() {
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Server-side failing conditions from approval attempt */}
+                        {failedApprovals[c.id] && (
+                          <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
+                            <p className="text-xs font-semibold text-red-700 mb-1.5">Approval blocked — failing conditions:</p>
+                            <ul className="space-y-1">
+                              {failedApprovals[c.id].map((condition, i) => (
+                                <li key={i} className="flex items-start gap-1.5 text-xs text-red-600">
+                                  <span className="mt-0.5 shrink-0">&#10007;</span>
+                                  <span>{condition}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
                       </div>
