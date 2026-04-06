@@ -86,6 +86,7 @@ export default function RecruiterDashboardPage() {
   const [revisionModal, setRevisionModal] = useState<{ candidateId: string; name: string } | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   // 10-second timeout fallback — never leave the spinner hanging
   useEffect(() => {
@@ -117,7 +118,11 @@ export default function RecruiterDashboardPage() {
       const res = await fetch("/api/recruiter/dashboard", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (res.status === 401 || res.status === 403) { router.push("/"); return; }
+      if (res.status === 401 || res.status === 403) {
+        setLoading(false);
+        setAuthError(true);
+        return;
+      }
       if (!res.ok) { setLoading(false); return; }
       const result = await res.json();
       setData(result);
@@ -152,6 +157,15 @@ export default function RecruiterDashboardPage() {
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" /></div>;
+  }
+
+  // Auth error — stop everything, no retries
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <p className="text-gray-500">Session error. Please sign out and sign back in.</p>
+      </div>
+    );
   }
 
   // Recruiting manager gets their own dashboard

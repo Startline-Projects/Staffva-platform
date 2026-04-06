@@ -135,6 +135,7 @@ export default function ManagerDashboard() {
   const [expandedApproval, setExpandedApproval] = useState<string | null>(null);
   const [failedApprovals, setFailedApprovals] = useState<Record<string, string[]>>({});
   const [loadError, setLoadError] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   // 10-second timeout fallback — never leave the spinner hanging
   useEffect(() => {
@@ -169,7 +170,11 @@ export default function ManagerDashboard() {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
       ]);
-      if (managerRes.status === 401) { router.push("/"); return; }
+      if (managerRes.status === 401 || managerRes.status === 403) {
+        setLoading(false);
+        setAuthError(true);
+        return;
+      }
       if (managerRes.ok) setData(await managerRes.json());
       if (recruiterRes.ok) setPersonalData(await recruiterRes.json());
     } catch { /* silent */ }
@@ -226,6 +231,14 @@ export default function ManagerDashboard() {
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" /></div>;
+  }
+
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <p className="text-gray-500">Session error. Please sign out and sign back in.</p>
+      </div>
+    );
   }
 
   if (!data) {
