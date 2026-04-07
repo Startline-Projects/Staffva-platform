@@ -458,6 +458,7 @@ export default function CandidateDashboardPage() {
   const [recruiterProfile, setRecruiterProfile] = useState<{ full_name: string; avatar_url: string | null; calendar_link: string | null } | null>(null);
   const [recruiterUnread, setRecruiterUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -473,7 +474,17 @@ export default function CandidateDashboardPage() {
         .single();
 
       if (candidateError) {
-        console.error("[DASHBOARD] Candidate query failed:", candidateError.message, candidateError.code);
+        console.error("[DASHBOARD] Candidate query failed:", candidateError.message, candidateError.code, candidateError.details);
+        // PGRST116 = "no rows returned" from .single() — means no candidate record exists
+        if (candidateError.code === "PGRST116") {
+          // Legitimate: user has no candidate record, send to application
+          router.replace("/apply");
+          return;
+        }
+        // Any other error (column doesn't exist, permission error, etc.) — show error, don't redirect
+        setLoadError(`Unable to load your profile (${candidateError.code}). Please refresh the page.`);
+        setLoading(false);
+        return;
       }
 
       if (c) {
@@ -615,7 +626,23 @@ export default function CandidateDashboardPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <p className="text-sm text-red-600 font-medium">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
+  }
+
   if (!candidate) {
+    // This only runs if loading finished with no error and no candidate — should not happen
+    // since PGRST116 (no rows) now redirects in the useEffect. Safety fallback only.
     router.replace("/apply");
     return (
       <div className="flex items-center justify-center py-20">
