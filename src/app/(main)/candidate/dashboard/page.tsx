@@ -946,7 +946,7 @@ export default function CandidateDashboardPage() {
                                 Schedule My Interview
                               </a>
                             ) : (
-                              <p className="text-xs text-gray-400 italic">Your recruiter will reach out to schedule shortly.</p>
+                              <p className="text-xs text-gray-400 italic">Your recruiter will reach out to schedule your second interview shortly.</p>
                             )}
                             <Link
                               href={`/candidate/dashboard/recruiter-chat`}
