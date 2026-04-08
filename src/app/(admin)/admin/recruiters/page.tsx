@@ -19,6 +19,7 @@ interface Recruiter {
   id: string;
   email: string;
   full_name: string;
+  role: string;
   created_at: string;
   last_login: string | null;
   assignments: string[];
@@ -99,14 +100,14 @@ export default function AdminRecruitersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1C1B1A]">Recruiters</h1>
+          <h1 className="text-2xl font-bold text-[#1C1B1A]">Talent Specialists</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Overview of all recruiter accounts, assignments, and candidate distribution.
+            Overview of all Talent Specialist accounts, assignments, and candidate distribution.
           </p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-[#FE6E3E]">{recruiters.length}</p>
-          <p className="text-xs text-gray-500">Active recruiters</p>
+          <p className="text-xs text-gray-500">Active team members</p>
         </div>
       </div>
 
@@ -118,7 +119,7 @@ export default function AdminRecruitersPage() {
 
       {recruiters.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-          <p className="text-gray-500">No recruiter accounts found.</p>
+          <p className="text-gray-500">No team member accounts found.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -135,7 +136,12 @@ export default function AdminRecruitersPage() {
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-[#1C1B1A] text-sm">{r.full_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-[#1C1B1A] text-sm">{r.full_name}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.role === "recruiting_manager" ? "bg-purple-100 text-purple-700" : "bg-orange-50 text-[#FE6E3E]"}`}>
+                        {r.role === "recruiting_manager" ? "Manager" : "Talent Specialist"}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400 truncate">{r.email}</p>
                   </div>
                   <div className="hidden md:flex flex-wrap gap-1 max-w-xs">

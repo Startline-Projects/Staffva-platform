@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               from: "StaffVA <notifications@staffva.com>",
               to: candidate.email,
-              subject: "You're in the queue — a recruiter will be assigned to you shortly",
+              subject: "You're in the queue — a Talent Specialist will be assigned to you shortly",
               html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
                 <h2 style="color:#1C1B1A;">You're in the Queue</h2>
                 <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-                <p style="color:#444;font-size:14px;">We have reviewed your AI interview. You will be assigned a recruiter within 24 hours. You will receive a notification when your recruiter is assigned.</p>
+                <p style="color:#444;font-size:14px;">We have reviewed your AI interview. You will be assigned a Talent Specialist within 24 hours. You will receive a notification when your Talent Specialist is assigned.</p>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
             }),

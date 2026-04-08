@@ -244,7 +244,7 @@ export async function POST(request: Request) {
           `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
             <h2 style="color:#1C1B1A;">Profile Under Review</h2>
             <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-            <p style="color:#444;font-size:14px;">Thank you for completing your recruiter interview. Our team is now reviewing your profile, voice recordings, and experience.</p>
+            <p style="color:#444;font-size:14px;">Thank you for completing your Talent Specialist interview. Our team is now reviewing your profile, voice recordings, and experience.</p>
             <p style="color:#444;font-size:14px;">We will be in touch within 2 business days.</p>
             <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Dashboard</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>

@@ -37,7 +37,8 @@ export default async function AdminLayout({
             <Link href="/admin/triage" className={navLinkClass}>Triage Queue</Link>
             <Link href="/admin/duplicates" className={navLinkClass}>Duplicates</Link>
             <Link href="/admin/identity" className={navLinkClass}>Identity</Link>
-            <Link href="/admin/recruiters" className={navLinkClass}>Recruiters</Link>
+            <Link href="/admin/recruiters" className={navLinkClass}>Talent Specialists</Link>
+            <Link href="/admin/team" className={navLinkClass}>Team Inbox</Link>
             <Link href="/admin/giveaway" className={navLinkClass}>Giveaway</Link>
             <Link href="/admin/pending-bans" className={navLinkClass}>Pending Bans</Link>
             <Link href="/talent-pool" className={navLinkClass}>Talent Pool</Link>

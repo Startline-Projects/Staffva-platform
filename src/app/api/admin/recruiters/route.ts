@@ -31,8 +31,8 @@ export async function GET() {
 
   const { data: recruiters } = await supabase
     .from("profiles")
-    .select("id, email, full_name, created_at")
-    .eq("role", "recruiter")
+    .select("id, email, full_name, created_at, role")
+    .in("role", ["recruiter", "recruiting_manager"])
     .order("full_name");
 
   if (!recruiters || recruiters.length === 0) {
@@ -80,6 +80,7 @@ export async function GET() {
       id: r.id,
       email: r.email,
       full_name: r.full_name,
+      role: r.role,
       created_at: r.created_at,
       last_login: lastLoginMap[r.id] || null,
       assignments,

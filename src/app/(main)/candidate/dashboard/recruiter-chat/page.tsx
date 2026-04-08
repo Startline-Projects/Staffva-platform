@@ -128,7 +128,7 @@ export default function RecruiterChatPage() {
         </div>
         <div>
           <p className="text-sm font-semibold text-[#1C1B1A]">{recruiter.full_name}</p>
-          <p className="text-xs text-gray-400">Your StaffVA Recruiter</p>
+          <p className="text-xs text-gray-400">Your StaffVA Talent Specialist</p>
         </div>
       </div>
 
@@ -137,7 +137,7 @@ export default function RecruiterChatPage() {
         <div className="h-[60vh] overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-gray-400">No messages yet. Send a message to your recruiter.</p>
+              <p className="text-sm text-gray-400">No messages yet. Send a message to your Talent Specialist.</p>
             </div>
           )}
           {messages.map((msg) => {

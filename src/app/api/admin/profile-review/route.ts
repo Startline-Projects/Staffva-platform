@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
             html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
               <h2 style="color:#1C1B1A;">Profile Updates Needed</h2>
               <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-              <p style="color:#444;font-size:14px;">Your recruiter has reviewed your profile and has requested the following updates before your profile can go live:</p>
+              <p style="color:#444;font-size:14px;">Your Talent Specialist has reviewed your profile and has requested the following updates before your profile can go live:</p>
               <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:16px 0;">
                 ${changeListHtml}
               </div>

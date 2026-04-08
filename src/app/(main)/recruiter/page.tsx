@@ -9,6 +9,7 @@ import Lane2Profiles from "@/components/recruiter/Lane2Profiles";
 import Lane3Revisions from "@/components/recruiter/Lane3Revisions";
 import RevisionModal from "@/components/recruiter/RevisionModal";
 import MessageSidebar from "@/components/recruiter/MessageSidebar";
+import InternalChat from "@/components/recruiter/InternalChat";
 import ManagerDashboard from "@/components/recruiter/ManagerDashboard";
 
 interface DashboardData {
@@ -93,7 +94,8 @@ interface DashboardData {
   profile: { role: string; calendarLink: string | null };
 }
 
-type MobileTab = "resumes" | "profiles" | "revisions" | "messages";
+type MobileTab = "resumes" | "profiles" | "revisions" | "messages" | "team";
+type SidebarTab = "messages" | "team";
 
 export default function RecruiterDashboardPage() {
   const router = useRouter();
@@ -105,6 +107,7 @@ export default function RecruiterDashboardPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("messages");
 
   // 10-second timeout fallback — never leave the spinner hanging
   useEffect(() => {
@@ -290,9 +293,28 @@ export default function RecruiterDashboardPage() {
           </div>
         </div>
 
-        {/* Message Sidebar — fixed right 280px */}
-        <div className="w-[280px] shrink-0 sticky top-[76px] h-[calc(100vh-76px)]">
-          <MessageSidebar threads={data.threads} candidateMap={candidateMap} token={token} />
+        {/* Right sidebar — tabbed: Candidate Messages | Team */}
+        <div className="w-[280px] shrink-0 sticky top-[76px] h-[calc(100vh-76px)] flex flex-col">
+          {/* Tab switcher */}
+          <div className="flex border-b border-gray-200 bg-white">
+            <button
+              onClick={() => setSidebarTab("messages")}
+              className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors ${sidebarTab === "messages" ? "text-[#FE6E3E] border-b-2 border-[#FE6E3E]" : "text-gray-400 hover:text-gray-600"}`}
+            >
+              Messages
+            </button>
+            <button
+              onClick={() => setSidebarTab("team")}
+              className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors ${sidebarTab === "team" ? "text-[#FE6E3E] border-b-2 border-[#FE6E3E]" : "text-gray-400 hover:text-gray-600"}`}
+            >
+              Team
+            </button>
+          </div>
+          {sidebarTab === "messages" ? (
+            <MessageSidebar threads={data.threads} candidateMap={candidateMap} token={token} />
+          ) : (
+            <InternalChat />
+          )}
         </div>
       </div>
 
@@ -349,6 +371,11 @@ export default function RecruiterDashboardPage() {
               <MessageSidebar threads={data.threads} candidateMap={candidateMap} token={token} isMobileFullScreen />
             </div>
           )}
+          {mobileTab === "team" && (
+            <div className="h-[calc(100vh-200px)]">
+              <InternalChat isMobileFullScreen />
+            </div>
+          )}
         </div>
 
         {/* Bottom tab bar */}
@@ -358,6 +385,7 @@ export default function RecruiterDashboardPage() {
             { key: "profiles" as MobileTab, label: "Profiles", count: data.lane2.length },
             { key: "revisions" as MobileTab, label: "Revisions", count: data.lane3.length },
             { key: "messages" as MobileTab, label: "Messages", count: totalUnread },
+            { key: "team" as MobileTab, label: "Team", count: 0 },
           ]).map((tab) => (
             <button
               key={tab.key}

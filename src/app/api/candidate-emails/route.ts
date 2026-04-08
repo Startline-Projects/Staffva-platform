@@ -73,23 +73,23 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
   },
 
   ai_interview_passed: {
-    subject: (data) => `Your AI interview scored ${data?.score || "—"}/100 — a recruiter is reviewing you now`,
+    subject: (data) => `Your AI interview scored ${data?.score || "—"}/100 — a Talent Specialist is reviewing you now`,
     body: (name, data) => `
       <h2 style="color:#1C1B1A;">AI Interview Complete</h2>
       <p>Hi ${name},</p>
       <p>You completed the AI interview${data?.score ? ` with a score of <strong>${data.score}/100</strong>` : ""}. Well done.</p>
-      <p><strong>What happens next:</strong> A recruiter from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview. This is the final step before your profile goes live.</p>
+      <p><strong>What happens next:</strong> A Talent Specialist from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview. This is the final step before your profile goes live.</p>
       <p>Giveaway eligibility is now one step away — complete the recruiter interview and get your profile approved to qualify.</p>
       <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Dashboard</a>
     `,
   },
 
   "24h_nudge": {
-    subject: "Your recruiter interview is being scheduled",
+    subject: "Your Talent Specialist interview is being scheduled",
     body: (name) => `
       <h2 style="color:#1C1B1A;">We Haven't Forgotten You</h2>
       <p>Hi ${name},</p>
-      <p>Your AI interview is complete and a recruiter is preparing to schedule your second interview. We aim to reach out within 48 hours of your AI interview completion.</p>
+      <p>Your AI interview is complete and a Talent Specialist is preparing to schedule your second interview. We aim to reach out within 48 hours of your AI interview completion.</p>
       <p>In the meantime, make sure your profile is up to date — a complete profile helps our team match you with the right opportunities faster.</p>
       <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Update My Profile</a>
     `,

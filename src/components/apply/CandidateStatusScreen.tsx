@@ -33,7 +33,7 @@ const STATUS_CONFIG: Record<string, {
     iconBg: "bg-blue-100",
     iconColor: "text-blue-600",
     title: "Profile Under Review",
-    message: "Your recruiter is reviewing your profile. You will be notified once your profile goes live.",
+    message: "Your Talent Specialist is reviewing your profile. You will be notified once your profile goes live.",
   },
   pending_speaking_review: {
     icon: "check",

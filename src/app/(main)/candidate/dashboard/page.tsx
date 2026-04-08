@@ -776,15 +776,15 @@ export default function CandidateDashboardPage() {
         } else if (aiDone && !recruiterScheduled && !recruiterDone) {
           // Stage 5: AI interview complete, awaiting recruiter
           if (recruiterProfile) {
-            nextHeading = "Meet your recruiter";
+            nextHeading = "Meet your StaffVA Talent Specialist";
             nextBody = "";
           } else {
             nextHeading = "Your AI interview is complete";
-            nextBody = "A recruiter will be assigned to you shortly to schedule your second interview.";
+            nextBody = "A Talent Specialist will be assigned to you shortly to schedule your second interview.";
           }
         } else if (recruiterScheduled && !recruiterDone) {
           // Stage 6: Recruiter interview scheduled
-          nextHeading = "Your recruiter interview is scheduled";
+          nextHeading = "Your Talent Specialist interview is scheduled";
           nextBody = "Check your email for the details.";
         } else if (profileUnderReview) {
           // Stage 7: Recruiter interview complete + spoken scored, under review
@@ -802,7 +802,7 @@ export default function CandidateDashboardPage() {
           nextHref = `/candidate/${candidate.id}`; nextLabel = "View My Profile";
         } else if (recruiterDone && !spokenScored) {
           // Recruiter done but spoken not scored yet — waiting
-          nextHeading = "Your recruiter interview is complete";
+          nextHeading = "Your Talent Specialist interview is complete";
           nextBody = "Our team is processing your results. We will be in touch soon.";
         } else {
           // Fallback
@@ -871,7 +871,7 @@ export default function CandidateDashboardPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {candidate.role_category === "Other" && !candidate.assigned_recruiter ? (
                           <div className="w-full rounded-lg bg-amber-50 border border-amber-200 p-3">
-                            <p className="text-xs text-amber-800 font-medium">Your recruiter will be assigned within 24 hours. You will be notified when this happens.</p>
+                            <p className="text-xs text-amber-800 font-medium">Your Talent Specialist will be assigned within 24 hours. You will be notified when this happens.</p>
                           </div>
                         ) : (
                           <>
@@ -888,7 +888,7 @@ export default function CandidateDashboardPage() {
                                 Schedule My Interview
                               </a>
                             ) : (
-                              <p className="text-xs text-gray-400 italic">Your recruiter will reach out to schedule your second interview shortly.</p>
+                              <p className="text-xs text-gray-400 italic">Your Talent Specialist will reach out to schedule your second interview shortly.</p>
                             )}
                             <Link
                               href={`/candidate/dashboard/recruiter-chat`}
@@ -897,7 +897,7 @@ export default function CandidateDashboardPage() {
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                               </svg>
-                              Message {recruiterProfile.full_name?.split(" ")[0] || "Recruiter"}
+                              Message {recruiterProfile.full_name?.split(" ")[0] || "Talent Specialist"}
                               {recruiterUnread > 0 && (
                                 <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#FE6E3E] text-[10px] font-bold text-white">
                                   {recruiterUnread}
