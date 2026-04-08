@@ -32,12 +32,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ recruiter_profile: null });
   }
 
-  // Fetch the recruiter's profile using service role (bypasses RLS)
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id, full_name, avatar_url, calendar_link")
-    .eq("id", candidate.assigned_recruiter)
-    .single();
+  // assigned_recruiter may be a UUID (from recruiter_assignments webhook) or a first name
+  // string (from legacy round-robin in process-application-queue). Handle both.
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    candidate.assigned_recruiter
+  );
+
+  let profile = null;
+  if (isUUID) {
+    const { data } = await admin
+      .from("profiles")
+      .select("id, full_name, avatar_url, calendar_link")
+      .eq("id", candidate.assigned_recruiter)
+      .single();
+    profile = data;
+  } else {
+    // Legacy: assigned_recruiter is a first name like "Shelly" or "Jerome"
+    const { data } = await admin
+      .from("profiles")
+      .select("id, full_name, avatar_url, calendar_link")
+      .eq("role", "recruiter")
+      .ilike("full_name", `${candidate.assigned_recruiter}%`)
+      .limit(1)
+      .maybeSingle();
+    profile = data;
+  }
 
   return NextResponse.json({ recruiter_profile: profile });
 }
