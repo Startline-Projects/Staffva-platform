@@ -136,6 +136,7 @@ export default async function CandidateProfilePage({
   const isCandidate = user?.user_metadata?.role === "candidate";
   const isAdmin = user?.user_metadata?.role === "admin";
   const isRecruitingManager = user?.user_metadata?.role === "recruiting_manager";
+  const isRecruiter = user?.user_metadata?.role === "recruiter";
 
   // First try to find approved candidate (public view)
   let { data: candidate } = await supabase
@@ -176,16 +177,16 @@ export default async function CandidateProfilePage({
     );
   }
 
-  // If not found and user is admin or recruiting_manager, show any candidate
-  if (!candidate && (isAdmin || isRecruitingManager)) {
-    const { data: adminCandidate } = await supabase
+  // If not found and user is admin, recruiting_manager, or recruiter — show any candidate regardless of status
+  if (!candidate && (isAdmin || isRecruitingManager || isRecruiter)) {
+    const { data: staffCandidate } = await supabase
       .from("candidates")
       .select("*")
       .eq("id", id)
       .single();
 
-    if (adminCandidate) {
-      candidate = adminCandidate;
+    if (staffCandidate) {
+      candidate = staffCandidate;
     }
   }
 
