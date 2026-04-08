@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   if (isUUID) {
     const { data } = await admin
       .from("profiles")
-      .select("id, full_name, avatar_url, calendar_link")
+      .select("id, full_name, calendar_link")
       .eq("id", candidate.assigned_recruiter)
       .single();
     profile = data;
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     // Legacy: assigned_recruiter is a first name like "Shelly" or "Jerome"
     const { data } = await admin
       .from("profiles")
-      .select("id, full_name, avatar_url, calendar_link")
+      .select("id, full_name, calendar_link")
       .eq("role", "recruiter")
       .ilike("full_name", `${candidate.assigned_recruiter}%`)
       .limit(1)
