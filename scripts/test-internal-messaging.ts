@@ -34,7 +34,7 @@ async function main() {
     .eq("thread_id", TEAM_THREAD_ID);
   console.log(`✅ Group thread members (${members?.length}):`);
   for (const m of members || []) {
-    const p = m.profiles as { full_name: string; role: string };
+    const p = (m.profiles as unknown) as { full_name: string; role: string };
     console.log(`   - ${p.full_name} (${p.role})`);
   }
 
