@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface MessageThread {
   candidate_id: string;
@@ -46,10 +46,9 @@ export default function MessageSidebar({ threads, candidateMap, token, isMobileF
       openThread(defaultOpenCandidateId);
       onThreadOpened?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultOpenCandidateId]);
+  }, [defaultOpenCandidateId, token, openThread, onThreadOpened]);
 
-  async function openThread(candidateId: string) {
+  const openThread = useCallback(async (candidateId: string) => {
     setActiveThread(candidateId);
     setLoading(true);
     setMessages([]);
@@ -63,7 +62,7 @@ export default function MessageSidebar({ threads, candidateMap, token, isMobileF
       }
     } catch { /* silent */ }
     setLoading(false);
-  }
+  }, [token]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();

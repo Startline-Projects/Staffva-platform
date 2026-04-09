@@ -77,16 +77,21 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
   const [creatingDm, setCreatingDm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const realtimeRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const supabaseRef = useRef(createClient());
+  const tokenRef = useRef("");
 
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Keep tokenRef in sync so realtime callbacks always use the latest token
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
   // Load session + threads on mount; clean up realtime channel on unmount
   useEffect(() => {
     (async () => {
-      const supabase = createClient();
+      const supabase = supabaseRef.current;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       setToken(session.access_token);
@@ -97,7 +102,7 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
 
     return () => {
       if (realtimeRef.current) {
-        createClient().removeChannel(realtimeRef.current);
+        supabaseRef.current.removeChannel(realtimeRef.current);
         realtimeRef.current = null;
       }
     };
@@ -147,10 +152,9 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
 
     // Set up real-time subscription
     if (realtimeRef.current) {
-      createClient().removeChannel(realtimeRef.current);
+      supabaseRef.current.removeChannel(realtimeRef.current);
     }
-    const supabase = createClient();
-    const channel = supabase
+    const channel = supabaseRef.current
       .channel(`internal-messages-${threadId}`)
       .on(
         "postgres_changes",
@@ -158,7 +162,7 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
         async () => {
           // Refetch messages for simplicity (we need sender_name which requires a join)
           const r = await fetch(`/api/internal/threads/${threadId}/messages`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${tokenRef.current}` },
           });
           if (r.ok) {
             const d = await r.json();
@@ -167,7 +171,7 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
           // Mark as read again
           fetch(`/api/internal/threads/${threadId}/read`, {
             method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${tokenRef.current}` },
           }).catch(() => {});
         }
       )
@@ -241,7 +245,7 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
               onClick={() => {
                 setActiveThreadId(null);
                 if (realtimeRef.current) {
-                  createClient().removeChannel(realtimeRef.current);
+                  supabaseRef.current.removeChannel(realtimeRef.current);
                   realtimeRef.current = null;
                 }
               }}

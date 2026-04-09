@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -460,6 +460,7 @@ export default function CandidateDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const router = useRouter();
+  const aiDoneRef = useRef(false);
 
   useEffect(() => {
     async function load() {
@@ -592,10 +593,12 @@ export default function CandidateDashboardPage() {
     // Only poll if ID verified, test done, and AI not yet done
     if (!idVerified || !testDone || aiDone) return;
 
+    aiDoneRef.current = false;
     let attempts = 0;
-    const maxAttempts = 12; // 60 seconds (every 5s)
+    const maxAttempts = 12; // 6 minutes (every 30s)
 
     const pollInterval = setInterval(async () => {
+      if (aiDoneRef.current) { clearInterval(pollInterval); return; }
       attempts++;
       if (attempts > maxAttempts) { clearInterval(pollInterval); return; }
 
@@ -612,14 +615,15 @@ export default function CandidateDashboardPage() {
           .maybeSingle();
 
         if (aiData) {
+          aiDoneRef.current = true;
           setAiInterview(aiData as AIInterviewData);
           clearInterval(pollInterval);
         }
       } catch { /* silent */ }
-    }, 5000);
+    }, 30000);
 
     return () => clearInterval(pollInterval);
-  }, [candidate, aiInterview]);
+  }, [candidate]);
 
   if (loading) {
     return (
