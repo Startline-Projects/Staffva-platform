@@ -40,14 +40,6 @@ export default function MessageSidebar({ threads, candidateMap, token, isMobileF
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-open thread when defaultOpenCandidateId is set
-  useEffect(() => {
-    if (defaultOpenCandidateId && token) {
-      openThread(defaultOpenCandidateId);
-      onThreadOpened?.();
-    }
-  }, [defaultOpenCandidateId, token, openThread, onThreadOpened]);
-
   const openThread = useCallback(async (candidateId: string) => {
     setActiveThread(candidateId);
     setLoading(true);
@@ -63,6 +55,14 @@ export default function MessageSidebar({ threads, candidateMap, token, isMobileF
     } catch { /* silent */ }
     setLoading(false);
   }, [token]);
+
+  // Auto-open thread when defaultOpenCandidateId is set
+  useEffect(() => {
+    if (defaultOpenCandidateId && token) {
+      openThread(defaultOpenCandidateId);
+      onThreadOpened?.();
+    }
+  }, [defaultOpenCandidateId, token, openThread, onThreadOpened]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
