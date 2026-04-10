@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.live - a.live)
     .map((r) => ({
       ...r,
-      pipelineRatio: r.live > 0 ? Math.round((r.pending / r.live) * 10) / 10 : r.pending > 0 ? Infinity : 0,
+      pipelineRatio: r.live > 0 ? Math.round((r.pending / r.live) * 10) / 10 : r.pending > 0 ? 9999 : 0,
     }));
 
   return NextResponse.json({

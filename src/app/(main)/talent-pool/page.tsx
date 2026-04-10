@@ -101,8 +101,8 @@ export default function TalentPoolPage() {
     else if (sortKey === "live") cmp = a.live - b.live;
     else if (sortKey === "pending") cmp = a.pending - b.pending;
     else if (sortKey === "pipelineRatio") {
-      const aR = a.pipelineRatio === Infinity ? 999 : a.pipelineRatio;
-      const bR = b.pipelineRatio === Infinity ? 999 : b.pipelineRatio;
+      const aR = a.pipelineRatio >= 9999 ? 9999 : a.pipelineRatio;
+      const bR = b.pipelineRatio >= 9999 ? 9999 : b.pipelineRatio;
       cmp = aR - bR;
     }
     return sortAsc ? cmp : -cmp;
@@ -164,15 +164,15 @@ export default function TalentPoolPage() {
               {sorted.map((row) => {
                 const isExpanded = expandedRole === row.role;
                 const isOther = row.role === "Custom Roles (Unrouted)";
-                const ratioColor = row.pipelineRatio === Infinity ? "text-green-600"
+                const ratioColor = row.pipelineRatio >= 9999 ? "text-green-600"
                   : row.pipelineRatio < 2 ? "text-red-600"
                   : row.pipelineRatio < 4 ? "text-amber-500"
                   : "text-green-600";
-                const barColor = row.pipelineRatio === Infinity ? "bg-green-500"
+                const barColor = row.pipelineRatio >= 9999 ? "bg-green-500"
                   : row.pipelineRatio < 2 ? "bg-red-500"
                   : row.pipelineRatio < 4 ? "bg-amber-400"
                   : "bg-green-500";
-                const barWidth = row.pipelineRatio === Infinity ? 100
+                const barWidth = row.pipelineRatio >= 9999 ? 100
                   : Math.min((row.pipelineRatio / 6) * 100, 100);
 
                 return (
@@ -197,7 +197,7 @@ export default function TalentPoolPage() {
                     </td>
                     <td className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-gray-50 transition-colors">
                       <span className={`text-sm font-bold ${ratioColor}`}>
-                        {row.pipelineRatio === Infinity ? "\u221e" : row.pipelineRatio.toFixed(1)}
+                        {row.pipelineRatio >= 9999 ? "\u221e" : row.pipelineRatio.toFixed(1)}
                       </span>
                     </td>
                     <td className="px-4 py-3 w-32 cursor-pointer hover:bg-gray-50 transition-colors">
