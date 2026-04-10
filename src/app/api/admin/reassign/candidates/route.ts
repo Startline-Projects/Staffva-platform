@@ -28,41 +28,41 @@ export async function GET(req: NextRequest) {
 
   const supabase = admin();
 
-  // Fetch all non-rejected candidates with their recruiter assignment
+  // Fetch all non-rejected candidates with recruiter profile joined via FK
   const { data: candidates, error } = await supabase
     .from("candidates")
-    .select("id, display_name, full_name, email, role_category, admin_status, assigned_recruiter, created_at")
+    .select("id, display_name, full_name, email, role_category, admin_status, assigned_recruiter, created_at, recruiter_profile:profiles!assigned_recruiter(id, full_name)")
     .not("admin_status", "eq", "rejected")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!candidates || candidates.length === 0) return NextResponse.json({ candidates: [] });
 
-  // Collect recruiter IDs
-  const recruiterIds = new Set<string>();
-  for (const c of candidates) {
-    if (c.assigned_recruiter) recruiterIds.add(c.assigned_recruiter);
-  }
-
-  let recruiterNameMap: Record<string, string> = {};
-  if (recruiterIds.size > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", [...recruiterIds]);
-    for (const p of profiles || []) recruiterNameMap[p.id] = p.full_name || p.id;
-  }
-
-  const enriched = candidates.map((c) => ({
-    id: c.id,
-    display_name: c.display_name || c.full_name || "—",
-    email: c.email,
-    role_category: c.role_category,
-    admin_status: c.admin_status,
-    assigned_recruiter: c.assigned_recruiter,
-    recruiter_name: c.assigned_recruiter ? (recruiterNameMap[c.assigned_recruiter] || "Unknown") : null,
-    created_at: c.created_at,
-  }));
+  const enriched = candidates.map((c: any) => {
+    let recruiter_name: string | null = null;
+    if (c.assigned_recruiter) {
+      const profile = c.recruiter_profile;
+      if (profile?.full_name) {
+        recruiter_name = profile.full_name;
+      } else if (profile) {
+        recruiter_name = "Unknown — ID not found";
+        console.warn(`Recruiter profile has no full_name: ${c.assigned_recruiter}`);
+      } else {
+        recruiter_name = "Unknown — ID not found";
+        console.warn(`Orphaned assigned_recruiter UUID: ${c.assigned_recruiter} (no matching profile)`);
+      }
+    }
+    return {
+      id: c.id,
+      display_name: c.display_name || c.full_name || "—",
+      email: c.email,
+      role_category: c.role_category,
+      admin_status: c.admin_status,
+      assigned_recruiter: c.assigned_recruiter,
+      recruiter_name,
+      created_at: c.created_at,
+    };
+  });
 
   return NextResponse.json({ candidates: enriched });
 }
