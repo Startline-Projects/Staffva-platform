@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import AudioPlayer from "@/components/AudioPlayer";
 import CandidatePreviewModal from "@/components/admin/CandidatePreviewModal";
 import InterviewPanel from "@/components/admin/InterviewPanel";
 import PhotoReviewModal from "@/components/admin/PhotoReviewModal";
+import ReassignModal from "@/components/admin/ReassignModal";
+import RecruiterPhotoQueue from "@/components/admin/RecruiterPhotoQueue";
 
 const TIER_LABELS: Record<string, string> = {
   exceptional: "Exceptional",
@@ -450,7 +453,13 @@ function ProfileReviewStep({ candidate, step2Done }: { candidate: Candidate; ste
 }
 
 export default function CandidateReviewPage() {
-  const [mainTab, setMainTab] = useState<"all" | "pending">("all");
+  const [mainTab, setMainTab] = useState<"all" | "pending" | "recruiter-photos">(() => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "recruiter-photos") return "recruiter-photos";
+    }
+    return "all";
+  });
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -468,6 +477,13 @@ export default function CandidateReviewPage() {
   const [actionsOpen, setActionsOpen] = useState<string | null>(null);
   const [photoReviewCandidate, setPhotoReviewCandidate] = useState<Candidate | null>(null);
   const [cheatFlagThreshold, setCheatFlagThreshold] = useState(3);
+  const [token, setToken] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [reassignModal, setReassignModal] = useState<{
+    candidateId: string;
+    candidateName: string;
+    currentRecruiterId: string | null;
+  } | null>(null);
 
   // Load cheat flag threshold from settings
   useEffect(() => {
@@ -483,6 +499,16 @@ export default function CandidateReviewPage() {
       } catch { /* silent */ }
     }
     loadSettings();
+  }, []);
+
+  // Load bearer token and current user ID
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setToken(session.access_token);
+        setCurrentUserId(session.user.id);
+      }
+    });
   }, []);
 
   const loadCandidates = useCallback(async () => {
@@ -628,8 +654,22 @@ export default function CandidateReviewPage() {
         >
           Pending Review
         </button>
+        <button
+          onClick={() => setMainTab("recruiter-photos")}
+          className={`pb-3 text-sm font-semibold transition-colors ${
+            mainTab === "recruiter-photos" ? "border-b-2 border-primary text-primary" : "text-text/40 hover:text-text/70"
+          }`}
+        >
+          Recruiter Photos
+        </button>
       </div>
 
+      {/* Recruiter photo approval queue */}
+      {mainTab === "recruiter-photos" && (
+        <RecruiterPhotoQueue token={token} currentUserId={currentUserId} currentUserRole="admin" />
+      )}
+
+      {mainTab !== "recruiter-photos" && (<>
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex-1 min-w-[200px]">
@@ -870,21 +910,17 @@ export default function CandidateReviewPage() {
                           {/* Recruiter reassignment */}
                           <div className="border-t border-gray-100 my-1" />
                           <button
-                            onClick={async () => {
-                              const newRecruiter = c.assigned_recruiter === "Shelly" ? "Jerome" : "Shelly";
-                              const res = await fetch("/api/admin/candidates/review", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ candidateId: c.id, action: "update_field", updates: { assigned_recruiter: newRecruiter } }),
-                              });
-                              if (res.ok) {
-                                setCandidates((prev) => prev.map((x) => x.id === c.id ? { ...x, assigned_recruiter: newRecruiter } : x));
-                              }
+                            onClick={() => {
                               setActionsOpen(null);
+                              setReassignModal({
+                                candidateId: c.id,
+                                candidateName: c.display_name || c.full_name || "Candidate",
+                                currentRecruiterId: c.assigned_recruiter || null,
+                              });
                             }}
                             className="w-full px-4 py-2 text-left text-xs text-text hover:bg-gray-50"
                           >
-                            Reassign to {c.assigned_recruiter === "Shelly" ? "Jerome" : "Shelly"}
+                            Reassign Recruiter
                           </button>
                         </div>
                       )}
@@ -1260,8 +1296,26 @@ export default function CandidateReviewPage() {
           onRevisionNoteChange={(note) => setRevisionNotes((prev) => ({ ...prev, [previewCandidate.id]: note }))}
           actionLoading={actionLoading === previewCandidate.id}
           showActions={previewCandidate.admin_status === "active" || previewCandidate.admin_status === "profile_review" || previewCandidate.admin_status === "pending_speaking_review" || previewCandidate.admin_status === "revision_required"}
+          token={token}
         />
       )}
+
+      {/* Reassign Modal */}
+      {reassignModal && (
+        <ReassignModal
+          candidateId={reassignModal.candidateId}
+          candidateName={reassignModal.candidateName}
+          currentRecruiterId={reassignModal.currentRecruiterId}
+          currentRecruiterName={null}
+          token={token}
+          onClose={() => setReassignModal(null)}
+          onSuccess={() => {
+            setReassignModal(null);
+            loadCandidates();
+          }}
+        />
+      )}
+      </>)}
     </div>
   );
 }

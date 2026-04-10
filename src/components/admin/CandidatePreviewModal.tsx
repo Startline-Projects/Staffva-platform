@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AudioPlayer from "@/components/AudioPlayer";
 
 const TIER_CONFIG: Record<string, { label: string; bg: string }> = {
@@ -52,6 +52,15 @@ interface Candidate {
   linkedin_url?: string;
 }
 
+interface ReassignLogEntry {
+  id: string;
+  reassigned_at: string;
+  from_name: string | null;
+  to_name: string;
+  reassigned_by_name: string;
+  reason: string | null;
+}
+
 interface Props {
   candidate: Candidate;
   onClose: () => void;
@@ -62,6 +71,7 @@ interface Props {
   onRevisionNoteChange: (note: string) => void;
   actionLoading: boolean;
   showActions: boolean;
+  token?: string;
 }
 
 export default function CandidatePreviewModal({
@@ -74,8 +84,20 @@ export default function CandidatePreviewModal({
   onRevisionNoteChange,
   actionLoading,
   showActions,
+  token,
 }: Props) {
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [reassignLog, setReassignLog] = useState<ReassignLogEntry[]>([]);
+
+  useEffect(() => {
+    if (!token || !c?.id) return;
+    fetch(`/api/admin/reassign/log?candidateId=${c.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.log) setReassignLog(data.log); })
+      .catch(() => {});
+  }, [token, c?.id]);
 
   const tier = c.english_written_tier ? TIER_CONFIG[c.english_written_tier] : null;
   const speaking = c.speaking_level ? SPEAKING_CONFIG[c.speaking_level] : null;
@@ -372,6 +394,33 @@ export default function CandidatePreviewModal({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Reassignment History */}
+        {reassignLog.length > 0 && (
+          <div className="px-6 pb-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Reassignment History</h3>
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              {reassignLog.map((entry) => (
+                <div key={entry.id} className="px-4 py-3 flex items-start gap-3">
+                  <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#FE6E3E]" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#1C1B1A]">
+                      {entry.from_name ? (
+                        <><span className="font-medium">{entry.from_name}</span> → <span className="font-medium">{entry.to_name}</span></>
+                      ) : (
+                        <>Assigned to <span className="font-medium">{entry.to_name}</span></>
+                      )}
+                    </p>
+                    {entry.reason && <p className="mt-0.5 text-[11px] text-gray-500 italic">{entry.reason}</p>}
+                    <p className="mt-0.5 text-[10px] text-gray-400">
+                      by {entry.reassigned_by_name} &middot; {new Date(entry.reassigned_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

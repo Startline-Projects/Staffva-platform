@@ -10,6 +10,9 @@ import Lane2Profiles from "./Lane2Profiles";
 import Lane3Revisions from "./Lane3Revisions";
 import RevisionModal from "./RevisionModal";
 import MessageSidebar from "./MessageSidebar";
+import RecruiterNotificationBell from "./RecruiterNotificationBell";
+import ReassignModal from "@/components/admin/ReassignModal";
+import RecruiterPhotoQueue from "@/components/admin/RecruiterPhotoQueue";
 
 interface ManagerData {
   personalKpi: {
@@ -113,6 +116,7 @@ export default function ManagerDashboard() {
   const [data, setData] = useState<ManagerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [mobileTab, setMobileTab] = useState<MobileTab>("team");
   const [revisionModal, setRevisionModal] = useState<{ candidateId: string; name: string } | null>(null);
   const [assignModal, setAssignModal] = useState<{ candidateId: string; name: string } | null>(null);
@@ -120,6 +124,24 @@ export default function ManagerDashboard() {
   const [assigning, setAssigning] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [reassignModal, setReassignModal] = useState<{
+    candidateId: string;
+    candidateName: string;
+    currentRecruiterId: string | null;
+  } | null>(null);
+  const [allCandidates, setAllCandidates] = useState<{
+    id: string;
+    display_name: string;
+    email: string;
+    role_category: string;
+    admin_status: string;
+    assigned_recruiter: string | null;
+    recruiter_name: string | null;
+    created_at: string;
+  }[]>([]);
+  const [candidatesSearch, setCandidatesSearch] = useState("");
+  const [candidatesRecruiterFilter, setCandidatesRecruiterFilter] = useState("");
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
 
   // 10-second timeout fallback — never leave the spinner hanging
   useEffect(() => {
@@ -144,6 +166,7 @@ export default function ManagerDashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push("/login"); return; }
     setToken(session.access_token);
+    setCurrentUserId(session.user.id);
 
     try {
       const [managerRes, recruiterRes] = await Promise.all([
@@ -163,9 +186,22 @@ export default function ManagerDashboard() {
       if (recruiterRes.ok) setPersonalData(await recruiterRes.json());
     } catch { /* silent */ }
     setLoading(false);
+    loadAllCandidates(session.access_token);
   }, [router]);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+  async function loadAllCandidates(tok: string) {
+    if (!tok) return;
+    const res = await fetch("/api/admin/reassign/candidates", {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setAllCandidates(data.candidates || []);
+    }
+    setCandidatesLoaded(true);
+  }
 
   async function handleAssign(candidateId: string, recruiterId: string, isSelf: boolean) {
     setAssigning(true);
@@ -248,6 +284,7 @@ export default function ManagerDashboard() {
               <p className="text-[10px] text-[#FE6E3E] font-semibold uppercase">Talent Pool</p>
               <p className="text-[10px] text-gray-400">Health &rarr;</p>
             </Link>
+            <RecruiterNotificationBell token={token} />
           </div>
         </div>
       </div>
@@ -567,6 +604,129 @@ export default function ManagerDashboard() {
             </div>
           </section>
         )}
+        {/* Platform-wide Candidate Table */}
+        <section>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-sm font-semibold text-[#1C1B1A]">All Candidates</h2>
+            {!candidatesLoaded && (
+              <button
+                onClick={() => loadAllCandidates(token)}
+                className="rounded-lg bg-[#FE6E3E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#E55A2B]"
+              >
+                Load Candidates
+              </button>
+            )}
+          </div>
+          {candidatesLoaded && (
+            <>
+              {/* Filters */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <input
+                  type="text"
+                  value={candidatesSearch}
+                  onChange={(e) => setCandidatesSearch(e.target.value)}
+                  placeholder="Search name or email..."
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E] w-52"
+                />
+                <select
+                  value={candidatesRecruiterFilter}
+                  onChange={(e) => setCandidatesRecruiterFilter(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
+                >
+                  <option value="">All recruiters</option>
+                  <option value="__unassigned__">Unassigned</option>
+                  {[...new Set(allCandidates.map((c) => c.recruiter_name).filter(Boolean))].sort().map((name) => (
+                    <option key={name!} value={name!}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-gray-400 uppercase text-[10px] font-medium">
+                        <th className="px-4 py-2.5 text-left">Candidate</th>
+                        <th className="px-4 py-2.5 text-left">Role</th>
+                        <th className="px-4 py-2.5 text-left">Status</th>
+                        <th className="px-4 py-2.5 text-left">Recruiter</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allCandidates
+                        .filter((c) => {
+                          const q = candidatesSearch.toLowerCase();
+                          const matchSearch = !q || c.display_name.toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+                          const matchRecruiter = !candidatesRecruiterFilter
+                            ? true
+                            : candidatesRecruiterFilter === "__unassigned__"
+                            ? !c.assigned_recruiter
+                            : c.recruiter_name === candidatesRecruiterFilter;
+                          return matchSearch && matchRecruiter;
+                        })
+                        .slice(0, 100)
+                        .map((c) => (
+                          <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="px-4 py-2.5 font-medium text-[#1C1B1A]">{c.display_name}</td>
+                            <td className="px-4 py-2.5 text-gray-500">{c.role_category || "—"}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                c.admin_status === "approved" ? "bg-green-100 text-green-700" :
+                                c.admin_status === "active" ? "bg-blue-100 text-blue-700" :
+                                c.admin_status === "profile_review" ? "bg-amber-100 text-amber-700" :
+                                "bg-gray-100 text-gray-600"
+                              }`}>
+                                {c.admin_status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-500">{c.recruiter_name || <span className="italic text-gray-300">Unassigned</span>}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              <button
+                                onClick={() => setReassignModal({
+                                  candidateId: c.id,
+                                  candidateName: c.display_name,
+                                  currentRecruiterId: c.assigned_recruiter || null,
+                                })}
+                                className="rounded-lg border border-gray-200 px-2.5 py-1 text-[10px] font-medium text-[#1C1B1A] hover:border-[#FE6E3E] hover:text-[#FE6E3E] transition-colors"
+                              >
+                                Reassign
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {allCandidates.filter((c) => {
+                        const q = candidatesSearch.toLowerCase();
+                        const matchSearch = !q || c.display_name.toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+                        const matchRecruiter = !candidatesRecruiterFilter
+                          ? true
+                          : candidatesRecruiterFilter === "__unassigned__"
+                          ? !c.assigned_recruiter
+                          : c.recruiter_name === candidatesRecruiterFilter;
+                        return matchSearch && matchRecruiter;
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">No candidates match your filters.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Recruiter Photo Approval Queue */}
+        {token && currentUserId && (
+          <section>
+            <h2 className="text-sm font-semibold text-[#1C1B1A] mb-3">Recruiter Photos — Pending Approval</h2>
+            <RecruiterPhotoQueue
+              token={token}
+              currentUserId={currentUserId}
+              currentUserRole="recruiting_manager"
+            />
+          </section>
+        )}
       </div>
     </>
   );
@@ -653,6 +813,23 @@ export default function ManagerDashboard() {
           token={token}
           onClose={() => setRevisionModal(null)}
           onSubmitted={() => { setRevisionModal(null); loadDashboard(); }}
+        />
+      )}
+
+      {/* Reassign modal */}
+      {reassignModal && (
+        <ReassignModal
+          candidateId={reassignModal.candidateId}
+          candidateName={reassignModal.candidateName}
+          currentRecruiterId={reassignModal.currentRecruiterId}
+          currentRecruiterName={null}
+          token={token}
+          onClose={() => setReassignModal(null)}
+          onSuccess={() => {
+            setReassignModal(null);
+            loadDashboard();
+            if (candidatesLoaded) loadAllCandidates(token);
+          }}
         />
       )}
     </div>

@@ -12,6 +12,7 @@ import RevisionModal from "@/components/recruiter/RevisionModal";
 import MessageSidebar from "@/components/recruiter/MessageSidebar";
 import InternalChat from "@/components/recruiter/InternalChat";
 import ManagerDashboard from "@/components/recruiter/ManagerDashboard";
+import RecruiterNotificationBell from "@/components/recruiter/RecruiterNotificationBell";
 
 interface DashboardData {
   kpi: {
@@ -216,12 +217,19 @@ export default function RecruiterDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* KPI Strip — fixed at top */}
-      <KpiStrip
-        kpi={data.kpi}
-        token={token}
-        onCalendarSaved={handleCalendarSave}
-        onPostLogged={loadDashboard}
-      />
+      <div className="relative">
+        <KpiStrip
+          kpi={data.kpi}
+          token={token}
+          onCalendarSaved={handleCalendarSave}
+          onPostLogged={loadDashboard}
+        />
+        {token && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <RecruiterNotificationBell token={token} />
+          </div>
+        )}
+      </div>
 
       {/* Queue — candidates ready to reach out (AI done, second interview not yet scheduled) */}
       {data.queue.length > 0 && (

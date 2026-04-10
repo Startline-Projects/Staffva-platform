@@ -17,6 +17,7 @@ interface Message {
 interface RecruiterProfile {
   full_name: string;
   calendar_link: string | null;
+  recruiter_photo_url: string | null;
 }
 
 export default function RecruiterChatPage() {
@@ -134,9 +135,13 @@ export default function RecruiterChatPage() {
           </svg>
         </Link>
         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-100">
-          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-400">
-            {recruiter.full_name?.charAt(0) || "R"}
-          </div>
+          {recruiter.recruiter_photo_url ? (
+            <img src={recruiter.recruiter_photo_url} alt={recruiter.full_name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-400">
+              {recruiter.full_name?.charAt(0) || "R"}
+            </div>
+          )}
         </div>
         <div>
           <p className="text-sm font-semibold text-[#1C1B1A]">{recruiter.full_name}</p>

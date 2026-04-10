@@ -455,7 +455,7 @@ export default function CandidateDashboardPage() {
   const [retakeData, setRetakeData] = useState<RetakeData | null>(null);
   const [hasPortfolio, setHasPortfolio] = useState(false);
   const [changeRequests, setChangeRequests] = useState<{ area: string; instruction: string }[]>([]);
-  const [recruiterProfile, setRecruiterProfile] = useState<{ full_name: string; calendar_link: string | null } | null>(null);
+  const [recruiterProfile, setRecruiterProfile] = useState<{ full_name: string; calendar_link: string | null; recruiter_photo_url: string | null } | null>(null);
   const [recruiterUnread, setRecruiterUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -863,9 +863,13 @@ export default function CandidateDashboardPage() {
                 <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-start gap-4">
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100">
-                      <div className="flex h-full w-full items-center justify-center text-lg font-bold text-gray-400">
-                        {recruiterProfile.full_name?.charAt(0) || "R"}
-                      </div>
+                      {recruiterProfile.recruiter_photo_url ? (
+                        <img src={recruiterProfile.recruiter_photo_url} alt={recruiterProfile.full_name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-lg font-bold text-gray-400">
+                          {recruiterProfile.full_name?.charAt(0) || "R"}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#1C1B1A]">{recruiterProfile.full_name}</p>

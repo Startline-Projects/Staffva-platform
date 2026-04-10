@@ -51,16 +51,28 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (assignment?.recruiter_id) {
-        const isPendingReview = candidate.role_category === "Other";
-        await supabase
-          .from("candidates")
-          .update({
-            assigned_recruiter: assignment.recruiter_id,
-            assignment_pending_review: isPendingReview,
-          })
-          .eq("id", candidateId);
+        // Guard: admin must never be auto-assigned via recruiter_assignments routing table.
+        // Manual assignment to admin is done only through the reassignment modal.
+        const { data: assigneeProfile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", assignment.recruiter_id)
+          .single();
 
-        console.log("[AI Interview Webhook] Assigned recruiter:", assignment.recruiter_id, "to candidate:", candidateId, isPendingReview ? "(pending review)" : "");
+        if (assigneeProfile?.role === "admin") {
+          console.warn("[AI Interview Webhook] Skipped auto-assignment: recruiter_id", assignment.recruiter_id, "is admin — remove from recruiter_assignments routing table.");
+        } else {
+          const isPendingReview = candidate.role_category === "Other";
+          await supabase
+            .from("candidates")
+            .update({
+              assigned_recruiter: assignment.recruiter_id,
+              assignment_pending_review: isPendingReview,
+            })
+            .eq("id", candidateId);
+
+          console.log("[AI Interview Webhook] Assigned recruiter:", assignment.recruiter_id, "to candidate:", candidateId, isPendingReview ? "(pending review)" : "");
+        }
       }
     }
 
