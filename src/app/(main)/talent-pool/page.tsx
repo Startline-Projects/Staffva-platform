@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -63,7 +63,9 @@ export default function TalentPoolPage() {
       const data = await res.json();
       setRoles(data.roles || []);
       setLastUpdated(data.lastUpdated);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("Failed to load talent pool data:", err);
+    }
     setLoading(false);
   }, [router]);
 
@@ -174,60 +176,56 @@ export default function TalentPoolPage() {
                   : Math.min((row.pipelineRatio / 6) * 100, 100);
 
                 return (
-                  <tr key={row.role} className="group">
-                    <td colSpan={5} className="p-0">
-                      <button
-                        onClick={() => setExpandedRole(isExpanded ? null : row.role)}
-                        className="w-full flex items-center hover:bg-gray-50 transition-colors border-b border-gray-50"
-                      >
-                        <td className="px-4 py-3 text-left font-medium text-[#1C1B1A] flex-1">
-                          <div className="flex items-center gap-2">
-                            <svg className={`h-3 w-3 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                            <span>{row.role}</span>
-                            {isOther && (
-                              <Link href="/recruiter" className="text-[10px] text-[#FE6E3E] font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
-                                View queue
-                              </Link>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center w-20">
-                          <span className="text-sm font-bold text-green-600">{row.live}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center w-20">
-                          <span className="text-sm font-semibold text-gray-600">{row.pending}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center w-20">
-                          <span className={`text-sm font-bold ${ratioColor}`}>
-                            {row.pipelineRatio === Infinity ? "\u221e" : row.pipelineRatio.toFixed(1)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 w-32">
-                          <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barWidth}%` }} />
-                          </div>
-                        </td>
-                      </button>
-
-                      {/* Expanded pipeline breakdown */}
-                      {isExpanded && (
-                        <div className="bg-gray-50 border-b border-gray-100 px-8 py-4">
-                          <p className="text-[10px] text-gray-400 uppercase font-semibold mb-2">Pipeline Stage Breakdown</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-                            {Object.entries(row.stages).map(([stage, count]) => (
-                              <div key={stage} className="rounded-lg border border-gray-200 bg-white p-3 text-center">
-                                <p className="text-lg font-bold text-[#1C1B1A]">{count}</p>
-                                <p className="text-[9px] text-gray-400 uppercase font-medium mt-0.5">{STAGE_LABELS[stage] || stage}</p>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-2 text-[11px] text-gray-400">
-                            Total pipeline: {Object.values(row.stages).reduce((s, n) => s + n, 0)} (should equal {row.pending})
-                          </div>
-                        </div>
-                      )}
+                  <React.Fragment key={row.role}>
+                  <tr className="group border-b border-gray-50" onClick={() => setExpandedRole(isExpanded ? null : row.role)}>
+                    <td className="px-4 py-3 text-left font-medium text-[#1C1B1A] cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <svg className={`h-3 w-3 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                        <span>{row.role}</span>
+                        {isOther && (
+                          <Link href="/recruiter" className="text-[10px] text-[#FE6E3E] font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+                            View queue
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <span className="text-sm font-bold text-green-600">{row.live}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <span className="text-sm font-semibold text-gray-600">{row.pending}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <span className={`text-sm font-bold ${ratioColor}`}>
+                        {row.pipelineRatio === Infinity ? "\u221e" : row.pipelineRatio.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 w-32 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barWidth}%` }} />
+                      </div>
                     </td>
                   </tr>
+                  {/* Expanded pipeline breakdown */}
+                  {isExpanded && (
+                    <tr key={`${row.role}-expanded`}>
+                      <td colSpan={5} className="bg-gray-50 border-b border-gray-100 px-8 py-4">
+                        <p className="text-[10px] text-gray-400 uppercase font-semibold mb-2">Pipeline Stage Breakdown</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                          {Object.entries(row.stages || {}).map(([stage, count]) => (
+                            <div key={stage} className="rounded-lg border border-gray-200 bg-white p-3 text-center">
+                              <p className="text-lg font-bold text-[#1C1B1A]">{count}</p>
+                              <p className="text-[9px] text-gray-400 uppercase font-medium mt-0.5">{STAGE_LABELS[stage] || stage}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 text-[11px] text-gray-400">
+                          Total pipeline: {Object.values(row.stages || {}).reduce((s, n) => s + n, 0)} (should equal {row.pending})
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
