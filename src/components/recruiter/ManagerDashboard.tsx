@@ -193,9 +193,7 @@ export default function ManagerDashboard() {
       });
       if (res.status === 401 || res.status === 403) { setLoading(false); setAuthError(true); return; }
       if (res.ok) {
-        const dashboardData = await res.json();
-        console.log("[MANAGER DASH CLIENT] allCandidates:", dashboardData?.allCandidates?.length, "myQueue:", dashboardData?.myQueue?.length);
-        setData(dashboardData);
+        setData(await res.json());
       }
     } catch { /* silent */ }
     setLoading(false);

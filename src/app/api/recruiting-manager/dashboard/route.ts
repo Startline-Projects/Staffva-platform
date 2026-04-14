@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
     .from("candidates")
     .select("assigned_recruiter")
     .not("assigned_recruiter", "is", null)
-    .not("admin_status", "in", '("approved","deactivated","rejected")');
+    .not("admin_status", "in", '("approved","rejected")');
 
   const queueByRecruiter = new Map<string, number>();
   for (const c of queueCounts || []) {
@@ -223,23 +223,21 @@ export async function GET(req: NextRequest) {
   for (const r of recruiters) recruiterNameMap.set(r.id, r.full_name);
 
   // Manar's personal TS queue — candidates assigned to this manager
-  const { data: myQueue, error: myQueueError } = await supabase
+  const { data: myQueue } = await supabase
     .from("candidates")
     .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at")
     .eq("assigned_recruiter", user.id)
-    .not("admin_status", "in", '("rejected","deactivated")')
+    .not("admin_status", "in", '("rejected")')
     .order("updated_at", { ascending: false })
     .limit(100);
 
   // All candidates with assignment info (for manager assignment table)
-  const { data: allCandidatesRaw, error: allCandidatesError } = await supabase
+  const { data: allCandidatesRaw } = await supabase
     .from("candidates")
     .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter")
-    .not("admin_status", "in", '("rejected","deactivated")')
+    .not("admin_status", "in", '("rejected")')
     .order("created_at", { ascending: false })
     .limit(100);
-
-  console.log("[MANAGER DASH] myQueue:", myQueue?.length, "myQueueError:", JSON.stringify(myQueueError), "allCandidatesRaw:", allCandidatesRaw?.length, "allCandidatesError:", JSON.stringify(allCandidatesError), "user.id:", user.id);
 
   // Enrich allCandidates with recruiter names
   const allCandidates = (allCandidatesRaw || []).map((c) => ({
