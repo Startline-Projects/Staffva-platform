@@ -223,7 +223,7 @@ export async function GET(req: NextRequest) {
   for (const r of recruiters) recruiterNameMap.set(r.id, r.full_name);
 
   // Manar's personal TS queue — candidates assigned to this manager
-  const { data: myQueue } = await supabase
+  const { data: myQueue, error: myQueueError } = await supabase
     .from("candidates")
     .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at")
     .eq("assigned_recruiter", user.id)
@@ -232,12 +232,14 @@ export async function GET(req: NextRequest) {
     .limit(100);
 
   // All candidates with assignment info (for manager assignment table)
-  const { data: allCandidatesRaw } = await supabase
+  const { data: allCandidatesRaw, error: allCandidatesError } = await supabase
     .from("candidates")
     .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter")
     .not("admin_status", "in", '("rejected","deactivated")')
     .order("created_at", { ascending: false })
     .limit(100);
+
+  console.log("[MANAGER DASH] myQueue:", myQueue?.length, "myQueueError:", JSON.stringify(myQueueError), "allCandidatesRaw:", allCandidatesRaw?.length, "allCandidatesError:", JSON.stringify(allCandidatesError), "user.id:", user.id);
 
   // Enrich allCandidates with recruiter names
   const allCandidates = (allCandidatesRaw || []).map((c) => ({
@@ -246,8 +248,6 @@ export async function GET(req: NextRequest) {
       ? recruiterNameMap.get(c.assigned_recruiter) || "Unknown"
       : "Unassigned",
   }));
-
-  console.log("[MANAGER DASH] myQueue count:", myQueue?.length, "allCandidates count:", allCandidates?.length, "user.id:", user.id);
 
   // Enrich unrouted alerts with candidate info
   const unroutedAlerts = unroutedAlertsRes.data || [];
