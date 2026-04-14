@@ -222,6 +222,31 @@ export async function GET(req: NextRequest) {
   const recruiterNameMap = new Map<string, string>();
   for (const r of recruiters) recruiterNameMap.set(r.id, r.full_name);
 
+  // Manar's personal TS queue — candidates assigned to this manager
+  const { data: myQueue } = await supabase
+    .from("candidates")
+    .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at")
+    .eq("assigned_recruiter", user.id)
+    .not("admin_status", "in", '("rejected","deactivated")')
+    .order("updated_at", { ascending: false })
+    .limit(100);
+
+  // All candidates with assignment info (for manager assignment table)
+  const { data: allCandidatesRaw } = await supabase
+    .from("candidates")
+    .select("id, display_name, role_category, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter")
+    .not("admin_status", "in", '("rejected","deactivated")')
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  // Enrich allCandidates with recruiter names
+  const allCandidates = (allCandidatesRaw || []).map((c) => ({
+    ...c,
+    assigned_recruiter_name: c.assigned_recruiter
+      ? recruiterNameMap.get(c.assigned_recruiter) || "Unknown"
+      : "Unassigned",
+  }));
+
   // Enrich unrouted alerts with candidate info
   const unroutedAlerts = unroutedAlertsRes.data || [];
   // Fetch candidate details for alerts
@@ -327,5 +352,7 @@ export async function GET(req: NextRequest) {
     gridDays,
     recruiterNameMap: Object.fromEntries(recruiterNameMap),
     calendarAlerts: calendarAlertsRes.data || [],
+    myQueue: myQueue || [],
+    allCandidates,
   });
 }
