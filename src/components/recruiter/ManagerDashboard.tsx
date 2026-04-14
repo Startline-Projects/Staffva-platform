@@ -192,7 +192,11 @@ export default function ManagerDashboard() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (res.status === 401 || res.status === 403) { setLoading(false); setAuthError(true); return; }
-      if (res.ok) setData(await res.json());
+      if (res.ok) {
+        const dashboardData = await res.json();
+        console.log("[MANAGER DASH CLIENT] allCandidates:", dashboardData?.allCandidates?.length, "myQueue:", dashboardData?.myQueue?.length);
+        setData(dashboardData);
+      }
     } catch { /* silent */ }
     setLoading(false);
   }, [router]);

@@ -247,6 +247,8 @@ export async function GET(req: NextRequest) {
       : "Unassigned",
   }));
 
+  console.log("[MANAGER DASH] myQueue count:", myQueue?.length, "allCandidates count:", allCandidates?.length, "user.id:", user.id);
+
   // Enrich unrouted alerts with candidate info
   const unroutedAlerts = unroutedAlertsRes.data || [];
   // Fetch candidate details for alerts
