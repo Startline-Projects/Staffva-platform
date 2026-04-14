@@ -129,6 +129,11 @@ interface ManagerData {
     created_at: string;
     assigned_recruiter: string | null;
     assigned_recruiter_name: string;
+    english_mc_score: number | null;
+    english_comprehension_score: number | null;
+    id_verification_status: string | null;
+    ai_interview_completed_at: string | null;
+    second_interview_status: string | null;
   }[];
 }
 
@@ -265,17 +270,17 @@ export default function ManagerDashboard() {
   const myQueue = data.myQueue || [];
   const totalCandidates = allCandidates.length;
   const approvedThisWeek = data.metrics.approvedThisWeek;
-  const pendingSpeakingReview = allCandidates.filter((c) => c.admin_status === "pending_speaking_review").length;
+  const pendingRecruiterInterview = allCandidates.filter((c) => c.assigned_recruiter && c.second_interview_status !== "completed").length;
   const needsRouting = allCandidates.filter((c) => c.screening_tag === "assignment_pending_review").length;
 
   // Pipeline counts — matches the 6-step candidate flow
   const pipelineRows = [
     { label: "Total applications", count: totalCandidates, color: "bg-gray-400" },
-    { label: "English test passed", count: allCandidates.filter((c) => c.admin_status !== "pending_speaking_review").length, color: "bg-purple-500" },
-    { label: "ID verified", count: allCandidates.filter((c) => ["pending_2nd_interview", "active", "approved", "profile_review"].includes(c.admin_status)).length, color: "bg-indigo-500" },
-    { label: "AI interview complete", count: allCandidates.filter((c) => ["pending_2nd_interview", "active", "approved"].includes(c.admin_status)).length, color: "bg-blue-500" },
-    { label: "Pending 2nd interview", count: allCandidates.filter((c) => c.admin_status === "pending_2nd_interview").length, color: "bg-amber-500" },
-    { label: "Approved & live", count: allCandidates.filter((c) => c.admin_status === "approved" || c.admin_status === "active").length, color: "bg-green-500" },
+    { label: "English test passed", count: allCandidates.filter((c) => (c.english_mc_score ?? 0) >= 70 && (c.english_comprehension_score ?? 0) >= 70).length, color: "bg-purple-500" },
+    { label: "Identity verified", count: allCandidates.filter((c) => c.id_verification_status === "passed").length, color: "bg-indigo-500" },
+    { label: "AI interview complete", count: allCandidates.filter((c) => !!c.ai_interview_completed_at).length, color: "bg-blue-500" },
+    { label: "Pending recruiter interview", count: pendingRecruiterInterview, color: "bg-amber-500" },
+    { label: "Approved & live", count: allCandidates.filter((c) => c.admin_status === "approved").length, color: "bg-green-500" },
   ];
 
   // TS view counts
@@ -349,8 +354,8 @@ export default function ManagerDashboard() {
               <p className="text-xs text-gray-500 mt-1">Approved this week</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <p className="text-2xl font-medium text-amber-600">{pendingSpeakingReview}</p>
-              <p className="text-xs text-gray-500 mt-1">Pending 2nd interview</p>
+              <p className="text-2xl font-medium text-amber-600">{pendingRecruiterInterview}</p>
+              <p className="text-xs text-gray-500 mt-1">Pending recruiter interview</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="text-2xl font-medium text-[#1C1B1A]">

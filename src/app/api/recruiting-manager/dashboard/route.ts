@@ -234,7 +234,7 @@ export async function GET(req: NextRequest) {
   // All candidates with assignment info (for manager assignment table)
   const { data: allCandidatesRaw } = await supabase
     .from("candidates")
-    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter")
+    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter, english_mc_score, english_comprehension_score, id_verification_status, ai_interview_completed_at, second_interview_status")
     .not("admin_status", "in", '("rejected")')
     .order("created_at", { ascending: false })
     .limit(500);
