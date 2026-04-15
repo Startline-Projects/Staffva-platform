@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     // (candidates.assigned_at doesn't exist; created_at is the closest stable proxy)
     supabase
       .from("candidates")
-      .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, created_at, ai_interview_completed_at")
+      .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, ai_interview_completed_at, ai_interview_score, created_at")
       .eq("assigned_recruiter", recruiterId)
       .order("created_at", { ascending: false }),
   ]);

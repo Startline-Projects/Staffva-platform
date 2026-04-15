@@ -125,11 +125,18 @@ function ActionLaneCard({ title, candidates }: { title: string; candidates: Acti
               href={`/admin/candidates/${c.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-lg border border-gray-100 bg-[#FAFAFA] px-2 py-1.5 hover:border-[#FE6E3E] hover:bg-orange-50 transition-colors"
+              className="group flex items-center gap-2 rounded-lg border border-gray-100 bg-[#FAFAFA] px-2 py-1.5 hover:border-[#FE6E3E] hover:bg-orange-50 transition-colors"
             >
               <Avatar src={c.profile_photo_url} name={c.display_name} size={24} />
-              <span className="text-xs font-medium text-[#1C1B1A] truncate">
+              <span className="flex-1 text-xs font-medium text-[#1C1B1A] truncate">
                 {c.display_name || "Unnamed"}
+              </span>
+              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-gray-400 group-hover:text-[#FE6E3E]">
+                View
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 17L17 7" />
+                  <path d="M8 7h9v9" />
+                </svg>
               </span>
             </a>
           ))}
@@ -308,6 +315,7 @@ export default function RecruiterDashboardPage() {
                         <th className="px-5 py-3 text-left">Status</th>
                         <th className="px-5 py-3 text-left">AI Score</th>
                         <th className="px-5 py-3 text-left">Assigned</th>
+                        <th className="px-5 py-3 text-left w-1"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -315,19 +323,19 @@ export default function RecruiterDashboardPage() {
                         const status = getPipelineStatus(row);
                         const score = row.ai_interview_score;
                         return (
-                          <tr key={row.id} className="hover:bg-gray-50">
+                          <tr
+                            key={row.id}
+                            onClick={() => window.open(`/admin/candidates/${row.id}`, "_blank", "noopener,noreferrer")}
+                            className="hover:bg-gray-50 cursor-pointer"
+                          >
                             <td className="px-5 py-3">
-                              <Link href={`/candidate/${row.id}`} className="block">
-                                <Avatar src={row.profile_photo_url} name={row.display_name} size={36} />
-                              </Link>
+                              <Avatar src={row.profile_photo_url} name={row.display_name} size={36} />
                             </td>
                             <td className="px-5 py-3">
-                              <Link href={`/candidate/${row.id}`} className="group block">
-                                <p className="font-semibold text-[#1C1B1A] group-hover:text-[#FE6E3E]">
-                                  {row.display_name || "Unnamed"}
-                                </p>
-                                <p className="text-xs text-gray-500">{row.role_category || "—"}</p>
-                              </Link>
+                              <p className="font-semibold text-[#1C1B1A]">
+                                {row.display_name || "Unnamed"}
+                              </p>
+                              <p className="text-xs text-gray-500">{row.role_category || "—"}</p>
                             </td>
                             <td className="px-5 py-3">
                               <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${status.className}`}>
@@ -339,6 +347,25 @@ export default function RecruiterDashboardPage() {
                             </td>
                             <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
                               {formatShortDate(row.created_at)}
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSidebarTab("messages");
+                                  setPendingMessageCandidateId(row.id);
+                                  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                                    document.getElementById("recruiter-sidebar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md bg-[#FE6E3E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+                              >
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                                </svg>
+                                Message
+                              </button>
                             </td>
                           </tr>
                         );
@@ -380,7 +407,7 @@ export default function RecruiterDashboardPage() {
           </div>
 
           {/* Right column — 25% (Zone 3 sidebar) */}
-          <aside className="lg:col-span-1">
+          <aside id="recruiter-sidebar" className="lg:col-span-1">
             <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col lg:sticky lg:top-[76px] lg:h-[calc(100vh-100px)]">
               <div className="flex border-b border-gray-200">
                 <button
