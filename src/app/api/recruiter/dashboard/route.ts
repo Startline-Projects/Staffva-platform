@@ -120,12 +120,13 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(200),
 
-    // Pipeline: every candidate assigned to this recruiter, ordered by assignment date
+    // Pipeline: every candidate assigned to this recruiter, ordered by candidate creation date
+    // (candidates.assigned_at doesn't exist; created_at is the closest stable proxy)
     supabase
       .from("candidates")
-      .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, assigned_at, ai_interview_completed_at")
+      .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, created_at, ai_interview_completed_at")
       .eq("assigned_recruiter", recruiterId)
-      .order("assigned_at", { ascending: false }),
+      .order("created_at", { ascending: false }),
   ]);
 
   console.log(`[RECRUITER DASHBOARD] recruiterId: ${recruiterId}, assignedTotal: ${assignedCandidateIds.length}, Queue: ${queueRes.data?.length ?? 0}, Lane1: ${lane1Res.data?.length ?? 0}, Lane2: ${lane2Res.data?.length ?? 0}, Lane3: ${lane3Res.data?.length ?? 0}, errors: ${JSON.stringify({ q: queueRes.error?.message, l1: lane1Res.error?.message, l2: lane2Res.error?.message, l3: lane3Res.error?.message })}`);

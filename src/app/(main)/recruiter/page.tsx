@@ -100,7 +100,7 @@ interface DashboardData {
     profile_photo_url: string | null;
     admin_status: string | null;
     second_interview_status: string | null;
-    assigned_at: string | null;
+    created_at: string | null;
     ai_interview_completed_at: string | null;
   }[];
   profile: { role: string; calendarLink: string | null };
@@ -269,13 +269,15 @@ export default function RecruiterDashboardPage() {
       </div>
 
       {/* Queue — candidates ready to reach out (AI done, second interview not yet scheduled) */}
-      {data.queue.length > 0 && (
-        <div className="mx-auto max-w-[1600px] px-4 pt-4">
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-sm font-semibold text-blue-900">New Candidates</h2>
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-200 px-1.5 text-[10px] font-bold text-blue-800">{data.queue.length}</span>
-            </div>
+      <div className="mx-auto max-w-[1600px] px-4 pt-4">
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-blue-900">New Candidates</h2>
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-200 px-1.5 text-[10px] font-bold text-blue-800">{data.queue.length}</span>
+          </div>
+          {data.queue.length === 0 ? (
+            <p className="text-xs text-blue-900/70">No candidates ready to schedule.</p>
+          ) : (
             <div className="flex flex-wrap gap-3">
               {data.queue.map((c) => (
                 <div key={c.id} className="flex items-center gap-2.5 rounded-lg border border-blue-200 bg-white shadow-sm overflow-hidden">
@@ -310,9 +312,9 @@ export default function RecruiterDashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Desktop: three lanes + message sidebar */}
       <div className="hidden md:flex mx-auto max-w-[1600px]">
@@ -386,9 +388,11 @@ export default function RecruiterDashboardPage() {
       <div className="md:hidden">
         <div className="px-4 py-4 pb-24">
           {/* Queue always shown at top on mobile */}
-          {data.queue.length > 0 && (
-            <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3">
-              <p className="text-xs font-semibold text-blue-900 mb-2">New Candidates ({data.queue.length})</p>
+          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3">
+            <p className="text-xs font-semibold text-blue-900 mb-2">New Candidates ({data.queue.length})</p>
+            {data.queue.length === 0 ? (
+              <p className="text-xs text-blue-900/70">No candidates ready to schedule.</p>
+            ) : (
               <div className="space-y-2">
                 {data.queue.map((c) => (
                   <div key={c.id} className="flex items-center gap-2 rounded-lg bg-white border border-blue-100 overflow-hidden">
@@ -423,8 +427,8 @@ export default function RecruiterDashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
           {mobileTab === "resumes" && (
             <>
               <h2 className="text-sm font-semibold text-[#1C1B1A] mb-3">Resumes to Review</h2>
@@ -520,8 +524,8 @@ export default function RecruiterDashboardPage() {
                 <tbody className="divide-y divide-gray-100">
                   {data.pipeline.map((row) => {
                     const status = getPipelineStatus(row);
-                    const assigned = row.assigned_at
-                      ? new Date(row.assigned_at).toLocaleDateString()
+                    const assigned = row.created_at
+                      ? new Date(row.created_at).toLocaleDateString()
                       : "—";
                     return (
                       <tr key={row.id} className="hover:bg-gray-50">
