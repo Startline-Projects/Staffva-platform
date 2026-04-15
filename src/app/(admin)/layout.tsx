@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
-import Navbar from "@/components/Navbar";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminTopbar from "@/components/admin/AdminTopbar";
+import { ToastProvider } from "@/components/admin/Toast";
 
 export default async function AdminLayout({
   children,
@@ -14,40 +15,26 @@ export default async function AdminLayout({
   }
 
   const isRecruitingManager = user.user_metadata?.role === "recruiting_manager";
-  const navLinkClass = "block rounded-lg px-3 py-2 text-sm font-medium text-text hover:bg-primary/5 hover:text-primary transition-colors";
 
   return (
     <>
-    <Navbar />
-    <div className="flex min-h-[calc(100vh-73px)]">
-      <aside className="w-56 shrink-0 border-r border-gray-200 bg-card">
-        <div className="px-4 py-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-text/40">
-            Admin Panel
-          </h2>
-          <nav className="mt-4 space-y-1">
-            {!isRecruitingManager && (
-              <Link href="/admin" className={navLinkClass}>Dashboard</Link>
-            )}
-            <Link href="/admin/candidates" className={navLinkClass}>Review Queue</Link>
-            <Link href="/admin/disputes" className={navLinkClass}>Disputes</Link>
-            {!isRecruitingManager && (
-              <Link href="/admin/clients" className={navLinkClass}>Clients</Link>
-            )}
-            <Link href="/admin/triage" className={navLinkClass}>Triage Queue</Link>
-            <Link href="/admin/duplicates" className={navLinkClass}>Duplicates</Link>
-            <Link href="/admin/identity" className={navLinkClass}>Identity</Link>
-            <Link href="/admin/recruiters" className={navLinkClass}>Talent Specialists</Link>
-            <Link href="/admin/team" className={navLinkClass}>Team Inbox</Link>
-            <Link href="/admin/giveaway" className={navLinkClass}>Giveaway</Link>
-            <Link href="/admin/pending-bans" className={navLinkClass}>Pending Bans</Link>
-            <Link href="/talent-pool" className={navLinkClass}>Talent Pool</Link>
-            <Link href="/admin/settings" className={navLinkClass}>Settings</Link>
-          </nav>
+      {/* DM Sans + DM Mono fonts */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet"
+      />
+      <ToastProvider>
+        <div style={{ display: "flex", height: "100vh", minHeight: 700, fontFamily: "'DM Sans', sans-serif", fontSize: 13, background: "#F5F3EF", color: "#1C1B1A", overflow: "hidden" }}>
+          <AdminSidebar isRecruitingManager={isRecruitingManager} />
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+            <AdminTopbar />
+            <main style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
+              {children}
+            </main>
+          </div>
         </div>
-      </aside>
-      <main className="flex-1 bg-background p-8">{children}</main>
-    </div>
+      </ToastProvider>
     </>
   );
 }

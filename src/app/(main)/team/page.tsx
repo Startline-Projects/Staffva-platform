@@ -588,6 +588,29 @@ export default function TeamPortalPage() {
         </div>
       )}
 
+      {/* ═══ RESOURCES ═══ */}
+      <div className="mt-6 rounded-xl border border-border-light bg-card p-6">
+        <h2 className="text-sm font-semibold text-text mb-4">Resources</h2>
+        <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <svg className="h-5 w-5 text-text/40 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-text">StaffVA Scope of Services</p>
+              <p className="text-xs text-text/50">Platform capabilities, deliverables &amp; service terms</p>
+            </div>
+          </div>
+          <a
+            href="/StaffVA_Scope_v6_5.docx"
+            download
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-text hover:bg-gray-100 transition-colors whitespace-nowrap"
+          >
+            Download
+          </a>
+        </div>
+      </div>
+
       {/* Empty state */}
       {engagements.length === 0 && topMatches.length === 0 && (
         <div className="mt-12 text-center">
