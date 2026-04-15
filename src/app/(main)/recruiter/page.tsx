@@ -279,6 +279,7 @@ export default function RecruiterDashboardPage() {
         <KpiStrip
           kpi={data.kpi}
           token={token}
+          pipelineCount={pipelineCount}
           onCalendarSaved={handleCalendarSave}
           onPostLogged={loadDashboard}
         />

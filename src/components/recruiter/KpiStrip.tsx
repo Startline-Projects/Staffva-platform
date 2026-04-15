@@ -20,6 +20,7 @@ interface KpiData {
 interface KpiStripProps {
   kpi: KpiData;
   token: string;
+  pipelineCount: number;
   onCalendarSaved: (link: string) => void;
   onPostLogged: () => void;
 }
@@ -30,7 +31,7 @@ interface PhotoState {
   recruiter_photo_status: string | null;
 }
 
-export default function KpiStrip({ kpi, token, onCalendarSaved, onPostLogged }: KpiStripProps) {
+export default function KpiStrip({ kpi, token, pipelineCount, onCalendarSaved, onPostLogged }: KpiStripProps) {
   const [postModal, setPostModal] = useState(false);
   const [postUrl, setPostUrl] = useState("");
   const [postSaving, setPostSaving] = useState(false);
@@ -86,9 +87,9 @@ export default function KpiStrip({ kpi, token, onCalendarSaved, onPostLogged }: 
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  // Interview progress
-  const dailyTarget = typeof kpi.dailyTarget === "number" && kpi.dailyTarget > 0 ? kpi.dailyTarget : 14;
-  const progress = dailyTarget > 0 ? kpi.interviewsToday / dailyTarget : 0;
+  // Interview progress — denominator is the recruiter's assigned pipeline count
+  const denominator = pipelineCount;
+  const progress = denominator > 0 ? kpi.interviewsToday / denominator : 0;
   const now = new Date();
   const hoursIntoDay = now.getHours() + now.getMinutes() / 60;
   const expectedPace = hoursIntoDay / 10; // ~10 working hours
@@ -163,7 +164,7 @@ export default function KpiStrip({ kpi, token, onCalendarSaved, onPostLogged }: 
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-lg font-bold text-[#1C1B1A]">{kpi.interviewsToday}</span>
-              <span className="text-[9px] text-gray-400">/{dailyTarget}</span>
+              <span className="text-[9px] text-gray-400">/{denominator}</span>
             </div>
           </div>
           <div>
