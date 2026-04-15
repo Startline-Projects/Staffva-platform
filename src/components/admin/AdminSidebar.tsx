@@ -50,7 +50,7 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
       </div>
 
       {/* Navigation */}
-      <nav style={{ padding: "10px 0", flex: 1 }}>
+      <nav style={{ padding: "10px 0", flex: 1, overflowY: "auto" }}>
         <SectionLabel>Overview</SectionLabel>
         {!isRecruitingManager && (
           <NavItem href="/admin" active={isActive("/admin")} icon="⬡">Dashboard</NavItem>
@@ -74,6 +74,41 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
         <NavItem href="/admin/pending-bans" active={isActive("/admin/pending-bans")} icon="⊗">Pending Bans</NavItem>
         <NavItem href="/admin/settings" active={isActive("/admin/settings")} icon="⚙">Settings</NavItem>
       </nav>
+
+      {/* Logout */}
+      <div style={{ padding: "12px 10px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        <form action="/auth/signout" method="POST">
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              padding: "7px 10px",
+              borderRadius: 6,
+              border: "none",
+              background: "transparent",
+              color: "rgba(255,255,255,0.4)",
+              fontSize: 12.5,
+              fontFamily: "'DM Sans', sans-serif",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(254,110,62,0.1)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#FE6E3E";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)";
+            }}
+          >
+            <span style={{ fontSize: 13, width: 16, textAlign: "center" }}>⏻</span>
+            <span>Logout</span>
+          </button>
+        </form>
+      </div>
     </aside>
   );
 }
