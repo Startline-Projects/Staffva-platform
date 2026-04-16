@@ -327,7 +327,7 @@ export default async function RecruiterCandidateProfilePage({
             <div className="flex items-end gap-8">
               <div>
                 <p className="text-xs font-semibold text-text/60 uppercase tracking-wide mb-1">Overall Score</p>
-                <p className="text-4xl font-bold text-primary">{Math.round(aiInterview.overall_score * 5)}/5</p>
+                <p className="text-4xl font-bold text-primary">{Math.round(aiInterview.overall_score)}/100</p>
                 {aiInterview.badge_level && (
                   <p className="mt-2 text-xs font-semibold text-text/60 uppercase">{aiInterview.badge_level}</p>
                 )}
@@ -344,12 +344,12 @@ export default async function RecruiterCandidateProfilePage({
                     <div key={label}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-medium text-text/70">{label}</span>
-                        <span className="text-xs font-semibold text-text">{Math.round((score || 0) * 5)}/5</span>
+                        <span className="text-xs font-semibold text-text">{Math.round((score || 0) * 5)}/100</span>
                       </div>
                       <div className="h-2 rounded-full bg-gray-200">
                         <div
                           className="h-full rounded-full bg-primary"
-                          style={{ width: `${((score || 0) / 1) * 100}%` }}
+                          style={{ width: `${Math.min(Math.round((score || 0) * 5), 100)}%` }}
                         />
                       </div>
                     </div>
