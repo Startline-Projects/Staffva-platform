@@ -36,9 +36,9 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || "active";
-  const search = searchParams.get("search") || "";
   const view = searchParams.get("view") || "filtered"; // "filtered" or "all"
+  const status = searchParams.get("status") || (view === "all" ? "all" : "active");
+  const search = searchParams.get("search") || "";
 
   const supabase = getAdminClient();
 
