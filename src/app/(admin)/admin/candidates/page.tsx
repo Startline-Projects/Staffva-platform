@@ -379,7 +379,6 @@ function ProfileReviewStep({ candidate, step2Done }: { candidate: Candidate; ste
             {/* Badges */}
             <div className="flex flex-wrap gap-1.5">
               {candidate.english_written_tier && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">{candidate.english_written_tier}</span>}
-              {candidate.speaking_level && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">{candidate.speaking_level}</span>}
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{candidate.years_experience} yrs</span>
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">${candidate.hourly_rate}/hr</span>
             </div>

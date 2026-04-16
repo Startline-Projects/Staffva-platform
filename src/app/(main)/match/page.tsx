@@ -179,11 +179,6 @@ function MatchPageContent() {
                         {c.english_written_tier.charAt(0).toUpperCase() + c.english_written_tier.slice(1)}
                       </span>
                     )}
-                    {c.speaking_level && (
-                      <span className="rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-text-secondary">
-                        {c.speaking_level.charAt(0).toUpperCase() + c.speaking_level.slice(1)}
-                      </span>
-                    )}
                   </div>
 
                   {/* Bio */}

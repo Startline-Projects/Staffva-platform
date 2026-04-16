@@ -9,13 +9,6 @@ const TIER_CONFIG: Record<string, { label: string; bg: string }> = {
   professional: { label: "Professional", bg: "bg-gray-500" },
 };
 
-const SPEAKING_CONFIG: Record<string, { label: string; bg: string }> = {
-  fluent: { label: "Fluent", bg: "bg-emerald-600" },
-  proficient: { label: "Proficient", bg: "bg-blue-600" },
-  conversational: { label: "Conversational", bg: "bg-amber-600" },
-  developing: { label: "Developing", bg: "bg-gray-500" },
-};
-
 const US_EXP_LABELS: Record<string, string> = {
   full_time: "Full-time US client experience",
   part_time_contract: "Part-time / contract US experience",
@@ -100,7 +93,6 @@ export default function CandidatePreviewModal({
   }, [token, c?.id]);
 
   const tier = c.english_written_tier ? TIER_CONFIG[c.english_written_tier] : null;
-  const speaking = c.speaking_level ? SPEAKING_CONFIG[c.speaking_level] : null;
   const hasUSExperience = c.us_client_experience === "full_time" || c.us_client_experience === "part_time_contract";
   const tools: string[] = c.tools || [];
   const workExp = c.work_experience || [];
@@ -153,11 +145,6 @@ export default function CandidatePreviewModal({
                     {tier && (
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${tier.bg}`}>
                         English: {tier.label}
-                      </span>
-                    )}
-                    {speaking && (
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${speaking.bg}`}>
-                        Speaking: {speaking.label}
                       </span>
                     )}
                     {hasUSExperience && (
@@ -309,12 +296,6 @@ export default function CandidatePreviewModal({
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <p className="text-xs text-text/60">English proficiency locked by StaffVA</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-xs text-text/60">Speaking level verified by human reviewer</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <svg className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

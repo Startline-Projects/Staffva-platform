@@ -89,13 +89,6 @@ const TIER_CONFIG: Record<string, { label: string; color: string; bg: string }> 
   professional: { label: "Professional", color: "text-white", bg: "bg-gray-500" },
 };
 
-const SPEAKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  fluent: { label: "Fluent", color: "text-white", bg: "bg-emerald-600" },
-  proficient: { label: "Proficient", color: "text-white", bg: "bg-blue-600" },
-  conversational: { label: "Conversational", color: "text-white", bg: "bg-amber-600" },
-  developing: { label: "Developing", color: "text-white", bg: "bg-gray-500" },
-};
-
 export default async function RecruiterCandidateProfilePage({
   params,
 }: {
@@ -156,7 +149,6 @@ export default async function RecruiterCandidateProfilePage({
   const remainingHours = 50 - committedHours;
 
   const tier = candidate.english_written_tier ? TIER_CONFIG[candidate.english_written_tier] : null;
-  const speaking = candidate.speaking_level ? SPEAKING_CONFIG[candidate.speaking_level] : null;
   const displayedName = candidate.display_name || candidate.full_name;
   const tools: string[] = candidate.tools || [];
   const skills: string[] = candidate.skills || [];
@@ -209,11 +201,6 @@ export default async function RecruiterCandidateProfilePage({
                   {tier && (
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tier.bg} ${tier.color}`}>
                       English: {tier.label}
-                    </span>
-                  )}
-                  {speaking && (
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${speaking.bg} ${speaking.color}`}>
-                      Speaking: {speaking.label}
                     </span>
                   )}
                   {candidate.reputation_tier === "Elite" && (

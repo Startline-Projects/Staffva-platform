@@ -31,14 +31,6 @@ const TIER_OPTIONS = [
   { value: "professional", label: "Professional" },
 ];
 
-const SPEAKING_OPTIONS = [
-  { value: "any", label: "Any Speaking Level" },
-  { value: "fluent", label: "Fluent" },
-  { value: "proficient", label: "Proficient" },
-  { value: "conversational", label: "Conversational" },
-  { value: "developing", label: "Developing" },
-];
-
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
   { value: "rate_low", label: "Rate: Low to High" },
@@ -54,7 +46,6 @@ interface CandidateResult {
   role_category: string;
   hourly_rate: number;
   english_written_tier: string | null;
-  speaking_level: string | null;
   availability_status: string;
   us_client_experience: string;
   bio: string | null;
@@ -88,7 +79,6 @@ function BrowseContent() {
     searchParams.get("availability") || ""
   );
   const [tier, setTier] = useState("any");
-  const [speakingLevel, setSpeakingLevel] = useState("any");
   const [usExperience, setUsExperience] = useState("");
   // lockStatus removed — availability computed from committed_hours
   const [sort, setSort] = useState("newest");
@@ -110,7 +100,6 @@ function BrowseContent() {
     if (maxRate < 150) params.set("maxRate", maxRate.toString());
     if (availability) params.set("availability", availability);
     if (tier !== "any") params.set("tier", tier);
-    if (speakingLevel !== "any") params.set("speakingLevel", speakingLevel);
     if (usExperience) params.set("usExperience", usExperience);
     if (skillFilters.length > 0) params.set("skills", skillFilters.join(","));
     params.set("sort", sort);
@@ -133,7 +122,7 @@ function BrowseContent() {
     setTotalPages(data.totalPages || 1);
     setSkillAggregation(data.skillAggregation || []);
     setLoading(false);
-  }, [search, role, country, minRate, maxRate, availability, tier, speakingLevel, usExperience, skillFilters, sort, page]);
+  }, [search, role, country, minRate, maxRate, availability, tier, usExperience, skillFilters, sort, page]);
 
   useEffect(() => {
     fetchCandidates();
@@ -207,7 +196,6 @@ function BrowseContent() {
     setMaxRate(150);
     setAvailability("");
     setTier("any");
-    setSpeakingLevel("any");
     setUsExperience("");
     // lockStatus removed
     setSort("newest");
@@ -230,7 +218,6 @@ function BrowseContent() {
     maxRate < 150,
     availability,
     tier !== "any",
-    speakingLevel !== "any",
     usExperience,
   ].filter(Boolean).length;
 
@@ -478,27 +465,6 @@ function BrowseContent() {
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   {TIER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Speaking Level */}
-              <div>
-                <label className="block text-xs font-medium text-text/50 mb-1.5">
-                  Speaking Level
-                </label>
-                <select
-                  value={speakingLevel}
-                  onChange={(e) => {
-                    setSpeakingLevel(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {SPEAKING_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>

@@ -18,7 +18,6 @@ export async function GET(request: Request) {
   const maxRate = searchParams.get("maxRate");
   const availability = searchParams.get("availability");
   const tier = searchParams.get("tier");
-  const speakingLevel = searchParams.get("speakingLevel");
   const usExperience = searchParams.get("usExperience");
   const skillsParam = searchParams.get("skills");
   const sort = searchParams.get("sort") || "newest";
@@ -37,7 +36,6 @@ export async function GET(request: Request) {
     p_max_rate: (maxRate && parseInt(maxRate) < 150) ? parseInt(maxRate) : null,
     p_availability: availability || null,
     p_tier: tier || null,
-    p_speaking_level: speakingLevel || null,
     p_us_experience: usExperience || null,
     p_skills: skillsParam ? skillsParam.split(",").map((s) => s.trim()).filter(Boolean) : null,
     p_sort: sort,

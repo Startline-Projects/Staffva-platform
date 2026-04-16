@@ -1488,10 +1488,6 @@ export default function CandidateDashboardPage() {
             <p className="font-medium text-[#1C1B1A] capitalize">{candidate.english_written_tier || "Pending"}</p>
           </div>
           <div>
-            <p className="text-gray-500">Speaking Level</p>
-            <p className="font-medium text-[#1C1B1A] capitalize">{candidate.speaking_level || "Pending review"}</p>
-          </div>
-          <div>
             <p className="text-gray-500">Verified Earnings</p>
             <p className="font-medium text-green-600">${(candidate.total_earnings_usd || 0).toLocaleString()}</p>
           </div>
