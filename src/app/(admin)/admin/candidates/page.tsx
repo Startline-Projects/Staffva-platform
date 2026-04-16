@@ -117,6 +117,9 @@ interface Candidate {
   payout_status: string | null;
   payout_failure_reason?: string | null;
   ai_interview_score: number | null;
+  second_interview_communication_score: number | null;
+  second_interview_demeanor_score: number | null;
+  second_interview_role_knowledge_score: number | null;
 }
 
 // ─── Recruiter Post-Interview Scoring Panel ───
@@ -776,6 +779,7 @@ export default function CandidateReviewPage() {
                 <th className="pb-3 pr-4">Role</th>
                 <th className="pb-3 pr-4">Rate</th>
                 <th className="pb-3 pr-4">AI Score</th>
+                <th className="pb-3 pr-4">2nd Interview</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Payout</th>
                 <th className="pb-3 pr-4">Lock</th>
@@ -836,6 +840,13 @@ export default function CandidateReviewPage() {
                     </td>
                     <td className="py-3 pr-4">
                       <span className="text-xs text-text/70">{c.ai_interview_score != null ? `${c.ai_interview_score}/100` : "—"}</span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className="text-xs text-text/70">
+                        {c.second_interview_communication_score != null && c.second_interview_demeanor_score != null && c.second_interview_role_knowledge_score != null
+                          ? `${((c.second_interview_communication_score + c.second_interview_demeanor_score + c.second_interview_role_knowledge_score) / 3).toFixed(1)}/5`
+                          : "—"}
+                      </span>
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${badge.color}`}>

@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
     pipelineRes,
     upcomingRes,
     unmatchedRes,
+    pipelineInterviewsRes,
   ] = await Promise.all([
     // KPI: completed interviews today for this recruiter
     supabase
@@ -129,6 +130,17 @@ export async function GET(req: NextRequest) {
       .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, second_interview_scheduled_at, ai_interview_completed_at, ai_interview_score, created_at, recruiter_notes")
       .eq("assigned_recruiter", recruiterId)
       .order("created_at", { ascending: false }),
+
+    // Second interview scores for pipeline candidates
+    assignedCandidateIds.length > 0
+      ? supabase
+          .from("candidate_interviews")
+          .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
+          .eq("interview_number", 2)
+          .eq("status", "completed")
+          .in("candidate_id", assignedCandidateIds)
+          .order("conducted_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
 
     // Upcoming interviews — scheduled via Google Calendar
     supabase
@@ -208,7 +220,21 @@ export async function GET(req: NextRequest) {
     lane1: lane1Res.data || [],
     lane2: lane2Filtered,
     lane3: lane3Data,
-    pipeline: pipelineRes.data || [],
+    pipeline: (() => {
+      const ivByCandidate: Record<string, { communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }> = {};
+      for (const iv of (pipelineInterviewsRes.data || []) as unknown as { candidate_id: string; communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }[]) {
+        if (!ivByCandidate[iv.candidate_id]) ivByCandidate[iv.candidate_id] = iv;
+      }
+      return (pipelineRes.data || []).map((c: { id: string }) => {
+        const iv = ivByCandidate[c.id];
+        return {
+          ...c,
+          second_interview_communication_score: iv?.communication_score ?? null,
+          second_interview_demeanor_score: iv?.demeanor_score ?? null,
+          second_interview_role_knowledge_score: iv?.role_knowledge_score ?? null,
+        };
+      });
+    })(),
     upcoming_interviews: upcomingRes.data || [],
     unmatched_bookings: unmatchedRes.data || [],
     threads,

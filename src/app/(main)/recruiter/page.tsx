@@ -25,6 +25,9 @@ interface PipelineRow extends CandidateBase {
   ai_interview_completed_at: string | null;
   ai_interview_score?: number | null;
   recruiter_notes?: string | null;
+  second_interview_communication_score?: number | null;
+  second_interview_demeanor_score?: number | null;
+  second_interview_role_knowledge_score?: number | null;
 }
 
 interface DashboardData {
@@ -498,6 +501,7 @@ export default function RecruiterDashboardPage() {
                         <th className="px-5 py-3 text-left">Name</th>
                         <th className="px-5 py-3 text-left">Status</th>
                         <th className="px-5 py-3 text-left">AI Score</th>
+                        <th className="px-5 py-3 text-left">2nd Interview</th>
                         <th className="px-5 py-3 text-left">Assigned</th>
                         <th className="px-5 py-3 text-left w-1"></th>
                       </tr>
@@ -528,6 +532,11 @@ export default function RecruiterDashboardPage() {
                             </td>
                             <td className="px-5 py-3 text-[#1C1B1A]">
                               {typeof score === "number" ? `${score}/100` : "—"}
+                            </td>
+                            <td className="px-5 py-3 text-[#1C1B1A]">
+                              {row.second_interview_communication_score != null && row.second_interview_demeanor_score != null && row.second_interview_role_knowledge_score != null
+                                ? `${((row.second_interview_communication_score + row.second_interview_demeanor_score + row.second_interview_role_knowledge_score) / 3).toFixed(1)}/5`
+                                : "—"}
                             </td>
                             <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
                               {formatShortDate(row.created_at)}

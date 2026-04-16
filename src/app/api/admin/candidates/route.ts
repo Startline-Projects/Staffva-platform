@@ -61,13 +61,23 @@ export async function GET(request: Request) {
 
   const { data: candidates } = await query;
 
-  // Get cheat events for each candidate
+  // Get cheat events and second interview scores for each candidate
   const candidateIds = (candidates || []).map((c) => c.id);
+  const safeIds = candidateIds.length > 0 ? candidateIds : ["none"];
 
-  const { data: testEvents } = await supabase
-    .from("test_events")
-    .select("*")
-    .in("candidate_id", candidateIds.length > 0 ? candidateIds : ["none"]);
+  const [{ data: testEvents }, { data: interviews }] = await Promise.all([
+    supabase
+      .from("test_events")
+      .select("*")
+      .in("candidate_id", safeIds),
+    supabase
+      .from("candidate_interviews")
+      .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
+      .eq("interview_number", 2)
+      .eq("status", "completed")
+      .in("candidate_id", safeIds)
+      .order("conducted_at", { ascending: false }),
+  ]);
 
   // Group events by candidate
   const eventsByCandidate: Record<string, typeof testEvents> = {};
@@ -78,10 +88,24 @@ export async function GET(request: Request) {
     eventsByCandidate[event.candidate_id]!.push(event);
   }
 
-  const enriched = (candidates || []).map((c) => ({
-    ...c,
-    test_events: eventsByCandidate[c.id] || [],
-  }));
+  // Keep only the most recent interview per candidate
+  const interviewByCandidate: Record<string, { communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }> = {};
+  for (const iv of interviews || []) {
+    if (!interviewByCandidate[iv.candidate_id]) {
+      interviewByCandidate[iv.candidate_id] = iv;
+    }
+  }
+
+  const enriched = (candidates || []).map((c) => {
+    const iv = interviewByCandidate[c.id];
+    return {
+      ...c,
+      test_events: eventsByCandidate[c.id] || [],
+      second_interview_communication_score: iv?.communication_score ?? null,
+      second_interview_demeanor_score: iv?.demeanor_score ?? null,
+      second_interview_role_knowledge_score: iv?.role_knowledge_score ?? null,
+    };
+  });
 
   return NextResponse.json({ candidates: enriched });
 }
