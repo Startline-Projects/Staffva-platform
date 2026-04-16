@@ -21,6 +21,7 @@ interface CandidateBase {
 interface PipelineRow extends CandidateBase {
   admin_status: string | null;
   second_interview_status: string | null;
+  second_interview_scheduled_at: string | null;
   created_at: string | null;
   ai_interview_completed_at: string | null;
   ai_interview_score?: number | null;
@@ -82,7 +83,9 @@ function getPipelineStatus(row: PipelineRow): { label: string; className: string
     return { label: "Ready to Submit", className: "bg-blue-100 text-blue-800" };
   }
   if (row.second_interview_status === "scheduled") {
-    return { label: "Interview Scheduled", className: "bg-purple-100 text-purple-800" };
+    const dateStr = row.second_interview_scheduled_at ? formatShortDate(row.second_interview_scheduled_at) : null;
+    const label = dateStr && dateStr !== "—" ? `Interview Scheduled \u00b7 ${dateStr}` : "Interview Scheduled";
+    return { label, className: "bg-purple-100 text-purple-800" };
   }
   if (row.second_interview_status === "none" && row.ai_interview_completed_at) {
     return { label: "Ready to Schedule", className: "bg-orange-100 text-orange-800" };
@@ -95,6 +98,40 @@ function formatShortDate(value: string | null | undefined): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatInterviewDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) +
+    " at " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function formatBookingDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
+    " at " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function getCountdownLabel(value: string | null | undefined): { text: string; orange: boolean } {
+  if (!value) return { text: "", orange: false };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { text: "", orange: false };
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfEvent = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const daysDiff = Math.round((startOfEvent.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysDiff === 0) {
+    return { text: `Today at ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`, orange: true };
+  }
+  if (daysDiff === 1) return { text: "Tomorrow", orange: true };
+  if (daysDiff > 1 && daysDiff <= 7) return { text: `In ${daysDiff} days`, orange: false };
+  return { text: "", orange: false };
 }
 
 function Avatar({ src, name, size = 36 }: { src: string | null | undefined; name: string | null | undefined; size?: number }) {
@@ -171,6 +208,10 @@ export default function RecruiterDashboardPage() {
   const [authError, setAuthError] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("messages");
   const [pendingMessageCandidateId, setPendingMessageCandidateId] = useState<string | null>(null);
+  const [unmatchedModal, setUnmatchedModal] = useState(false);
+  const [localUnmatched, setLocalUnmatched] = useState<DashboardData["unmatched_bookings"]>([]);
+  const [linkSelections, setLinkSelections] = useState<Record<string, string>>({});
+  const [linkingId, setLinkingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) return;
@@ -242,6 +283,30 @@ export default function RecruiterDashboardPage() {
     loadDashboard();
   }
 
+  useEffect(() => {
+    if (data) setLocalUnmatched(data.unmatched_bookings || []);
+  }, [data]);
+
+  async function handleLinkBooking(bookingId: string) {
+    const candidateId = linkSelections[bookingId];
+    if (!candidateId || !token) return;
+    setLinkingId(bookingId);
+    try {
+      const res = await fetch("/api/recruiter/google/link-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bookingId, candidateId }),
+      });
+      if (res.ok) {
+        const remaining = localUnmatched.filter((b) => b.id !== bookingId);
+        setLocalUnmatched(remaining);
+        if (remaining.length === 0) setUnmatchedModal(false);
+        loadDashboard();
+      }
+    } catch { /* silent */ }
+    setLinkingId(null);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -304,9 +369,77 @@ export default function RecruiterDashboardPage() {
       </div>
 
       <div className="mx-auto max-w-[1600px] px-4 py-6">
+        {/* Unmatched Bookings Banner */}
+        {localUnmatched.length > 0 && (
+          <button
+            onClick={() => setUnmatchedModal(true)}
+            className="mb-4 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors"
+          >
+            ⚠️ You have {localUnmatched.length} unmatched calendar booking{localUnmatched.length !== 1 ? "s" : ""}. Tap to review and link manually.
+          </button>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left column — 75% (Zone 1 + Zone 2) */}
           <div className="lg:col-span-3 space-y-6">
+            {/* Upcoming Interviews */}
+            <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                <h2 className="text-base font-semibold text-[#1C1B1A]">Upcoming Interviews</h2>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                  {data.upcoming_interviews.length}
+                </span>
+              </div>
+              {data.upcoming_interviews.length === 0 ? (
+                <div className="px-5 py-6 text-center">
+                  <p className="text-sm text-gray-400">No interviews scheduled. Candidates in your Ready to Schedule lane are waiting to book.</p>
+                </div>
+              ) : (
+                <div className="flex gap-4 overflow-x-auto px-5 py-4">
+                  {data.upcoming_interviews.map((iv) => {
+                    const countdown = getCountdownLabel(iv.second_interview_scheduled_at);
+                    return (
+                      <div
+                        key={iv.id}
+                        className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                        style={{ minWidth: 200 }}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <Avatar src={iv.profile_photo_url} name={iv.display_name} size={40} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-[#1C1B1A] truncate">{iv.display_name || "Unnamed"}</p>
+                            <p className="text-xs text-gray-500 truncate">{iv.role_category || "—"}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">{formatInterviewDateTime(iv.second_interview_scheduled_at)}</p>
+                        {countdown.text && (
+                          <p className={`text-xs font-semibold mt-1 ${countdown.orange ? "text-[#FE6E3E]" : "text-gray-500"}`}>
+                            {countdown.text}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSidebarTab("messages");
+                            setPendingMessageCandidateId(iv.id);
+                            if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                              document.getElementById("recruiter-sidebar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }
+                          }}
+                          className="mt-3 inline-flex items-center justify-center gap-1 rounded-md bg-[#FE6E3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E55A2B] transition-colors"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                          </svg>
+                          Message
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             {/* Zone 1 — My Pipeline */}
             <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -462,6 +595,65 @@ export default function RecruiterDashboardPage() {
           </aside>
         </div>
       </div>
+
+      {/* Unmatched Bookings Modal */}
+      {unmatchedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setUnmatchedModal(false)}>
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#1C1B1A]">Unmatched Calendar Bookings</h3>
+              <button onClick={() => setUnmatchedModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">These calendar events could not be automatically matched to a candidate. Select the correct candidate and click Link.</p>
+            {localUnmatched.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">All bookings have been linked.</p>
+            ) : (
+              <div className="space-y-4">
+                {localUnmatched.map((booking) => {
+                  const linkableCandidates = pipeline.filter(
+                    (c) => c.second_interview_status === "none" || c.second_interview_status === "scheduled"
+                  );
+                  return (
+                    <div key={booking.id} className="rounded-lg border border-gray-200 p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-[#1C1B1A]">{booking.attendee_name || "Unknown attendee"}</p>
+                          <p className="text-xs text-gray-500">{formatBookingDateTime(booking.event_start)}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <select
+                          value={linkSelections[booking.id] || ""}
+                          onChange={(e) => setLinkSelections((prev) => ({ ...prev, [booking.id]: e.target.value }))}
+                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
+                        >
+                          <option value="">Select candidate…</option>
+                          {linkableCandidates.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.display_name || "Unnamed"} — {c.role_category || "No role"}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleLinkBooking(booking.id)}
+                          disabled={!linkSelections[booking.id] || linkingId === booking.id}
+                          className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50"
+                        >
+                          {linkingId === booking.id ? "Linking…" : "Link"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
