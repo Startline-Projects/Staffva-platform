@@ -21,6 +21,7 @@ interface KpiStripProps {
   kpi: KpiData;
   token: string;
   pipelineCount: number;
+  googleConnected: boolean;
   onCalendarSaved: (link: string) => void;
   onPostLogged: () => void;
 }
@@ -31,7 +32,24 @@ interface PhotoState {
   recruiter_photo_status: string | null;
 }
 
-export default function KpiStrip({ kpi, token, pipelineCount, onCalendarSaved, onPostLogged }: KpiStripProps) {
+export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, onCalendarSaved, onPostLogged }: KpiStripProps) {
+  const [googleConnecting, setGoogleConnecting] = useState(false);
+
+  async function handleConnectGoogle() {
+    if (!token) return;
+    setGoogleConnecting(true);
+    try {
+      const res = await fetch("/api/recruiter/google/connect", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch { /* silent */ }
+    setGoogleConnecting(false);
+  }
   const [postModal, setPostModal] = useState(false);
   const [postUrl, setPostUrl] = useState("");
   const [postSaving, setPostSaving] = useState(false);
@@ -212,6 +230,27 @@ export default function KpiStrip({ kpi, token, pipelineCount, onCalendarSaved, o
             }`} />
             Calendar
           </button>
+        </div>
+
+        {/* Google Calendar Connection */}
+        <div className="flex items-center gap-2">
+          {googleConnected ? (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+              <span className="h-3 w-3 rounded-full bg-green-500" />
+              Calendar Connected
+            </span>
+          ) : (
+            <button
+              onClick={handleConnectGoogle}
+              disabled={googleConnecting}
+              className="flex items-center gap-1.5 rounded-lg border border-[#FE6E3E] px-3 py-1 text-xs font-semibold text-[#FE6E3E] hover:bg-orange-50 disabled:opacity-50 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.5 3h-2V1h-2v2h-6V1h-2v2h-2A2.5 2.5 0 002 5.5v14A2.5 2.5 0 004.5 22h15a2.5 2.5 0 002.5-2.5v-14A2.5 2.5 0 0019.5 3zm.5 16.5a.5.5 0 01-.5.5h-15a.5.5 0 01-.5-.5V9h16v10.5zM20 7H4V5.5a.5.5 0 01.5-.5h15a.5.5 0 01.5.5V7z" />
+              </svg>
+              {googleConnecting ? "Connecting…" : "Connect Google Calendar"}
+            </button>
+          )}
         </div>
 
         {/* Profile Photo */}

@@ -20,7 +20,7 @@ async function getRecruiterUser(req: NextRequest) {
   const supabase = getAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, calendar_link, daily_interview_target, recruiter_type")
+    .select("role, calendar_link, daily_interview_target, recruiter_type, google_calendar_connected")
     .eq("id", user.id)
     .single();
   if (!profile || (profile.role !== "recruiter" && profile.role !== "recruiting_manager")) return null;
@@ -185,6 +185,7 @@ export async function GET(req: NextRequest) {
       calendarLink: profile.calendar_link || null,
       calendarValid,
     },
+    googleConnected: profile.google_calendar_connected ?? false,
     queue: queueRes.data || [],
     allAssigned: assignedCandidates || [],
     lane1: lane1Res.data || [],

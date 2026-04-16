@@ -48,6 +48,7 @@ interface DashboardData {
     candidates: CandidateBase;
   }[];
   pipeline: PipelineRow[];
+  googleConnected: boolean;
   threads: {
     candidate_id: string;
     last_message: string;
@@ -280,6 +281,7 @@ export default function RecruiterDashboardPage() {
           kpi={data.kpi}
           token={token}
           pipelineCount={pipelineCount}
+          googleConnected={data.googleConnected ?? false}
           onCalendarSaved={handleCalendarSave}
           onPostLogged={loadDashboard}
         />
