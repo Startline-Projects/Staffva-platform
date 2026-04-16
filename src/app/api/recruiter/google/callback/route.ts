@@ -25,17 +25,15 @@ function verifyState(state: string): { userId: string } | null {
 }
 
 function errorRedirect(message: string): NextResponse {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const url = new URL("/recruiter", base);
-  url.searchParams.set("google_error", message);
-  return NextResponse.redirect(url);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://staffva.com";
+  return NextResponse.redirect(
+    `${baseUrl}/recruiter?google_error=${encodeURIComponent(message)}`
+  );
 }
 
 function successRedirect(): NextResponse {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const url = new URL("/recruiter", base);
-  url.searchParams.set("google_connected", "1");
-  return NextResponse.redirect(url);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://staffva.com";
+  return NextResponse.redirect(`${baseUrl}/recruiter?google_connected=1`);
 }
 
 export async function GET(req: NextRequest) {
