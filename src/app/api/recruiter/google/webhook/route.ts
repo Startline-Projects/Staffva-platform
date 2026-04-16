@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getValidAccessToken } from "@/lib/google-calendar";
+import { getValidAccessToken, processCalendarEvent } from "@/lib/google-calendar";
 
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
@@ -56,13 +56,11 @@ export async function POST(req: NextRequest) {
     const events = data.items || [];
 
     for (const event of events) {
-      // Step 3 will replace this with processCalendarEvent(recruiterId, event)
-      console.log(
-        `[GOOGLE WEBHOOK] Event for recruiter ${recruiterId}:`,
-        event.id,
-        event.summary,
-        event.start?.dateTime || event.start?.date
-      );
+      try {
+        await processCalendarEvent(recruiterId, event);
+      } catch (e) {
+        console.error(`[GOOGLE WEBHOOK] processCalendarEvent failed for event ${event.id}:`, e);
+      }
     }
   } catch (e) {
     console.error("[GOOGLE WEBHOOK] Error fetching events:", e);

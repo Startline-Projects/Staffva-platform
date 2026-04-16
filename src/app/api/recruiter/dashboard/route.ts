@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
     lane3Res,
     threadsRes,
     pipelineRes,
+    upcomingRes,
+    unmatchedRes,
   ] = await Promise.all([
     // KPI: completed interviews today for this recruiter
     supabase
@@ -127,6 +129,21 @@ export async function GET(req: NextRequest) {
       .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, ai_interview_completed_at, ai_interview_score, created_at")
       .eq("assigned_recruiter", recruiterId)
       .order("created_at", { ascending: false }),
+
+    // Upcoming interviews — scheduled via Google Calendar
+    supabase
+      .from("candidates")
+      .select("id, display_name, role_category, profile_photo_url, second_interview_scheduled_at, google_calendar_event_id")
+      .eq("assigned_recruiter", recruiterId)
+      .eq("second_interview_status", "scheduled")
+      .not("second_interview_scheduled_at", "is", null)
+      .order("second_interview_scheduled_at", { ascending: true }),
+
+    // Unmatched calendar bookings
+    supabase
+      .from("calendar_unmatched_bookings")
+      .select("id, event_id, event_start, attendee_name, created_at")
+      .eq("recruiter_id", recruiterId),
   ]);
 
   console.log(`[RECRUITER DASHBOARD] recruiterId: ${recruiterId}, assignedTotal: ${assignedCandidateIds.length}, Queue: ${queueRes.data?.length ?? 0}, Lane1: ${lane1Res.data?.length ?? 0}, Lane2: ${lane2Res.data?.length ?? 0}, Lane3: ${lane3Res.data?.length ?? 0}, errors: ${JSON.stringify({ q: queueRes.error?.message, l1: lane1Res.error?.message, l2: lane2Res.error?.message, l3: lane3Res.error?.message })}`);
@@ -192,6 +209,8 @@ export async function GET(req: NextRequest) {
     lane2: lane2Filtered,
     lane3: lane3Data,
     pipeline: pipelineRes.data || [],
+    upcoming_interviews: upcomingRes.data || [],
+    unmatched_bookings: unmatchedRes.data || [],
     threads,
     profile: {
       role: profile.role,

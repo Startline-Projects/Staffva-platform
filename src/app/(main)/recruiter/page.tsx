@@ -49,6 +49,17 @@ interface DashboardData {
   }[];
   pipeline: PipelineRow[];
   googleConnected: boolean;
+  upcoming_interviews: (CandidateBase & {
+    second_interview_scheduled_at: string;
+    google_calendar_event_id: string | null;
+  })[];
+  unmatched_bookings: {
+    id: string;
+    event_id: string;
+    event_start: string | null;
+    attendee_name: string | null;
+    created_at: string;
+  }[];
   threads: {
     candidate_id: string;
     last_message: string;
