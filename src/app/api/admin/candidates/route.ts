@@ -119,8 +119,15 @@ export async function PATCH(request: Request) {
 
   const callerRole = caller.user_metadata?.role;
 
-  const { candidateId, updates } = await request.json();
-  if (!candidateId || !updates) {
+  const body = await request.json();
+  const candidateId = body.candidateId;
+  const updates = body.updates || {};
+
+  // Accept top-level assigned_recruiter / assignment_pending_review (admin routing UI sends them outside updates)
+  if (body.assigned_recruiter !== undefined) updates.assigned_recruiter = body.assigned_recruiter;
+  if (body.assignment_pending_review !== undefined) updates.assignment_pending_review = body.assignment_pending_review;
+
+  if (!candidateId || Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
@@ -135,7 +142,7 @@ export async function PATCH(request: Request) {
   // Recruiters may only edit total_earnings_usd; admins and recruiting_manager may edit all allowed fields
   const allowedFields =
     callerRole === "admin" || callerRole === "recruiting_manager"
-      ? ["total_earnings_usd", "admin_status"]
+      ? ["total_earnings_usd", "admin_status", "assigned_recruiter", "assignment_pending_review"]
       : ["total_earnings_usd"];
   const safeUpdates: Record<string, unknown> = {};
   for (const key of Object.keys(updates)) {
