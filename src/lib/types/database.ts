@@ -16,8 +16,6 @@ export type AdminStatus = "pending_2nd_interview" | "pending_speaking_review" | 
 
 export type EnglishWrittenTier = "exceptional" | "proficient" | "competent";
 
-export type SpeakingLevel = "basic" | "conversational" | "proficient" | "fluent";
-
 export type AvailabilityStatus =
   | "available_now"
   | "available_by_date"
@@ -111,7 +109,6 @@ export interface Candidate {
   english_comprehension_score: number | null;
   english_percentile: number | null;
   english_written_tier: EnglishWrittenTier | null;
-  speaking_level: SpeakingLevel | null;
 
   // Recordings
   voice_recording_1_url: string | null;

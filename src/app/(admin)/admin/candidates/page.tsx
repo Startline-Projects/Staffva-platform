@@ -15,13 +15,6 @@ const TIER_LABELS: Record<string, string> = {
   professional: "Professional",
 };
 
-const SPEAKING_LABELS: Record<string, string> = {
-  fluent: "Fluent",
-  proficient: "Proficient",
-  conversational: "Conversational",
-  developing: "Developing",
-};
-
 const US_EXP_LABELS: Record<string, string> = {
   full_time: "Yes, full time",
   part_time_contract: "Yes, part time or contract",
@@ -81,7 +74,6 @@ interface Candidate {
   english_comprehension_score: number;
   english_percentile: number;
   english_written_tier: string;
-  speaking_level: string;
   cheat_flag_count: number;
   score_mismatch_flag: boolean;
   id_verification_status: string;

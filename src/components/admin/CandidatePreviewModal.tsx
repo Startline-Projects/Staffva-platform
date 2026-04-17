@@ -31,7 +31,6 @@ interface Candidate {
   tools: string[];
   work_experience: { company_name?: string; role_title: string; industry: string; duration: string; description: string }[];
   english_written_tier: string;
-  speaking_level: string;
   us_client_experience: string;
   us_client_description: string;
   voice_recording_1_url: string;
