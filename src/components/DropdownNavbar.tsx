@@ -126,7 +126,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                     </div>
                   </div>
                   <div className="bg-[#1C1B1A] px-6 py-4 flex items-center justify-between">
-                    <p className="text-xs text-white/60">Every professional passed a live English and speaking assessment.</p>
+                    <p className="text-xs text-white/60">Every professional passed a live English assessment and recorded voice introduction.</p>
                     <Link href="/browse" onClick={() => setActiveDropdown(null)} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition-colors flex-shrink-0">
                       Browse All Professionals
                     </Link>

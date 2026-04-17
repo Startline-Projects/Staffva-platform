@@ -29,11 +29,11 @@ const dmSerifDisplay = DM_Serif_Display({
 export const metadata: Metadata = {
   title: 'Staff VA — Every Candidate Passed Two Interviews',
   description:
-    'No scraped profiles. No unvetted résumés. Every professional on StaffVA sat through two live interviews — skills and English fluency — before you ever see their name.',
+    'No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live interviews and a voice introduction reviewed by our team before you ever see their name.',
   openGraph: {
     title: 'Staff VA — Every Candidate Passed Two Interviews',
     description:
-      'No scraped profiles. No unvetted résumés. Every professional on StaffVA sat through two live interviews — skills and English fluency — before you ever see their name.',
+      'No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live interviews and a voice introduction reviewed by our team before you ever see their name.',
     siteName: 'StaffVA',
     type: 'website',
   },
@@ -158,8 +158,8 @@ export default async function Home() {
           </h1>
 
           <p className="hero-sub">
-            No scraped profiles. No unvetted résumés. Every professional on StaffVA sat through two live
-            interviews — skills and English fluency — before you ever see their name.
+            No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live
+            interviews and a voice introduction reviewed by our team before you ever see their name.
           </p>
 
           <HeroSearch />
@@ -371,7 +371,7 @@ export default async function Home() {
               </div>
               <div className="vetting-stage-content">
                 <div className="vetting-stage-badge">Interview 2</div>
-                <h3 className="vetting-stage-title">English fluency &amp; communication</h3>
+                <h3 className="vetting-stage-title">Spoken English &amp; communication</h3>
                 <p className="vetting-stage-desc">A second live interview focused entirely on spoken English. We test clarity, comprehension, and confidence — then record a voice sample and video intro so clients can judge for themselves.</p>
                 <div className="vetting-proof-points">
                   {['Live conversational English test', 'Voice recording captured on the spot', 'Video intro filmed and reviewed'].map((pt) => (
@@ -402,7 +402,7 @@ export default async function Home() {
                 <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <h4 className="vetting-stat-title">Badges that can&apos;t be faked</h4>
-              <p className="vetting-stat-desc">English and speaking levels are assigned by our team after a live assessment. Locked permanently. The candidate never touches them.</p>
+              <p className="vetting-stat-desc">English tier is assigned by our team after the written assessment. The voice introduction is recorded live and reviewed by a human. Both are locked. The candidate never touches them.</p>
             </div>
             <div className="vetting-stat">
               <div className="vetting-stat-icon">
