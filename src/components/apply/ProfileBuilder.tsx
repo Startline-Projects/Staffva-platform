@@ -12,7 +12,6 @@ interface ProfileBuilderProps {
     hourly_rate: number;
     bio?: string;
     english_written_tier?: string;
-    speaking_level?: string;
     skills?: string[];
     tools?: string[];
   };
