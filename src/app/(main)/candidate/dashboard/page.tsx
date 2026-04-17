@@ -32,7 +32,6 @@ interface CandidateData {
   total_earnings_usd: number;
   profile_photo_url: string | null;
   english_written_tier: string | null;
-  speaking_level: string | null;
   tagline: string | null;
   bio: string | null;
   skills: string[] | null;

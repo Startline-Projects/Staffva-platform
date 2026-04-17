@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("candidates")
       .select(
-        "id, user_id, full_name, display_name, email, country, role_category, years_experience, hourly_rate, english_written_tier, speaking_level, us_client_experience, admin_status, screening_tag, screening_score, screening_reason, availability_status, committed_hours, total_earnings_usd, profile_photo_url, bio, created_at, cheat_flag_count, assigned_recruiter"
+        "id, user_id, full_name, display_name, email, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, admin_status, screening_tag, screening_score, screening_reason, availability_status, committed_hours, total_earnings_usd, profile_photo_url, bio, created_at, cheat_flag_count, assigned_recruiter"
       )
       .order("created_at", { ascending: false });
 

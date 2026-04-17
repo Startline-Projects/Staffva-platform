@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("candidates")
     .select(
-      "id, full_name, display_name, email, country, role_category, hourly_rate, english_written_tier, speaking_level, screening_tag, screening_score, admin_status, profile_photo_url, created_at, waiting_since, second_interview_status, second_interview_scheduled_at, assigned_recruiter, assignment_pending_review, voice_recording_1_url, voice_recording_2_url"
+      "id, full_name, display_name, email, country, role_category, hourly_rate, english_written_tier, screening_tag, screening_score, admin_status, profile_photo_url, created_at, waiting_since, second_interview_status, second_interview_scheduled_at, assigned_recruiter, assignment_pending_review, voice_recording_1_url, voice_recording_2_url"
     );
 
   // Recruiter: filter by assigned categories; recruiting_manager sees all

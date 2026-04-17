@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
     // Lane 2: Profiles to submit — interview completed, not yet submitted, no pending revision
     supabase
       .from("candidates")
-      .select("id, display_name, full_name, role_category, profile_photo_url, screening_score, second_interview_completed_at, admin_status, profile_photo_url, tagline, bio, resume_url, payout_method, id_verification_status, voice_recording_1_url, voice_recording_2_url, english_mc_score, english_comprehension_score, speaking_level, interview_consent_at, recruiter_ai_score_results, video_intro_url, id_verification_consent")
+      .select("id, display_name, full_name, role_category, profile_photo_url, screening_score, second_interview_completed_at, admin_status, profile_photo_url, tagline, bio, resume_url, payout_method, id_verification_status, voice_recording_1_url, voice_recording_2_url, english_mc_score, english_comprehension_score, interview_consent_at, recruiter_ai_score_results, video_intro_url, id_verification_consent")
       .eq("assigned_recruiter", recruiterId)
       .eq("second_interview_status", "completed")
       .in("admin_status", ["pending_speaking_review", "pending_review", "pending_2nd_interview"]),

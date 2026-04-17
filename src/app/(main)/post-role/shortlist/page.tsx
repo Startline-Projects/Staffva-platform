@@ -12,7 +12,6 @@ interface MatchedCandidate {
   role_category: string;
   hourly_rate: number;
   english_written_tier: string;
-  speaking_level: string;
   us_client_experience: string;
   availability_status: string;
   total_earnings_usd: number;

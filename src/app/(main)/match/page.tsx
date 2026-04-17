@@ -12,7 +12,6 @@ interface MatchResult {
   role_category: string;
   hourly_rate: number;
   english_written_tier: string | null;
-  speaking_level: string | null;
   bio: string | null;
   profile_photo_url: string | null;
   reputation_tier: string | null;

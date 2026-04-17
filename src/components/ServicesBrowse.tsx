@@ -10,7 +10,6 @@ interface ServiceCandidate {
   role_category: string;
   profile_photo_url: string | null;
   english_written_tier: string | null;
-  speaking_level: string | null;
   reputation_tier: string | null;
   hourly_rate: number;
 }
