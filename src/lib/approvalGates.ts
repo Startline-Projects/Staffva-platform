@@ -1,5 +1,5 @@
 /**
- * Shared 11-gate approval check for candidate profiles.
+ * Shared 10-gate approval check for candidate profiles.
  * Used by both recruiter/approve and recruiting-manager/approve endpoints.
  */
 
@@ -15,7 +15,6 @@ interface GateCandidate {
   bio: string | null;
   payout_method: string | null;
   interview_consent_at: string | null;
-  speaking_level: string | null;
 }
 
 export function checkApprovalGates(candidate: GateCandidate): {
@@ -56,9 +55,6 @@ export function checkApprovalGates(candidate: GateCandidate): {
   }
   if (!candidate.interview_consent_at) {
     failingConditions.push("Interview consent not confirmed");
-  }
-  if (candidate.speaking_level == null) {
-    failingConditions.push("Speaking level not assigned — recruiter must assign before approval");
   }
 
   return { pass: failingConditions.length === 0, failingConditions };

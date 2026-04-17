@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { candidateId, speakingLevel } = await req.json();
+    const { candidateId } = await req.json();
     if (!candidateId) {
       return NextResponse.json(
         { error: "Missing candidateId" },
@@ -53,19 +53,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If speaking level provided, set it before running gates
-    if (speakingLevel) {
-      await supabase
-        .from("candidates")
-        .update({ speaking_level: speakingLevel })
-        .eq("id", candidateId);
-    }
-
     // Fetch candidate with all fields needed for gate check + pre-conditions
     const { data: candidate } = await supabase
       .from("candidates")
       .select(
-        "id, email, full_name, display_name, assigned_recruiter, role_category, second_interview_status, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, speaking_level, admin_status"
+        "id, email, full_name, display_name, assigned_recruiter, role_category, second_interview_status, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
       )
       .eq("id", candidateId)
       .single();
@@ -102,15 +94,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Pre-condition 3: Speaking level must be assigned
-    if (candidate.speaking_level == null) {
-      return NextResponse.json(
-        { error: "Speaking level not assigned — assign before approving" },
-        { status: 400 }
-      );
-    }
-
-    // Run 11-gate approval check
+    // Run 10-gate approval check
     const { pass, failingConditions } = checkApprovalGates(candidate);
 
     if (!pass) {

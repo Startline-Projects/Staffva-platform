@@ -57,7 +57,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 // POST — approve, reject, revision_required, or flag a candidate
 export async function POST(request: Request) {
   const body = await request.json();
-  const { candidateId, action, speakingLevel, revisionNote } = body;
+  const { candidateId, action, revisionNote } = body;
 
   // revision_required is open to recruiters and admins; all other actions are admin-only
   if (action === "revision_required") {
@@ -96,18 +96,10 @@ export async function POST(request: Request) {
   }
 
   if (action === "approve") {
-    if (!speakingLevel) {
-      return NextResponse.json(
-        { error: "Speaking level required for approval" },
-        { status: 400 }
-      );
-    }
-
     await supabase
       .from("candidates")
       .update({
         admin_status: "approved",
-        speaking_level: speakingLevel,
       })
       .eq("id", candidateId);
 
@@ -122,7 +114,6 @@ export async function POST(request: Request) {
       `<div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
         <h2 style="color: #1c1b1a;">Congratulations, ${candidate.full_name}!</h2>
         <p style="color: #555;">Your profile has been approved and is now live on StaffVA. Clients can now find you, view your profile, and reach out about opportunities.</p>
-        <p style="color: #555;">Your speaking level has been assessed as: <strong>${speakingLevel}</strong></p>
         <a href="https://staffva.com/candidate/me" style="display: inline-block; background: #fe6e3e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">View Your Profile</a>
         <p style="color: #999; margin-top: 24px; font-size: 12px;">— The StaffVA Team</p>
       </div>`
