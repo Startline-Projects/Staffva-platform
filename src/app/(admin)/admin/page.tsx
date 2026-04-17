@@ -14,7 +14,7 @@ interface Pipeline {
   idVerified: number;
   profileBuilt: number;
   aiInterview: number;
-  pendingReview: number;
+  pending2ndInterview: number;
   live: number;
 }
 
@@ -253,7 +253,7 @@ export default function AdminDashboard() {
         ["ID Verified", data.pipeline.idVerified],
         ["Profile Built", data.pipeline.profileBuilt],
         ["AI Interview", data.pipeline.aiInterview],
-        ["Pending Review", data.pipeline.pendingReview],
+        ["Pending 2nd Interview", data.pipeline.pending2ndInterview],
         ["Live", data.pipeline.live],
       ] as [string, number][];
       for (const [label, count] of stages) {
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
     { label: "ID Verified", count: data.pipeline.idVerified, color: "#B5D4F4" },
     { label: "Profile Built", count: data.pipeline.profileBuilt, color: "#85B7EB" },
     { label: "AI Interview", count: data.pipeline.aiInterview, color: "#FDD4B8" },
-    { label: "Pending Review", count: data.pipeline.pendingReview, color: "#FE9E6E" },
+    { label: "Pending 2nd Interview", count: data.pipeline.pending2ndInterview, color: "#FE9E6E" },
     { label: "Live ✓", count: data.pipeline.live, color: "#FE6E3E" },
   ];
   const totalApplied = data.pipeline.applied || 1;

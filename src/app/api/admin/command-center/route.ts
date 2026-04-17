@@ -35,7 +35,7 @@ export async function GET() {
     idVerifiedRes,
     profileBuiltRes,
     aiInterviewRes,
-    pendingSpeakingRes,
+    pending2ndInterviewRes,
     triageRes,
     clientsTotalRes,
     clientsThisMonthRes,
@@ -77,8 +77,8 @@ export async function GET() {
       .eq("interview_consent", true),
     // Pipeline: AI interview completed
     admin.from("candidates").select("id", { count: "exact", head: true }).not("ai_interview_completed_at", "is", null),
-    // Pipeline: Pending speaking review
-    admin.from("candidates").select("id", { count: "exact", head: true }).eq("admin_status", "pending_speaking_review"),
+    // Pipeline: Pending 2nd interview (includes legacy pending_speaking_review and pending_review)
+    admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", ["pending_speaking_review", "pending_review", "pending_2nd_interview"]),
     // Triage queue count (sidebar badge)
     admin.from("candidates").select("id", { count: "exact", head: true }).eq("assignment_pending_review", true),
     // Total clients
@@ -114,7 +114,7 @@ export async function GET() {
   const activeEngagements = activeEngRes.count || 0;
   const mrr = (activeEngDataRes.data || []).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
   const newEngThisWeek = newEngThisWeekRes.count || 0;
-  const pendingSpeakingReview = pendingSpeakingRes.count || 0;
+  const pending2ndInterview = pending2ndInterviewRes.count || 0;
 
   // Pipeline
   const pipeline = {
@@ -123,7 +123,7 @@ export async function GET() {
     idVerified: idVerifiedRes.count || 0,
     profileBuilt: profileBuiltRes.count || 0,
     aiInterview: aiInterviewRes.count || 0,
-    pendingReview: pendingSpeakingReview,
+    pending2ndInterview,
     live: liveCandidates,
   };
 
@@ -247,7 +247,7 @@ export async function GET() {
   const { data: pendingCandidates } = await admin
     .from("candidates")
     .select("id, full_name, display_name, role_category, country, monthly_rate, english_tier, english_mc_score, english_comprehension_score, ai_interview_score, years_experience, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url")
-    .eq("admin_status", "pending_speaking_review")
+    .in("admin_status", ["pending_speaking_review", "pending_review", "pending_2nd_interview"])
     .order("created_at", { ascending: true })
     .limit(20);
 
@@ -322,7 +322,7 @@ export async function GET() {
     pipeline,
 
     // Action cards
-    pendingSpeakingReview,
+    pending2ndInterview,
     pendingCandidates: pendingCandidates || [],
     warmLeads: warmLeads.slice(0, 20),
     recruiterAlerts: {
@@ -368,7 +368,7 @@ export async function GET() {
 
     // Sidebar badges
     badges: {
-      pendingSpeakingReview,
+      pending2ndInterview,
       pendingReview: pendingReviewRes.count || 0,
       clients: clientsTotalRes.count || 0,
       talentPool: totalCandidates,

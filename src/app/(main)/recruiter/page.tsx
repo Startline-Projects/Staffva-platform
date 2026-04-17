@@ -82,7 +82,7 @@ function getPipelineStatus(row: PipelineRow): { label: string; className: string
   if (row.admin_status === "revision_required") {
     return { label: "Needs Revision", className: "bg-orange-100 text-orange-800" };
   }
-  if (row.admin_status === "pending_speaking_review" && row.second_interview_status === "completed") {
+  if (row.admin_status != null && ["pending_speaking_review", "pending_review", "pending_2nd_interview"].includes(row.admin_status) && row.second_interview_status === "completed") {
     return { label: "Ready to Submit", className: "bg-blue-100 text-blue-800" };
   }
   if (row.second_interview_status === "scheduled") {

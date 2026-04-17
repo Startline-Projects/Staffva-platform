@@ -42,7 +42,7 @@ function classifyStage(c: {
   if (c.admin_status === "deactivated" || c.admin_status === "rejected") return "excluded";
 
   // Pending approval
-  if (c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review" || c.admin_status === "active" || c.admin_status === "profile_review") return "pending_approval";
+  if (c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review" || c.admin_status === "pending_speaking_review" || c.admin_status === "active" || c.admin_status === "profile_review") return "pending_approval";
 
   // Second interview
   if (c.second_interview_status === "scheduled" || c.second_interview_status === "completed") return "second_interview";

@@ -36,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
   profile_review: "bg-yellow-100 text-yellow-700",
   pending_2nd_interview: "bg-yellow-100 text-yellow-700",
   pending_review: "bg-yellow-100 text-yellow-700",
+  pending_speaking_review: "bg-yellow-100 text-yellow-700",
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
   revision_required: "bg-orange-100 text-orange-700",

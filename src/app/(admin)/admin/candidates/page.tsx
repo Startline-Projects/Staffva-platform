@@ -32,9 +32,9 @@ const US_EXP_LABELS: Record<string, string> = {
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
   active: { label: "Active", color: "bg-blue-100 text-blue-700" },
   profile_review: { label: "Profile Review", color: "bg-amber-100 text-amber-700" },
-  pending_speaking_review: { label: "Pending Recruiter Review", color: "bg-amber-100 text-amber-700" },
-  pending_2nd_interview: { label: "Pending Recruiter Interview", color: "bg-amber-100 text-amber-700" },
-  pending_review: { label: "Pending Recruiter Review", color: "bg-amber-100 text-amber-700" },
+  pending_speaking_review: { label: "Pending 2nd Interview", color: "bg-amber-100 text-amber-700" },
+  pending_2nd_interview: { label: "Pending 2nd Interview", color: "bg-amber-100 text-amber-700" },
+  pending_review: { label: "Pending 2nd Interview", color: "bg-amber-100 text-amber-700" },
   ai_interview_failed: { label: "AI Interview Failed", color: "bg-red-100 text-red-700" },
   approved: { label: "Live", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-700" },
@@ -908,7 +908,7 @@ export default function CandidateReviewPage() {
                           >
                             Edit Verified Earnings
                           </button>
-                          {(c.admin_status === "active" || c.admin_status === "profile_review" || c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review") && (
+                          {(c.admin_status === "active" || c.admin_status === "profile_review" || c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review" || c.admin_status === "pending_speaking_review") && (
                             <>
                               <div className="border-t border-gray-100 my-1" />
                               <button
@@ -1338,7 +1338,7 @@ export default function CandidateReviewPage() {
           revisionNote={revisionNotes[previewCandidate.id] || ""}
           onRevisionNoteChange={(note) => setRevisionNotes((prev) => ({ ...prev, [previewCandidate.id]: note }))}
           actionLoading={actionLoading === previewCandidate.id}
-          showActions={previewCandidate.admin_status === "active" || previewCandidate.admin_status === "profile_review" || previewCandidate.admin_status === "pending_2nd_interview" || previewCandidate.admin_status === "pending_review" || previewCandidate.admin_status === "revision_required"}
+          showActions={previewCandidate.admin_status === "active" || previewCandidate.admin_status === "profile_review" || previewCandidate.admin_status === "pending_2nd_interview" || previewCandidate.admin_status === "pending_review" || previewCandidate.admin_status === "pending_speaking_review" || previewCandidate.admin_status === "revision_required"}
           token={token}
         />
       )}

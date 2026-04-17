@@ -45,10 +45,17 @@ const STATUS_CONFIG: Record<string, {
   },
   pending_review: {
     icon: "check",
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-600",
-    title: "Pending Review",
-    message: "Your second interview is complete. Your profile is now being reviewed by your Talent Specialist.",
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    title: "Pending 2nd Interview",
+    message: "You have passed the first interview. Your second interview will be scheduled soon.",
+  },
+  pending_speaking_review: {
+    icon: "check",
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    title: "Pending 2nd Interview",
+    message: "You have passed the first interview. Your second interview will be scheduled soon.",
   },
   rejected: {
     icon: "x",
