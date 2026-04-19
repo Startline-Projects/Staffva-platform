@@ -6,9 +6,16 @@
 
 export type UserRole = "candidate" | "client" | "admin" | "recruiter" | "recruiting_manager";
 
+// Union of legacy + new values during the migration window. After Phase 2B
+// migration, the legacy values (full_time, part_time_contract) can be dropped.
 export type USExperience =
   | "full_time"
   | "part_time_contract"
+  | "less_than_6_months"
+  | "6_months_to_1_year"
+  | "1_to_2_years"
+  | "2_to_5_years"
+  | "5_plus_years"
   | "international_only"
   | "none";
 
@@ -100,9 +107,8 @@ export interface Candidate {
   linkedin_url: string | null;
   bio: string | null;
 
-  // US experience
-  us_client_experience: USExperience;
-  us_client_description: string | null;
+  // US experience (nullable: hard gate routes candidates with NULL to /apply/us-experience)
+  us_client_experience: USExperience | null;
 
   // English test
   english_mc_score: number | null;

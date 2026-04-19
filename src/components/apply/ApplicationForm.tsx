@@ -152,12 +152,21 @@ const TOOLS_BY_ROLE: Record<string, string[]> = {
 
 const EXPERIENCE_OPTIONS = ["0-1", "1-3", "3-5", "5-10", "10+"];
 
-const US_EXPERIENCE_OPTIONS = [
-  { value: "full_time", label: "Yes, full time" },
-  { value: "part_time_contract", label: "Yes, part time or contract" },
-  { value: "international_only", label: "No, but I have worked with other international clients" },
-  { value: "none", label: "No, this would be my first international role" },
+const US_EXPERIENCE_DURATION_OPTIONS = [
+  { value: "less_than_6_months", label: "Less than 6 months" },
+  { value: "6_months_to_1_year", label: "6 months to 1 year" },
+  { value: "1_to_2_years", label: "1 to 2 years" },
+  { value: "2_to_5_years", label: "2 to 5 years" },
+  { value: "5_plus_years", label: "5+ years" },
 ];
+
+const US_EXPERIENCE_NO_OPTIONS = [
+  { value: "international_only", label: "I've worked with international clients (non-US)" },
+  { value: "none", label: "This would be my first international client" },
+];
+
+const US_EXPERIENCE_DURATION_VALUES = US_EXPERIENCE_DURATION_OPTIONS.map((o) => o.value);
+const US_EXPERIENCE_NO_VALUES = US_EXPERIENCE_NO_OPTIONS.map((o) => o.value);
 
 // ─── Searchable Role Select ───
 function SearchableRoleSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -404,7 +413,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
   const [skills, setSkills] = useState<string[]>(existingCandidate?.skills || []);
   const [tools, setTools] = useState<string[]>(existingCandidate?.tools || []);
   const [usExperience, setUsExperience] = useState(existingCandidate?.us_client_experience || "");
-  const [usDescription, setUsDescription] = useState(existingCandidate?.us_client_description || "");
   const [linkedinUrl, setLinkedinUrl] = useState(existingCandidate?.linkedin_url || "");
 
   // Stage 3 fields
@@ -450,7 +458,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       setBio(existingCandidate.bio || "");
       setTools(existingCandidate.tools || []);
       setUsExperience(existingCandidate.us_client_experience || "");
-      setUsDescription(existingCandidate.us_client_description || "");
       setLinkedinUrl(existingCandidate.linkedin_url || "");
       setHourlyRate(existingCandidate.hourly_rate || 0);
       setAvailability(existingCandidate.availability_status || "available_now");
@@ -458,7 +465,26 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
     }
   }, [existingCandidate]);
 
-  const showUsDescription = usExperience === "full_time" || usExperience === "part_time_contract";
+  // Two-step Yes/No flow: derive Yes/No from the chosen value so the UI re-opens correctly on edit.
+  const initialYesNo = usExperience
+    ? US_EXPERIENCE_DURATION_VALUES.includes(usExperience)
+      ? "yes"
+      : US_EXPERIENCE_NO_VALUES.includes(usExperience)
+      ? "no"
+      : ""
+    : "";
+  const [usExperienceYesNo, setUsExperienceYesNo] = useState<string>(initialYesNo);
+
+  function handleUsYesNoChange(v: string) {
+    setUsExperienceYesNo(v);
+    // Reset the sub-selection when toggling between yes/no so a stale value can't be submitted.
+    if (
+      (v === "yes" && !US_EXPERIENCE_DURATION_VALUES.includes(usExperience)) ||
+      (v === "no" && !US_EXPERIENCE_NO_VALUES.includes(usExperience))
+    ) {
+      setUsExperience("");
+    }
+  }
 
   // ═══ STAGE 1 SUBMIT ═══
   async function handleStage1(e: React.FormEvent) {
@@ -523,7 +549,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
         years_experience: "0-1",
         hourly_rate: 5,
         time_zone: timeZone || "UTC",
-        us_client_experience: "none",
+        us_client_experience: null,
         application_stage: 1,
         stage1_completed_at: new Date().toISOString(),
       }).select("id").single();
@@ -571,7 +597,11 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
     if (!tagline.trim()) { setError("Please add a professional tagline"); return; }
     if (!yearsExperience) { setError("Please select your years of experience"); return; }
     if (!bio.trim()) { setError("Please write a short bio"); return; }
-    if (!usExperience) { setError("Please select your US client experience"); return; }
+    if (!usExperienceYesNo) { setError("Please answer the US client experience question"); return; }
+    if (!usExperience) {
+      setError(usExperienceYesNo === "yes" ? "Please select how long you've worked with US clients" : "Please select an option");
+      return;
+    }
 
     setLoading(true);
 
@@ -583,7 +613,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       skills,
       tools,
       us_client_experience: usExperience,
-      us_client_description: showUsDescription ? usDescription.trim() : null,
       linkedin_url: linkedinUrl.trim() || null,
       application_stage: 2,
       stage2_completed_at: new Date().toISOString(),
@@ -739,17 +768,39 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text mb-2">US Client Experience <span className="text-red-500">*</span></label>
-            <div className="space-y-2">
-              {US_EXPERIENCE_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 cursor-pointer hover:border-primary/30 transition-colors">
-                  <input type="radio" name="usExp" value={opt.value} checked={usExperience === opt.value} onChange={(e) => setUsExperience(e.target.value)} className="text-primary focus:ring-primary" />
+            <label className="block text-sm font-medium text-text mb-2">Do you have US client experience? <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-3 cursor-pointer hover:border-primary/30 transition-colors">
+                  <input type="radio" name="usExpYesNo" value={opt.value} checked={usExperienceYesNo === opt.value} onChange={(e) => handleUsYesNoChange(e.target.value)} className="text-primary focus:ring-primary" />
                   <span className="text-sm text-text">{opt.label}</span>
                 </label>
               ))}
             </div>
-            {showUsDescription && (
-              <textarea maxLength={200} rows={2} value={usDescription} onChange={(e) => setUsDescription(e.target.value)} className="mt-3 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Briefly describe your US client work..." />
+            {usExperienceYesNo === "yes" && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-text/60 mb-1.5">How long have you worked with US clients?</label>
+                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
+                  <option value="">Select duration...</option>
+                  {US_EXPERIENCE_DURATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {usExperienceYesNo === "no" && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-text/60 mb-1.5">Tell us a bit more</label>
+                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
+                  <option value="">Select an option...</option>
+                  {US_EXPERIENCE_NO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
 

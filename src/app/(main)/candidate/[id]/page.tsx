@@ -109,11 +109,28 @@ const TIER_CONFIG: Record<string, { label: string; color: string; bg: string }> 
 };
 
 const US_EXPERIENCE_LABELS: Record<string, string> = {
+  // New (post-Phase-2B) values
+  less_than_6_months: "Less than 6 months US client experience",
+  "6_months_to_1_year": "6 months to 1 year US client experience",
+  "1_to_2_years": "1 to 2 years US client experience",
+  "2_to_5_years": "2 to 5 years US client experience",
+  "5_plus_years": "5+ years US client experience",
+  international_only: "International clients only",
+  none: "No prior international client experience",
+  // Legacy values — kept until migration backfills existing rows
   full_time: "Full-time US client experience",
   part_time_contract: "Part-time / contract US experience",
-  international_only: "International client experience",
-  none: "No prior US client experience",
 };
+
+const US_EXPERIENCE_VALUES_WITH_US = new Set([
+  "full_time",
+  "part_time_contract",
+  "less_than_6_months",
+  "6_months_to_1_year",
+  "1_to_2_years",
+  "2_to_5_years",
+  "5_plus_years",
+]);
 
 export default async function CandidateProfilePage({
   params,
@@ -241,7 +258,7 @@ export default async function CandidateProfilePage({
     .maybeSingle();
 
   const tier = candidate.english_written_tier ? TIER_CONFIG[candidate.english_written_tier] : null;
-  const hasUSExperience = candidate.us_client_experience === "full_time" || candidate.us_client_experience === "part_time_contract";
+  const hasUSExperience = candidate.us_client_experience ? US_EXPERIENCE_VALUES_WITH_US.has(candidate.us_client_experience) : false;
   const displayedName = candidate.display_name || candidate.full_name;
   const canViewGated = isLoggedIn && (isClient || isOwnProfile || isAdmin || isRecruitingManager);
 
@@ -947,15 +964,9 @@ export default async function CandidateProfilePage({
                 <div>
                   <p className="text-xs text-text/40">US Client Experience</p>
                   <p className="mt-0.5 text-sm font-medium text-text">
-                    {US_EXPERIENCE_LABELS[candidate.us_client_experience] || "Not specified"}
+                    {(candidate.us_client_experience && US_EXPERIENCE_LABELS[candidate.us_client_experience]) || "Not specified"}
                   </p>
                 </div>
-                {candidate.us_client_description && (
-                  <div className="col-span-2">
-                    <p className="text-xs text-text/40">US Work Description</p>
-                    <p className="mt-0.5 text-sm text-text/70">{candidate.us_client_description}</p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1080,12 +1091,12 @@ export default async function CandidateProfilePage({
                   </>
                 )}
 
-                {hasUSExperience && (
+                {hasUSExperience && candidate.us_client_experience && (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-text/40">US Experience</span>
                       <span className="text-xs font-medium text-green-600">
-                        {candidate.us_client_experience === "full_time" ? "Full-time" : "Part-time/Contract"}
+                        {US_EXPERIENCE_LABELS[candidate.us_client_experience] || "Yes"}
                       </span>
                     </div>
                     <div className="border-t border-gray-100" />

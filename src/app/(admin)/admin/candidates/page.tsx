@@ -16,10 +16,17 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const US_EXP_LABELS: Record<string, string> = {
-  full_time: "Yes, full time",
-  part_time_contract: "Yes, part time or contract",
+  // New (post-Phase-2B) values
+  less_than_6_months: "< 6 months",
+  "6_months_to_1_year": "6 months – 1 year",
+  "1_to_2_years": "1 – 2 years",
+  "2_to_5_years": "2 – 5 years",
+  "5_plus_years": "5+ years",
   international_only: "International only",
   none: "First international role",
+  // Legacy values — kept until migration backfills existing rows
+  full_time: "Yes, full time",
+  part_time_contract: "Yes, part time or contract",
 };
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
@@ -78,8 +85,7 @@ interface Candidate {
   score_mismatch_flag: boolean;
   id_verification_status: string;
   id_verification_submitted_at: string | null;
-  us_client_experience: string;
-  us_client_description: string;
+  us_client_experience: string | null;
   voice_recording_1_url: string;
   voice_recording_2_url: string;
   resume_url: string;
@@ -1008,7 +1014,7 @@ export default function CandidateReviewPage() {
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div><p className="text-xs text-text/40">Email</p><p className="text-text">{c.email}</p></div>
                             <div><p className="text-xs text-text/40">Experience</p><p className="text-text">{c.years_experience}</p></div>
-                            <div><p className="text-xs text-text/40">US Client</p><p className="text-text">{US_EXP_LABELS[c.us_client_experience] || "N/A"}</p></div>
+                            <div><p className="text-xs text-text/40">US Client</p><p className="text-text">{(c.us_client_experience && US_EXP_LABELS[c.us_client_experience]) || "N/A"}</p></div>
                             <div><p className="text-xs text-text/40">Availability</p><p className="text-text capitalize">{c.availability_status?.replace(/_/g, " ") || "—"}</p></div>
                             <div className="col-span-2"><p className="text-xs text-text/40">Bio</p><p className="text-text">{c.bio || "—"}</p></div>
                           </div>

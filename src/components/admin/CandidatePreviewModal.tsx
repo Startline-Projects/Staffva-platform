@@ -10,11 +10,38 @@ const TIER_CONFIG: Record<string, { label: string; bg: string }> = {
 };
 
 const US_EXP_LABELS: Record<string, string> = {
+  // New (post-Phase-2B) values
+  less_than_6_months: "Less than 6 months US client experience",
+  "6_months_to_1_year": "6 months to 1 year US client experience",
+  "1_to_2_years": "1 to 2 years US client experience",
+  "2_to_5_years": "2 to 5 years US client experience",
+  "5_plus_years": "5+ years US client experience",
+  international_only: "International clients only",
+  none: "No prior international client experience",
+  // Legacy values — kept until migration backfills existing rows
   full_time: "Full-time US client experience",
   part_time_contract: "Part-time / contract US experience",
-  international_only: "International client experience",
-  none: "No prior US client experience",
 };
+
+const US_EXP_VALUES_WITH_US = new Set([
+  "full_time",
+  "part_time_contract",
+  "less_than_6_months",
+  "6_months_to_1_year",
+  "1_to_2_years",
+  "2_to_5_years",
+  "5_plus_years",
+]);
+
+const US_EXP_EDIT_OPTIONS: { value: string; label: string }[] = [
+  { value: "less_than_6_months", label: "Less than 6 months" },
+  { value: "6_months_to_1_year", label: "6 months to 1 year" },
+  { value: "1_to_2_years", label: "1 to 2 years" },
+  { value: "2_to_5_years", label: "2 to 5 years" },
+  { value: "5_plus_years", label: "5+ years" },
+  { value: "international_only", label: "International clients only" },
+  { value: "none", label: "First international role" },
+];
 
 interface Candidate {
   id: string;
@@ -31,8 +58,7 @@ interface Candidate {
   tools: string[];
   work_experience: { company_name?: string; role_title: string; industry: string; duration: string; description: string }[];
   english_written_tier: string;
-  us_client_experience: string;
-  us_client_description: string;
+  us_client_experience: string | null;
   voice_recording_1_url: string;
   voice_recording_2_url: string;
   resume_url: string;
@@ -76,6 +102,25 @@ export default function CandidatePreviewModal({
 }: Props) {
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [reassignLog, setReassignLog] = useState<ReassignLogEntry[]>([]);
+  const [editingUsExperience, setEditingUsExperience] = useState(false);
+  const [usExperienceDraft, setUsExperienceDraft] = useState<string>(c.us_client_experience || "");
+  const [usExperienceSaving, setUsExperienceSaving] = useState(false);
+  const [usExperienceLocal, setUsExperienceLocal] = useState<string | null>(c.us_client_experience);
+
+  async function handleSaveUsExperience() {
+    if (!token || !usExperienceDraft) return;
+    setUsExperienceSaving(true);
+    const res = await fetch("/api/admin/candidates/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ candidate_id: c.id, us_client_experience: usExperienceDraft }),
+    });
+    setUsExperienceSaving(false);
+    if (res.ok) {
+      setUsExperienceLocal(usExperienceDraft);
+      setEditingUsExperience(false);
+    }
+  }
 
   useEffect(() => {
     if (!token || !c?.id) return;
@@ -88,7 +133,7 @@ export default function CandidatePreviewModal({
   }, [token, c?.id]);
 
   const tier = c.english_written_tier ? TIER_CONFIG[c.english_written_tier] : null;
-  const hasUSExperience = c.us_client_experience === "full_time" || c.us_client_experience === "part_time_contract";
+  const hasUSExperience = c.us_client_experience ? US_EXP_VALUES_WITH_US.has(c.us_client_experience) : false;
   const tools: string[] = c.tools || [];
   const workExp = c.work_experience || [];
 
@@ -226,16 +271,53 @@ export default function CandidatePreviewModal({
                     <p className="text-xs text-text/40">Experience</p>
                     <p className="mt-0.5 text-sm font-medium text-text">{c.years_experience}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-text/40">US Client Experience</p>
-                    <p className="mt-0.5 text-sm font-medium text-text">{US_EXP_LABELS[c.us_client_experience] || "Not specified"}</p>
-                  </div>
-                  {c.us_client_description && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-text/40">US Work Description</p>
-                      <p className="mt-0.5 text-sm text-text/70">{c.us_client_description}</p>
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-text/40">US Client Experience</p>
+                      {!editingUsExperience && token && (
+                        <button
+                          type="button"
+                          onClick={() => { setUsExperienceDraft(usExperienceLocal || ""); setEditingUsExperience(true); }}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
-                  )}
+                    {!editingUsExperience ? (
+                      <p className="mt-0.5 text-sm font-medium text-text">
+                        {(usExperienceLocal && US_EXP_LABELS[usExperienceLocal]) || "Not specified"}
+                      </p>
+                    ) : (
+                      <div className="mt-1 flex items-center gap-2">
+                        <select
+                          value={usExperienceDraft}
+                          onChange={(e) => setUsExperienceDraft(e.target.value)}
+                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="">Select...</option>
+                          {US_EXP_EDIT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleSaveUsExperience}
+                          disabled={usExperienceSaving || !usExperienceDraft}
+                          className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {usExperienceSaving ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingUsExperience(false)}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-text/60 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <p className="text-xs text-text/40">Email</p>
                     <p className="mt-0.5 text-sm font-medium text-text">{c.email}</p>
@@ -263,13 +345,13 @@ export default function CandidatePreviewModal({
                     </div>
                   </>
                 )}
-                {hasUSExperience && (
+                {hasUSExperience && c.us_client_experience && (
                   <>
                     <div className="border-t border-gray-100" />
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-text/40">US Experience</span>
                       <span className="text-xs font-medium text-green-600">
-                        {c.us_client_experience === "full_time" ? "Full-time" : "Part-time/Contract"}
+                        {US_EXP_LABELS[c.us_client_experience] || "Yes"}
                       </span>
                     </div>
                   </>

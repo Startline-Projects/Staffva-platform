@@ -268,7 +268,6 @@ async function main() {
       linkedin_url: "",
       bio: "",
       us_client_experience: "none",
-      us_client_description: "",
     });
 
     if (candidateErr) {

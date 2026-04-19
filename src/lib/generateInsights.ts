@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { describeUsExperience } from "@/lib/usExperienceLabels";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -64,7 +65,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
       `Hourly rate: $${candidate.hourly_rate}`,
       `Country: ${candidate.country}`,
       candidate.english_written_tier ? `English written tier: ${candidate.english_written_tier}` : null,
-      candidate.us_client_experience ? `US client experience: ${candidate.us_client_experience}` : null,
+      candidate.us_client_experience ? `US client experience: ${describeUsExperience(candidate.us_client_experience)}` : null,
       candidate.total_earnings_usd > 0 ? `Verified earnings: $${candidate.total_earnings_usd}` : null,
       candidate.reputation_score ? `Reputation score: ${candidate.reputation_score}%` : null,
       candidate.reputation_tier ? `Reputation tier: ${candidate.reputation_tier}` : null,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { describeUsExperience, hasUsExperience } from "@/lib/usExperienceLabels";
 
 function getAdminClient() {
   return createClient(
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     const { data: candidate } = await supabase
       .from("candidates")
       .select(
-        "full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, us_client_description"
+        "full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience"
       )
       .eq("id", candidateId)
       .single();
@@ -48,13 +49,13 @@ Role Category: ${candidate.role_category}
 Years of Experience: ${candidate.years_experience}
 Monthly Rate: $${candidate.hourly_rate}
 Bio: ${candidate.bio || "Not provided"}
-US Client Experience: ${candidate.us_client_experience}
-US Client Description: ${candidate.us_client_description || "Not provided"}
+US Client Experience: ${describeUsExperience(candidate.us_client_experience)}
+Has any US client experience: ${hasUsExperience(candidate.us_client_experience) ? "yes" : "no"}
     `.trim();
 
     const systemPrompt = `You are screening offshore professional candidates for U.S. law firms and accounting firms. Based on the candidate application below, return ONLY a valid JSON object with exactly three fields: tag, score, and reason. No other text. No markdown. No explanation outside the JSON.
 
-Scoring rules: Tag as Priority if they have 3+ years experience in paralegal, legal assistant, or bookkeeping roles AND have US client experience AND their bio is written in clear professional English. Tag as Hold if they have under 1 year experience OR their bio has significant grammar issues OR their role category is completely unrelated to legal or accounting work. Tag everything else as Review.
+Scoring rules: Tag as Priority if they have 3+ years experience in paralegal, legal assistant, or bookkeeping roles AND have any prior US client experience AND their bio is written in clear professional English. Tag as Hold if they have under 1 year experience OR their bio has significant grammar issues OR their role category is completely unrelated to legal or accounting work. Tag everything else as Review.
 
 Score from 1-10 where 10 is a perfect candidate for a U.S. law firm or accounting firm.
 

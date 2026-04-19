@@ -64,5 +64,31 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // ── US client experience hard gate ──
+  // Candidates whose us_client_experience is NULL must answer the question
+  // before accessing any candidate-side route. The /apply/us-experience page
+  // is the only entry point that bypasses this gate.
+  if (user && user.user_metadata?.role === "candidate") {
+    const requiresUsExperience =
+      pathname.startsWith("/candidate") ||
+      pathname.startsWith("/browse") ||
+      pathname.startsWith("/profile/") ||
+      (pathname.startsWith("/apply") && pathname !== "/apply/us-experience");
+
+    if (requiresUsExperience) {
+      const { data: candidate } = await supabase
+        .from("candidates")
+        .select("us_client_experience")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (candidate && candidate.us_client_experience == null) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/apply/us-experience";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return supabaseResponse;
 }

@@ -166,10 +166,21 @@ export async function POST(req: NextRequest) {
       else if (c.english_written_tier === "proficient") score += 10;
       else if (c.english_written_tier === "competent") score += 5;
 
-      // US client experience (10 points)
-      if (c.us_client_experience === "full_time") score += 10;
-      else if (c.us_client_experience === "part_time_contract") score += 7;
-      else if (c.us_client_experience === "international_only") score += 3;
+      // US client experience (10 points). Legacy enum values map to the closest new bucket.
+      const usExpPoints: Record<string, number> = {
+        "5_plus_years": 10,
+        "2_to_5_years": 8,
+        "1_to_2_years": 6,
+        "6_months_to_1_year": 4,
+        "less_than_6_months": 2,
+        international_only: 1,
+        none: 0,
+        full_time: 10,
+        part_time_contract: 6,
+      };
+      if (c.us_client_experience && usExpPoints[c.us_client_experience as string] !== undefined) {
+        score += usExpPoints[c.us_client_experience as string];
+      }
 
       // Availability (5 points)
       if (c.availability_status === "available_now") score += 5;

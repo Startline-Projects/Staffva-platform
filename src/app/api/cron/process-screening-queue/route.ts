@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { describeUsExperience, hasUsExperience } from "@/lib/usExperienceLabels";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -17,7 +18,7 @@ const RATE_LIMIT_BACKOFF_MS = 2 * 60 * 1000; // 2 minutes
 
 const SCREENING_PROMPT = `You are screening offshore professional candidates for U.S. law firms and accounting firms. Based on the candidate application below, return ONLY a valid JSON object with exactly three fields: tag, score, and reason. No other text. No markdown. No explanation outside the JSON.
 
-Scoring rules: Tag as Priority if they have 3+ years experience in paralegal, legal assistant, or bookkeeping roles AND have US client experience AND their bio is written in clear professional English. Tag as Hold if they have under 1 year experience OR their bio has significant grammar issues OR their role category is completely unrelated to legal or accounting work. Tag everything else as Review.
+Scoring rules: Tag as Priority if they have 3+ years experience in paralegal, legal assistant, or bookkeeping roles AND have any prior US client experience AND their bio is written in clear professional English. Tag as Hold if they have under 1 year experience OR their bio has significant grammar issues OR their role category is completely unrelated to legal or accounting work. Tag everything else as Review.
 
 Score from 1-10 where 10 is a perfect candidate for a U.S. law firm or accounting firm.
 
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
     // Fetch candidate data
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, us_client_description, skills, tools")
+      .select("full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, skills, tools")
       .eq("id", item.candidate_id)
       .single();
 
@@ -90,8 +91,8 @@ export async function GET(req: NextRequest) {
       experience: candidate.years_experience,
       rate: `$${candidate.hourly_rate}/hrnth`,
       bio: candidate.bio || "No bio provided",
-      us_experience: candidate.us_client_experience,
-      us_description: candidate.us_client_description || "N/A",
+      us_experience: describeUsExperience(candidate.us_client_experience),
+      has_us_experience: hasUsExperience(candidate.us_client_experience) ? "yes" : "no",
       skills: candidate.skills || [],
       tools: candidate.tools || [],
     }, null, 2);

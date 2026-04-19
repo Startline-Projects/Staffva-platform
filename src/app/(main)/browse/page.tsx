@@ -47,7 +47,7 @@ interface CandidateResult {
   hourly_rate: number;
   english_written_tier: string | null;
   availability_status: string;
-  us_client_experience: string;
+  us_client_experience: string | null;
   bio: string | null;
   total_earnings_usd: number;
   committed_hours: number;

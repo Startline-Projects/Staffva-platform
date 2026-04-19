@@ -49,8 +49,7 @@ export interface CandidateData {
   time_zone: string;
   linkedin_url: string;
   bio: string;
-  us_client_experience: string;
-  us_client_description: string;
+  us_client_experience: string | null;
   english_mc_score: number | null;
   english_comprehension_score: number | null;
   english_percentile: number | null;

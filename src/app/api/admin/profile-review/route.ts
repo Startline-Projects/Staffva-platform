@@ -131,6 +131,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══ CANDIDATE RESUBMIT ═══
+    // TODO: wire this up in the edit-with-approval feature build (no caller as of Phase 2A audit)
     if (action === "resubmit") {
       // Set back to under_review
       await admin.from("candidates").update({
