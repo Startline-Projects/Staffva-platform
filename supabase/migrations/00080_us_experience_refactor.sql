@@ -48,26 +48,29 @@ ALTER TABLE candidates DROP COLUMN IF EXISTS us_client_description;
 DROP INDEX IF EXISTS idx_candidates_us_experience;
 
 
--- ─── 4. Backfill: NULL out the 138 rows we want re-collected ────────────────
+-- ─── 4. Make us_client_experience nullable ──────────────────────────────────
+-- Currently NOT NULL DEFAULT 'none'. Both constraints have to go: the gate
+-- requires NULL to be a valid signal, the default would mask un-answered
+-- rows, and the section 5 backfill below cannot insert NULLs while the
+-- column is still NOT NULL.
+ALTER TABLE candidates ALTER COLUMN us_client_experience DROP DEFAULT;
+ALTER TABLE candidates ALTER COLUMN us_client_experience DROP NOT NULL;
+
+
+-- ─── 5. Backfill: NULL out the 138 rows we want re-collected ────────────────
 -- 117 full_time + 21 part_time_contract → NULL. After this migration the
 -- middleware gate will route these candidates to /apply/us-experience to
 -- pick a tenure bucket. The 87 'none' and 21 'international_only' rows are
 -- left untouched — both values exist in the new enum.
 --
--- This UPDATE must run BEFORE the enum rebuild because once the type is
--- swapped, casting the old labels would fail.
+-- Now safe because NOT NULL was dropped in section 4. Must still run BEFORE
+-- the enum rebuild in section 6, since after the swap the legacy labels
+-- ('full_time', 'part_time_contract') no longer exist in the type and the
+-- WHERE clause would not match anything.
 UPDATE candidates
    SET us_client_experience = NULL
  WHERE us_client_experience IN ('full_time', 'part_time_contract');
 -- Expected: 138 rows updated.
-
-
--- ─── 5. Make us_client_experience nullable ──────────────────────────────────
--- Currently NOT NULL DEFAULT 'none'. Both constraints have to go: the gate
--- requires NULL to be a valid signal, and the default would mask un-answered
--- rows.
-ALTER TABLE candidates ALTER COLUMN us_client_experience DROP DEFAULT;
-ALTER TABLE candidates ALTER COLUMN us_client_experience DROP NOT NULL;
 
 
 -- ─── 6. Enum rebuild (create-new, swap, rename) ─────────────────────────────
