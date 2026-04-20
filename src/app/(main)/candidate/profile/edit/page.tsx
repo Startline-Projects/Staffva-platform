@@ -51,6 +51,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [pendingFields, setPendingFields] = useState<Set<string>>(new Set());
+  const [declinedCount, setDeclinedCount] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -73,8 +74,13 @@ export default function EditProfilePage() {
     if (resp.ok) {
       const body = await resp.json();
       const pending = new Set<string>();
-      for (const r of body.requests ?? []) if (r.status === "pending") pending.add(r.field_name);
+      let declined = 0;
+      for (const r of body.requests ?? []) {
+        if (r.status === "pending") pending.add(r.field_name);
+        if (r.status === "declined") declined++;
+      }
       setPendingFields(pending);
+      setDeclinedCount(declined);
     }
 
     setLoading(false);
@@ -148,7 +154,18 @@ export default function EditProfilePage() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-text/50">My pending edits</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text/50">My pending edits</h2>
+          {declinedCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700"
+              title={`${declinedCount} declined edit${declinedCount === 1 ? "" : "s"} need attention`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+              {declinedCount} declined
+            </span>
+          )}
+        </div>
         <div className="mt-2">
           <PendingEditsSection refreshKey={refreshKey} onChanged={onSubmitted} />
         </div>
