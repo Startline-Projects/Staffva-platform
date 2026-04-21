@@ -3,6 +3,7 @@ create table if not exists public.waitlist_users (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null,
+  phone text not null,
   country text not null,
   user_type text not null check (user_type in ('employee', 'employer')),
   position text,
@@ -10,6 +11,19 @@ create table if not exists public.waitlist_users (
   hiring_needs text,
   created_at timestamptz not null default now()
 );
+
+-- If the table already exists (e.g. created before this column was added), add the column safely.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name   = 'waitlist_users'
+      and column_name  = 'phone'
+  ) then
+    alter table public.waitlist_users add column phone text;
+  end if;
+end $$;
 
 create index if not exists waitlist_users_created_at_idx
   on public.waitlist_users (created_at desc);

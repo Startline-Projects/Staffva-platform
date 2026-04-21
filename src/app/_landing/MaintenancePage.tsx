@@ -8,6 +8,7 @@ type UserType = 'employee' | 'employer';
 interface FormState {
   name: string;
   email: string;
+  phone: string;
   country: string;
   user_type: UserType;
   position: string;
@@ -18,6 +19,7 @@ interface FormState {
 const INITIAL_STATE: FormState = {
   name: '',
   email: '',
+  phone: '',
   country: '',
   user_type: 'employee',
   position: '',
@@ -39,8 +41,8 @@ export default function MaintenancePage() {
     e.preventDefault();
     setError(null);
 
-    if (!form.name.trim() || !form.email.trim() || !form.country.trim()) {
-      setError('Please fill in name, email, and country.');
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.country.trim()) {
+      setError('Please fill in name, email, phone, and country.');
       return;
     }
     if (form.user_type === 'employee' && !form.position.trim()) {
@@ -58,6 +60,7 @@ export default function MaintenancePage() {
       const { error: insertError } = await supabase.from('waitlist_users').insert({
         name: form.name.trim(),
         email: form.email.trim(),
+        phone: form.phone.trim(),
         country: form.country.trim(),
         user_type: form.user_type,
         position: form.user_type === 'employee' ? form.position.trim() : null,
@@ -177,6 +180,17 @@ export default function MaintenancePage() {
                 required
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Phone Number">
+              <input
+                type="tel"
+                required
+                placeholder="+1 555 000 0000"
+                value={form.phone}
+                onChange={(e) => update('phone', e.target.value)}
                 style={inputStyle}
               />
             </Field>
