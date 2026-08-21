@@ -96,9 +96,14 @@ export async function POST(req: NextRequest) {
       .eq("id", lockout.candidate_id);
   }
 
-  // Log the override (using exec_sql for audit)
-  await supabase.rpc("exec_sql", {
-    query: `INSERT INTO webhook_log (provider, event_type, event_id, payload, processed, processed_at) VALUES ('admin_override', 'lockout_override', '${lockoutId}', '${JSON.stringify({ admin_id: admin.id, reason, lockout_id: lockoutId, timestamp: new Date().toISOString() }).replace(/'/g, "''")}', true, now())`,
+  // Log the override for audit (parameterized insert — no SQL injection)
+  await supabase.from("webhook_log").insert({
+    provider: "admin_override",
+    event_type: "lockout_override",
+    event_id: lockoutId,
+    payload: { admin_id: admin.id, reason, lockout_id: lockoutId, timestamp: new Date().toISOString() },
+    processed: true,
+    processed_at: new Date().toISOString(),
   });
 
   return NextResponse.json({ success: true, overriddenBy: admin.id });
