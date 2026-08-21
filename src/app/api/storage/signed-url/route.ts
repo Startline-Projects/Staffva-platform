@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getUser } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -8,6 +9,15 @@ function getAdminClient() {
   );
 }
 
+// voice-recordings are shown publicly (landing + browse previews), so they stay
+// open. All other buckets hold sensitive documents (resumes, ID/portfolio,
+// signed contracts, video intros) and may only be signed for an authenticated
+// staff member — the sole legitimate callers. This closes the previous hole
+// where anyone could fetch any private file with no authentication.
+const PUBLIC_BUCKETS = new Set(["voice-recordings"]);
+const STAFF_BUCKETS = new Set(["resumes", "portfolio", "contracts", "video-intros"]);
+const STAFF_ROLES = new Set(["recruiter", "recruiting_manager", "admin"]);
+
 export async function POST(req: NextRequest) {
   const { bucket, path } = await req.json();
 
@@ -15,9 +25,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing bucket or path" }, { status: 400 });
   }
 
-  // Only allow specific buckets
-  const allowedBuckets = ["voice-recordings", "resumes", "portfolio", "contracts", "video-intros"];
-  if (!allowedBuckets.includes(bucket)) {
+  if (STAFF_BUCKETS.has(bucket)) {
+    const user = await getUser();
+    const role = user?.app_metadata?.role as string | undefined;
+    if (!user || !role || !STAFF_ROLES.has(role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } else if (!PUBLIC_BUCKETS.has(bucket)) {
     return NextResponse.json({ error: "Invalid bucket" }, { status: 400 });
   }
 
