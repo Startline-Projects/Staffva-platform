@@ -7,7 +7,6 @@ import FaqAccordion from './_landing/FaqAccordion';
 import VoiceMoment from './_landing/VoiceMoment';
 import HeroSearch from './_landing/HeroSearch';
 import CtaSearch from './_landing/CtaSearch';
-import MaintenancePage from './_landing/MaintenancePage';
 
 export const revalidate = 300;
 
@@ -102,14 +101,6 @@ function getSkills(skills: unknown): string[] {
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default async function Home() {
-  if (process.env.NEXT_PUBLIC_MAINTENANCE === 'true') {
-    return (
-      <div className={`${dmSans.variable} ${dmSerifDisplay.variable}`}>
-        <MaintenancePage />
-      </div>
-    );
-  }
-
   const supabase = await createClient();
 
   const { data } = await supabase
