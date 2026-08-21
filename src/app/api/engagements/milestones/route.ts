@@ -104,8 +104,13 @@ export async function POST(request: Request) {
         `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/escrow/release`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ milestoneId, triggeredBy: "client" }),
+          headers: {
+            "Content-Type": "application/json",
+            // Forward the client's session so escrow/release can authenticate
+            // the caller (it now requires an authenticated owning client).
+            cookie: request.headers.get("cookie") || "",
+          },
+          body: JSON.stringify({ milestoneId }),
         }
       );
 

@@ -23,7 +23,7 @@ function getAdminClient() {
  */
 export async function POST(request: Request) {
   try {
-    const { periodId, milestoneId, triggeredBy } = await request.json();
+    const { periodId, milestoneId } = await request.json();
 
     if (!periodId && !milestoneId) {
       return NextResponse.json(
@@ -34,16 +34,24 @@ export async function POST(request: Request) {
 
     const admin = getAdminClient();
 
-    // If triggered by client (not auto-release), verify auth
-    if (triggeredBy === "client") {
-      const supabase = await createServerClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user || user.app_metadata?.role !== "client") {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
+    // Require an authenticated client. Ownership of the specific engagement is
+    // verified per period/milestone below. Previously this ran only when
+    // triggeredBy === "client", so any other value (or none) skipped auth
+    // entirely — an unauthenticated fund release.
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.app_metadata?.role !== "client") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    const { data: callerClient } = await admin
+      .from("clients")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+    if (!callerClient) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const now = new Date().toISOString();
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
       // Release a payment period
       const { data: period } = await admin
         .from("payment_periods")
-        .select("*, engagements!inner(candidate_id, candidate_rate_usd)")
+        .select("*, engagements!inner(candidate_id, candidate_rate_usd, client_id)")
         .eq("id", periodId)
         .single();
 
@@ -61,6 +69,10 @@ export async function POST(request: Request) {
           { error: "Period not found or not in funded state" },
           { status: 400 }
         );
+      }
+
+      if (period.engagements.client_id !== callerClient.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
       // Check if dispute was filed
@@ -105,7 +117,7 @@ export async function POST(request: Request) {
       // Release a milestone
       const { data: milestone } = await admin
         .from("milestones")
-        .select("*, engagements!inner(candidate_id)")
+        .select("*, engagements!inner(candidate_id, client_id)")
         .eq("id", milestoneId)
         .single();
 
@@ -114,6 +126,10 @@ export async function POST(request: Request) {
           { error: "Milestone not found" },
           { status: 404 }
         );
+      }
+
+      if (milestone.engagements.client_id !== callerClient.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
       // Can release from 'candidate_marked_complete' (client approval)
