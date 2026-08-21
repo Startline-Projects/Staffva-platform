@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
     const { candidateId, eventType, testSection } = await req.json();
     if (!candidateId || !eventType) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(candidateId)) return NextResponse.json({ error: "Invalid candidateId" }, { status: 400 });
+
     const admin = getAdminClient();
 
     // Insert log entry
@@ -26,10 +29,8 @@ export async function POST(req: NextRequest) {
       test_section: testSection || null,
     });
 
-    // Increment cheat_flag_count on candidate
-    await admin.rpc("exec_sql", {
-      query: `UPDATE candidates SET cheat_flag_count = cheat_flag_count + 1 WHERE id = '${candidateId}'`,
-    });
+    // Increment cheat_flag_count on candidate (parameterized RPC — no SQL injection)
+    await admin.rpc("increment_cheat_flag", { p_candidate_id: candidateId });
 
     // Check total count for this session — alert admin if >3
     const { count } = await admin
