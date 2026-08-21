@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     const { milestoneId, action } = await request.json();
-    const role = user.user_metadata?.role;
+    const role = user.app_metadata?.role;
 
     if (!milestoneId || !action) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });

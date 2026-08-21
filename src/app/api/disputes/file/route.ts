@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const { engagementId, periodId, milestoneId, statement, evidenceUrl } =
       await request.json();
-    const role = user.user_metadata?.role;
+    const role = user.app_metadata?.role;
 
     if (!engagementId || !statement) {
       return NextResponse.json(

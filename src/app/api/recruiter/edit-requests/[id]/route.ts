@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
   if (role !== "recruiter" && role !== "admin" && role !== "recruiting_manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

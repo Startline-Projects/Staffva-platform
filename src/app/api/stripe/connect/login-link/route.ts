@@ -23,7 +23,7 @@ export async function POST() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.user_metadata?.role !== "candidate") {
+  if (!user || user.app_metadata?.role !== "candidate") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

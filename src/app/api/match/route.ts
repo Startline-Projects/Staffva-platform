@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     try {
       const supabase = await createServerClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.user_metadata?.role === "client") {
+      if (user?.app_metadata?.role === "client") {
         const { data: client } = await admin.from("clients").select("id").eq("user_id", user.id).single();
         clientId = client?.id || null;
       }

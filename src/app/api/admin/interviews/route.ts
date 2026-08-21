@@ -14,13 +14,13 @@ function getAdminClient() {
 async function verifyAdmin() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  return user?.user_metadata?.role === "admin" ? user : null;
+  return user?.app_metadata?.role === "admin" ? user : null;
 }
 
 async function verifyAdminOrRecruiter() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role;
+  const role = user?.app_metadata?.role;
   if (role !== "admin" && role !== "recruiter" && role !== "recruiting_manager") return null;
   return user;
 }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
 
   // Scope enforcement: recruiters may only act on candidates in their assigned categories
-  if (admin.user_metadata?.role === "recruiter") {
+  if (admin.app_metadata?.role === "recruiter") {
     let scopeCandidateId: string | undefined = body.candidateId;
 
     // update_status uses interviewId — resolve the candidateId from the interview record

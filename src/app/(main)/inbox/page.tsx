@@ -55,7 +55,7 @@ function InboxContent() {
     // Check subscription status for clients
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.role === "client") {
+      if (user?.app_metadata?.role === "client") {
         supabase
           .from("clients")
           .select("subscription_status")

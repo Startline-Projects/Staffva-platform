@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   const admin = getAdminClient();
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
 
   // Verify user belongs to this thread
   const [clientRecordId, candidateRecordId] = threadId.split(":");

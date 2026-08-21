@@ -95,7 +95,7 @@ export default function InternalChat({ isMobileFullScreen }: InternalChatProps) 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       setToken(session.access_token);
-      setUserRole(session.user.user_metadata?.role || "");
+      setUserRole(session.user.app_metadata?.role || "");
       setUserProfileId(session.user.id);
       await fetchThreads(session.access_token);
     })();

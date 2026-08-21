@@ -12,7 +12,7 @@ function getAdminClient() {
 async function verifyAdmin() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  return user?.user_metadata?.role === "admin" ? user : null;
+  return user?.app_metadata?.role === "admin" ? user : null;
 }
 
 // GET — list all candidates with ban_pending_review = true

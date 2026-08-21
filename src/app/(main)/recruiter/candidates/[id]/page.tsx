@@ -98,7 +98,7 @@ export default async function RecruiterCandidateProfilePage({
   const user = await getUser();
 
   // Auth check — recruiter role required
-  if (!user || user.user_metadata?.role !== "recruiter") {
+  if (!user || user.app_metadata?.role !== "recruiter") {
     redirect("/login");
   }
 

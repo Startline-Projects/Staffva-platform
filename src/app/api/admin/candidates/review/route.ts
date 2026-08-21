@@ -16,7 +16,7 @@ async function verifyAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user?.user_metadata?.role === "admin" ? user : null;
+  return user?.app_metadata?.role === "admin" ? user : null;
 }
 
 async function verifyAdminOrRecruiter() {
@@ -24,7 +24,7 @@ async function verifyAdminOrRecruiter() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role;
+  const role = user?.app_metadata?.role;
   if (role !== "admin" && role !== "recruiter" && role !== "recruiting_manager") return null;
   return user;
 }
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     if (!caller) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
-    if (caller.user_metadata?.role === "recruiter") {
+    if (caller.app_metadata?.role === "recruiter") {
       const scopeError = await assertRecruiterScope(caller.id, candidateId);
       if (scopeError) {
         return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });

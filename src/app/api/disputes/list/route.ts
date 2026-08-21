@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || (user.user_metadata?.role !== "admin" && user.user_metadata?.role !== "recruiting_manager")) {
+  if (!user || (user.app_metadata?.role !== "admin" && user.app_metadata?.role !== "recruiting_manager")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

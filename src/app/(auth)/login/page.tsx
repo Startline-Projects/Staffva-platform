@@ -81,7 +81,7 @@ function LoginForm() {
       return;
     }
 
-    const role = data.user?.user_metadata?.role;
+    const role = data.user?.app_metadata?.role;
 
     if (role === "candidate") {
       router.push("/candidate/dashboard");

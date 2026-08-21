@@ -10,11 +10,11 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const user = await getUser();
-  if (!user || (user.user_metadata?.role !== "admin" && user.user_metadata?.role !== "recruiting_manager")) {
+  if (!user || (user.app_metadata?.role !== "admin" && user.app_metadata?.role !== "recruiting_manager")) {
     redirect("/login");
   }
 
-  const isRecruitingManager = user.user_metadata?.role === "recruiting_manager";
+  const isRecruitingManager = user.app_metadata?.role === "recruiting_manager";
 
   return (
     <>

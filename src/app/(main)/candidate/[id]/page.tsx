@@ -133,11 +133,11 @@ export default async function CandidateProfilePage({
   const supabase = getAdminClient();
   const user = await getUser();
   const isLoggedIn = !!user;
-  const isClient = user?.user_metadata?.role === "client";
-  const isCandidate = user?.user_metadata?.role === "candidate";
-  const isAdmin = user?.user_metadata?.role === "admin";
-  const isRecruitingManager = user?.user_metadata?.role === "recruiting_manager";
-  const isRecruiter = user?.user_metadata?.role === "recruiter";
+  const isClient = user?.app_metadata?.role === "client";
+  const isCandidate = user?.app_metadata?.role === "candidate";
+  const isAdmin = user?.app_metadata?.role === "admin";
+  const isRecruitingManager = user?.app_metadata?.role === "recruiting_manager";
+  const isRecruiter = user?.app_metadata?.role === "recruiter";
 
   // First try to find approved candidate (public view)
   let { data: candidate } = await supabase

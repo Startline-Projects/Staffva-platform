@@ -49,7 +49,7 @@ export default function TalentPoolPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push("/login"); return; }
 
-    const role = session.user.user_metadata?.role;
+    const role = session.user.app_metadata?.role;
     if (role !== "admin" && role !== "recruiting_manager") {
       router.push("/");
       return;

@@ -230,7 +230,7 @@ export default function RecruiterDashboardPage() {
     if (!session) { router.push("/login"); return; }
     setToken(session.access_token);
 
-    const role = session.user.user_metadata?.role;
+    const role = session.user.app_metadata?.role;
     setUserRole(role);
 
     if (role === "recruiting_manager") {

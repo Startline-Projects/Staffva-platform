@@ -20,7 +20,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
   const admin = getAdminClient();
 
   // Get the user's client or candidate record
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
   }
 
   const { candidateId, clientId, body } = await request.json();
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
 
   if (!body?.trim()) {
     return NextResponse.json({ error: "Message body required" }, { status: 400 });

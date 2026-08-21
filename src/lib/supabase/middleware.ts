@@ -55,7 +55,7 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages and the landing page
   if (user && (authRoutes.some((route) => pathname.startsWith(route)) || pathname === "/")) {
-    const role = user.user_metadata?.role;
+    const role = user.app_metadata?.role;
     const dest = dashboardForRole(role);
     if (dest) {
       const url = request.nextUrl.clone();
@@ -68,7 +68,7 @@ export async function updateSession(request: NextRequest) {
   // Candidates whose us_client_experience is NULL must answer the question
   // before accessing any candidate-side route. The /apply/us-experience page
   // is the only entry point that bypasses this gate.
-  if (user && user.user_metadata?.role === "candidate") {
+  if (user && user.app_metadata?.role === "candidate") {
     const requiresUsExperience =
       pathname.startsWith("/candidate") ||
       pathname.startsWith("/browse") ||

@@ -30,7 +30,7 @@ const ALLOWED_US_EXPERIENCE_VALUES = new Set([
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role;
+  const role = user?.app_metadata?.role;
   if (!user || (role !== "admin" && role !== "recruiter" && role !== "recruiting_manager")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }

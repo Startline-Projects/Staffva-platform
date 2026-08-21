@@ -13,7 +13,7 @@ export async function POST() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    if (user.user_metadata?.role !== "client") {
+    if (user.app_metadata?.role !== "client") {
       return NextResponse.json(
         { error: "Only clients can subscribe" },
         { status: 403 }

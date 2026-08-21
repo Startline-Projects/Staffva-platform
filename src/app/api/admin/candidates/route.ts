@@ -15,7 +15,7 @@ async function verifyAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user?.user_metadata?.role === "admin" ? user : null;
+  return user?.app_metadata?.role === "admin" ? user : null;
 }
 
 async function verifyAdminOrRecruiter() {
@@ -23,7 +23,7 @@ async function verifyAdminOrRecruiter() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const role = user?.user_metadata?.role;
+  const role = user?.app_metadata?.role;
   if (role !== "admin" && role !== "recruiter" && role !== "recruiting_manager") return null;
   return user;
 }
@@ -117,7 +117,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const callerRole = caller.user_metadata?.role;
+  const callerRole = caller.app_metadata?.role;
 
   const body = await request.json();
   const candidateId = body.candidateId;

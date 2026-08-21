@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
   const admin = getAdminClient();
   const { searchParams } = new URL(req.url);
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
   const admin = getAdminClient();
   const { candidateId: bodyCandidate, body: messageBody } = await req.json();
 

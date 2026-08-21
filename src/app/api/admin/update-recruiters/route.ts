@@ -86,6 +86,9 @@ export async function POST() {
         role: "recruiter",
         full_name: "Leyan",
       },
+      app_metadata: {
+        role: "recruiter",
+      },
     });
 
     if (createErr) {

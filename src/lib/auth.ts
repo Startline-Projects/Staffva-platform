@@ -12,7 +12,7 @@ export async function getUser() {
 export async function getUserRole(): Promise<UserRole | null> {
   const user = await getUser();
   if (!user) return null;
-  return (user.user_metadata?.role as UserRole) ?? null;
+  return (user.app_metadata?.role as UserRole) ?? null;
 }
 
 export async function getUserProfile() {
@@ -39,7 +39,7 @@ export async function requireAuth() {
 
 export async function requireRole(role: UserRole) {
   const user = await requireAuth();
-  const userRole = user.user_metadata?.role as UserRole;
+  const userRole = user.app_metadata?.role as UserRole;
   if (userRole !== role) {
     throw new Error(`Required role: ${role}`);
   }

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const role = user?.user_metadata?.role;
+  const role = user?.app_metadata?.role;
   if (!user || (role !== "admin" && role !== "recruiting_manager")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user || user.user_metadata?.role !== "client") {
+    if (!user || user.app_metadata?.role !== "client") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

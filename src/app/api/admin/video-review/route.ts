@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || (user.user_metadata?.role !== "admin" && user.user_metadata?.role !== "recruiter" && user.user_metadata?.role !== "recruiting_manager")) {
+    if (!user || (user.app_metadata?.role !== "admin" && user.app_metadata?.role !== "recruiter" && user.app_metadata?.role !== "recruiting_manager")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || (user.user_metadata?.role !== "admin" && user.user_metadata?.role !== "recruiter" && user.user_metadata?.role !== "recruiting_manager")) {
+    if (!user || (user.app_metadata?.role !== "admin" && user.app_metadata?.role !== "recruiter" && user.app_metadata?.role !== "recruiting_manager")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

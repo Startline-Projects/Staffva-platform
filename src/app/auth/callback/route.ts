@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      const role = user?.user_metadata?.role;
+      const role = user?.app_metadata?.role;
 
       if (role === "candidate") {
         return NextResponse.redirect(`${origin}/candidate/dashboard`);

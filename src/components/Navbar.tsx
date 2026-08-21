@@ -3,7 +3,7 @@ import DropdownNavbar from "./DropdownNavbar";
 
 export default async function Navbar() {
   const user = await getUser();
-  const role = user?.user_metadata?.role as string | undefined;
+  const role = user?.app_metadata?.role as string | undefined;
 
   return (
     <DropdownNavbar
