@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from "@/lib/email";
 
 function getAdminClient() {
   return createClient(
@@ -99,7 +97,7 @@ export async function GET(req: NextRequest) {
       .join("");
 
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: "sam@glostaffing.com",
         subject: `⚠ ${permanentFailures.length} webhook(s) permanently failed after 3 retries`,
@@ -177,7 +175,7 @@ export async function GET(req: NextRequest) {
 
   if (trolleyPermanent && trolleyPermanent.length > 0 && process.env.RESEND_API_KEY) {
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: "sam@glostaffing.com",
         subject: `⚠ ${trolleyPermanent.length} Trolley payout callback(s) permanently failed`,

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
 import { hasCronSecret } from "@/lib/auth";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -204,9 +202,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ sent: false, reason: "no_api_key" });
     }
 
-    // Send email
+    // Send email. sendEmail() throws on Resend's returned {error}, so the
+    // catch below correctly records 'failed' instead of the previous behaviour:
+    // resend.emails.send() resolves with {error} rather than throwing, so an
+    // invalid key / unverified domain / rate limit fell through to "Log
+    // success", wrote status 'sent', and the idempotency guard then blocked the
+    // message from ever being retried.
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: candidate.email,
         subject: typeof template.subject === "function" ? template.subject(data) : template.subject,

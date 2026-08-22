@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
 import { describeUsExperience, hasUsExperience } from "@/lib/usExperienceLabels";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -260,7 +258,7 @@ async function alertPermanentFailures(supabase: ReturnType<typeof getAdminClient
     .join("");
 
   try {
-    await resend.emails.send({
+    await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
       to: "sam@glostaffing.com",
       subject: `⚠ ${failures.length} AI screening(s) permanently failed after ${MAX_RETRIES} retries`,
