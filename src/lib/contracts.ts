@@ -42,7 +42,46 @@ interface ContractParams {
 
 const SYSTEM_PROMPT = `You are a legal document generator for StaffVA, a professional offshore talent marketplace. Generate a complete Independent Contractor Agreement in clean HTML format. The agreement must include these seven sections: 1 Scope of Work, 2 Compensation and Payment, 3 Term and Termination, 4 Intellectual Property Assignment, 5 Confidentiality, 6 Non-Solicitation, 7 Dispute Resolution. The dispute resolution section must specify that all disputes are resolved through StaffVA's dispute framework as the governing platform. The agreement must classify the candidate as an independent contractor not an employee. Use the provided engagement details to populate all variable fields. Return only the HTML document with no preamble or explanation. Use inline CSS styles for all elements. The document should be professional, clean, and suitable for PDF rendering. Use a serif font for the body text and a clean sans-serif for headings.`;
 
-export async function generateContractHtml(params: ContractParams): Promise<string> {
+/** Escape a value for safe interpolation into an HTML document body. */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Escape every caller-supplied string field. The generated contract HTML is
+ * stored in engagement_contracts.contract_html and later rendered with
+ * dangerouslySetInnerHTML to the COUNTERPARTY (contracts/sign page,
+ * ContractReviewModal) and into the Puppeteer PDF — so an unescaped
+ * display_name or company name like `<img src=x onerror=...>` was stored XSS
+ * against the other party on a legally binding page.
+ *
+ * Numeric fields are left as-is (they are typed as numbers and cannot carry
+ * markup). Escaping here covers both the LLM prompt and the fallback template,
+ * since every downstream path reads from these params.
+ */
+function sanitizeContractParams(params: ContractParams): ContractParams {
+  return {
+    ...params,
+    clientLegalName: escapeHtml(params.clientLegalName),
+    candidateDisplayName: escapeHtml(params.candidateDisplayName),
+    roleCategory: escapeHtml(params.roleCategory),
+    paymentCycle: escapeHtml(params.paymentCycle),
+    contractType: escapeHtml(params.contractType),
+    startDate: escapeHtml(params.startDate),
+  };
+}
+
+export async function generateContractHtml(rawParams: ContractParams): Promise<string> {
+  // Escape once, up front: every path below (the LLM prompt and all four
+  // generateFallbackHtml call sites) reads from `params`, so no interpolation
+  // site can be missed.
+  const params = sanitizeContractParams(rawParams);
+
   const userPrompt = `Generate an Independent Contractor Agreement with the following details:
 
 - Client Legal Name: ${params.clientLegalName}
