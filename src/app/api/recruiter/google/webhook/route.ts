@@ -41,6 +41,11 @@ export async function POST(req: NextRequest) {
   eventsUrl.searchParams.set("updatedMin", tenMinutesAgo);
   eventsUrl.searchParams.set("singleEvents", "true");
   eventsUrl.searchParams.set("orderBy", "updated");
+  // Google omits cancelled events unless showDeleted is set, so the
+  // cancellation branch in processCalendarEvent could never run: a recruiter
+  // cancelling an interview left the candidate stuck at second_interview_status
+  // 'scheduled' forever and they never received the rebook email.
+  eventsUrl.searchParams.set("showDeleted", "true");
 
   try {
     const res = await fetch(eventsUrl.toString(), {

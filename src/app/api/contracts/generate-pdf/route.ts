@@ -53,12 +53,17 @@ export async function POST(request: Request) {
 
     // Generate PDF using puppeteer-core + @sparticuz/chromium
     let pdfBuffer: Buffer;
+    // Declared outside the try so the finally below can always close it.
+    // Previously `browser` was scoped inside the try and closed only on the
+    // happy path, so any failure in newPage/setContent/pdf leaked the whole
+    // chromium process on a warm lambda until it ran out of memory.
+    let browser: Awaited<ReturnType<Awaited<typeof import("puppeteer-core")>["default"]["launch"]>> | null = null;
     try {
       // Dynamic imports for serverless compatibility
       const chromium = await import("@sparticuz/chromium");
       const puppeteer = await import("puppeteer-core");
 
-      const browser = await puppeteer.default.launch({
+      browser = await puppeteer.default.launch({
         args: chromium.default.args,
         defaultViewport: { width: 816, height: 1056 },
         executablePath: await chromium.default.executablePath(),
@@ -93,11 +98,12 @@ ${contract.contract_html}
 </body>
 </html>`;
 
-      await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+      // `domcontentloaded` rather than `networkidle0`: the contract HTML is
+      // self-contained, so waiting for network idle only added latency (and
+      // waited on any external reference the markup happened to contain).
+      await page.setContent(fullHtml, { waitUntil: "domcontentloaded" });
       const pdf = await page.pdf({ format: "letter", printBackground: true });
       pdfBuffer = Buffer.from(pdf);
-
-      await browser.close();
     } catch (pdfError) {
       console.error("PDF generation error (puppeteer):", pdfError);
       // Fallback: store HTML as-is without PDF
@@ -105,6 +111,15 @@ ${contract.contract_html}
         warning: "PDF generation unavailable in this environment. Contract HTML is stored.",
         contractId,
       });
+    } finally {
+      // Always release chromium, including on the error path above.
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (closeError) {
+          console.error("Failed to close chromium:", closeError);
+        }
+      }
     }
 
     // Upload PDF to Supabase Storage
