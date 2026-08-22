@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
   try {
     const { candidateId, customRole } = await req.json();
     if (!candidateId || !customRole) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+    // Previously unauthenticated: anyone could spend Anthropic credits and
+    // overwrite any candidate's classified role.
+    if (!(await ownsCandidate(candidateId))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ classified: null, reason: "no_api_key" });

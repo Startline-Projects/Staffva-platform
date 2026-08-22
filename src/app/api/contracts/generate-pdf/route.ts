@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { hasCronSecret } from "@/lib/auth";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -20,6 +21,14 @@ function getAdminClient() {
  */
 export async function POST(request: Request) {
   try {
+    // Internal trigger only (called server-side after both parties sign).
+    // Previously unauthenticated: anyone could POST a contractId and receive a
+    // 1-year signed URL to that executed contract PDF. Fails closed when
+    // CRON_SECRET is unset.
+    if (!hasCronSecret(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { contractId } = await request.json();
     if (!contractId) {
       return NextResponse.json({ error: "Missing contractId" }, { status: 400 });

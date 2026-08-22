@@ -45,3 +45,43 @@ export async function requireRole(role: UserRole) {
   }
   return user;
 }
+
+/**
+ * Resolve the candidates.id owned by the currently authenticated user.
+ * Returns null when there is no session or the user has no candidate row.
+ */
+export async function getOwnCandidateId(): Promise<string | null> {
+  const user = await getUser();
+  if (!user) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("candidates")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return data?.id ?? null;
+}
+
+/**
+ * True only when the caller is authenticated and `candidateId` is their own
+ * candidate record. Use to stop one candidate acting on another's data on
+ * routes that take a candidateId from the request body.
+ */
+export async function ownsCandidate(candidateId: unknown): Promise<boolean> {
+  if (typeof candidateId !== "string" || !candidateId) return false;
+  const ownId = await getOwnCandidateId();
+  return ownId !== null && ownId === candidateId;
+}
+
+/**
+ * Shared-secret gate for internal/system-triggered routes. Fails CLOSED: if
+ * CRON_SECRET is unset the route is denied rather than left open (the previous
+ * `Bearer ${undefined}` pattern let anyone in by sending "Bearer undefined").
+ */
+export function hasCronSecret(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
+}

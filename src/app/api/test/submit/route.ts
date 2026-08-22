@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -34,6 +35,13 @@ export async function POST(request: Request) {
 
   if (!candidateId || !answers) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
+  }
+
+  // Only the candidate who owns this record may submit their test. Previously
+  // unauthenticated: anyone could grade a test for any candidateId (forcing a
+  // pass for themselves, or a failure + lockout for someone else).
+  if (!(await ownsCandidate(candidateId))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const supabase = getAdminClient();

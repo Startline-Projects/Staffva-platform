@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -13,6 +14,12 @@ export async function POST(req: NextRequest) {
     const { candidate_id } = await req.json();
     if (!candidate_id) {
       return NextResponse.json({ error: "Missing candidate_id" }, { status: 400 });
+    }
+
+    // Previously unauthenticated: anyone could reassign a candidate's recruiter
+    // and push their PII into the Slack channel.
+    if (!(await ownsCandidate(candidate_id))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const supabase = getAdminClient();

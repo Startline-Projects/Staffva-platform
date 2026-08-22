@@ -190,7 +190,11 @@ export async function POST(req: NextRequest) {
       try {
         fetch(`${siteUrl}/api/contracts/generate-pdf`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            // Internal server-to-server call — authenticate to the now-gated route.
+            authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
+          },
           body: JSON.stringify({ contractId }),
         }).catch(() => {});
       } catch { /* fire and forget */ }

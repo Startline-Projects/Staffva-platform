@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 
 // Use service role to bypass RLS on questions table
 function getAdminClient() {
@@ -23,6 +24,10 @@ export async function POST(request: Request) {
 
   if (!candidateId) {
     return NextResponse.json({ error: "Missing candidateId" }, { status: 400 });
+  }
+
+  if (!(await ownsCandidate(candidateId))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const supabase = getAdminClient();

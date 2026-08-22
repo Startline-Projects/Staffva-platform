@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -15,6 +16,12 @@ export async function POST(request: Request) {
     const { candidateId } = await request.json();
     if (!candidateId) {
       return NextResponse.json({ error: "Missing candidateId" }, { status: 400 });
+    }
+
+    // Previously unauthenticated: anyone could read another candidate's
+    // ID-verification state and drive a service-role write of it.
+    if (!(await ownsCandidate(candidateId))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const supabase = getAdminClient();

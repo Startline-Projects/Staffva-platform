@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ownsCandidate } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -19,6 +20,10 @@ export async function POST(request: Request) {
 
   if (!candidate_id) {
     return NextResponse.json({ error: "Missing candidate_id" }, { status: 400 });
+  }
+
+  if (!(await ownsCandidate(candidate_id))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const supabase = getAdminClient();
