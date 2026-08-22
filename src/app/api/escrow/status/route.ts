@@ -80,6 +80,10 @@ export async function GET(req: NextRequest) {
           engagements!inner(candidate_id, candidates!inner(display_name))
         `)
         .eq("status", "funded")
+        // status DEFAULTS to 'funded' at insert, so status alone matched
+        // never-paid periods and reported them as money held in escrow.
+        // funded_at is only set when payment actually succeeds.
+        .not("funded_at", "is", null)
         .in("engagement_id", (
           await supabase
             .from("engagements")
@@ -160,6 +164,8 @@ export async function GET(req: NextRequest) {
           funded_at, auto_release_at
         `)
         .eq("status", "funded")
+        // See note above — funded_at is the real "in escrow" signal.
+        .not("funded_at", "is", null)
         .in("engagement_id", (
           await supabase
             .from("engagements")

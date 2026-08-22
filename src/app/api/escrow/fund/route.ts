@@ -96,7 +96,12 @@ export async function POST(request: Request) {
       if (!period) {
         return NextResponse.json({ error: "Period not found" }, { status: 404 });
       }
-      if (period.status !== "funded" && period.funded_at) {
+      // funded_at is the only reliable "money actually received" signal:
+      // payment_periods.status DEFAULTS to 'funded' at insert, so the previous
+      // guard (status !== "funded" && funded_at) was inverted and could never
+      // block a funded period — letting a client be charged twice for the same
+      // period. It only fired for released/refunded rows, i.e. the wrong states.
+      if (period.funded_at) {
         return NextResponse.json({ error: "Period already funded" }, { status: 400 });
       }
 
