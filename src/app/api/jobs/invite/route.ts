@@ -34,6 +34,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // The caller must be the client who owns this job post. Previously ANY
+    // authenticated user (including a candidate) could invite an arbitrary
+    // candidate to an arbitrary job post and trigger the invite email.
+    const { data: callerClient } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const { data: jobPost } = await supabase
+      .from("job_posts")
+      .select("client_id")
+      .eq("id", job_post_id)
+      .maybeSingle();
+
+    if (!callerClient || !jobPost || jobPost.client_id !== callerClient.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     // Mark as invited in job_post_matches
     await supabase
       .from("job_post_matches")

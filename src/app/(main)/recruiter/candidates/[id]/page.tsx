@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { getUser } from "@/lib/auth";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -100,6 +101,14 @@ export default async function RecruiterCandidateProfilePage({
   // Auth check — recruiter role required
   if (!user || user.app_metadata?.role !== "recruiter") {
     redirect("/login");
+  }
+
+  // Scope check — a recruiter may only open candidates in their assigned
+  // categories. Without this, any recruiter could read any candidate's full
+  // record (select *) just by changing the id in the URL.
+  const scopeError = await assertRecruiterScope(user.id, id);
+  if (scopeError) {
+    redirect("/recruiter");
   }
 
   // Service-role client for data fetching (required per RLS rules)
