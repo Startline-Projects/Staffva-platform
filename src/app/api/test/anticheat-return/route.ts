@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getOwnCandidateId } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -20,12 +21,22 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Previously unauthenticated: anyone could rewrite any test_events row by id,
+  // e.g. zeroing another candidate's absence durations (or their own) to defeat
+  // the anti-cheat lockout. Scope the update to the caller's own events so a
+  // foreign event_id simply matches nothing.
+  const ownCandidateId = await getOwnCandidateId();
+  if (!ownCandidateId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
   const supabase = getAdminClient();
 
   const { error } = await supabase
     .from("test_events")
     .update({ returned_at, absence_duration_seconds })
-    .eq("id", event_id);
+    .eq("id", event_id)
+    .eq("candidate_id", ownCandidateId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

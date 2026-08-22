@@ -91,7 +91,11 @@ export async function POST(req: NextRequest) {
       try {
         await fetch(`${siteUrl}/api/candidate-emails`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            // Internal server-to-server call — authenticate to the gated route.
+            authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
+          },
           body: JSON.stringify({
             candidateId: entry.candidate_id,
             emailType: "giveaway_eligible",

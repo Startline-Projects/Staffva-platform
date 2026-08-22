@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { hasCronSecret } from "@/lib/auth";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -135,6 +136,14 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
 // POST — Send a triggered email (idempotent — won't send duplicates)
 export async function POST(req: NextRequest) {
   try {
+    // Internal trigger only — all six callers are server-to-server. Previously
+    // unauthenticated: anyone could send templated mail to any candidate's
+    // address, with attacker-supplied `data` interpolated into the HTML body.
+    // Fails closed when CRON_SECRET is unset.
+    if (!hasCronSecret(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { candidateId, emailType, data } = await req.json() as {
       candidateId: string;
       emailType: EmailType;
