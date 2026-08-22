@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 
 interface Props {
   candidateId: string;
@@ -161,9 +162,9 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
         <p className="mt-3 text-text-muted">
           Your verification is being reviewed. This typically takes up to 48 hours. We&apos;ll email you when it&apos;s resolved.
         </p>
-        <a href="/candidate/dashboard" className="mt-6 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
+        <Link href="/candidate/dashboard" className="mt-6 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
           View dashboard
-        </a>
+        </Link>
       </div>
     );
   }

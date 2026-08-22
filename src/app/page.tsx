@@ -649,9 +649,9 @@ export default async function Home() {
         <div className="footer-container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <a href="/" className="footer-logo">
+              <Link href="/" className="footer-logo">
                 StaffVA<span className="footer-logo-dot"></span>
-              </a>
+              </Link>
               <p className="footer-tagline">
                 The offshore talent marketplace where every candidate passed two interviews before you ever see their name.
               </p>

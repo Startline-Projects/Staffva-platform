@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 
 const INSTRUCTIONS = [
   { num: 1, title: "Greeting", text: "Greet the viewer using your first name only. Keep it warm and professional." },
@@ -410,12 +411,12 @@ export default function VideoIntroPage() {
         <p className="mt-2 text-sm text-text-muted">
           Your video introduction is under review. We&apos;ll notify you within 24 hours once it&apos;s approved.
         </p>
-        <a
+        <Link
           href="/candidate/dashboard"
           className="mt-6 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
         >
           Back to Dashboard
-        </a>
+        </Link>
       </div>
     );
   }

@@ -214,7 +214,7 @@ export default function IdentityManagementPage() {
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-text">Review ID Verification</h2>
             <p className="mt-1 text-sm text-text-muted">{reviewModal.display_name || reviewModal.full_name} · {reviewModal.country}</p>
-            <p className="mt-3 text-xs text-text-tertiary">Check the candidate's Stripe Identity result, then mark the decision below.</p>
+            <p className="mt-3 text-xs text-text-tertiary">Check the candidate&apos;s Stripe Identity result, then mark the decision below.</p>
             <textarea
               value={reviewNote}
               onChange={(e) => setReviewNote(e.target.value)}
