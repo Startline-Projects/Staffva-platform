@@ -161,14 +161,21 @@ export async function POST(req: NextRequest) {
 
     const supabase = getAdminClient();
 
-    // Idempotency check — don't send duplicates
+    // Idempotency check — don't send duplicates.
+    // This used .single(), which returns an ERROR (and data = null) when it
+    // matches 2+ rows as well as 0. So once a duplicate existed, the guard
+    // inverted: `existing` came back null and the route sent yet another copy,
+    // compounding the problem. There are already 12 such rows in production.
+    // limit(1)+maybeSingle() returns the first match instead, so the guard
+    // keeps working no matter how many historical duplicates exist.
     const { data: existing } = await supabase
       .from("candidate_emails")
       .select("id")
       .eq("candidate_id", candidateId)
       .eq("email_type", emailType)
       .eq("status", "sent")
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (existing) {
       return NextResponse.json({ sent: false, reason: "already_sent" });

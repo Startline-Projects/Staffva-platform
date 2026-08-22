@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   // Get candidate info for the notification message
   const { data: candidate } = await supabase
     .from("candidates")
-    .select("display_name, full_name, role_category, assignment_pending_review")
+    .select("display_name, full_name, role_category, assignment_pending_review, assigned_recruiter")
     .eq("id", candidateId)
     .single();
 
@@ -74,8 +74,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Recruiter not found" }, { status: 404 });
   }
 
-  // Update candidate: assign to new recruiter, clear pending flags
-  const { error: updateError } = await supabase
+  // Update candidate: assign to new recruiter, clear pending flags.
+  // Optimistic concurrency — the update only applies if assigned_recruiter is
+  // still what we read a moment ago. Without this, two managers routing the
+  // same "Needs Routing" candidate both succeed: last write wins on the row,
+  // but BOTH recruiters get a "routed to you" notification and both think they
+  // own the candidate. Using the previous value (rather than requiring
+  // assignment_pending_review) keeps re-routing an already-assigned candidate
+  // working too.
+  let updateQuery = supabase
     .from("candidates")
     .update({
       assigned_recruiter: newRecruiterId,
@@ -85,8 +92,21 @@ export async function POST(req: NextRequest) {
     })
     .eq("id", candidateId);
 
+  updateQuery = candidate.assigned_recruiter
+    ? updateQuery.eq("assigned_recruiter", candidate.assigned_recruiter)
+    : updateQuery.is("assigned_recruiter", null);
+
+  const { data: updatedRows, error: updateError } = await updateQuery.select("id");
+
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json(
+      { error: "This candidate was routed by someone else just now — reload and try again." },
+      { status: 409 }
+    );
   }
 
   // Create platform notification for the newly assigned recruiter
