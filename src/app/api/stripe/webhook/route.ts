@@ -467,11 +467,67 @@ export async function POST(request: Request) {
     }
 
     case "charge.refunded": {
-      // Dispute refund processed — logged for audit
       const charge = event.data.object as Stripe.Charge;
-      console.log(
-        `[StaffVA] Refund processed: charge ${charge.id} — $${(charge.amount_refunded / 100).toFixed(2)}`
-      );
+      const refundedUsd = (charge.amount_refunded / 100).toFixed(2);
+
+      // Previously this only logged, so a refunded period/milestone stayed
+      // 'funded' forever — still shown as escrowed and still eligible for
+      // auto-release, i.e. we could pay the candidate for money we had already
+      // returned to the client.
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : charge.payment_intent?.id;
+
+      if (!paymentIntentId) {
+        console.error(`[StaffVA] Refund ${charge.id} ($${refundedUsd}) has no payment_intent — cannot map to a record`);
+        break;
+      }
+
+      // The period/milestone ids live on the PaymentIntent metadata set in
+      // api/escrow/fund; the Charge does not carry them.
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const periodId = pi.metadata?.period_id || null;
+      const milestoneId = pi.metadata?.milestone_id || null;
+
+      const table = periodId ? "payment_periods" : milestoneId ? "milestones" : null;
+      const recordId = periodId || milestoneId;
+
+      if (!table || !recordId) {
+        console.error(`[StaffVA] Refund ${charge.id} ($${refundedUsd}) — PaymentIntent ${paymentIntentId} has no period_id/milestone_id metadata`);
+        break;
+      }
+
+      const { data: record } = await supabase
+        .from(table)
+        .select("id, status")
+        .eq("id", recordId)
+        .maybeSingle();
+
+      if (!record) {
+        console.error(`[StaffVA] Refund ${charge.id} — ${table}/${recordId} not found`);
+        break;
+      }
+
+      if (record.status === "released") {
+        // The candidate has already been paid. Reversing that is a manual
+        // decision (clawback / negative balance), never something to automate
+        // from a webhook.
+        console.error(
+          `[StaffVA Refund Alert] MANUAL REVIEW REQUIRED — ${table}/${recordId} was already RELEASED to the candidate but the client was refunded $${refundedUsd} (charge ${charge.id}). Funds must be recovered manually.`
+        );
+        break;
+      }
+
+      // Not yet paid out: mark refunded so it stops showing as escrowed and can
+      // no longer be auto-released.
+      await supabase
+        .from(table)
+        .update({ status: "refunded" })
+        .eq("id", recordId)
+        .neq("status", "released");
+
+      console.log(`[StaffVA] Refund processed: charge ${charge.id} — $${refundedUsd} — ${table}/${recordId} marked refunded`);
       break;
     }
 
@@ -479,6 +535,55 @@ export async function POST(request: Request) {
     // Fires when a connected Express account's details change.
     // Requires this webhook endpoint to be configured for "Connect events"
     // in the Stripe Dashboard (same signing secret is used).
+
+    // ---- Client subscriptions ----
+    // Without these the paid-messaging gate could never open: nothing ever set
+    // clients.subscription_status, so every client failed the `=== "active"`
+    // check even after paying.
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const subscription = event.data.object as Stripe.Subscription;
+
+      // Stripe marks the row canceled on deletion regardless of the status it
+      // reports; otherwise mirror Stripe's own status (active, trialing,
+      // past_due, unpaid, incomplete, ...).
+      const status =
+        event.type === "customer.subscription.deleted"
+          ? "canceled"
+          : subscription.status;
+
+      const periodEnd = (subscription as unknown as { current_period_end?: number })
+        .current_period_end;
+
+      const update: Record<string, unknown> = {
+        subscription_status: status,
+        stripe_subscription_id: subscription.id,
+        subscription_current_period_end: periodEnd
+          ? new Date(periodEnd * 1000).toISOString()
+          : null,
+      };
+
+      // Prefer the id we set in subscription_data.metadata at checkout; fall
+      // back to the customer id we already store on the client row.
+      const supabaseUserId = subscription.metadata?.supabase_user_id;
+      const customerId =
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer?.id;
+
+      if (supabaseUserId) {
+        await supabase.from("clients").update(update).eq("user_id", supabaseUserId);
+      } else if (customerId) {
+        await supabase.from("clients").update(update).eq("stripe_customer_id", customerId);
+      } else {
+        console.error(
+          `[stripe webhook] ${event.type} ${subscription.id} — no supabase_user_id metadata and no customer id; cannot map to a client`
+        );
+      }
+
+      break;
+    }
 
     case "account.updated": {
       const account = event.data.object as Stripe.Account;
