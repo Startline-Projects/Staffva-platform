@@ -1,5 +1,6 @@
 // src/app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -220,13 +221,7 @@ export async function POST(req: NextRequest) {
       if (nearMissCandidates) {
         for (const c of nearMissCandidates) {
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: c.email,
                 subject: "A client is looking for someone like you",
@@ -247,8 +242,7 @@ export async function POST(req: NextRequest) {
                     </p>
                   </div>
                 `,
-              }),
-            });
+              });
           } catch {
             // Silent — don't block the response
           }

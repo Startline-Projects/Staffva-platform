@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -70,13 +71,7 @@ export async function POST(req: NextRequest) {
     // Send invite notification email via Resend
     if (candidate?.email && process.env.RESEND_API_KEY) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "A client wants to connect with you on StaffVA",
@@ -91,8 +86,7 @@ export async function POST(req: NextRequest) {
                 <p style="color: #999; font-size: 12px; margin-top: 32px;">You received this because you have an active profile on StaffVA.</p>
               </div>
             `,
-          }),
-        });
+          });
       } catch {
         // Email send failed — don't block the invite
         console.error("Failed to send invite email");

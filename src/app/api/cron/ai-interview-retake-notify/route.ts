@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -66,13 +67,7 @@ export async function GET(req: NextRequest) {
       const firstName =
         (candidate.display_name || candidate.full_name || "").split(" ")[0] || "there";
       try {
-        const emailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Your StaffVA retake is ready — start your AI interview now",
@@ -83,14 +78,8 @@ export async function GET(req: NextRequest) {
               <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Retake My AI Interview</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          }),
-        });
+          });
 
-        if (!emailRes.ok) {
-          console.error("[retake-notify] Resend non-2xx for", candidate.id, emailRes.status);
-          skipped.push(candidate.id);
-          continue;
-        }
       } catch (err) {
         console.error("[retake-notify] Resend threw for", candidate.id, err);
         skipped.push(candidate.id);

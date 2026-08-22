@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
@@ -127,13 +128,7 @@ export async function POST(request: Request) {
               : `During your English assessment, our system detected that you were away from the test screen for more than 10 seconds. To protect the integrity of our vetting process, your application has been paused for 7 days. You may return on ${formattedReturnDate} to retake the assessment from the beginning. We take the quality of our candidate pool seriously — every professional on StaffVA earned their place.`;
 
             try {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
+              await sendEmail({
                   from: "StaffVA <notifications@staffva.com>",
                   to: candidate.email,
                   subject: "Your application has been paused for 7 days",
@@ -143,8 +138,7 @@ export async function POST(request: Request) {
                     <p style="color:#444;font-size:14px;line-height:1.6;">${emailBody}</p>
                     <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                   </div>`,
-                }),
-              });
+                });
             } catch { /* silent */ }
           }
 
@@ -173,13 +167,7 @@ export async function POST(request: Request) {
         // No anti-cheat flag — send the normal success email
         if (process.env.RESEND_API_KEY && candidate) {
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: candidate.email,
                 subject: "ID Verification Passed — Continue Your Application",
@@ -190,8 +178,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Continue Application</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              }),
-            });
+              });
           } catch { /* silent */ }
         }
       }
@@ -221,13 +208,7 @@ export async function POST(request: Request) {
 
           if (candidate) {
             try {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
+              await sendEmail({
                   from: "StaffVA <notifications@staffva.com>",
                   to: candidate.email,
                   subject: "ID Verification Could Not Be Completed",
@@ -239,8 +220,7 @@ export async function POST(request: Request) {
                     <a href="mailto:support@staffva.com" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Contact Support</a>
                     <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                   </div>`,
-                }),
-              });
+                });
             } catch { /* silent */ }
           }
         }
@@ -275,13 +255,7 @@ export async function POST(request: Request) {
 
           if (candidate) {
             try {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
+              await sendEmail({
                   from: "StaffVA <notifications@staffva.com>",
                   to: candidate.email,
                   subject: "Your ID Verification Is Under Review",
@@ -293,8 +267,7 @@ export async function POST(request: Request) {
                     <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View My Dashboard</a>
                     <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                   </div>`,
-                }),
-              });
+                });
             } catch { /* silent */ }
           }
         }
@@ -337,13 +310,7 @@ export async function POST(request: Request) {
         if (process.env.RESEND_API_KEY && candidate && client) {
           // Notify admin
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <noreply@staffva.com>",
                 to: "admin@staffva.com",
                 subject: `New Interview Request — ${candidate.display_name || candidate.full_name} — ${interviewCount} interview(s)`,
@@ -356,21 +323,14 @@ export async function POST(request: Request) {
                   <p><strong>Expected Delivery:</strong> Within 48 hours</p>
                   <a href="https://staffva.com/admin/candidates" style="display:inline-block;background:#fe6e3e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Admin Panel</a>
                 </div>`,
-              }),
-            });
+              });
           } catch (err) {
             console.error("Failed to notify admin:", err);
           }
 
           // Confirm to client
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <noreply@staffva.com>",
                 to: client.email,
                 subject: `Interview Request Confirmed — ${candidate.display_name || candidate.full_name}`,
@@ -381,8 +341,7 @@ export async function POST(request: Request) {
                   <p>Our team will conduct the interview${Number(interviewCount) > 1 ? "s" : ""} and deliver notes within <strong>48 hours</strong>. You will receive an email with the scores and PDF notes when ready.</p>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              }),
-            });
+              });
           } catch (err) {
             console.error("Failed to confirm to client:", err);
           }
@@ -612,13 +571,7 @@ export async function POST(request: Request) {
 
         if (process.env.RESEND_API_KEY) {
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: candidate.email,
                 subject: "Your payout account is active — you're ready to get paid",
@@ -630,8 +583,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              }),
-            });
+              });
           } catch { /* silent */ }
         }
       } else if (disabledReason) {
@@ -642,13 +594,7 @@ export async function POST(request: Request) {
 
         if (process.env.RESEND_API_KEY) {
           try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: candidate.email,
                 subject: "Action required — your payout account needs attention",
@@ -660,8 +606,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              }),
-            });
+              });
           } catch { /* silent */ }
         }
       }

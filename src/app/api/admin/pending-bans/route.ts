@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -100,13 +101,7 @@ export async function POST(req: NextRequest) {
 
       if (manar?.email) {
         try {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+          await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: manar.email,
               subject: `Ban confirmed — ${candidateName}`,
@@ -117,8 +112,7 @@ export async function POST(req: NextRequest) {
                 <a href="${siteUrl}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Candidate</a>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            }),
-          });
+            });
         } catch { /* silent */ }
       }
     }
@@ -142,13 +136,7 @@ export async function POST(req: NextRequest) {
 
     if (manar?.email) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: manar.email,
             subject: `Ban dismissed — ${candidateName}`,
@@ -158,8 +146,7 @@ export async function POST(req: NextRequest) {
               <p style="color:#444;font-size:14px;">Ahmed has reviewed your ban request for <strong>${candidateName}</strong> (${candidate.role_category}) and decided not to proceed. The candidate remains active.</p>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          }),
-        });
+          });
       } catch { /* silent */ }
     }
   }

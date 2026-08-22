@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail as sendEmailViaResend } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function admin() {
@@ -95,11 +96,7 @@ export async function POST(req: NextRequest) {
 
   async function sendEmail(to: string, subject: string, html: string) {
     if (!RESEND) return;
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: "StaffVA <notifications@staffva.com>", to, subject, html }),
-    }).catch(() => {});
+    await sendEmailViaResend({ from: "StaffVA <notifications@staffva.com>", to, subject, html }).catch(() => {});
   }
 
   const wrap = (body: string) =>

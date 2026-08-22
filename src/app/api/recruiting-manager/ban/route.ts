@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -70,13 +71,7 @@ export async function POST(req: NextRequest) {
     // Send internal notification email to Ahmed
     if (process.env.RESEND_API_KEY) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: "sam@glostaffing.com",
             subject: `Ban Request — ${candidateName} (${candidate.role_category})`,
@@ -92,8 +87,7 @@ export async function POST(req: NextRequest) {
               <a href="${confirmationLink}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Review in Admin Panel</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">The candidate remains active until you confirm or dismiss this request.</p>
             </div>`,
-          }),
-        });
+          });
       } catch { /* silent */ }
     }
 

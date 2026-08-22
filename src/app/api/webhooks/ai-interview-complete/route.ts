@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { generateInsights } from "@/lib/generateInsights";
 
@@ -81,13 +82,7 @@ export async function POST(req: NextRequest) {
         const firstName =
           (candidate.display_name || candidate.full_name || "").split(" ")[0] || "there";
         try {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+          await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: candidate.email,
               subject: "Your AI interview results — retake available in 3 days",
@@ -98,8 +93,7 @@ export async function POST(req: NextRequest) {
                 <p style="color:#444;font-size:14px;">Your retake will unlock in 3 days. We will send you another email the moment it becomes available — no action needed on your side until then.</p>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            }),
-          });
+            });
         } catch (err) {
           console.error("[AI Interview Webhook] Fail email send error:", err);
         }
@@ -167,13 +161,7 @@ export async function POST(req: NextRequest) {
 
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+          await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: candidate.email,
               subject: "You're in the queue — a Talent Specialist will be assigned to you shortly",
@@ -183,8 +171,7 @@ export async function POST(req: NextRequest) {
                 <p style="color:#444;font-size:14px;">We have reviewed your AI interview. You will be assigned a Talent Specialist within 24 hours. You will receive a notification when your Talent Specialist is assigned.</p>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            }),
-          });
+            });
         } catch { /* silent */ }
       }
 

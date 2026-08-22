@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 const BUCKET = "recruiter-photos";
@@ -204,17 +205,10 @@ async function sendPhotoDecisionEmail(
           `<p style="color:#444;font-size:14px;">Please upload a new photo from your recruiter dashboard.</p>`
         );
 
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
       to: email,
       subject,
       html,
-    }),
-  }).catch(() => {});
+    }).catch(() => {});
 }

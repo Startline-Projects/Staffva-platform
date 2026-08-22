@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -68,13 +69,7 @@ export async function GET(req: NextRequest) {
       const rolesPosted = rolePostCounts[candidate.role_category] || 0;
 
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <digest@staffva.com>",
             to: candidate.email,
             subject: "This week on StaffVA",
@@ -124,8 +119,7 @@ export async function GET(req: NextRequest) {
                 </div>
               </div>
             `,
-          }),
-        });
+          });
         sentCount++;
       } catch (err) {
         errors.push(`Failed to send to ${candidate.email}: ${err}`);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendEmail as sendEmailViaResend } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
@@ -36,18 +37,11 @@ async function sendEmail(to: string, subject: string, html: string) {
   }
 
   try {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "StaffVA <noreply@staffva.com>",
-        to,
-        subject,
-        html,
-      }),
+    await sendEmailViaResend({
+      from: "StaffVA <noreply@staffva.com>",
+      to,
+      subject,
+      html,
     });
   } catch (err) {
     console.error("Failed to send email:", err);

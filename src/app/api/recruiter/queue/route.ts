@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 
@@ -251,13 +252,7 @@ export async function POST(req: NextRequest) {
     });
 
     try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: candidate.email,
           subject: `Interview Scheduled — ${formattedDate} at ${formattedTime}`,
@@ -273,8 +268,7 @@ export async function POST(req: NextRequest) {
             <p style="color:#444;font-size:14px;line-height:1.6;">Please ensure you are in a quiet environment with a stable internet connection. The interview will last approximately 20 minutes.</p>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
-        }),
-      });
+        });
     } catch { /* silent */ }
   }
 

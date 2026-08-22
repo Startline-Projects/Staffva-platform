@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -43,13 +44,7 @@ export async function GET(req: NextRequest) {
       .join("");
 
     try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: "sam@glostaffing.com",
           subject: `Alert: ${overdue.length} ID verification(s) overdue — 72+ hours in manual review`,
@@ -60,8 +55,7 @@ export async function GET(req: NextRequest) {
             <p style="color:#444;font-size:14px;">This may indicate a Stripe processing delay. Consider manually reviewing these candidates or contacting Stripe support.</p>
             <a href="https://staffva.com/admin/candidates" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Admin Panel</a>
           </div>`,
-        }),
-      });
+        });
     } catch (err) {
       console.error("Failed to send overdue alert:", err);
     }

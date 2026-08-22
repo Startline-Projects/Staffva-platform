@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
@@ -198,13 +199,7 @@ export async function POST(req: NextRequest) {
           const client = request.clients as { email: string; full_name: string } | null;
           if (client) {
             try {
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
+              await sendEmail({
                   from: "StaffVA <noreply@staffva.com>",
                   to: client.email,
                   subject: `Interview Notes — ${candidate?.display_name || candidate?.full_name} from StaffVA`,
@@ -221,8 +216,7 @@ export async function POST(req: NextRequest) {
                     <a href="https://staffva.com/candidate/${candidateId}" style="display: inline-block; background: #fe6e3e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">View Profile</a>
                     <p style="color: #999; margin-top: 24px; font-size: 12px;">— The StaffVA Team</p>
                   </div>`,
-                }),
-              });
+                });
 
               // Mark request as notified
               await supabase

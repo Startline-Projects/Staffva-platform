@@ -1,4 +1,5 @@
 import { stripe } from "@/lib/stripe";
+import { sendEmail } from "@/lib/email";
 
 /**
  * Initiate payout to candidate via Stripe Connect transfer.
@@ -48,13 +49,7 @@ export async function initiatePayout(
     // Notify candidate to set up their payout account
     if (process.env.RESEND_API_KEY && candidate.email) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Action required — set up your payout account to receive your payment",
@@ -66,8 +61,7 @@ export async function initiatePayout(
               <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Set Up Payouts Now</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          }),
-        });
+          });
       } catch { /* silent */ }
     }
 

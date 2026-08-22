@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -140,13 +141,7 @@ export async function POST(req: NextRequest) {
 
         await Promise.allSettled(
           reviewers.map((r) =>
-            fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${RESEND}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: r.email,
                 subject: "Recruiter photo pending approval.",
@@ -154,8 +149,7 @@ export async function POST(req: NextRequest) {
                   `<p style="color:#444;font-size:14px;"><strong>${recruiterName}</strong> has submitted a new profile photo for their recruiter card. Review and approve or reject it in the admin panel.</p>` +
                   `<a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com"}${approvalLink}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review Photo</a>`
                 ),
-              }),
-            }).catch(() => {})
+              }).catch(() => {})
           )
         );
       }
