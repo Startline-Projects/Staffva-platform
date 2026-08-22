@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -203,6 +204,14 @@ export async function POST(req: NextRequest) {
 
   if (!candidateId || !scheduledDate || !scheduledTime) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+
+  // Recruiters may only schedule interviews for candidates in their categories.
+  if (profile.role === "recruiter") {
+    const scopeError = await assertRecruiterScope(user.id, candidateId);
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+    }
   }
 
   // Get candidate info

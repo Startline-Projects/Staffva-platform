@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -31,6 +32,14 @@ export async function POST(req: NextRequest) {
 
   const { candidateId, revisionId } = await req.json();
   if (!candidateId) return NextResponse.json({ error: "candidateId required" }, { status: 400 });
+
+  // Recruiters may only remind candidates in their assigned categories.
+  if (profile.role === "recruiter") {
+    const scopeError = await assertRecruiterScope(user.id, candidateId);
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+    }
+  }
 
   // Check 48h cooldown — look for recent reminder notification
   const { data: recentReminder } = await supabase

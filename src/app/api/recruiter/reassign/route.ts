@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -40,6 +41,15 @@ export async function POST(req: NextRequest) {
   const { candidateId, newRecruiterId } = await req.json();
   if (!candidateId || !newRecruiterId) {
     return NextResponse.json({ error: "Missing candidateId or newRecruiterId" }, { status: 400 });
+  }
+
+  // A plain recruiter may only reassign candidates inside their own categories;
+  // admins and recruiting_managers route across the whole pipeline.
+  if (profile.role === "recruiter") {
+    const scopeError = await assertRecruiterScope(user.id, candidateId);
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+    }
   }
 
   // Get candidate info for the notification message

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -24,18 +25,27 @@ async function getRecruiterUser(req: NextRequest) {
     .eq("id", user.id)
     .single();
   if (!profile || !["recruiter", "recruiting_manager", "admin"].includes(profile.role)) return null;
-  return user;
+  return { user, role: profile.role as string };
 }
 
 // POST — create a revision request
 export async function POST(req: NextRequest) {
-  const user = await getRecruiterUser(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getRecruiterUser(req);
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { user, role } = auth;
 
   const { candidateId, items } = await req.json();
 
   if (!candidateId || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "candidateId and items[] required" }, { status: 400 });
+  }
+
+  // Recruiters may only request revisions for candidates in their categories.
+  if (role === "recruiter") {
+    const scopeError = await assertRecruiterScope(user.id, candidateId);
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+    }
   }
 
   // Validate items shape

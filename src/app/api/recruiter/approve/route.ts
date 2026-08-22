@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
 import { checkApprovalGates } from "@/lib/approvalGates";
 
@@ -51,6 +52,15 @@ export async function POST(req: NextRequest) {
         { error: "Missing candidateId" },
         { status: 400 }
       );
+    }
+
+    // Recruiters may only approve candidates in their assigned categories —
+    // previously any recruiter could approve/push live ANY candidate.
+    if (profile.role === "recruiter") {
+      const scopeError = await assertRecruiterScope(user.id, candidateId);
+      if (scopeError) {
+        return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+      }
     }
 
     // Fetch candidate with all fields needed for gate check + pre-conditions
