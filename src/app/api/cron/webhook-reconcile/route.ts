@@ -270,14 +270,18 @@ async function reprocessStripeWebhook(
         await supabase
           .from("payment_periods")
           .update({ status: "funded", funded_at: now, auto_release_at: autoRelease })
-          .eq("id", periodId);
+          .eq("id", periodId)
+          // Same compare-and-swap as the live webhook handler: never rewrite an
+          // already-funded/released period back to 'funded' on a reconcile pass.
+          .is("funded_at", null);
       }
 
       if (milestoneId) {
         await supabase
           .from("milestones")
           .update({ status: "funded", funded_at: now })
-          .eq("id", milestoneId);
+          .eq("id", milestoneId)
+          .eq("status", "pending");
       }
 
       return true;

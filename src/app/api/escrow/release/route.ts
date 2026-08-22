@@ -89,12 +89,27 @@ export async function POST(request: Request) {
         );
       }
 
-      // Update period status to released
-      // The DB trigger update_verified_earnings will auto-increment candidate earnings
-      await admin
+      // Update period status to released.
+      // The DB trigger update_verified_earnings auto-increments candidate
+      // earnings on any not-released -> released transition, and the payout
+      // below moves real money, so this transition must happen exactly once.
+      // Compare-and-swap on the previous status: if a concurrent request (or a
+      // retry) already released this period, we affect 0 rows and stop here
+      // rather than paying twice.
+      const { data: releasedPeriod } = await admin
         .from("payment_periods")
         .update({ status: "released", released_at: now })
-        .eq("id", periodId);
+        .eq("id", periodId)
+        .eq("status", "funded")
+        .select("id")
+        .maybeSingle();
+
+      if (!releasedPeriod) {
+        return NextResponse.json(
+          { error: "Period is no longer in a releasable state" },
+          { status: 409 }
+        );
+      }
 
       // Initiate Stripe Connect payout — non-blocking (client sees release succeed even if payout fails)
       await initiatePayout(
@@ -158,15 +173,27 @@ export async function POST(request: Request) {
         );
       }
 
-      // Update milestone to released
-      await admin
+      // Update milestone to released. Compare-and-swap on the releasable
+      // states so a concurrent request or retry cannot pay out twice — the
+      // second one affects 0 rows and returns 409 instead of transferring.
+      const { data: releasedMilestone } = await admin
         .from("milestones")
         .update({
           status: "released",
           approved_at: milestone.approved_at || now,
           released_at: now,
         })
-        .eq("id", milestoneId);
+        .eq("id", milestoneId)
+        .in("status", ["candidate_marked_complete", "approved"])
+        .select("id")
+        .maybeSingle();
+
+      if (!releasedMilestone) {
+        return NextResponse.json(
+          { error: "Milestone is no longer in a releasable state" },
+          { status: 409 }
+        );
+      }
 
       // Initiate Stripe Connect payout — non-blocking
       await initiatePayout(
@@ -270,12 +297,21 @@ async function initiatePayout(
 
   // Attempt Stripe Connect transfer
   try {
-    const transfer = await stripe.transfers.create({
-      amount: Math.round(amountUsd * 100), // convert to cents
-      currency: "usd",
-      destination: candidate.stripe_account_id,
-      transfer_group: recordId,
-    });
+    const transfer = await stripe.transfers.create(
+      {
+        amount: Math.round(amountUsd * 100), // convert to cents
+        currency: "usd",
+        destination: candidate.stripe_account_id,
+        transfer_group: recordId,
+      },
+      {
+        // Belt-and-braces against a duplicate payout: keyed on the record being
+        // paid, so a retry of the same release returns the original transfer
+        // instead of moving money a second time. (transfer_group does NOT
+        // deduplicate.)
+        idempotencyKey: `payout-${recordType}-${recordId}`,
+      }
+    );
 
     await admin
       .from(table)

@@ -43,8 +43,12 @@ export async function POST(request: Request) {
 
   const supabase = getAdminClient();
 
-  // Log the webhook event
-  const { data: logEntry } = await supabase
+  // Log the webhook event. The (provider, event_id) unique index makes this
+  // insert fail on a redelivery, which is our idempotency signal: Stripe
+  // delivers at-least-once and retries slow responses, and several handlers
+  // below are not safe to run twice (e.g. payment_intent.succeeded would revert
+  // an already-released period and re-arm a second payout).
+  const { data: logEntry, error: logError } = await supabase
     .from("webhook_log")
     .insert({
       provider: "stripe",
@@ -56,6 +60,13 @@ export async function POST(request: Request) {
     })
     .select("id")
     .single();
+
+  // 23505 = unique_violation → we have seen this event before. Ack with 200 so
+  // Stripe stops retrying, and do not re-run the side effects.
+  if (logError?.code === "23505") {
+    console.log(`[stripe webhook] duplicate event ${event.id} (${event.type}) — already processed, skipping`);
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   const logId = logEntry?.id;
 
@@ -411,14 +422,22 @@ export async function POST(request: Request) {
             funded_at: now,
             auto_release_at: autoRelease,
           })
-          .eq("id", periodId);
+          .eq("id", periodId)
+          // Compare-and-swap: only the first funding wins. Without this a
+          // redelivered event (or a reconcile pass) would rewrite an already
+          // RELEASED period back to 'funded', re-arming the release path — a
+          // second Stripe transfer and a second earnings increment.
+          .is("funded_at", null);
       }
 
       if (milestoneId) {
         await supabase
           .from("milestones")
           .update({ status: "funded", funded_at: now })
-          .eq("id", milestoneId);
+          .eq("id", milestoneId)
+          // Only a pending milestone may transition to funded — never a
+          // released/completed one.
+          .eq("status", "pending");
       }
 
       // Ensure engagement is active and lock is set
