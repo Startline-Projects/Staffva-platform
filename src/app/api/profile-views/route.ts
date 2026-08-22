@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 }
 
 // Send profile view notification email (capped at 1/day)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function sendProfileViewNotification(
   supabase: any,
   candidateId: string

@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const candidateIds = (data || []).map((c: any) => c.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let aiInterviewMap: Record<string, any> = {};
+  const aiInterviewMap: Record<string, any> = {};
 
   if (candidateIds.length > 0) {
     const { data: aiInterviews } = await supabase

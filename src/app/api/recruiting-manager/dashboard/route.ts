@@ -266,7 +266,7 @@ export async function GET(req: NextRequest) {
   const unroutedAlerts = unroutedAlertsRes.data || [];
   // Fetch candidate details for alerts
   const alertCandidateIds = unroutedAlerts.map((a: { candidate_id: string }) => a.candidate_id);
-  let alertCandidates: Record<string, { display_name: string; full_name: string; role_category_custom: string | null }> = {};
+  const alertCandidates: Record<string, { display_name: string; full_name: string; role_category_custom: string | null }> = {};
   if (alertCandidateIds.length > 0) {
     const { data: alertCandidateData } = await supabase
       .from("candidates")
