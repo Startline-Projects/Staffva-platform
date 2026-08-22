@@ -99,7 +99,7 @@ export async function GET() {
     // Candidates this month
     admin.from("candidates").select("id", { count: "exact", head: true }).gte("created_at", monthStart),
     // Identity: lockouts
-    admin.from("candidates").select("id", { count: "exact", head: true }).gt("anticheat_lockout_until", now.toISOString()),
+    admin.from("candidates").select("id", { count: "exact", head: true }).gt("test_lockout_until", now.toISOString()),
     // Identity: flagged (Hold)
     admin.from("candidates").select("id", { count: "exact", head: true }).eq("screening_tag", "Hold"),
     // Identity: verified
@@ -107,9 +107,9 @@ export async function GET() {
     // Active conversations
     admin.from("messages").select("thread_id").gte("created_at", weekAgo).limit(500),
     // Talent specialists (for route modal + recruiter alerts)
-    admin.from("profiles").select("id, full_name, email, role, avatar_url, calendar_link").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
+    admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url, calendar_link").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
     // Route candidates (assignment_pending_review)
-    admin.from("candidates").select("id, full_name, display_name, role_category, country, monthly_rate, created_at").eq("assignment_pending_review", true).limit(20),
+    admin.from("candidates").select("id, full_name, display_name, role_category, country, hourly_rate, created_at").eq("assignment_pending_review", true).limit(20),
   ]);
 
   const liveCandidates = liveCandidatesRes.count || 0;
@@ -251,7 +251,7 @@ export async function GET() {
   // ═══ PENDING PROFILE REVIEW CANDIDATES (for Review Modal — step 10) ═══
   const { data: pendingCandidates } = await admin
     .from("candidates")
-    .select("id, full_name, display_name, role_category, country, monthly_rate, english_tier, english_mc_score, english_comprehension_score, ai_interview_score, years_experience, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url")
+    .select("id, full_name, display_name, role_category, country, hourly_rate, english_written_tier, english_mc_score, english_comprehension_score, ai_interview_score, years_experience, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url")
     .in("admin_status", ["pending_speaking_review", "pending_review", "profile_review"])
     .order("created_at", { ascending: true })
     .limit(20);

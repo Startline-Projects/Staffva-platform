@@ -25,8 +25,8 @@ interface PendingCandidate {
   display_name: string;
   role_category: string;
   country: string;
-  monthly_rate: number;
-  english_tier: string;
+  hourly_rate: number;
+  english_written_tier: string;
   english_mc_score: number;
   english_comprehension_score: number;
   ai_interview_score: number;
@@ -64,7 +64,7 @@ interface RouteCandidate {
   display_name: string;
   role_category: string;
   country: string;
-  monthly_rate: number;
+  hourly_rate: number;
   created_at: string;
 }
 
@@ -688,13 +688,13 @@ export default function AdminDashboard() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{c.full_name || c.display_name}</div>
                   <div style={{ fontSize: 11.5, color: "#9C9A94", marginTop: 2 }}>
-                    {c.role_category} · {c.country || "—"} · ${(c.monthly_rate || 0).toLocaleString()}/mo
+                    {c.role_category} · {c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr
                   </div>
                 </div>
               </div>
               {/* Badges */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                {c.english_tier && <Badge bg="#EAF6EF" color="#2A7A48">English: {c.english_tier}</Badge>}
+                {c.english_written_tier && <Badge bg="#EAF6EF" color="#2A7A48">English: {c.english_written_tier}</Badge>}
                 {c.ai_interview_score > 0 && <Badge bg="#EEF5FF" color="#185FA5">AI Score: {c.ai_interview_score}/100</Badge>}
                 <Badge bg="#FFF0EA" color="#C04A15">ID: {c.id_verification_status === "passed" ? "Verified" : c.id_verification_status}</Badge>
                 {c.years_experience > 0 && <Badge bg="#F2F1EE" color="#5C5A54">{c.years_experience} yrs experience</Badge>}
@@ -787,7 +787,7 @@ export default function AdminDashboard() {
           {data.routeCandidates.map((c) => (
             <div key={c.id} style={{ border: "1px solid #E8E6E1", borderRadius: 9, padding: "13px 16px", marginBottom: 10 }}>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{c.full_name || c.display_name} — &quot;Other: {c.role_category}&quot;</div>
-              <div style={{ fontSize: 11.5, color: "#9C9A94", marginBottom: 10 }}>Applied {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {c.country || "—"} · ${(c.monthly_rate || 0).toLocaleString()}/mo</div>
+              <div style={{ fontSize: 11.5, color: "#9C9A94", marginBottom: 10 }}>Applied {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr</div>
               <select
                 value={routeAssignments[c.id] || ""}
                 onChange={(e) => setRouteAssignments((p) => ({ ...p, [c.id]: e.target.value }))}
@@ -853,7 +853,7 @@ export default function AdminDashboard() {
                     style={{ border: "1px solid #E8E6E1", borderRadius: 9, padding: "13px 16px", marginBottom: 10, cursor: "pointer" }}
                   >
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{c.full_name || c.display_name} — {c.role_category}</div>
-                    <div style={{ fontSize: 11.5, color: "#9C9A94" }}>{c.country || "—"} · ${(c.monthly_rate || 0).toLocaleString()}/mo · AI Score {c.ai_interview_score || 0} · Ready to approve</div>
+                    <div style={{ fontSize: 11.5, color: "#9C9A94" }}>{c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr · AI Score {c.ai_interview_score || 0} · Ready to approve</div>
                   </div>
                 ))}
             </div>
