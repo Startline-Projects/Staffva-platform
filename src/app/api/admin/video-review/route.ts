@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -51,6 +52,14 @@ export async function POST(req: NextRequest) {
     const { candidateId, action, adminNote } = await req.json();
     if (!candidateId || !action) {
       return NextResponse.json({ error: "Missing candidateId or action" }, { status: 400 });
+    }
+
+    // Recruiters may only act on candidates in their assigned categories.
+    if (user.app_metadata?.role === "recruiter") {
+      const scopeError = await assertRecruiterScope(user.id, candidateId);
+      if (scopeError) {
+        return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+      }
     }
 
     const admin = getAdminClient();

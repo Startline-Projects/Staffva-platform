@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -22,6 +23,14 @@ export async function POST(req: NextRequest) {
     const { candidateId, interviewNotes } = await req.json();
     if (!candidateId || !interviewNotes?.trim()) {
       return NextResponse.json({ error: "Missing candidateId or interviewNotes" }, { status: 400 });
+    }
+
+    // Recruiters may only score candidates in their assigned categories.
+    if (user.app_metadata?.role === "recruiter") {
+      const scopeError = await assertRecruiterScope(user.id, candidateId);
+      if (scopeError) {
+        return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+      }
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {

@@ -58,8 +58,11 @@ export async function GET(req: NextRequest) {
       )
       .order("created_at", { ascending: false });
 
-    // Recruiters only see candidates in their assigned categories; recruiting_manager sees all
-    if (profile.role === "recruiter" && assignedCategories.length > 0) {
+    // Recruiters only see candidates in their assigned categories; recruiting_manager sees all.
+    // Always filter recruiters — previously the scope was skipped when
+    // assignedCategories was empty, so a recruiter with no assignments received
+    // EVERY candidate with full PII. An empty .in() correctly matches nothing.
+    if (profile.role === "recruiter") {
       query = query.in("role_category", assignedCategories);
     }
 

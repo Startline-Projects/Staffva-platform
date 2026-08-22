@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
   const candidateId = body?.candidate_id;
   if (!candidateId || typeof candidateId !== "string") {
     return NextResponse.json({ error: "Missing candidate_id" }, { status: 400 });
+  }
+
+  // Recruiters may only update candidates in their assigned categories.
+  if (role === "recruiter") {
+    const scopeError = await assertRecruiterScope(user.id, candidateId);
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
+    }
   }
 
   const updates: Record<string, unknown> = {};

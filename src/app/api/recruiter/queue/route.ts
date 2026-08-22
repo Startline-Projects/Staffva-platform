@@ -58,8 +58,11 @@ export async function GET(req: NextRequest) {
       "id, full_name, display_name, email, country, role_category, hourly_rate, english_written_tier, screening_tag, screening_score, admin_status, profile_photo_url, created_at, waiting_since, second_interview_status, second_interview_scheduled_at, assigned_recruiter, assignment_pending_review, voice_recording_1_url, voice_recording_2_url"
     );
 
-  // Recruiter: filter by assigned categories; recruiting_manager sees all
-  if (profile.role === "recruiter" && assignedCategories.length > 0) {
+  // Recruiter: filter by assigned categories; recruiting_manager sees all.
+  // Always filter recruiters — previously the scope was skipped when
+  // assignedCategories was empty, so a recruiter with no assignments received
+  // the entire candidate queue with full PII. An empty .in() matches nothing.
+  if (profile.role === "recruiter") {
     query = query.in("role_category", assignedCategories);
   }
 
