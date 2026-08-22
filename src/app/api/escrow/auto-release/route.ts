@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { initiatePayout } from "@/lib/payouts";
+import { hasCronSecret } from "@/lib/auth";
 
 function getAdminClient() {
   return createClient(
@@ -20,11 +22,12 @@ function getAdminClient() {
  * Protected by a simple API key in production.
  */
 export async function POST(request: Request) {
-  // Simple auth check for cron calls
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Internal scheduler only. This was previously fail-OPEN — the check was
+  // `if (cronSecret && ...)`, so with CRON_SECRET unset the guard was skipped
+  // entirely and anyone could POST to release escrowed funds. hasCronSecret()
+  // fails closed instead. Especially important now that this route actually
+  // transfers money rather than just logging.
+  if (!hasCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -57,16 +60,31 @@ export async function POST(request: Request) {
       .single();
 
     if (periodData) {
-      await admin
+      // Compare-and-swap: only release a period that is still 'funded'. If the
+      // client released it manually in the meantime (or a previous cron run
+      // already handled it), this affects 0 rows and we skip — so the two paths
+      // can never both pay.
+      const { data: releasedPeriod } = await admin
         .from("payment_periods")
         .update({ status: "released", released_at: now })
-        .eq("id", period.id);
+        .eq("id", period.id)
+        .eq("status", "funded")
+        .select("id")
+        .maybeSingle();
 
-      // Log payout (Trolley integration will replace this)
-      console.log(
-        `[Auto-Release] Period ${period.id} — $${periodData.engagements.candidate_rate_usd} to candidate ${periodData.engagements.candidate_id}`
-      );
-      results.periodsReleased++;
+      if (releasedPeriod) {
+        // Actually move the money. This previously only console.logged, so
+        // auto-released periods marked the candidate paid (and incremented
+        // their verified earnings via the DB trigger) without ever transferring.
+        await initiatePayout(
+          admin,
+          periodData.engagements.candidate_id,
+          Number(periodData.amount_usd),
+          "period",
+          period.id
+        );
+        results.periodsReleased++;
+      }
     }
   }
 
@@ -94,19 +112,29 @@ export async function POST(request: Request) {
       .single();
 
     if (msData) {
-      await admin
+      // Compare-and-swap — see the period branch above.
+      const { data: releasedMilestone } = await admin
         .from("milestones")
         .update({
           status: "released",
           approved_at: now,
           released_at: now,
         })
-        .eq("id", milestone.id);
+        .eq("id", milestone.id)
+        .eq("status", "candidate_marked_complete")
+        .select("id")
+        .maybeSingle();
 
-      console.log(
-        `[Auto-Release] Milestone ${milestone.id} — $${msData.amount_usd} to candidate ${msData.engagements.candidate_id}`
-      );
-      results.milestonesReleased++;
+      if (releasedMilestone) {
+        await initiatePayout(
+          admin,
+          msData.engagements.candidate_id,
+          Number(msData.amount_usd),
+          "milestone",
+          milestone.id
+        );
+        results.milestonesReleased++;
+      }
     }
   }
 
