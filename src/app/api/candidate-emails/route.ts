@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
 
     // Send email. sendEmail() throws on Resend's returned {error}, so the
     // catch below correctly records 'failed' instead of the previous behaviour:
-    // resend.emails.send() resolves with {error} rather than throwing, so an
+    // sendEmail() resolves with {error} rather than throwing, so an
     // invalid key / unverified domain / rate limit fell through to "Log
     // success", wrote status 'sent', and the idempotency guard then blocked the
     // message from ever being retried.

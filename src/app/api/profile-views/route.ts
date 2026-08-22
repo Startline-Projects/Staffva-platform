@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -116,7 +114,7 @@ async function sendProfileViewNotification(
   // Send email
   if (process.env.RESEND_API_KEY) {
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: candidate.email,
         subject: "A client just viewed your profile",

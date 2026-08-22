@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -44,7 +42,7 @@ export async function POST(req: NextRequest) {
       if (count === 4) {
         const { data: candidate } = await admin.from("candidates").select("full_name, display_name, email").eq("id", candidateId).single();
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: "sam@glostaffing.com",
             subject: `Focus violation alert — ${candidate?.display_name || candidate?.full_name || "Unknown"}`,

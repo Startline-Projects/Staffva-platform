@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 import { generateContractHtml, generateSigningToken } from "@/lib/contracts";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -153,7 +151,7 @@ export async function POST(req: NextRequest) {
       const expiryDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
       try {
-        await resend.emails.send({
+        await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: candidate.email,
           subject: "You have received an offer on StaffVA",
@@ -236,7 +234,7 @@ export async function POST(req: NextRequest) {
             if (process.env.RESEND_API_KEY && clientInfo?.email) {
               const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
               try {
-                await resend.emails.send({
+                await sendEmail({
                   from: "StaffVA <notifications@staffva.com>",
                   to: clientInfo.email,
                   subject: `${candInfo?.display_name || "A candidate"} accepted your offer — Contract ready for signing`,
@@ -267,7 +265,7 @@ export async function POST(req: NextRequest) {
       if (process.env.RESEND_API_KEY && clientInfo?.email) {
         const { data: cand } = await supabase.from("candidates").select("display_name").eq("id", candidate.id).single();
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: clientInfo.email,
             subject: `${cand?.display_name || "A candidate"} has declined your offer`,

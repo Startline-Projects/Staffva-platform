@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -106,7 +104,7 @@ export async function POST(req: NextRequest) {
       // Email candidate
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Your video introduction is live",
@@ -145,7 +143,7 @@ export async function POST(req: NextRequest) {
 
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Your video introduction needs a small update",
@@ -184,7 +182,7 @@ export async function POST(req: NextRequest) {
 
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Your video introduction could not be approved",

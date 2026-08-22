@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
-import { Resend } from "resend";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
@@ -321,8 +321,7 @@ export async function processCalendarEvent(
       const calLink = recruiterProfile?.calendar_link || "";
 
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: candidate.email,
           subject: "Your interview has been cancelled — please rebook",
@@ -365,8 +364,7 @@ export async function processCalendarEvent(
         if (existing.email) {
           const firstName = (existing.full_name || existing.display_name || "there").split(" ")[0];
           try {
-            const resend = new Resend(process.env.RESEND_API_KEY);
-            await resend.emails.send({
+            await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: existing.email,
               subject: "Your interview has been rescheduled",

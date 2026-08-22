@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 import crypto from "crypto";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -115,7 +113,7 @@ export async function POST(req: NextRequest) {
         if (candidate) {
           const firstName = (candidate.display_name || candidate.full_name || "").split(" ")[0] || "there";
           try {
-            await resend.emails.send({
+            await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: candidate.email,
               subject: "You are eligible for the $3,000 StaffVA giveaway!",

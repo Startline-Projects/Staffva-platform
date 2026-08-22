@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 import { labelFor, isMediaField, MEDIA_FIELD_BUCKET } from "@/lib/editFieldLabels";
 
 function getAdminClient() {
@@ -96,9 +96,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq("id", editRequest.candidate_id)
       .single();
     if (candidate?.email && process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
       const firstName = (candidate.full_name || "").split(" ")[0] || "there";
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: candidate.email,
         subject: "Your profile change needs another look",

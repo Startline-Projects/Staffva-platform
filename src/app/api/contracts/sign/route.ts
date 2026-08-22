@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { verifySigningToken, generateSigningToken } from "@/lib/contracts";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -94,7 +92,7 @@ export async function POST(req: NextRequest) {
         const signingUrl = `${siteUrl}/contracts/sign/${contractId}?token=${signingToken}`;
 
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Contract ready for your signature — StaffVA",

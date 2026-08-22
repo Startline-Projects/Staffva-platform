@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -36,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     if (process.env.RESEND_API_KEY && clientInfo?.email) {
       try {
-        await resend.emails.send({
+        await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: clientInfo.email,
           subject: `Your offer to ${candInfo?.display_name || "a candidate"} has expired`,

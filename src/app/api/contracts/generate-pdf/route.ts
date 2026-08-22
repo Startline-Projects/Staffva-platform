@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { hasCronSecret } from "@/lib/auth";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -170,7 +168,7 @@ ${contract.contract_html}
       // Send to client
       if (clientInfo?.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: clientInfo.email,
             subject: `Executed Contract — ${candidateInfo?.display_name || "Contractor"}`,
@@ -183,7 +181,7 @@ ${contract.contract_html}
       // Send to candidate
       if (candidateInfo?.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidateInfo.email,
             subject: `Executed Contract — ${clientInfo?.company_name || clientInfo?.full_name || "Client"}`,

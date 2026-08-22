@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { ownsCandidate } from "@/lib/auth";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -151,7 +149,7 @@ export async function POST(request: Request) {
         if (process.env.RESEND_API_KEY && currentCandidate?.email) {
           const firstName = (currentCandidate.display_name || currentCandidate.full_name || "").split(" ")[0] || "there";
           try {
-            await resend.emails.send({
+            await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: currentCandidate.email,
               subject: "StaffVA Application Update",
@@ -169,7 +167,7 @@ export async function POST(request: Request) {
         // Notify admin
         if (process.env.RESEND_API_KEY) {
           try {
-            await resend.emails.send({
+            await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: "sam@glostaffing.com",
               subject: `Candidate permanently blocked after ${attemptNumber} test failures`,

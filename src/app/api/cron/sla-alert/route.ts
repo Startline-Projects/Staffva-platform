@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -78,7 +76,7 @@ export async function GET(req: NextRequest) {
     }).join("");
 
     try {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: recipients,
         subject: `🔴 ${cands.length} candidate(s) waiting 48+ hours — ${recruiterName}`,

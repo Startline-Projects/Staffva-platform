@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
-import { Resend } from "resend";
 import { generateInsights } from "@/lib/generateInsights";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -63,7 +61,7 @@ export async function POST(req: NextRequest) {
 
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "You're live. Clients can find you right now.",
@@ -116,7 +114,7 @@ export async function POST(req: NextRequest) {
         ).join("");
 
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject: "Your StaffVA profile needs a few updates before it goes live",
@@ -163,7 +161,7 @@ export async function POST(req: NextRequest) {
 
       if (process.env.RESEND_API_KEY && changeReq?.recruiter_id) {
         try {
-          await resend.emails.send({
+          await sendEmail({
             from: "StaffVA <notifications@staffva.com>",
             to: "sam@glostaffing.com",
             subject: `Candidate has resubmitted for review — ${fullName}`,

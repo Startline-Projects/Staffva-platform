@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 import crypto from "crypto";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(
@@ -142,7 +140,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await resend.emails.send({
+    await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
       to: profile.email,
       subject: "Your StaffVA password has been reset",
@@ -166,7 +164,7 @@ export async function POST(req: NextRequest) {
   } catch { /* silent */ }
 
   try {
-    await resend.emails.send({
+    await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
       to: "sam@glostaffing.com",
       subject: `Password reset — ${profile.full_name} (${profile.email})`,

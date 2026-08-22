@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
 import crypto from "crypto";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -58,7 +56,7 @@ export async function POST(req: NextRequest) {
     const firstName = (profile.full_name || "").split(" ")[0] || "there";
 
     if (process.env.RESEND_API_KEY) {
-      await resend.emails.send({
+      await sendEmail({
         from: "StaffVA <notifications@staffva.com>",
         to: profile.email,
         subject: "Verify your StaffVA account",

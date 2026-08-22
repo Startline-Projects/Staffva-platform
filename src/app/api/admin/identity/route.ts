@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -21,7 +19,7 @@ async function verifyAdmin() {
 async function notifyAdmin(action: string, detail: string, adminName: string) {
   if (!process.env.RESEND_API_KEY) return;
   try {
-    await resend.emails.send({
+    await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
       to: "sam@glostaffing.com",
       subject: `Admin action: ${action}`,
