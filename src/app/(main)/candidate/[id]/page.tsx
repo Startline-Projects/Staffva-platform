@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getUser } from "@/lib/auth";
+import { generateInterviewToken } from "@/lib/interviewToken";
 import Link from "next/link";
 import MessageButton from "@/components/browse/MessageButton";
 import NotifyButton from "@/components/browse/NotifyButton";
@@ -254,6 +255,16 @@ export default async function CandidateProfilePage({
   const displayedName = candidate.display_name || candidate.full_name;
   const canViewGated = isLoggedIn && (isClient || isOwnProfile || isAdmin || isRecruitingManager);
 
+  // Mint the interview token here rather than letting the interview app mint
+  // one from a bare candidate id in a query string. isOwnProfile is already
+  // established above from user_id, so this is authenticated by construction —
+  // whereas ?candidate=<uuid> was mintable by anyone who knew or guessed an id,
+  // and 7 candidate ids are readable by anon through the public browse policy.
+  const ownInterviewToken =
+    isOwnProfile && !candidate.ai_interview_completed_at
+      ? await generateInterviewToken(candidate.id)
+      : null;
+
   const aiInterviewCompleted = !!aiInterview;
   const secondInterviewCompleted = candidate.second_interview_status === "completed";
   const tools: string[] = candidate.tools || [];
@@ -349,7 +360,7 @@ export default async function CandidateProfilePage({
           label = "Continue Profile Setup";
         } else if (profileDone && !aiDone) {
           label = "Start AI Interview";
-          href = `https://interview.staffva.com?candidate=${candidate.id}`;
+          href = `https://interview.staffva.com?token=${ownInterviewToken}`;
         }
 
         if (!label) return null;
