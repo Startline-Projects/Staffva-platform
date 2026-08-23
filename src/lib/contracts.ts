@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { extractText } from "@/lib/anthropic";
 
 const CONTRACT_SIGNING_SECRET = process.env.CONTRACT_SIGNING_SECRET || "staffva-contract-signing-secret-default";
 
@@ -131,7 +132,7 @@ Generate the complete agreement now.`;
     }
 
     const data = await response.json();
-    const html = data?.content?.[0]?.text || "";
+    const html = extractText(data);
 
     // Validate it contains the 7 required sections
     const requiredSections = [

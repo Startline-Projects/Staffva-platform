@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
 
         if (response.ok) {
           const data = await response.json();
-          const text = data?.content?.[0]?.text || "";
+          const text = extractText(data);
           // Extract JSON from response (handle possible markdown wrapping)
           const jsonMatch = text.match(/\{[\s\S]*\}/);
           if (jsonMatch) {

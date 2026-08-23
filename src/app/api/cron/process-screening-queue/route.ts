@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { describeUsExperience, hasUsExperience } from "@/lib/usExperienceLabels";
+import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
   return createClient(
@@ -193,7 +194,7 @@ export async function GET(req: NextRequest) {
       }
 
       const data = await response.json();
-      const content = data.content?.[0]?.text || "";
+      const content = extractText(data);
 
       // Parse JSON response
       const jsonMatch = content.match(/\{[\s\S]*?\}/);

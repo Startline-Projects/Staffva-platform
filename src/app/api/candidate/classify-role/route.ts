@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { ownsCandidate } from "@/lib/auth";
+import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    const classified = (data?.content?.[0]?.text || "").trim();
+    const classified = extractText(data).trim();
 
     if (classified && ROLE_LIST.includes(classified)) {
       const admin = getAdminClient();

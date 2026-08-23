@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateContractHtml, generateSigningToken } from "@/lib/contracts";
+import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
       });
 
       const data = await res.json();
-      const message = data.content?.[0]?.text || `Hi ${candidate.display_name?.split(" ")[0]}, your profile stood out to us. We'd love to discuss working together.`;
+      const message = extractText(data) || `Hi ${candidate.display_name?.split(" ")[0]}, your profile stood out to us. We'd love to discuss working together.`;
       return NextResponse.json({ message });
     } catch {
       return NextResponse.json({ message: `Hi ${candidate.display_name?.split(" ")[0]}, your profile stood out to us and we'd love to discuss working together.` });

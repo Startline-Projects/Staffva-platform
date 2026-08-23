@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { describeUsExperience } from "@/lib/usExperienceLabels";
+import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -114,7 +115,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
     }
 
     const data = await response.json();
-    const text = data?.content?.[0]?.text || "";
+    const text = extractText(data);
 
     // Parse JSON array from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
