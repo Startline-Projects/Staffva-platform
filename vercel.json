@@ -21,6 +21,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/alert-health",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/process-application-queue",
       "schedule": "* * * * *"
     },
