@@ -25,15 +25,40 @@ export async function sendEmail(payload: any) {
   }
 
   const resend = new Resend(apiKey);
-  const { data, error } = await resend.emails.send(payload);
 
-  if (error) {
-    const message =
+  // Retry transient failures. The verification email is the sharpest case: it
+  // is sent inline during signup, login is hard-gated on email_verified, and
+  // the only writer of that flag is the link inside this message — so a single
+  // rate-limited send permanently bricks the account. Resend's default is a
+  // couple of requests per second, and a spike puts signups well past that.
+  const MAX_ATTEMPTS = 3;
+  let lastMessage = "";
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { data, error } = await resend.emails.send(payload);
+
+    if (!error) return data;
+
+    lastMessage =
       typeof error === "object" && error !== null && "message" in error
         ? String((error as { message: unknown }).message)
         : JSON.stringify(error);
-    throw new Error(`Resend send failed: ${message}`);
+
+    // 4xx other than 429 are permanent — a bad address or an unverified
+    // sender will not succeed on a retry, and retrying wastes the caller's
+    // request budget.
+    const status =
+      typeof error === "object" && error !== null && "statusCode" in error
+        ? Number((error as { statusCode: unknown }).statusCode)
+        : undefined;
+    const retryable =
+      status === undefined || status === 429 || (status >= 500 && status < 600);
+
+    if (!retryable || attempt === MAX_ATTEMPTS) break;
+
+    // 0.5s, then 1.5s. Short enough to stay inside a serverless request.
+    await new Promise((resolve) => setTimeout(resolve, 500 * attempt * attempt));
   }
 
-  return data;
+  throw new Error(`Resend send failed after ${MAX_ATTEMPTS} attempts: ${lastMessage}`);
 }

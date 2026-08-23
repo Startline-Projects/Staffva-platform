@@ -38,6 +38,23 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const results = { processed: 0, failed: 0, rateLimited: 0, alerted: 0 };
 
+  // Reclaim rows stranded by a killed invocation. The claim below is the only
+  // writer of 'processing' and nothing ever read it back — a run ended by
+  // maxDuration, a deploy, or a crash left its in-flight row here forever: not
+  // matched by the work query, not by the bulk reset, not by the permanent
+  // failure alert. The candidate was silently dropped. The window is well
+  // above maxDuration so a legitimately running claim is never stolen.
+  const STRANDED_AFTER_MS = 10 * 60 * 1000;
+  await supabase
+    .from("screening_queue")
+    .update({
+      status: "pending",
+      claimed_at: null,
+      error_text: "reclaimed: stranded in processing",
+    })
+    .eq("status", "processing")
+    .lt("claimed_at", new Date(now.getTime() - STRANDED_AFTER_MS).toISOString());
+
   // Select pending + rate_limited items where retry is due
   const { data: items } = await supabase
     .from("screening_queue")
@@ -60,7 +77,7 @@ export async function GET(req: NextRequest) {
     // side effects whenever two cron invocations overlapped.
     const { data: claimed } = await supabase
       .from("screening_queue")
-      .update({ status: "processing" })
+      .update({ status: "processing", claimed_at: new Date().toISOString() })
       .eq("id", item.id)
       .in("status", ["pending", "rate_limited"])
       .select("id");
@@ -72,9 +89,28 @@ export async function GET(req: NextRequest) {
     // Fetch candidate data
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, skills, tools")
+      .select("full_name, email, country, role_category, years_experience, hourly_rate, bio, us_client_experience, skills, tools, application_stage")
       .eq("id", item.candidate_id)
       .single();
+
+    // Never screen a record the candidate has not filled in yet. Stage 1
+    // writes placeholders (years_experience "0-1", hourly_rate 5, no bio), and
+    // screening those tagged 85% of everyone "Hold" at an average 1.02/5 — the
+    // model was accurately describing an empty form. Enqueueing now happens at
+    // the end of stage 2; this is the backstop for any other enqueue path.
+    // Released back to pending rather than failed: the data is coming, it is
+    // just not here yet.
+    if (candidate && (candidate.application_stage ?? 0) < 2) {
+      await supabase
+        .from("screening_queue")
+        .update({
+          status: "pending",
+          claimed_at: null,
+          error_text: "deferred: application not yet submitted",
+        })
+        .eq("id", item.id);
+      continue;
+    }
 
     if (!candidate) {
       await supabase

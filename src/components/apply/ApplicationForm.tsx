@@ -569,11 +569,13 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
         body: JSON.stringify({ candidateId: newCandidate.id, emailType: "application_received" }),
       }).catch(() => {});
 
-      // Queue AI screening
-      supabase.from("screening_queue").insert({
-        candidate_id: newCandidate.id,
-        status: "pending",
-      }).then(() => {});
+      // AI screening is deliberately NOT queued here. At this point the record
+      // holds placeholders the form invented — years_experience "0-1",
+      // hourly_rate 5, us_client_experience null, and no bio, skills or tools.
+      // Screening on that scored 192 of 192 candidates before they had filled
+      // anything in, and tagged 85% of them "Hold" at an average 1.02/5. The
+      // model was describing an empty record, not a person. Queued at the end
+      // of stage 2 instead, once there is something to judge.
 
       // If custom role, classify via API (fire and forget)
       if (roleCategory === "Other" && customRoleDescription.trim()) {
@@ -623,6 +625,13 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       setLoading(false);
       return;
     }
+
+    // Queue AI screening now, not at stage 1 — this is the first point at which
+    // the record contains the candidate's own answers rather than placeholders.
+    // upsert on candidate_id so a resubmitted stage 2 cannot enqueue twice.
+    await supabase
+      .from("screening_queue")
+      .upsert({ candidate_id: candidateId, status: "pending" }, { onConflict: "candidate_id" });
 
     setStage(2);
     setLoading(false);

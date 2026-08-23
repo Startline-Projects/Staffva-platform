@@ -19,12 +19,19 @@ export async function POST(req: NextRequest) {
 
     const admin = getAdminClient();
 
-    // Find profile by email
-    const { data: profile } = await admin
+    // Find profile by email. The lookup error must be distinguished from "no
+    // such profile": previously both produced a cheerful "check your email"
+    // with nothing sent, so a statement timeout was indistinguishable from a
+    // stranger's address and left a real user permanently locked out.
+    const { data: profile, error: lookupError } = await admin
       .from("profiles")
       .select("id, email, full_name, email_verified, email_verification_sent_at")
       .eq("email", email)
-      .single();
+      .maybeSingle();
+
+    if (lookupError) {
+      return NextResponse.json({ error: "Could not send verification email" }, { status: 500 });
+    }
 
     if (!profile) {
       // Don't reveal if email exists
@@ -43,11 +50,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate new token
+    // Generate and store the token, but NOT the sent-at stamp. Stamping before
+    // the send meant a failed send still started the 60-second rate limit, so
+    // the user's instinctive retry returned "rate_limited" and the UI reported
+    // success — the one action that could have rescued them was silently
+    // swallowed. sent_at is written after the send actually succeeds.
     const token = crypto.randomBytes(32).toString("hex");
     await admin.from("profiles").update({
       email_verification_token: token,
-      email_verification_sent_at: new Date().toISOString(),
     }).eq("id", profile.id);
 
     // Send email
@@ -74,6 +84,12 @@ export async function POST(req: NextRequest) {
           <p style="color:#999;font-size:12px;">— The StaffVA Team</p>
         </div>`,
     });
+
+    // Only now start the resend cooldown, since a mail actually went out.
+    await admin
+      .from("profiles")
+      .update({ email_verification_sent_at: new Date().toISOString() })
+      .eq("id", profile.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
