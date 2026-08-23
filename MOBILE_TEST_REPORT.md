@@ -1,8 +1,8 @@
 # StaffVA Pre-Launch Mobile & Cross-Browser Test Report
 
 **Date:** 4/1/2026, 10:52:30 PM
-**Total Tests:** 166
-**Passed:** 166
+**Total Tests:** 161
+**Passed:** 161
 **Failed:** 0
 **Overall:** ✅ ALL TESTS PASSED — READY FOR LAUNCH
 
@@ -96,7 +96,7 @@
 
 ---
 
-## ✅ Candidate Dashboard (18/18)
+## ✅ Candidate Dashboard (13/13)
 
 | Viewport | Test | Status | Detail |
 |----------|------|--------|--------|

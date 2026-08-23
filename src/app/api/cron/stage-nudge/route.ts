@@ -42,11 +42,11 @@ export async function GET(req: NextRequest) {
         await sendEmail({
           from: "StaffVA <notifications@staffva.com>",
           to: c.email,
-          subject: "One step away from going live — complete your profile",
+          subject: "Finish your profile to keep your application moving",
           html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
             <h2 style="color:#1C1B1A;">You're almost there, ${firstName}</h2>
             <p style="color:#444;font-size:14px;">You started your StaffVA application but haven't completed your professional profile yet. It only takes 3 minutes.</p>
-            <p style="color:#444;font-size:14px;">Completing your profile makes you visible to U.S. clients browsing for your role right now.</p>
+            <p style="color:#444;font-size:14px;">Completing your profile unlocks your AI interview — the next step toward going live to U.S. clients.</p>
             <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Complete My Profile</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,

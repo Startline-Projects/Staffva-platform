@@ -75,7 +75,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
       <h2 style="color:#1C1B1A;">AI Interview Complete</h2>
       <p>Hi ${name},</p>
       <p>You completed the AI interview${data?.score ? ` with a score of <strong>${data.score}/100</strong>` : ""}. Well done.</p>
-      <p><strong>What happens next:</strong> A Talent Specialist from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview. This is the final step before your profile goes live.</p>
+      <p><strong>What happens next:</strong> A Talent Specialist from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview.</p>
       <p>Two steps remain — complete the recruiter interview and get your profile approved. Then your profile goes live to U.S. clients.</p>
       <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Dashboard</a>
     `,

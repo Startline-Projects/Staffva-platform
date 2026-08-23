@@ -12,15 +12,11 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 async function runTest() {
   console.log("\n📋 Video Introduction E2E Test\n");
 
-  const { data: candidates } = await supabase.from("candidates").select("id, display_name, email").eq("admin_status", "approved").limit(2);
+  const { data: candidates } = await supabase.from("candidates").select("id, display_name, email").eq("admin_status", "approved").limit(1);
   if (!candidates?.[0]) { console.log("❌ Need at least one approved candidate"); return; }
 
   const candidate = candidates[0];
-  const candidate2 = candidates[1] || candidates[0];
   console.log(`   Candidate 1: ${candidate.display_name} (${candidate.id.slice(0, 8)}...)`);
-
-  // Save original state
-  const origState = { ...candidate };
 
   // ═══ TEST 1: Upload Flow ═══
   console.log("\n═══ TEST 1: Upload Flow ═══");
@@ -104,8 +100,8 @@ async function runTest() {
   console.log(`   Status revision_required: ${afterRevision?.video_intro_status === "revision_required" ? "✓" : "✗"}`);
   console.log(`   Admin note stored: ${afterRevision?.video_intro_admin_note === revisionNote ? "✓" : "✗"}`);
 
-  // ═══ TEST 6: Browse Card Icon ═══
-  console.log("\n═══ TEST 6: Browse Card Icon ═══");
+  // ═══ TEST 5: Browse Card Icon ═══
+  console.log("\n═══ TEST 5: Browse Card Icon ═══");
   console.log(`   Approved video → camera icon shown: ✓`);
   console.log(`   No video → no icon: ✓`);
   console.log(`   Pending video → no icon: ✓`);

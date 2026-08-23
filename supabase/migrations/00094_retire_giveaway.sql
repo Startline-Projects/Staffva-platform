@@ -38,7 +38,12 @@ drop function if exists public.award_video_intro_raffle_tickets(uuid, integer);
 drop table if exists public.giveaway_winner_log;
 drop table if exists public.giveaway_entries;
 
--- == 4. Last: the candidates column. Requires the edited
---       api/admin/video-review (no longer selecting it) to be live.
+-- == 4. The candidates column. Applied separately and last, once the
+--       edited api/admin/video-review was confirmed live in production --
+--       verified by /raffle serving the 307 to /signup/candidate, a
+--       redirect that only this deploy has. The outage window the ordering
+--       exists to prevent therefore never opened. Note that commit 63f4a9e's
+--       message predates that check: it says this step is still held and
+--       that eight video_intro_* columns remain. Seven remain.
 alter table public.candidates
   drop column if exists video_intro_raffle_tickets_awarded;
