@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enqueueEmail } from "@/lib/emailOutbox";
+import { enforceRateLimit, clientIp, LIMITS } from "@/lib/rateLimit";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
@@ -16,6 +17,15 @@ export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
     if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+
+    // Unauthenticated and it queues mail, so it is bounded per source address.
+    // The per-account 60s cooldown below stops one user spamming themselves;
+    // this stops one source walking many accounts.
+    const limited = await enforceRateLimit(
+      `verification:${clientIp(req)}`,
+      LIMITS.verificationEmail
+    );
+    if (limited) return limited;
 
     const admin = getAdminClient();
 
