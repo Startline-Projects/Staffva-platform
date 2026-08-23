@@ -121,6 +121,24 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Finished the application, but nothing was ever queued to screen them. The
+  // stale-queue check below cannot see these — it looks for rows that are
+  // waiting, and the whole problem here is that no row exists. They have no
+  // screening_tag either, so no recruiter view lists them. Without this they are
+  // invisible in every direction at once.
+  const { data: unqueued } = await supabase.rpc("count_unqueued_stage2_candidates", {
+    p_older_than_minutes: 30,
+  });
+
+  if (unqueued) {
+    checks.push({
+      key: "screening_never_queued",
+      severity: "critical",
+      count: unqueued as number,
+      message: `${unqueued} candidate(s) completed their application over 30 minutes ago but were never queued for screening — they are not waiting in the queue, they are absent from it, and no recruiter will ever see them.`,
+    });
+  }
+
   const { count: staleScreening } = await supabase
     .from("screening_queue")
     .select("*", head)

@@ -628,10 +628,34 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
     // Queue AI screening now, not at stage 1 — this is the first point at which
     // the record contains the candidate's own answers rather than placeholders.
-    // upsert on candidate_id so a resubmitted stage 2 cannot enqueue twice.
-    await supabase
-      .from("screening_queue")
-      .upsert({ candidate_id: candidateId, status: "pending" }, { onConflict: "candidate_id" });
+    //
+    // Through an RPC rather than an upsert. screening_queue grants candidates
+    // INSERT and nothing else, so the previous `upsert(..., {onConflict})` —
+    // which Postgres runs as INSERT ... ON CONFLICT DO UPDATE — had its update
+    // arm refused by RLS for anyone who already had a row. Every one of the 251
+    // existing rows is already 'complete', so the refused arm was the only one
+    // that mattered: it silently blocked re-screening for exactly the candidates
+    // who came back to correct answers that had been judged on placeholders.
+    // request_screening owns that transition and clears the prior run's retry
+    // and backoff state. See migration 00102.
+    const { error: queueErr } = await supabase.rpc("request_screening", {
+      p_candidate_id: candidateId,
+    });
+
+    if (queueErr) {
+      // Deliberately does not advance. Advancing would leave someone fully
+      // applied but never screened and never shown to a recruiter — invisible
+      // to them and to us, which is the failure mode this whole path exists to
+      // remove. Their answers are already saved above, so retrying costs one
+      // click and cannot duplicate anything.
+      setError(
+        "Your answers are saved, but we couldn't queue your application for review: " +
+          queueErr.message +
+          ". Please press continue again."
+      );
+      setLoading(false);
+      return;
+    }
 
     setStage(2);
     setLoading(false);
