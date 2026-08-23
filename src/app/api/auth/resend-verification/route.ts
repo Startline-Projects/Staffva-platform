@@ -55,12 +55,17 @@ export async function POST(req: NextRequest) {
     const verifyUrl = `${siteUrl}/api/auth/verify-email?token=${token}`;
     const firstName = (profile.full_name || "").split(" ")[0] || "there";
 
-    if (process.env.RESEND_API_KEY) {
-      await sendEmail({
-        from: "StaffVA <notifications@staffva.com>",
-        to: profile.email,
-        subject: "Verify your StaffVA account",
-        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+    // No RESEND_API_KEY guard here on purpose. Skipping the send and still
+    // returning success left the account permanently unusable: login signs
+    // the user back out until email_verified is true, and the only writer of
+    // that is the link inside this email. sendEmail() throws when the key is
+    // missing or Resend rejects, which the catch below turns into a 500 the
+    // signup page now surfaces.
+    await sendEmail({
+      from: "StaffVA <notifications@staffva.com>",
+      to: profile.email,
+      subject: "Verify your StaffVA account",
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
           <h2 style="color:#1C1B1A;">Verify your email</h2>
           <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
           <p style="color:#444;font-size:14px;">Thank you for signing up for StaffVA. Please click the button below to verify your email address and activate your account.</p>
@@ -68,8 +73,7 @@ export async function POST(req: NextRequest) {
           <p style="color:#999;margin-top:24px;font-size:12px;">If you didn't create an account, you can safely ignore this email.</p>
           <p style="color:#999;font-size:12px;">— The StaffVA Team</p>
         </div>`,
-      });
-    }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

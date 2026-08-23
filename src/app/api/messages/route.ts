@@ -154,19 +154,20 @@ export async function POST(request: Request) {
   if (role === "client") {
     const { data: client } = await admin
       .from("clients")
-      .select("id, subscription_status")
+      .select("id")
       .eq("user_id", user.id)
       .single();
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
-    if (client.subscription_status !== "active") {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 403 }
-      );
-    }
+    // No subscription gate. It required subscription_status = 'active', but
+    // nothing in the app can start a subscription — /api/stripe/checkout has
+    // no callers and there is no billing page — so all 24 clients sit at
+    // NULL and every client message 403'd. Not one message has ever been
+    // sent. MessageButton also advertises "Free to join. Free to message. No
+    // subscription required." If messaging is meant to be paid, the paywall
+    // needs building first; until then the gate only blocks the product.
     senderId = client.id;
   } else if (role === "candidate") {
     const { data: candidate } = await admin

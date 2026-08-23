@@ -62,12 +62,22 @@ export default function CandidateSignupPage() {
     // Sign out immediately — user must verify email first
     await supabase.auth.signOut();
 
-    // Send verification email via our system
-    await fetch("/api/auth/resend-verification", {
+    // Send verification email via our system. If this fails the account is
+    // unusable — login signs the user back out until the link in that email
+    // is clicked — so surface it rather than showing "check your email".
+    const verifyRes = await fetch("/api/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
+
+    if (!verifyRes.ok) {
+      setError(
+        "Your account was created, but we could not send the verification email. Please contact support@staffva.com so we can activate it."
+      );
+      setLoading(false);
+      return;
+    }
 
     setSuccess(true);
     setLoading(false);

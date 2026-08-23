@@ -144,15 +144,15 @@ export default async function Home() {
         </Link>
 
         <div className="nav-links">
-          <Link href="#">Hire Staff</Link>
+          <Link href="/signup/client">Hire Staff</Link>
           <Link href="#">Services</Link>
-          <Link href="/login">Find Work</Link>
+          <Link href="/signup/candidate">Find Work</Link>
           <Link href="#">How It Works</Link>
         </div>
 
         <div className="nav-actions">
           <Link href="/login" className="btn-signin">Sign In</Link>
-          <Link href="/login" className="btn-get-started">Get Started</Link>
+          <Link href="/signup/client" className="btn-get-started">Get Started</Link>
         </div>
       </nav>
 
@@ -685,10 +685,10 @@ export default async function Home() {
             <div className="footer-col">
               <div className="footer-col-title">For Professionals</div>
               <ul className="footer-col-links">
-                <li><a href="#">Apply to join</a></li>
+                <li><Link href="/signup/candidate">Apply to join</Link></li>
                 <li><a href="#">How vetting works</a></li>
                 <li><a href="#">Keep 100% of your rate</a></li>
-                <li><a href="#">Sign in</a></li>
+                <li><Link href="/login">Sign in</Link></li>
               </ul>
             </div>
 
