@@ -72,7 +72,6 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
         <SectionLabel>Operations</SectionLabel>
         <NavItem href="/admin/identity" active={isActive("/admin/identity")} icon="◻">Identity</NavItem>
         <NavItem href="/admin/team" active={isActive("/admin/team")} icon="✉" badge={badges.teamInbox} badgeType="orange">Team Inbox</NavItem>
-        <NavItem href="/admin/giveaway" active={isActive("/admin/giveaway")} icon="🎯">Raffle</NavItem>
         <NavItem href="/admin/pending-bans" active={isActive("/admin/pending-bans")} icon="⊗">Pending Bans</NavItem>
         <NavItem href="/admin/settings" active={isActive("/admin/settings")} icon="⚙">Settings</NavItem>
       </nav>

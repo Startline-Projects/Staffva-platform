@@ -23,7 +23,6 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/identity": "Identity",
   "/admin/recruiters": "Talent Specialists",
   "/admin/team": "Team Inbox",
-  "/admin/giveaway": "Raffle",
   "/admin/pending-bans": "Pending Bans",
   "/admin/settings": "Settings",
 };

@@ -100,22 +100,17 @@
 
 | Viewport | Test | Status | Detail |
 |----------|------|--------|--------|
-| iPhone SE | Giveaway tracker present | ✅ Pass | GiveawayTracker imported |
 | iPhone SE | Escrow panel present | ✅ Pass | EscrowStatusPanel imported |
 | iPhone SE | Status cards readable | ✅ Pass | Stats cards found |
 | iPhone SE | Grid collapses on mobile | ✅ Pass | Responsive grid found |
-| Samsung Galaxy S21 | Giveaway tracker present | ✅ Pass | GiveawayTracker imported |
 | Samsung Galaxy S21 | Escrow panel present | ✅ Pass | EscrowStatusPanel imported |
 | Samsung Galaxy S21 | Status cards readable | ✅ Pass | Stats cards found |
 | Samsung Galaxy S21 | Grid collapses on mobile | ✅ Pass | Responsive grid found |
-| iPhone 14 | Giveaway tracker present | ✅ Pass | GiveawayTracker imported |
 | iPhone 14 | Escrow panel present | ✅ Pass | EscrowStatusPanel imported |
 | iPhone 14 | Status cards readable | ✅ Pass | Stats cards found |
 | iPhone 14 | Grid collapses on mobile | ✅ Pass | Responsive grid found |
-| iPad | Giveaway tracker present | ✅ Pass | GiveawayTracker imported |
 | iPad | Escrow panel present | ✅ Pass | EscrowStatusPanel imported |
 | iPad | Status cards readable | ✅ Pass | Stats cards found |
-| Desktop | Giveaway tracker present | ✅ Pass | GiveawayTracker imported |
 | Desktop | Escrow panel present | ✅ Pass | EscrowStatusPanel imported |
 | Desktop | Status cards readable | ✅ Pass | Stats cards found |
 
@@ -231,7 +226,7 @@
 | Developer | Claude Code | ☐ PENDING | |
 | QA | Manual Review | ☐ PENDING | |
 
-**This report must be signed off by Ahmed before the giveaway post goes live.**
+**This report must be signed off by Ahmed before release.**
 
 ---
 

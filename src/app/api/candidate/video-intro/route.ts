@@ -52,9 +52,6 @@ export async function POST(req: NextRequest) {
             <h2 style="color:#1C1B1A;">Video Introduction Received</h2>
             <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
             <p style="color:#444;font-size:14px;">We received your video introduction and our team will review it within 24 hours. You will receive an email as soon as it is approved.</p>
-            <div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:16px;margin:16px 0;">
-              <p style="margin:0;color:#9A3412;font-size:13px;">Your 3 bonus raffle entries will be added automatically once your video is approved.</p>
-            </div>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
         });

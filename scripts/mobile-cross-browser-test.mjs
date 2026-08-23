@@ -187,10 +187,6 @@ function testCandidateDashboard() {
   }
 
   for (const vp of VIEWPORTS) {
-    // Giveaway tracker
-    const hasGiveaway = content.includes("GiveawayTracker");
-    addResult("Candidate Dashboard", vp.name, "Giveaway tracker present", hasGiveaway, hasGiveaway ? "GiveawayTracker imported" : "Missing giveaway tracker");
-
     // Escrow panel
     const hasEscrow = content.includes("EscrowStatusPanel");
     addResult("Candidate Dashboard", vp.name, "Escrow panel present", hasEscrow, hasEscrow ? "EscrowStatusPanel imported" : "Missing escrow panel");
@@ -394,7 +390,7 @@ function generateReport() {
   lines.push("| Developer | Claude Code | ☐ PENDING | |");
   lines.push("| QA | Manual Review | ☐ PENDING | |");
   lines.push("");
-  lines.push("**This report must be signed off by Ahmed before the giveaway post goes live.**");
+  lines.push("**This report must be signed off by Ahmed before release.**");
   lines.push("");
   lines.push("---");
   lines.push("");

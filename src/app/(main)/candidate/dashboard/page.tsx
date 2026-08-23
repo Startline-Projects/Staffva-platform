@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
-import GiveawayTracker from "@/components/GiveawayTracker";
 import LockoutCard from "@/components/LockoutCard";
 
 interface DailyCount {
@@ -1423,7 +1422,7 @@ export default function CandidateDashboardPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-[#1C1B1A]">Add Your Video Introduction</h3>
-              <p className="mt-0.5 text-xs text-gray-500">Candidates with a video introduction attract significantly more client attention. Add yours to earn 3 bonus raffle entries.</p>
+              <p className="mt-0.5 text-xs text-gray-500">Candidates with a video introduction attract significantly more client attention.</p>
               <Link
                 href="/profile/video-intro"
                 className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-5 py-2 text-xs font-semibold text-white hover:bg-[#e55a2b] transition-colors"
@@ -1434,10 +1433,6 @@ export default function CandidateDashboardPage() {
           </div>
         </div>
       )}
-
-      <div className="mb-6">
-        <GiveawayTracker />
-      </div>
 
       {/* Quick actions */}
       <div className="mb-8">

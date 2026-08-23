@@ -42,7 +42,6 @@ src/
 │   ├── _landing/         # Non-routable landing page component parts
 │   ├── api/              # 140+ API route handlers
 │   ├── auth/             # Magic link callbacks + signout endpoint
-│   ├── raffle/           # Public giveaway landing
 │   ├── globals.css       # Tailwind v4 theme + custom tokens
 │   ├── layout.tsx        # Root layout
 │   └── page.tsx          # Public landing page (ISR 300s)

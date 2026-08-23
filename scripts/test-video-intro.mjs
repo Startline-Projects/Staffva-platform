@@ -12,7 +12,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 async function runTest() {
   console.log("\n📋 Video Introduction E2E Test\n");
 
-  const { data: candidates } = await supabase.from("candidates").select("id, display_name, email, video_intro_raffle_tickets_awarded").eq("admin_status", "approved").limit(2);
+  const { data: candidates } = await supabase.from("candidates").select("id, display_name, email").eq("admin_status", "approved").limit(2);
   if (!candidates?.[0]) { console.log("❌ Need at least one approved candidate"); return; }
 
   const candidate = candidates[0];
@@ -57,7 +57,6 @@ async function runTest() {
   await supabase.from("candidates").update({
     video_intro_status: "approved",
     video_intro_reviewed_at: new Date().toISOString(),
-    video_intro_raffle_tickets_awarded: true,
   }).eq("id", candidate.id);
 
   await supabase.from("video_intro_reviews").insert({
@@ -67,13 +66,12 @@ async function runTest() {
 
   const { data: afterApprove } = await supabase
     .from("candidates")
-    .select("video_intro_status, video_intro_reviewed_at, video_intro_raffle_tickets_awarded")
+    .select("video_intro_status, video_intro_reviewed_at")
     .eq("id", candidate.id)
     .single();
 
   console.log(`   Status approved: ${afterApprove?.video_intro_status === "approved" ? "✓" : "✗"}`);
   console.log(`   Reviewed timestamp set: ${afterApprove?.video_intro_reviewed_at ? "✓" : "✗"}`);
-  console.log(`   Raffle tickets awarded: ${afterApprove?.video_intro_raffle_tickets_awarded ? "✓" : "✗"}`);
 
   // Verify review record
   const { data: reviews } = await supabase
@@ -106,34 +104,6 @@ async function runTest() {
   console.log(`   Status revision_required: ${afterRevision?.video_intro_status === "revision_required" ? "✓" : "✗"}`);
   console.log(`   Admin note stored: ${afterRevision?.video_intro_admin_note === revisionNote ? "✓" : "✗"}`);
 
-  // ═══ TEST 5: Raffle Ticket Calculation ═══
-  console.log("\n═══ TEST 5: Raffle Ticket Calculation ═══");
-
-  // Candidate WITH video: 3 bonus tickets
-  await supabase.from("candidates").update({
-    video_intro_raffle_tickets_awarded: true,
-    video_intro_status: "approved",
-  }).eq("id", candidate.id);
-
-  // Candidate WITHOUT video
-  if (candidate2.id !== candidate.id) {
-    await supabase.from("candidates").update({
-      video_intro_raffle_tickets_awarded: false,
-      video_intro_status: null,
-    }).eq("id", candidate2.id);
-  }
-
-  const { data: c1 } = await supabase.from("candidates").select("video_intro_raffle_tickets_awarded").eq("id", candidate.id).single();
-  const { data: c2 } = await supabase.from("candidates").select("video_intro_raffle_tickets_awarded").eq("id", candidate2.id).single();
-
-  console.log(`   Candidate with video: tickets_awarded=${c1?.video_intro_raffle_tickets_awarded ? "true" : "false"} ✓`);
-  if (candidate2.id !== candidate.id) {
-    console.log(`   Candidate without video: tickets_awarded=${c2?.video_intro_raffle_tickets_awarded ? "true" : "false"} ✓`);
-  }
-
-  // Test no double-award
-  console.log(`   Re-approve does not double-award: ✓ (checked via video_intro_raffle_tickets_awarded flag)`);
-
   // ═══ TEST 6: Browse Card Icon ═══
   console.log("\n═══ TEST 6: Browse Card Icon ═══");
   console.log(`   Approved video → camera icon shown: ✓`);
@@ -149,22 +119,14 @@ async function runTest() {
     video_intro_submitted_at: null,
     video_intro_reviewed_at: null,
     video_intro_admin_note: null,
-    video_intro_raffle_tickets_awarded: origState.video_intro_raffle_tickets_awarded || false,
   }).eq("id", candidate.id);
-
-  if (candidate2.id !== candidate.id) {
-    await supabase.from("candidates").update({
-      video_intro_raffle_tickets_awarded: candidate2.video_intro_raffle_tickets_awarded || false,
-    }).eq("id", candidate2.id);
-  }
   console.log("   ✅ Done");
 
   console.log("\n✅ VIDEO INTRODUCTION TEST PASSED");
   console.log("   ✓ Upload flow stores URL, sets pending_review, records timestamp");
   console.log("   ✓ Client-side validation (MP4/MOV, 200MB, 30-90s)");
-  console.log("   ✓ Admin approve sets status, awards raffle tickets, creates review record");
+  console.log("   ✓ Admin approve sets status and creates review record");
   console.log("   ✓ Admin revision stores note, sets revision_required status");
-  console.log("   ✓ Raffle tickets: +3 for approved video, no double-award");
   console.log("   ✓ Browse card camera icon only shown for approved videos");
 }
 

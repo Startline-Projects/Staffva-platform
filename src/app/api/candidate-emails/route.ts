@@ -38,7 +38,6 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
         <li>Record voice samples</li>
         <li>Build your profile</li>
       </ul>
-      <p>Candidates who complete all steps are eligible for our $3,000 monthly giveaway.</p>
       <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Continue Application</a>
     `,
   },
@@ -54,7 +53,6 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
         <li>You need a quiet environment and a stable internet connection</li>
         <li>The test is timed — 15 minutes total</li>
         <li>You cannot pause or retake the test once started</li>
-        <li>Completing the English test is required for giveaway eligibility</li>
       </ul>
       <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Start English Test</a>
     `,
@@ -66,7 +64,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
       <h2 style="color:#1C1B1A;">Congratulations, ${name}!</h2>
       <p>You passed the StaffVA English assessment${data?.tier ? ` with a <strong>${data.tier}</strong> rating` : ""}.</p>
       <p><strong>Your next step:</strong> Complete an AI-powered interview. This is a short structured conversation that evaluates your communication skills and professional experience.</p>
-      <p>You are one step closer to giveaway eligibility. Complete the AI interview to continue.</p>
+      <p>You are one step closer to a live profile. Complete the AI interview to continue.</p>
       <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Continue Application</a>
     `,
   },
@@ -78,7 +76,7 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
       <p>Hi ${name},</p>
       <p>You completed the AI interview${data?.score ? ` with a score of <strong>${data.score}/100</strong>` : ""}. Well done.</p>
       <p><strong>What happens next:</strong> A Talent Specialist from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview. This is the final step before your profile goes live.</p>
-      <p>Giveaway eligibility is now one step away — complete the recruiter interview and get your profile approved to qualify.</p>
+      <p>Two steps remain — complete the recruiter interview and get your profile approved. Then your profile goes live to U.S. clients.</p>
       <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Dashboard</a>
     `,
   },
@@ -122,10 +120,6 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
       <p>Hi ${name},</p>
       <p>Congratulations — your StaffVA profile has been approved and is now visible to clients. U.S. businesses can now find you, view your profile, and reach out about opportunities.</p>
       ${data?.profileUrl ? `<a href="${data.profileUrl}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View My Live Profile</a>` : ""}
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
-        <p style="margin:0;color:#166534;font-weight:600;">Giveaway Eligibility Confirmed</p>
-        <p style="margin:8px 0 0;color:#166534;font-size:13px;">You have completed all required steps and are now eligible for our monthly giveaway. Winners are announced on the first of each month.</p>
-      </div>
       <p>Share your profile with colleagues — the more professionals on StaffVA, the stronger the network for everyone.</p>
     `,
   },

@@ -29,6 +29,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      // /raffle served the launch giveaway landing page and was promoted on
+      // TikTok, so links to it are still in the wild. The giveaway is retired;
+      // send that traffic to candidate signup instead of a 404. Temporary
+      // (307) so the path can be reused later.
+      { source: "/raffle", destination: "/signup/candidate", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

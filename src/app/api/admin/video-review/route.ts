@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     // Get candidate
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, email, display_name, full_name, video_intro_raffle_tickets_awarded")
+      .select("id, email, display_name, full_name")
       .eq("id", candidateId)
       .single();
 
@@ -88,16 +88,6 @@ export async function POST(req: NextRequest) {
         admin_note: adminNote || null,
       });
 
-      // Award raffle tickets. Checking the flag, then setting it, then
-      // incrementing the count let two admins approving the same video at
-      // once both see the flag unset and both grant the bonus. The function
-      // compare-and-swaps the flag, so exactly one caller adds tickets and
-      // it reports whether this call was the one that did.
-      const { data: ticketsAwarded } = await admin.rpc(
-        "award_video_intro_raffle_tickets",
-        { p_candidate_id: candidateId, p_tickets: 3 }
-      );
-
       // Email candidate
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
@@ -109,10 +99,6 @@ export async function POST(req: NextRequest) {
               <h2 style="color:#1C1B1A;">Your Video Is Live!</h2>
               <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
               <p style="color:#444;font-size:14px;">Your video introduction has been approved and is now visible to clients on your StaffVA profile.</p>
-              ${ticketsAwarded ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
-                <p style="margin:0;color:#166534;font-weight:600;">+3 Bonus Raffle Entries Awarded</p>
-                <p style="margin:8px 0 0;color:#166534;font-size:13px;">You have earned 3 bonus raffle entries for your approved video introduction.</p>
-              </div>` : ""}
               <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">View Dashboard</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,

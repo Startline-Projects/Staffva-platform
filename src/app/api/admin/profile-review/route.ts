@@ -70,10 +70,6 @@ export async function POST(req: NextRequest) {
               <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
               <p style="color:#444;font-size:14px;">Congratulations. Your profile has been reviewed and approved by our team. You are now live on StaffVA and visible to clients.</p>
               <a href="${siteUrl}/candidate/${candidate.id}" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View My Live Profile</a>
-              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
-                <p style="margin:0;color:#166534;font-weight:600;">You're eligible for the $3,000 monthly giveaway</p>
-                <p style="margin:8px 0 0;color:#166534;font-size:13px;">Winners are announced on the first of each month.</p>
-              </div>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
           });
