@@ -20,11 +20,19 @@ import { createClient } from "@supabase/supabase-js";
 export type RateLimit = { limit: number; windowSeconds: number };
 
 export const LIMITS = {
-  // Per IP. Deliberately loose: candidates in the same country frequently
-  // share NAT'd addresses, so a tight per-IP limit would block real users
-  // before it blocked a script. The route already enforces a 60s per-account
-  // cooldown; this only stops someone hammering it across many accounts.
-  verificationEmail: { limit: 30, windowSeconds: 3600 },
+  // Per source address, as a raw request ceiling only. It must sit ABOVE the
+  // largest plausible NAT cohort: candidates apply from BPO offices and mobile
+  // CGNAT, where hundreds share one apparent address. An earlier 30/hour here
+  // was a signup outage waiting to happen — the 31st candidate behind one
+  // office IP had their account created, their verification email never
+  // queued, and no way to ever log in.
+  verificationEmailIp: { limit: 1000, windowSeconds: 3600 },
+
+  // The precise control. Keyed on the profile id, which is unforgeable and
+  // naturally used about once, so a small limit is safe. Checked only after
+  // the account lookup and the 60s cooldown, so unknown-email probes and
+  // cooldown hits cannot consume a real user's budget.
+  verificationEmailAccount: { limit: 5, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

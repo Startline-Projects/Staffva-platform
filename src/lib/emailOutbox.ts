@@ -73,8 +73,13 @@ export async function enqueueEmail(email: OutboxEmail): Promise<void> {
  */
 export const RETRY_BACKOFF_MINUTES = [1, 5, 15, 60, 240];
 
+/**
+ * @param attempts how many attempts have now been made (1 after the first
+ *   failure). Indexing must therefore be attempts - 1, or the first entry is
+ *   never used and every wait is one step too long — which pushed give-up from
+ *   T+81min out to T+320min, on the email whose delay costs a signup.
+ */
 export function nextAttemptAt(attempts: number): Date {
-  const minutes =
-    RETRY_BACKOFF_MINUTES[Math.min(attempts, RETRY_BACKOFF_MINUTES.length - 1)];
-  return new Date(Date.now() + minutes * 60 * 1000);
+  const index = Math.min(Math.max(attempts - 1, 0), RETRY_BACKOFF_MINUTES.length - 1);
+  return new Date(Date.now() + RETRY_BACKOFF_MINUTES[index] * 60 * 1000);
 }

@@ -18,14 +18,15 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json();
     if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
 
-    // Unauthenticated and it queues mail, so it is bounded per source address.
-    // The per-account 60s cooldown below stops one user spamming themselves;
-    // this stops one source walking many accounts.
-    const limited = await enforceRateLimit(
-      `verification:${clientIp(req)}`,
-      LIMITS.verificationEmail
+    // A raw request ceiling only, set far above any real NAT cohort. This must
+    // never be what stops a legitimate signup: the account is already created
+    // by the time this route is called, and if no email is queued the user can
+    // never log in. The precise limit is per account, further down.
+    const ipLimited = await enforceRateLimit(
+      `verification:ip:${clientIp(req)}`,
+      LIMITS.verificationEmailIp
     );
-    if (limited) return limited;
+    if (ipLimited) return ipLimited;
 
     const admin = getAdminClient();
 
@@ -60,10 +61,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Per-account bound, checked only now — after the lookup and the cooldown
+    // — so probes for unknown addresses and requests inside the cooldown can
+    // never consume a real user's budget.
+    const accountLimited = await enforceRateLimit(
+      `verification:acct:${profile.id}`,
+      LIMITS.verificationEmailAccount
+    );
+    if (accountLimited) return accountLimited;
+
+    // The token update's error must not be discarded: supabase-js resolves
+    // with errors rather than throwing, so a statement timeout here would
+    // queue a real-looking email whose link can never work.
     const token = crypto.randomBytes(32).toString("hex");
-    await admin.from("profiles").update({
+    const { error: tokenError } = await admin.from("profiles").update({
       email_verification_token: token,
     }).eq("id", profile.id);
+
+    if (tokenError) {
+      return NextResponse.json({ error: "Could not send verification email" }, { status: 500 });
+    }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
     const verifyUrl = `${siteUrl}/api/auth/verify-email?token=${token}`;
