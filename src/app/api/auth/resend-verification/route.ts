@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { enqueueEmail } from "@/lib/emailOutbox";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
@@ -50,31 +50,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate and store the token, but NOT the sent-at stamp. Stamping before
-    // the send meant a failed send still started the 60-second rate limit, so
-    // the user's instinctive retry returned "rate_limited" and the UI reported
-    // success — the one action that could have rescued them was silently
-    // swallowed. sent_at is written after the send actually succeeds.
     const token = crypto.randomBytes(32).toString("hex");
     await admin.from("profiles").update({
       email_verification_token: token,
     }).eq("id", profile.id);
 
-    // Send email
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
     const verifyUrl = `${siteUrl}/api/auth/verify-email?token=${token}`;
     const firstName = (profile.full_name || "").split(" ")[0] || "there";
 
-    // No RESEND_API_KEY guard here on purpose. Skipping the send and still
-    // returning success left the account permanently unusable: login signs
-    // the user back out until email_verified is true, and the only writer of
-    // that is the link inside this email. sendEmail() throws when the key is
-    // missing or Resend rejects, which the catch below turns into a 500 the
-    // signup page now surfaces.
-    await sendEmail({
-      from: "StaffVA <notifications@staffva.com>",
+    // Queued, not sent inline. This is the one email whose failure is
+    // unrecoverable — login signs the user straight back out until
+    // email_verified is true, and the only writer of that flag is the link
+    // below — so it must not depend on Resend being reachable and under its
+    // rate limit at the exact moment somebody signs up. The drain cron sends
+    // it within about a minute, with retries and backoff.
+    //
+    // enqueueEmail throws if the row cannot be written, which is a real
+    // failure the signup page surfaces. It does NOT throw on a duplicate
+    // dedupe_key: the message is already queued, which is what was wanted.
+    await enqueueEmail({
       to: profile.email,
       subject: "Verify your StaffVA account",
+      emailType: "email_verification",
+      dedupeKey: `verification:${token}`,
       html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
           <h2 style="color:#1C1B1A;">Verify your email</h2>
           <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
@@ -85,7 +84,9 @@ export async function POST(req: NextRequest) {
         </div>`,
     });
 
-    // Only now start the resend cooldown, since a mail actually went out.
+    // The cooldown starts once the message is durably queued. Delivery is now
+    // the drain's responsibility and it will retry, so a resend within the
+    // next minute would only duplicate work.
     await admin
       .from("profiles")
       .update({ email_verification_sent_at: new Date().toISOString() })
