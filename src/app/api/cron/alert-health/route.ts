@@ -154,6 +154,27 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Interviews parked because their transcript was mostly silence. The scoring
+  // route deliberately refuses to score these rather than reject a candidate
+  // for audio that failed on our side — but a parked interview gets no score,
+  // no email and no sweep, so without this it is invisible and the candidate
+  // waits forever. Refusing to auto-reject is only an improvement if somebody
+  // then looks.
+  const { count: parked } = await supabase
+    .from("ai_interviews")
+    .select("*", head)
+    .eq("status", "failed_technical")
+    .gte("created_at", since(7 * 24 * 60 * 60 * 1000));
+
+  if (parked) {
+    checks.push({
+      key: "interviews_parked",
+      severity: "warning",
+      count: parked,
+      message: `${parked} interview(s) parked for review in the last 7 days — the candidate could not be heard, so they were not scored. Each needs a human decision or a re-invite.`,
+    });
+  }
+
   // Decide what is worth saying out loud.
   const { data: priorState } = await supabase.from("alert_state").select("*");
   const prior = new Map((priorState ?? []).map((s) => [s.check_key, s]));
