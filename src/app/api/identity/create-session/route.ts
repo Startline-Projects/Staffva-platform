@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://staffva.com";
 
     // Create Stripe Identity verification session
-    const session = await stripe.identity.verificationSessions.create({
+    const session = await getStripe().identity.verificationSessions.create({
       type: "document",
       metadata: {
         candidate_id: candidateId,

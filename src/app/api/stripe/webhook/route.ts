@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event | null = null;
   for (const secret of secrets) {
     try {
-      event = stripe.webhooks.constructEvent(body, signature, secret);
+      event = getStripe().webhooks.constructEvent(body, signature, secret);
       break;
     } catch {
       // Try next secret
@@ -445,7 +445,7 @@ export async function POST(request: Request) {
 
       // The period/milestone ids live on the PaymentIntent metadata set in
       // api/escrow/fund; the Charge does not carry them.
-      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const pi = await getStripe().paymentIntents.retrieve(paymentIntentId);
       const periodId = pi.metadata?.period_id || null;
       const milestoneId = pi.metadata?.milestone_id || null;
 

@@ -99,7 +99,17 @@ export async function POST(request: Request) {
     .eq("id", candidateId)
     .single();
 
-  const retakeCount = (currentCandidate?.retake_count ?? 0) + (passed ? 0 : 1);
+  // A failed attempt bumps retake_count in the database, not here. Reading
+  // the value and adding one in TypeScript meant two concurrent failing
+  // submissions both read N and both wrote N+1 — losing an attempt from the
+  // counter that gates the retake lockout.
+  let retakeCount = currentCandidate?.retake_count ?? 0;
+  if (!passed) {
+    const { data: newCount } = await supabase.rpc("increment_retake_count", {
+      p_candidate_id: candidateId,
+    });
+    retakeCount = typeof newCount === "number" ? newCount : retakeCount + 1;
+  }
 
   // Update candidate record
   const updateData: Record<string, unknown> = {
@@ -113,7 +123,8 @@ export async function POST(request: Request) {
   };
 
   if (!passed) {
-    updateData.retake_count = retakeCount;
+    // retake_count was already incremented atomically above; writing it here
+    // too would reintroduce the lost update.
 
     // ═══ IDENTITY-HASH LOCKOUT SYSTEM ═══
     // Get identity hash for this candidate

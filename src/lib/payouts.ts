@@ -1,4 +1,4 @@
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/email";
 
 /**
@@ -74,7 +74,7 @@ export async function initiatePayout(
 
   // Attempt Stripe Connect transfer
   try {
-    const transfer = await stripe.transfers.create(
+    const transfer = await getStripe().transfers.create(
       {
         amount: Math.round(amountUsd * 100), // convert to cents
         currency: "usd",

@@ -44,10 +44,10 @@ export async function POST(request: Request) {
 
     // Try to check with Stripe directly if available
     try {
-      const { stripe } = await import("@/lib/stripe");
+      const { getStripe } = await import("@/lib/stripe");
 
       // List recent verification sessions for this candidate
-      const sessions = await stripe.identity.verificationSessions.list({
+      const sessions = await getStripe().identity.verificationSessions.list({
         limit: 5,
       });
 

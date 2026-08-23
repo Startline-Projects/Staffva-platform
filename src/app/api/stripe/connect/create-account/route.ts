@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -44,7 +44,7 @@ export async function POST() {
 
   // Step 1: Create Express account if none exists
   if (!accountId) {
-    const account = await stripe.accounts.create({
+    const account = await getStripe().accounts.create({
       type: "express",
       country: "US",
       capabilities: { transfers: { requested: true } },
@@ -63,7 +63,7 @@ export async function POST() {
   }
 
   // Step 2: Generate a fresh onboarding link
-  const accountLink = await stripe.accountLinks.create({
+  const accountLink = await getStripe().accountLinks.create({
     account: accountId,
     refresh_url: "https://staffva.com/candidate/dashboard?payout=refresh",
     return_url: "https://staffva.com/candidate/dashboard?payout=complete",

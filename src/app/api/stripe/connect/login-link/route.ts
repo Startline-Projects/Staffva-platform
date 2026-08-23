@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -39,7 +39,7 @@ export async function POST() {
     return NextResponse.json({ error: "No Stripe account found" }, { status: 404 });
   }
 
-  const loginLink = await stripe.accounts.createLoginLink(candidate.stripe_account_id);
+  const loginLink = await getStripe().accounts.createLoginLink(candidate.stripe_account_id);
 
   return NextResponse.json({ url: loginLink.url });
 }

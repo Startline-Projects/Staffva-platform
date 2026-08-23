@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     // Get or create Stripe customer
     let customerId = engagement.clients.stripe_customer_id;
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: user.email,
         metadata: { supabase_user_id: user.id },
       });
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     // Create Stripe PaymentIntent (immediate capture — funds held in platform account)
     const amountCents = Math.round(amountUsd * 100);
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
       currency: "usd",
       customer: customerId,

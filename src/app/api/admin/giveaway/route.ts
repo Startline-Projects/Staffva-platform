@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   const admin = await verifyAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const { action, entryId, candidateId } = await req.json();
+  const { action, entryId, candidateId, redraw } = await req.json();
   const supabase = getAdminClient();
 
   if (action === "toggle_tag") {
@@ -152,18 +152,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Need at least 2 eligible candidates. Currently: ${eligible?.length || 0}` }, { status: 400 });
     }
 
-    // Cryptographically random selection
+    // A redraw must explicitly retire the previous result. Without this the
+    // route happily inserted a second winner log row on every call, so a
+    // double-click or two admins acting at once produced two equally
+    // authoritative sets of winners with nothing marking which was real.
+    if (redraw === true) {
+      await supabase
+        .from("giveaway_winner_log")
+        .update({ superseded_at: new Date().toISOString() })
+        .is("superseded_at", null);
+    }
+
+    // Fisher-Yates with rejection-free crypto randomness. The previous code
+    // passed sort() a comparator that ignored both arguments and rehashed on
+    // every call — not a valid comparator, and not a fair shuffle.
     const seed = crypto.randomBytes(32).toString("hex");
-    const shuffled = [...eligible].sort(() => {
-      const hash = crypto.createHash("sha256").update(seed + Math.random().toString()).digest("hex");
-      return parseInt(hash.slice(0, 8), 16) - 0x7FFFFFFF;
-    });
+    const shuffled = [...eligible];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
 
     const winner1 = shuffled[0].candidate_id;
     const winner2 = shuffled[1].candidate_id;
 
-    // Log selection
-    const { data: logEntry } = await supabase
+    // Log selection. A partial unique index allows only one row with
+    // superseded_at IS NULL, so a concurrent second draw loses here rather
+    // than silently creating a rival result.
+    const { data: logEntry, error: logError } = await supabase
       .from("giveaway_winner_log")
       .insert({
         winner_1_candidate_id: winner1,
@@ -173,6 +189,18 @@ export async function POST(req: NextRequest) {
       })
       .select()
       .single();
+
+    if (logError) {
+      const alreadyDrawn = logError.code === "23505";
+      return NextResponse.json(
+        {
+          error: alreadyDrawn
+            ? "Winners have already been drawn. Pass redraw: true to supersede the existing draw."
+            : logError.message,
+        },
+        { status: alreadyDrawn ? 409 : 500 }
+      );
+    }
 
     // Get winner details
     const { data: winners } = await supabase
