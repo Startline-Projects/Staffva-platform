@@ -139,6 +139,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Not wrapped in a swallowing catch. The password has already been changed
+  // by the time this runs, and this email is the only copy of the new one — so
+  // a silent failure locks the account holder out permanently, with nobody
+  // aware. The admin needs to know it failed so they can reset again.
+  let deliveryFailed: string | null = null;
   try {
     await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
@@ -161,8 +166,12 @@ export async function POST(req: NextRequest) {
         </div>
       `,
     });
-  } catch { /* silent */ }
+  } catch (err) {
+    deliveryFailed = err instanceof Error ? err.message : String(err);
+  }
 
+  // The admin copy is genuinely non-fatal: it is a notification, not the only
+  // route to the password.
   try {
     await sendEmail({
       from: "StaffVA <notifications@staffva.com>",
@@ -180,7 +189,19 @@ export async function POST(req: NextRequest) {
         </div>
       `,
     });
-  } catch { /* silent */ }
+  } catch { /* notification only — non-fatal */ }
+
+  if (deliveryFailed) {
+    return NextResponse.json(
+      {
+        error:
+          "The password was reset, but the email to the account holder could not be sent — they are now locked out. Reset again once email delivery is working.",
+        detail: deliveryFailed,
+        email: profile.email,
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true, email: profile.email });
 }
