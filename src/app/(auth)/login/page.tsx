@@ -98,13 +98,27 @@ function LoginForm() {
 
   async function handleResendFromLogin() {
     setResending(true);
-    await fetch("/api/auth/resend-verification", {
+    // The response was ignored, so a rejected resend still rendered "Sent!" —
+    // on the one action that could rescue an account whose first verification
+    // email never arrived.
+    const res = await fetch("/api/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    setResent(true);
     setResending(false);
+
+    if (!res.ok) {
+      setError(
+        res.status === 429
+          ? "Too many requests from your network right now. Please wait a minute and try again."
+          : "We could not resend the email. Please contact support@staffva.com."
+      );
+      return;
+    }
+
+    setError("");
+    setResent(true);
     setTimeout(() => setResent(false), 5000);
   }
 

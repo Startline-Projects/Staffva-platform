@@ -17,48 +17,108 @@ import { Resend } from "resend";
  * Also constructs the client per call rather than at module scope, so a missing
  * RESEND_API_KEY can no longer crash a whole route at import time.
  */
+
+export class EmailSendError extends Error {
+  /** HTTP status from Resend, when it gave one. */
+  readonly status?: number;
+  /** False for a fault no retry will fix — a bad key, an unverified sender. */
+  readonly retryable: boolean;
+
+  constructor(message: string, status: number | undefined, retryable: boolean) {
+    super(message);
+    this.name = "EmailSendError";
+    this.status = status;
+    this.retryable = retryable;
+  }
+}
+
+export type SendEmailOptions = {
+  /**
+   * Attempts INSIDE this call. Default 3 for direct callers, who have no
+   * retry of their own.
+   *
+   * The outbox drain passes 1: it owns retry and backoff already, and leaving
+   * this at 3 multiplied out to 15 Resend calls per message — with the
+   * internal sleeps landing inside the drain's own deadline, precisely during
+   * the rate-limit storm the queue exists to absorb.
+   */
+  maxAttempts?: number;
+  /**
+   * Passed to Resend as Idempotency-Key. The outbox sends its row id, so a
+   * send that succeeded just before the invocation was killed cannot be
+   * delivered a second time when the row is reclaimed.
+   */
+  idempotencyKey?: string;
+};
+
+// A hung upstream must not outlive the caller's function budget. The outbox
+// drain runs with maxDuration 60 and paces sends inside a 45s deadline.
+const REQUEST_TIMEOUT_MS = 10_000;
+
+function classify(error: unknown): { message: string; status?: number; retryable: boolean } {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message: unknown }).message)
+      : JSON.stringify(error);
+
+  const status =
+    typeof error === "object" && error !== null && "statusCode" in error
+      ? Number((error as { statusCode: unknown }).statusCode)
+      : undefined;
+
+  // 4xx other than 429 are permanent — a bad address or an unverified sender
+  // will not succeed on a retry, however long you wait.
+  const retryable = status === undefined || status === 429 || (status >= 500 && status < 600);
+
+  return { message, status, retryable };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendEmail(payload: any) {
+export async function sendEmail(payload: any, options: SendEmailOptions = {}) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not configured");
+    // Not retryable: no amount of waiting configures an environment variable.
+    throw new EmailSendError("RESEND_API_KEY is not configured", undefined, false);
   }
 
+  const maxAttempts = options.maxAttempts ?? 3;
   const resend = new Resend(apiKey);
 
-  // Retry transient failures. The verification email is the sharpest case: it
-  // is sent inline during signup, login is hard-gated on email_verified, and
-  // the only writer of that flag is the link inside this message — so a single
-  // rate-limited send permanently bricks the account. Resend's default is a
-  // couple of requests per second, and a spike puts signups well past that.
-  const MAX_ATTEMPTS = 3;
-  let lastMessage = "";
+  let last: { message: string; status?: number; retryable: boolean } = {
+    message: "no attempt made",
+    retryable: false,
+  };
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const { data, error } = await resend.emails.send(payload);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // The SDK exposes no abort signal, so bound how long we WAIT rather than
+    // the request itself. That is what the caller actually needs: the outbox
+    // drain must finish inside maxDuration, and a send left dangling is
+    // harmless because the idempotency key stops a later retry from
+    // delivering the same message twice.
+    const { data, error } = await Promise.race([
+      resend.emails.send(payload, { idempotencyKey: options.idempotencyKey }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new EmailSendError("Resend timed out", undefined, true)),
+          REQUEST_TIMEOUT_MS
+        )
+      ),
+    ]);
 
     if (!error) return data;
 
-    lastMessage =
-      typeof error === "object" && error !== null && "message" in error
-        ? String((error as { message: unknown }).message)
-        : JSON.stringify(error);
+    last = classify(error);
 
-    // 4xx other than 429 are permanent — a bad address or an unverified
-    // sender will not succeed on a retry, and retrying wastes the caller's
-    // request budget.
-    const status =
-      typeof error === "object" && error !== null && "statusCode" in error
-        ? Number((error as { statusCode: unknown }).statusCode)
-        : undefined;
-    const retryable =
-      status === undefined || status === 429 || (status >= 500 && status < 600);
-
-    if (!retryable || attempt === MAX_ATTEMPTS) break;
+    if (!last.retryable || attempt === maxAttempts) break;
 
     // 0.5s, then 1.5s. Short enough to stay inside a serverless request.
     await new Promise((resolve) => setTimeout(resolve, 500 * attempt * attempt));
   }
 
-  throw new Error(`Resend send failed after ${MAX_ATTEMPTS} attempts: ${lastMessage}`);
+  const attempted = maxAttempts > 1 ? ` after ${maxAttempts} attempts` : "";
+  throw new EmailSendError(
+    `Resend send failed${attempted}: ${last.message}`,
+    last.status,
+    last.retryable
+  );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, EmailSendError } from "@/lib/email";
 import { nextAttemptAt } from "@/lib/emailOutbox";
 import { hasCronSecret } from "@/lib/auth";
 
@@ -48,13 +48,14 @@ export async function GET(request: NextRequest) {
   // Reclaim rows stranded by a killed invocation. Without this a deploy or a
   // timeout mid-send leaves the row in 'sending' forever: not due, not failed,
   // never alerted — the same silent loss the screening queue had.
-  const { data: reclaimed } = await supabase
-    .from("email_outbox")
-    .update({ status: "pending", claimed_at: null })
-    .eq("status", "sending")
-    .lt("claimed_at", new Date(started - STRANDED_AFTER_MS).toISOString())
-    .select("id");
-  results.reclaimed = reclaimed?.length ?? 0;
+  //
+  // Done in SQL because it must COUNT the killed attempt. Leaving attempts
+  // untouched meant a message that reliably hangs would be killed, reclaimed
+  // and retried forever without ever failing or alerting.
+  const { data: reclaimed } = await supabase.rpc("reclaim_stranded_emails", {
+    p_stranded_after_seconds: Math.round(STRANDED_AFTER_MS / 1000),
+  });
+  results.reclaimed = typeof reclaimed === "number" ? reclaimed : 0;
 
   const { data: due } = await supabase
     .from("email_outbox")
@@ -86,12 +87,24 @@ export async function GET(request: NextRequest) {
     if (!claimed || claimed.length === 0) continue;
 
     try {
-      await sendEmail({
-        from: row.from_email,
-        to: row.to_email,
-        subject: row.subject,
-        html: row.html,
-      });
+      await sendEmail(
+        {
+          from: row.from_email,
+          to: row.to_email,
+          subject: row.subject,
+          html: row.html,
+        },
+        {
+          // This loop owns retry and backoff. Letting sendEmail retry too
+          // multiplied out to 15 Resend calls per message, with its internal
+          // sleeps eating this run's deadline during exactly the rate-limit
+          // storm the queue exists to absorb.
+          maxAttempts: 1,
+          // A send that succeeded just before the invocation was killed must
+          // not be delivered twice when the row is reclaimed.
+          idempotencyKey: row.id,
+        }
+      );
 
       await supabase
         .from("email_outbox")
@@ -107,7 +120,11 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       const attempts = row.attempts + 1;
       const message = err instanceof Error ? err.message : String(err);
-      const exhausted = attempts >= row.max_attempts;
+      // A missing key, a 401, an unverified sender or a bad address will not
+      // come good on a retry. Burning all five attempts on those only delays
+      // the alert — by hours, on the email whose delay costs a signup.
+      const permanent = err instanceof EmailSendError && !err.retryable;
+      const exhausted = permanent || attempts >= row.max_attempts;
 
       await supabase
         .from("email_outbox")
@@ -130,7 +147,9 @@ export async function GET(request: NextRequest) {
           vendor: "resend",
           operation: "email.outbox.drain",
           fatal: true,
-          message: `Gave up after ${attempts} attempts: ${message}`.slice(0, 2000),
+          message: (permanent
+            ? `Permanent failure, not retried: ${message}`
+            : `Gave up after ${attempts} attempts: ${message}`).slice(0, 2000),
           context: {
             emailType: row.email_type,
             outboxId: row.id,
