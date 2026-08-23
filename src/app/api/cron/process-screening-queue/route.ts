@@ -54,12 +54,20 @@ export async function GET(req: NextRequest) {
   }
 
   for (const item of items) {
-    // Mark as processing
-    await supabase
+    // Claim the item. The status predicate is the optimistic lock, but its
+    // result was discarded, so a run that lost the claim still fell through
+    // and screened the candidate again — duplicate model calls and duplicate
+    // side effects whenever two cron invocations overlapped.
+    const { data: claimed } = await supabase
       .from("screening_queue")
       .update({ status: "processing" })
       .eq("id", item.id)
-      .in("status", ["pending", "rate_limited"]);
+      .in("status", ["pending", "rate_limited"])
+      .select("id");
+
+    if (!claimed || claimed.length === 0) {
+      continue;
+    }
 
     // Fetch candidate data
     const { data: candidate } = await supabase

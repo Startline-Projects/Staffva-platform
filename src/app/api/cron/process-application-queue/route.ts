@@ -36,12 +36,23 @@ export async function GET(req: NextRequest) {
   }
 
   for (const item of pendingItems) {
-    // Mark as processing to prevent double-picks
-    await supabase
+    // Claim the item. The WHERE status = 'pending' is the optimistic lock,
+    // but its result was discarded — so when a concurrent run had already
+    // claimed the row the update simply matched nothing and this run carried
+    // on and processed it anyway. Overlapping cron invocations therefore
+    // double-processed applications. Only the run whose update actually
+    // returns the row owns it.
+    const { data: claimed } = await supabase
       .from("application_queue")
       .update({ status: "processing" })
       .eq("id", item.id)
-      .eq("status", "pending"); // Optimistic lock
+      .eq("status", "pending")
+      .select("id");
+
+    if (!claimed || claimed.length === 0) {
+      results.skipped++;
+      continue;
+    }
 
     try {
       await processApplication(supabase, item);
