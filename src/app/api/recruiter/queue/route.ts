@@ -207,6 +207,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
+  // Validate the date/time before constructing a Date. Previously a malformed
+  // value (e.g. "99:99") produced an Invalid Date whose .toISOString() throws
+  // RangeError, and the handler has no try/catch — so bad input returned an
+  // unhandled 500 instead of a 400.
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(String(scheduledDate)) ||
+    !/^\d{2}:\d{2}$/.test(String(scheduledTime)) ||
+    Number.isNaN(new Date(`${scheduledDate}T${scheduledTime}:00Z`).getTime())
+  ) {
+    return NextResponse.json(
+      { error: "scheduledDate must be YYYY-MM-DD and scheduledTime HH:MM" },
+      { status: 400 }
+    );
+  }
+
   // Recruiters may only schedule interviews for candidates in their categories.
   if (profile.role === "recruiter") {
     const scopeError = await assertRecruiterScope(user.id, candidateId);

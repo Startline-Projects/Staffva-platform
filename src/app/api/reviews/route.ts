@@ -55,7 +55,16 @@ export async function POST(request: Request) {
 
     const { engagementId, rating, body } = await request.json();
 
-    if (!engagementId || !rating || rating < 1 || rating > 5) {
+    // rating must be an INTEGER 1-5. The previous check omitted the type test,
+    // so a string like "abc" passed (NaN comparisons are always false) and hit
+    // the database CHECK constraint as a 500 rather than a clean 400.
+    if (
+      !engagementId ||
+      typeof rating !== "number" ||
+      !Number.isInteger(rating) ||
+      rating < 1 ||
+      rating > 5
+    ) {
       return NextResponse.json(
         { error: "engagementId and rating (1-5) required" },
         { status: 400 }

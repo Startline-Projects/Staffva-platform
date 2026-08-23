@@ -137,6 +137,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Message body required" }, { status: 400 });
   }
 
+  // Both ids land in NOT NULL uuid columns; unvalidated they produced a
+  // database error surfaced as a 500 instead of a 400.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(String(candidateId)) || !UUID_RE.test(String(clientId))) {
+    return NextResponse.json(
+      { error: "candidateId and clientId must be valid ids" },
+      { status: 400 }
+    );
+  }
+
   const admin = getAdminClient();
 
   // Validate sender

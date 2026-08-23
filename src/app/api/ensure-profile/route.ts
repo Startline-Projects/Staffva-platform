@@ -9,7 +9,17 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
-  const { userId, email, role, fullName, companyName } = await request.json();
+  // An empty or non-JSON body made request.json() throw before any handling,
+  // producing an unhandled 500. Parse defensively and answer 400 instead.
+  let payload: Record<string, unknown>;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { userId, email, role, fullName, companyName } = payload as {
+    userId?: string; email?: string; role?: string; fullName?: string; companyName?: string;
+  };
 
   if (!userId || !email || !role) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
