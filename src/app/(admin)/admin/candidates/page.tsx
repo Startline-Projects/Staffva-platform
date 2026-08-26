@@ -390,6 +390,12 @@ export default function CandidateReviewPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [screeningFilter, setScreeningFilter] = useState("all");
   const [search, setSearch] = useState("");
+  // Filtering, ordering and the tag counts all moved to the server so this page
+  // no longer has to hold every candidate in memory to render correctly.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
+  const PAGE_SIZE = 100;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Record<string, string>>({});
@@ -471,12 +477,18 @@ export default function CandidateReviewPage() {
     }
 
     if (search.trim()) params.set("search", search.trim());
+    if (screeningFilter !== "all") params.set("screening", screeningFilter);
+    if (mainTab === "pending") params.set("pending", "1");
+    params.set("page", String(page));
+    params.set("pageSize", String(PAGE_SIZE));
 
     const res = await fetch(`/api/admin/candidates?${params}`);
     const data = await res.json();
     setCandidates(data.candidates || []);
+    setTotal(data.total || 0);
+    setTagCounts(data.tagCounts || {});
     setLoading(false);
-  }, [mainTab, statusFilter, search]);
+  }, [mainTab, statusFilter, search, screeningFilter, page]);
 
   useEffect(() => {
     loadCandidates();
@@ -561,18 +573,13 @@ export default function CandidateReviewPage() {
     setActiveTab((prev) => ({ ...prev, [id]: tab }));
   }
 
-  const filteredCandidates = candidates
-    .filter((c) => {
-      if (screeningFilter === "all") return true;
-      return c.screening_tag === screeningFilter;
-    })
-    .sort((a, b) => {
-      if (mainTab === "pending") {
-        const order: Record<string, number> = { Priority: 0, Review: 1, Hold: 2 };
-        return (order[a.screening_tag || "Review"] ?? 1) - (order[b.screening_tag || "Review"] ?? 1);
-      }
-      return 0;
-    });
+  // The screening filter and the priority ordering are applied by the API now
+  // (the latter via the generated screening_priority column, migration 00105).
+  // Re-doing either here would only reorder the current page, which is worse
+  // than not doing it at all: it would look sorted while being sorted within
+  // arbitrary 100-row windows.
+  const filteredCandidates = candidates;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const isPendingView = mainTab === "pending";
 
@@ -581,7 +588,7 @@ export default function CandidateReviewPage() {
       {/* Main tabs */}
       <div className="flex items-center gap-6 border-b border-gray-200 mb-6">
         <button
-          onClick={() => { setMainTab("all"); setStatusFilter("all"); }}
+          onClick={() => { setMainTab("all"); setStatusFilter("all"); setPage(1); }}
           className={`pb-3 text-sm font-semibold transition-colors ${
             mainTab === "all" ? "border-b-2 border-primary text-primary" : "text-text/40 hover:text-text/70"
           }`}
@@ -589,7 +596,7 @@ export default function CandidateReviewPage() {
           All Candidates
         </button>
         <button
-          onClick={() => setMainTab("pending")}
+          onClick={() => { setMainTab("pending"); setPage(1); }}
           className={`pb-3 text-sm font-semibold transition-colors ${
             mainTab === "pending" ? "border-b-2 border-primary text-primary" : "text-text/40 hover:text-text/70"
           }`}
@@ -618,7 +625,7 @@ export default function CandidateReviewPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by name, country, or email..."
             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-text placeholder-text/40 focus:border-primary focus:outline-none"
           />
@@ -627,7 +634,7 @@ export default function CandidateReviewPage() {
         {mainTab === "all" && (
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-text focus:border-primary focus:outline-none"
           >
             <option value="all">All Statuses</option>
@@ -645,7 +652,7 @@ export default function CandidateReviewPage() {
             {["all", "Priority", "Review", "Hold"].map((tag) => (
               <button
                 key={tag}
-                onClick={() => setScreeningFilter(tag)}
+                onClick={() => { setScreeningFilter(tag); setPage(1); }}
                 className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
                   screeningFilter === tag
                     ? "bg-primary text-white"
@@ -655,7 +662,9 @@ export default function CandidateReviewPage() {
                 {tag === "all" ? "All" : tag}
                 {tag !== "all" && (
                   <span className="ml-1.5 text-[10px] opacity-70">
-                    {candidates.filter((c) => c.screening_tag === tag).length}
+                    {/* Counted in the database. Counting the loaded rows would
+                        now report "how many are on this page". */}
+                    {tagCounts[tag] ?? 0}
                   </span>
                 )}
               </button>
@@ -663,7 +672,10 @@ export default function CandidateReviewPage() {
           </div>
         )}
 
-        <span className="text-xs text-text/40">{filteredCandidates.length} candidates</span>
+        <span className="text-xs text-text/40">
+          {total} candidate{total === 1 ? "" : "s"}
+          {totalPages > 1 && ` · page ${page} of ${totalPages}`}
+        </span>
       </div>
 
       {/* Results */}
@@ -1190,6 +1202,30 @@ export default function CandidateReviewPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination. The list is capped at PAGE_SIZE server-side, so without
+          these controls everything past the first page would be unreachable. */}
+      {!loading && totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-text/60">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
         </div>
       )}
 

@@ -40,27 +40,82 @@ export async function GET(request: Request) {
   const view = searchParams.get("view") || "filtered"; // "filtered" or "all"
   const status = searchParams.get("status") || (view === "all" ? "all" : "active");
   const search = searchParams.get("search") || "";
+  // Screening tag was filtered in the browser, which required loading every row.
+  const screening = searchParams.get("screening") || "all";
+  const pending = searchParams.get("pending") === "1";
+
+  // This route used to return every candidate matching a status, with no limit
+  // and all 134 columns — about 12MB of rows at the 10,000-candidate target,
+  // and enough ids to blow past the ~1,650-id ceiling on the `.in()` queries
+  // below. Pagination bounds both.
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const pageSize = Math.min(
+    200,
+    Math.max(1, parseInt(searchParams.get("pageSize") || "100", 10) || 100)
+  );
 
   const supabase = getAdminClient();
 
-  let query = supabase
-    .from("candidates")
-    .select("*")
-    .order("created_at", { ascending: false });
+  // Both the page query and the per-tag counts must see the same filters, or
+  // the tab counts describe a different population than the list beneath them.
+  // Applied through a deliberately narrow structural type: making this generic
+  // over the PostgREST builder sends tsc into "type instantiation is
+  // excessively deep" on the real query types.
+  type Filterable = {
+    eq: (column: string, value: unknown) => Filterable;
+    or: (filters: string) => Filterable;
+  };
 
-  // Apply status filter unless viewing all
-  if (view === "all" && status !== "all") {
-    query = query.eq("admin_status", status);
-  } else if (view !== "all") {
-    query = query.eq("admin_status", status);
+  function applyFilters<Q>(q: Q): Q {
+    let out = q as unknown as Filterable;
+    if (status !== "all") out = out.eq("admin_status", status);
+    if (search.trim()) {
+      out = out.or(
+        `full_name.ilike.%${search}%,country.ilike.%${search}%,email.ilike.%${search}%`
+      );
+    }
+    return out as unknown as Q;
   }
 
-  // Apply search
-  if (search.trim()) {
-    query = query.or(`full_name.ilike.%${search}%,country.ilike.%${search}%,email.ilike.%${search}%`);
+  let query = applyFilters(
+    supabase.from("candidates").select("*", { count: "exact" })
+  );
+
+  if (screening !== "all") query = query.eq("screening_tag", screening);
+
+  // The pending view ordered by screening priority in the browser. That now
+  // happens here, via the generated screening_priority column (migration
+  // 00105), with created_at as a tiebreaker — paginating over a
+  // non-deterministic order repeats and skips rows between pages, and with
+  // only three priority values ties are the normal case.
+  query = pending
+    ? query
+        .order("screening_priority", { ascending: true })
+        .order("created_at", { ascending: false })
+    : query.order("created_at", { ascending: false });
+
+  const from = (page - 1) * pageSize;
+  const { data: candidates, count: total, error: listError } = await query.range(
+    from,
+    from + pageSize - 1
+  );
+
+  if (listError) {
+    return NextResponse.json({ error: listError.message }, { status: 500 });
   }
 
-  const { data: candidates } = await query;
+  // Per-tag counts for the filter tabs. These were derived from the fully
+  // loaded list, so they silently became "counts of whatever happened to be on
+  // this page" the moment pagination existed. Counted in the database instead.
+  const tagCounts: Record<string, number> = {};
+  await Promise.all(
+    ["Priority", "Review", "Hold"].map(async (tag) => {
+      const { count } = await applyFilters(
+        supabase.from("candidates").select("id", { count: "exact", head: true })
+      ).eq("screening_tag", tag);
+      tagCounts[tag] = count ?? 0;
+    })
+  );
 
   // Get cheat events and second interview scores for each candidate
   const candidateIds = (candidates || []).map((c) => c.id);
@@ -114,7 +169,13 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json({ candidates: enriched });
+  return NextResponse.json({
+    candidates: enriched,
+    total: total ?? 0,
+    page,
+    pageSize,
+    tagCounts,
+  });
 }
 
 // PATCH — update specific candidate fields (earnings, deactivate, etc.)
