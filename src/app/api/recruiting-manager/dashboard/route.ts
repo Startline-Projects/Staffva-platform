@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
   // Manar's personal TS queue — candidates assigned to this manager
   const { data: myQueue } = await supabase
     .from("candidates")
-    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, country, updated_at, created_at")
+    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, assignment_pending_review, country, updated_at, created_at")
     .eq("assigned_recruiter", user.id)
     .not("admin_status", "in", '("rejected")')
     .order("updated_at", { ascending: false })
@@ -234,7 +234,7 @@ export async function GET(req: NextRequest) {
   // All candidates with assignment info (for manager assignment table)
   const { data: allCandidatesRaw } = await supabase
     .from("candidates")
-    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, country, updated_at, created_at, assigned_recruiter, english_mc_score, english_comprehension_score, id_verification_status, ai_interview_completed_at, second_interview_status")
+    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, assignment_pending_review, country, updated_at, created_at, assigned_recruiter, english_mc_score, english_comprehension_score, id_verification_status, ai_interview_completed_at, second_interview_status")
     .not("admin_status", "in", '("rejected")')
     .order("created_at", { ascending: false })
     .limit(500);

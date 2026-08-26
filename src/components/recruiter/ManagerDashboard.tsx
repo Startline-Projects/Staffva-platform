@@ -113,6 +113,7 @@ interface ManagerData {
     role_category_custom: string | null;
     admin_status: string;
     screening_tag: string;
+    assignment_pending_review: boolean;
     country: string;
     updated_at: string;
     created_at: string;
@@ -124,6 +125,11 @@ interface ManagerData {
     role_category_custom: string | null;
     admin_status: string;
     screening_tag: string;
+    // The real routing flag. This dashboard tested
+    // `screening_tag === "assignment_pending_review"`, but screening_tag only
+    // ever holds Priority, Review, Hold or null — routing state lives in its
+    // own boolean, which neither query was even selecting.
+    assignment_pending_review: boolean;
     country: string;
     updated_at: string;
     created_at: string;
@@ -137,8 +143,10 @@ interface ManagerData {
   }[];
 }
 
-function stageBadge(status: string, tag: string | null) {
-  if (tag === "assignment_pending_review") return { label: "Needs routing", cls: "bg-red-100 text-red-700" };
+function stageBadge(status: string, pendingRouting: boolean) {
+  // Was `tag === "assignment_pending_review"`, comparing screening_tag against
+  // a value that column never holds, so this badge never rendered.
+  if (pendingRouting) return { label: "Needs routing", cls: "bg-red-100 text-red-700" };
   switch (status) {
     case "pending_speaking_review":
     case "pending_2nd_interview":
@@ -286,7 +294,7 @@ export default function ManagerDashboard() {
   const totalCandidates = allCandidates.length;
   const approvedThisWeek = data.metrics.approvedThisWeek;
   const pendingRecruiterInterview = allCandidates.filter((c) => c.assigned_recruiter && c.second_interview_status !== "completed").length;
-  const needsRouting = allCandidates.filter((c) => c.screening_tag === "assignment_pending_review").length;
+  const needsRouting = allCandidates.filter((c) => c.assignment_pending_review).length;
 
   // Pipeline counts — matches the 6-step candidate flow
   const pipelineRows = [
@@ -299,9 +307,9 @@ export default function ManagerDashboard() {
   ];
 
   // TS view counts
-  const myActionNeeded = myQueue.filter((c) => ["pending_speaking_review", "pending_review", "profile_review", "pending_2nd_interview"].includes(c.admin_status) || c.screening_tag === "assignment_pending_review");
+  const myActionNeeded = myQueue.filter((c) => ["pending_speaking_review", "pending_review", "profile_review", "pending_2nd_interview"].includes(c.admin_status) || c.assignment_pending_review);
   const myApprovedThisWeek = myQueue.filter((c) => c.admin_status === "approved" && isThisWeek(c.updated_at)).length;
-  const myNeedsRouting = myQueue.filter((c) => c.screening_tag === "assignment_pending_review").length;
+  const myNeedsRouting = myQueue.filter((c) => c.assignment_pending_review).length;
 
   // Alerts
   const routingAlert = needsRouting > 0;
@@ -316,8 +324,8 @@ export default function ManagerDashboard() {
       return (c.display_name || "").toLowerCase().includes(q) || (c.role_category || "").toLowerCase().includes(q);
     })
     .sort((a, b) => {
-      const aRouting = a.screening_tag === "assignment_pending_review" ? 0 : 1;
-      const bRouting = b.screening_tag === "assignment_pending_review" ? 0 : 1;
+      const aRouting = a.assignment_pending_review ? 0 : 1;
+      const bRouting = b.assignment_pending_review ? 0 : 1;
       if (aRouting !== bRouting) return aRouting - bRouting;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     })
@@ -502,7 +510,7 @@ export default function ManagerDashboard() {
                   </thead>
                   <tbody>
                     {filteredCandidates.map((c) => {
-                      const badge = stageBadge(c.admin_status, c.screening_tag);
+                      const badge = stageBadge(c.admin_status, c.assignment_pending_review);
                       const waiting = daysAgo(c.updated_at);
                       return (
                         <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
@@ -731,12 +739,12 @@ export default function ManagerDashboard() {
               <div className="space-y-2">
                 {myActionNeeded
                   .sort((a, b) => {
-                    const aPri = a.screening_tag === "assignment_pending_review" ? 0 : 1;
-                    const bPri = b.screening_tag === "assignment_pending_review" ? 0 : 1;
+                    const aPri = a.assignment_pending_review ? 0 : 1;
+                    const bPri = b.assignment_pending_review ? 0 : 1;
                     return aPri - bPri;
                   })
                   .map((c) => {
-                    const isRouting = c.screening_tag === "assignment_pending_review";
+                    const isRouting = c.assignment_pending_review;
                     const isPending2nd = ["pending_speaking_review", "pending_2nd_interview"].includes(c.admin_status);
                     const isPendingProfileReview = ["pending_review", "profile_review"].includes(c.admin_status);
                     const isPendingReview = isPending2nd || isPendingProfileReview;
@@ -815,7 +823,7 @@ export default function ManagerDashboard() {
             </div>
             <div className="space-y-2">
               {filteredMyQueue.map((c) => {
-                const badge = stageBadge(c.admin_status, c.screening_tag);
+                const badge = stageBadge(c.admin_status, c.assignment_pending_review);
                 const initials = (c.display_name || "??").slice(0, 2).toUpperCase();
                 return (
                   <div key={c.id} className="rounded-lg border border-gray-200 bg-white p-4">
