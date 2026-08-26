@@ -42,6 +42,37 @@ function getInitials(name: string): string {
 
 const AVATAR_COLORS = ['#F4D9B0', '#C8E6C9', '#BBDEFB', '#FFE0B2'];
 
+// Declared at module scope, not inside VoiceMoment. A component defined during
+// render is a NEW component type on every render, so React unmounts and remounts
+// it rather than updating it — which restarted Spinner's CSS animation, and
+// re-injected its <style> block, every time playback state changed.
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="7,4 20,12 7,20" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} style={{ animation: 'spin 0.8s linear infinite' }}>
+      <circle cx="12" cy="12" r="9" strokeOpacity={0.25} />
+      <path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round" />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </svg>
+  );
+}
+
 export default function VoiceMoment({ candidates }: Props) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -97,33 +128,6 @@ export default function VoiceMoment({ candidates }: Props) {
 
     audioInstances.current[id].play();
     setPlayingId(id);
-  }
-
-  function PlayIcon() {
-    return (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <polygon points="7,4 20,12 7,20" />
-      </svg>
-    );
-  }
-
-  function PauseIcon() {
-    return (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <rect x="6" y="5" width="4" height="14" rx="1" />
-        <rect x="14" y="5" width="4" height="14" rx="1" />
-      </svg>
-    );
-  }
-
-  function Spinner() {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} style={{ animation: 'spin 0.8s linear infinite' }}>
-        <circle cx="12" cy="12" r="9" strokeOpacity={0.25} />
-        <path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round" />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </svg>
-    );
   }
 
   return (

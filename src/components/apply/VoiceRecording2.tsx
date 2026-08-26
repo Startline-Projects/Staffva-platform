@@ -23,6 +23,36 @@ interface Props {
   onComplete: (url: string) => void;
 }
 
+// Module scope, not inside the component. Declared during render it became a new
+// component type on every render, so React remounted it instead of updating it —
+// and this card is on screen while a per-second recording timer ticks, so the
+// text the candidate is reading was being torn down and rebuilt once a second.
+// It closes over nothing: DISCUSSION_POINTS is a module constant.
+function DiscussionPointsCard() {
+  return (
+    <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6 text-left">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+        Cover these points:
+      </p>
+      <ol className="space-y-2 text-sm text-gray-600">
+        {DISCUSSION_POINTS.map((point) => (
+          <li key={point.num} className="flex gap-2">
+            <span className="font-semibold text-[#FE6E3E] shrink-0">
+              {point.num}.
+            </span>
+            <span
+              dangerouslySetInnerHTML={{
+                __html: point.text
+                  .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"),
+              }}
+            />
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export default function VoiceRecording2({ candidateId, onComplete }: Props) {
   const [phase, setPhase] = useState<
     "instructions" | "recording" | "review" | "uploading"
@@ -162,30 +192,6 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
 
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-
-  // Discussion points component — shown during prep and recording
-  const DiscussionPointsCard = () => (
-    <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6 text-left">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-        Cover these points:
-      </p>
-      <ol className="space-y-2 text-sm text-gray-600">
-        {DISCUSSION_POINTS.map((point) => (
-          <li key={point.num} className="flex gap-2">
-            <span className="font-semibold text-[#FE6E3E] shrink-0">
-              {point.num}.
-            </span>
-            <span
-              dangerouslySetInnerHTML={{
-                __html: point.text
-                  .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"),
-              }}
-            />
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
