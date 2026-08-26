@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { extractText } from "@/lib/anthropic";
+import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -25,6 +26,19 @@ export async function POST(req: NextRequest) {
     if (!candidateId || !interviewNotes?.trim()) {
       return NextResponse.json({ error: "Missing candidateId or interviewNotes" }, { status: 400 });
     }
+
+    // The notes are interpolated into the prompt, so their length is the cost.
+    // Generous — these are real interview notes — but not unbounded.
+    const MAX_NOTES_CHARS = 20000;
+    if (typeof interviewNotes !== "string" || interviewNotes.length > MAX_NOTES_CHARS) {
+      return NextResponse.json(
+        { error: `Interview notes must be text of at most ${MAX_NOTES_CHARS} characters` },
+        { status: 400 }
+      );
+    }
+
+    const limited = await enforceRateLimit(`recruiter-scoring:${user.id}`, LIMITS.recruiterScoring);
+    if (limited) return limited;
 
     // Recruiters may only score candidates in their assigned categories.
     if (user.app_metadata?.role === "recruiter") {

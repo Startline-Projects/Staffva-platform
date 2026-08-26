@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateContractHtml, generateSigningToken } from "@/lib/contracts";
 import { extractText } from "@/lib/anthropic";
+import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -60,6 +61,11 @@ export async function POST(req: NextRequest) {
 
   // ═══ Generate AI message ═══
   if (action === "generate_message") {
+    // Reachable by any authenticated user, and it makes a paid model call.
+    // Keyed on the user id, which is unforgeable.
+    const limited = await enforceRateLimit(`offer-message:${user.id}`, LIMITS.offerMessage);
+    if (limited) return limited;
+
     const { candidateId } = body;
     if (!candidateId) return NextResponse.json({ error: "Missing candidateId" }, { status: 400 });
 

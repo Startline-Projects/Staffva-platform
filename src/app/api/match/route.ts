@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { extractText } from "@/lib/anthropic";
+import { enforceRateLimit, clientIp, LIMITS } from "@/lib/rateLimit";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -98,7 +99,19 @@ function calculateScore(
 export async function POST(req: NextRequest) {
   try {
     const { query } = await req.json();
-    if (!query?.trim()) {
+
+    // The query is interpolated into the prompt below, so its LENGTH is the
+    // cost multiplier — max_tokens bounds only the reply, not the bill. There
+    // was no type check and no cap, so a single request could carry a megabyte
+    // of input tokens. Real queries are a sentence.
+    const MAX_QUERY_CHARS = 2000;
+    if (typeof query !== "string" || query.length > MAX_QUERY_CHARS) {
+      return NextResponse.json(
+        { error: `Search must be text of at most ${MAX_QUERY_CHARS} characters` },
+        { status: 400 }
+      );
+    }
+    if (!query.trim()) {
       return NextResponse.json({ error: "Please describe what you need" }, { status: 400 });
     }
 
@@ -114,6 +127,17 @@ export async function POST(req: NextRequest) {
         clientId = client?.id || null;
       }
     } catch { /* unauthenticated — fine */ }
+
+    // Rate limit AFTER the optional auth block, so a signed-in client is keyed
+    // on their own id rather than sharing a bucket with everyone behind the
+    // same office NAT. This route reaches Anthropic without any credential —
+    // the auth above is optional and only used for analytics — so without this
+    // it is a paid endpoint open to the internet.
+    const limited = await enforceRateLimit(
+      clientId ? `match:client:${clientId}` : `match:ip:${clientIp(req)}`,
+      LIMITS.matchSearch
+    );
+    if (limited) return limited;
 
     // Extract structured requirements via Claude API
     let extracted: ExtractedQuery = {

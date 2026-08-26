@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { ownsCandidate } from "@/lib/auth";
 import { extractText } from "@/lib/anthropic";
+import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -31,11 +32,31 @@ export async function POST(req: NextRequest) {
     const { candidateId, customRole } = await req.json();
     if (!candidateId || !customRole) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
+    // customRole goes into the prompt below, so its length is what costs money.
+    // A job title is a few words.
+    const MAX_ROLE_CHARS = 500;
+    if (typeof customRole !== "string" || customRole.length > MAX_ROLE_CHARS) {
+      return NextResponse.json(
+        { error: `Role description must be text of at most ${MAX_ROLE_CHARS} characters` },
+        { status: 400 }
+      );
+    }
+
     // Previously unauthenticated: anyone could spend Anthropic credits and
     // overwrite any candidate's classified role.
     if (!(await ownsCandidate(candidateId))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+
+    // Ownership stops someone else's credits being spent on someone else's
+    // candidate; it does not stop a candidate driving their OWN classification
+    // in a loop. Checked after the ownership test so a failed probe cannot
+    // consume the real owner's budget.
+    const limited = await enforceRateLimit(
+      `classify-role:${candidateId}`,
+      LIMITS.classifyRole
+    );
+    if (limited) return limited;
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ classified: null, reason: "no_api_key" });

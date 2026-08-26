@@ -33,6 +33,25 @@ export const LIMITS = {
   // the account lookup and the 60s cooldown, so unknown-email probes and
   // cooldown hits cannot consume a real user's budget.
   verificationEmailAccount: { limit: 5, windowSeconds: 3600 },
+
+  // ── Anthropic-backed routes ──
+  //
+  // Until now enforceRateLimit had exactly ONE caller in this app, on the
+  // verification email, and rate_limit_hits held two rows lifetime — both
+  // verification. Nothing guarding a PAID model call was limited at all.
+  //
+  // /api/match is the one that matters: it takes no credentials (its auth block
+  // is a try/catch that only sets clientId for analytics), middleware excludes
+  // api/ entirely, and the caller's `query` is interpolated straight into the
+  // prompt. So anyone on the internet could drive Sonnet calls in a loop, and
+  // pay for them with someone else's account.
+  //
+  // These are ceilings on abuse, not throttles on use: /api/match has served a
+  // single request in its lifetime and classify-role has fired three times.
+  matchSearch: { limit: 300, windowSeconds: 3600 },
+  classifyRole: { limit: 20, windowSeconds: 3600 },
+  offerMessage: { limit: 30, windowSeconds: 3600 },
+  recruiterScoring: { limit: 100, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {
