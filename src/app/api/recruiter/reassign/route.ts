@@ -89,7 +89,21 @@ export async function POST(req: NextRequest) {
       assigned_recruiter: newRecruiterId,
       assigned_recruiter_at: new Date().toISOString(),
       assignment_pending_review: false,
-      screening_tag: null,
+      // NOT screening_tag: null.
+      //
+      // The screening verdict is a function of the CANDIDATE, not of who is
+      // assigned to them. The model that produces it is given name, country,
+      // role, experience, rate, bio, US experience, skills and tools — no
+      // recruiter field anywhere — and this route changes only the assignment.
+      // So reassigning cannot invalidate the verdict, and nulling the tag did
+      // not mark it stale, it destroyed it: the score and the reason survive in
+      // their own columns with nothing left to say what they concluded.
+      //
+      // Nothing re-enqueues after a reassignment either, so the tag never came
+      // back. 32 candidates were left with a score, a reason and no tag —
+      // invisible to every tag-filtered recruiter view and silently miscounted
+      // in every tag-based dashboard total. The sibling route,
+      // admin/reassign, has always left the tag alone; these two disagreed.
     })
     .eq("id", candidateId);
 
