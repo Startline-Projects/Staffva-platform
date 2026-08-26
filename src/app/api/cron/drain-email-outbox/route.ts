@@ -43,7 +43,17 @@ export async function GET(request: NextRequest) {
 
   const started = Date.now();
   const supabase = getAdminClient();
-  const results = { sent: 0, retried: 0, failed: 0, reclaimed: 0, skipped: 0 };
+  const results = {
+    sent: 0,
+    retried: 0,
+    failed: 0,
+    reclaimed: 0,
+    skipped: 0,
+    // Set when the run stopped early because the integration itself looks
+    // broken, rather than because it ran out of work or time. Reported in the
+    // response so a held queue is visible in the cron dashboard.
+    haltedOnPermanentFailure: false,
+  };
 
   // Reclaim rows stranded by a killed invocation. Without this a deploy or a
   // timeout mid-send leaves the row in 'sending' forever: not due, not failed,
@@ -69,7 +79,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nothing due", ...results });
   }
 
+  // Circuit breaker. A permanent failure is evidence about the INTEGRATION, not
+  // about the message — a revoked key, an unverified sender, a suspended
+  // account. Marching the rest of the batch into the same fault burns 50 rows a
+  // minute, 3,000 an hour, and every one of them is a verification email, which
+  // is a person who can now never log in. There is no requeue path back.
+  //
+  // So stop after a few. Five burned and a held queue is recoverable; a burned
+  // backlog is not.
+  let consecutivePermanent = 0;
+  const PERMANENT_FAILURE_LIMIT = 5;
+
   for (const row of due) {
+    if (consecutivePermanent >= PERMANENT_FAILURE_LIMIT) {
+      results.haltedOnPermanentFailure = true;
+      results.skipped = due.length - (results.sent + results.retried + results.failed);
+      break;
+    }
+
     if (Date.now() - started > DEADLINE_MS) {
       results.skipped = due.length - (results.sent + results.retried + results.failed);
       break;
@@ -117,6 +144,7 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", row.id);
       results.sent++;
+      consecutivePermanent = 0;
     } catch (err) {
       const attempts = row.attempts + 1;
       const message = err instanceof Error ? err.message : String(err);
@@ -125,6 +153,10 @@ export async function GET(request: NextRequest) {
       // the alert — by hours, on the email whose delay costs a signup.
       const permanent = err instanceof EmailSendError && !err.retryable;
       const exhausted = permanent || attempts >= row.max_attempts;
+
+      // Only a PERMANENT failure trips the breaker. Exhausting retries is a
+      // per-message outcome and says nothing about the next message.
+      consecutivePermanent = permanent ? consecutivePermanent + 1 : 0;
 
       await supabase
         .from("email_outbox")

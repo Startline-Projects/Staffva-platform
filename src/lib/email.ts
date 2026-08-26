@@ -61,13 +61,27 @@ function classify(error: unknown): { message: string; status?: number; retryable
       ? String((error as { message: unknown }).message)
       : JSON.stringify(error);
 
-  const status =
+  // Only a real number counts as a status.
+  //
+  // This was `Number(statusCode)`, which looks harmless and is not. On ANY
+  // fetch-level failure — DNS, connection reset, TLS, Resend's edge briefly
+  // unreachable — the SDK returns `{ name: "application_error", statusCode:
+  // null, message: "Unable to fetch data..." }` (resend/dist/index.mjs:1310).
+  // `"statusCode" in error` is true because the key is present, and
+  // `Number(null)` is 0, so status became 0 — which is not undefined, not 429,
+  // and not in the 5xx range. Every one of those branches missed, `retryable`
+  // came out false, and the drain treated a passing network blip as a permanent
+  // fault. That is precisely the transient failure the outbox exists to absorb,
+  // and it was the one case guaranteed to burn a message instead.
+  const rawStatus =
     typeof error === "object" && error !== null && "statusCode" in error
-      ? Number((error as { statusCode: unknown }).statusCode)
+      ? (error as { statusCode: unknown }).statusCode
       : undefined;
+  const status = typeof rawStatus === "number" ? rawStatus : undefined;
 
   // 4xx other than 429 are permanent — a bad address or an unverified sender
-  // will not succeed on a retry, however long you wait.
+  // will not succeed on a retry, however long you wait. An absent or non-numeric
+  // status is treated as retryable: unknown is not the same as hopeless.
   const retryable = status === undefined || status === 429 || (status >= 500 && status < 600);
 
   return { message, status, retryable };
