@@ -172,6 +172,27 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Passed the AI interview, but no second interviewer was ever assigned — so
+  // no delegation email went out and no recruiter knows they exist. This is the
+  // state 27 of 29 passed candidates sat in for the whole of the last campaign,
+  // undetected, because the routing lookup returned no rows and the code treated
+  // that as "nothing to do" rather than as a failure.
+  const { count: unrouted } = await supabase
+    .from("ai_interviews")
+    .select("*", head)
+    .eq("passed", true)
+    .is("second_interviewer_email", null)
+    .lt("completed_at", since(60 * 60 * 1000));
+
+  if (unrouted) {
+    checks.push({
+      key: "second_interview_unrouted",
+      severity: "critical",
+      count: unrouted,
+      message: `${unrouted} candidate(s) passed the AI interview over an hour ago with no second interviewer assigned — nobody was emailed, and no recruiter knows they are waiting.`,
+    });
+  }
+
   // Interviews parked because their transcript was mostly silence. The scoring
   // route deliberately refuses to score these rather than reject a candidate
   // for audio that failed on our side — but a parked interview gets no score,
