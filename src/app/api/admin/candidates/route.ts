@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
+import { selectIn } from "@/lib/selectIn";
 
 function getAdminClient() {
   return createClient(
@@ -63,20 +64,26 @@ export async function GET(request: Request) {
 
   // Get cheat events and second interview scores for each candidate
   const candidateIds = (candidates || []).map((c) => c.id);
-  const safeIds = candidateIds.length > 0 ? candidateIds : ["none"];
 
+  // Chunked: this query is unbounded, so at the 10k target candidateIds runs to
+  // several thousand and a single .in() would exceed the ~1,650-id URL ceiling
+  // and drop the connection. See src/lib/selectIn.ts for the measurements.
   const [{ data: testEvents }, { data: interviews }] = await Promise.all([
-    supabase
-      .from("test_events")
-      .select("*")
-      .in("candidate_id", safeIds),
-    supabase
-      .from("candidate_interviews")
-      .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
-      .eq("interview_number", 2)
-      .eq("status", "completed")
-      .in("candidate_id", safeIds)
-      .order("conducted_at", { ascending: false }),
+    selectIn(candidateIds, (chunk) =>
+      supabase
+        .from("test_events")
+        .select("*")
+        .in("candidate_id", chunk)
+    ),
+    selectIn(candidateIds, (chunk) =>
+      supabase
+        .from("candidate_interviews")
+        .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
+        .eq("interview_number", 2)
+        .eq("status", "completed")
+        .in("candidate_id", chunk)
+        .order("conducted_at", { ascending: false })
+    ),
   ]);
 
   // Group events by candidate

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { selectIn } from "@/lib/selectIn";
 
 function getAdminClient() {
   return createClient(
@@ -137,18 +138,30 @@ export async function GET() {
 
     if (poolIds.length > 0) {
       // Get AI interview scores for pool
-      const { data: aiScores } = await admin
-        .from("ai_interviews")
-        .select("candidate_id, overall_score")
-        .in("candidate_id", poolIds)
-        .eq("status", "completed")
-        .eq("passed", true)
-        .order("overall_score", { ascending: false });
+      const { data: aiScores } = await selectIn(poolIds, (chunk) =>
+        admin
+          .from("ai_interviews")
+          .select("candidate_id, overall_score")
+          .in("candidate_id", chunk)
+          .eq("status", "completed")
+          .eq("passed", true)
+          .order("overall_score", { ascending: false })
+      );
+
+      // Re-sort after merging. Each chunk comes back ordered within itself, but
+      // the merged array is ordered by chunk, and the selection below takes a
+      // GLOBAL top 4 — so without this it would pick the best of the first
+      // chunk rather than the best overall. (The chunked query in
+      // admin/candidates needs no equivalent: a given candidate_id lands in
+      // exactly one chunk, so its own rows keep their relative order.)
+      const orderedScores = [...(aiScores || [])].sort(
+        (a, b) => (b.overall_score ?? 0) - (a.overall_score ?? 0)
+      );
 
       // Get top 4 unique candidates by score
       const seen = new Set<string>();
       const topCandidateIds: string[] = [];
-      for (const ai of aiScores || []) {
+      for (const ai of orderedScores) {
         if (!seen.has(ai.candidate_id) && ai.overall_score) {
           seen.add(ai.candidate_id);
           topCandidateIds.push(ai.candidate_id);

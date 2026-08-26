@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { selectIn } from "@/lib/selectIn";
 
 function getAdminClient() {
   return createClient(
@@ -36,10 +37,12 @@ export async function GET() {
 
   // Get candidate details
   const candidateIds = [...new Set(lockouts.map((l) => l.candidate_id).filter(Boolean))];
-  const { data: candidates } = await supabase
-    .from("candidates")
-    .select("id, display_name, full_name, email, country, role_category, permanently_blocked")
-    .in("id", candidateIds.length > 0 ? candidateIds : ["none"]);
+  const { data: candidates } = await selectIn(candidateIds, (chunk) =>
+    supabase
+      .from("candidates")
+      .select("id, display_name, full_name, email, country, role_category, permanently_blocked")
+      .in("id", chunk)
+  );
 
   const candidateMap = new Map((candidates || []).map((c) => [c.id, c]));
 

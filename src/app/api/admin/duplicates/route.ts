@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { selectIn } from "@/lib/selectIn";
 
 function getAdminClient() {
   return createClient(
@@ -38,10 +39,12 @@ export async function GET() {
     if (r.duplicate_of_candidate_id) candidateIds.add(r.duplicate_of_candidate_id);
   }
 
-  const { data: candidates } = await supabase
-    .from("candidates")
-    .select("id, display_name, full_name, email, country, role_category, admin_status, profile_photo_url")
-    .in("id", [...candidateIds]);
+  const { data: candidates } = await selectIn([...candidateIds], (chunk) =>
+    supabase
+      .from("candidates")
+      .select("id, display_name, full_name, email, country, role_category, admin_status, profile_photo_url")
+      .in("id", chunk)
+  );
 
   const candidateMap = new Map((candidates || []).map((c) => [c.id, c]));
 
