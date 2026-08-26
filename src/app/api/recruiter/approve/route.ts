@@ -3,7 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
-import { checkApprovalGates } from "@/lib/approvalGates";
+import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(
@@ -80,28 +80,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Pre-condition 1: Second interview must be completed
-    if (candidate.second_interview_status !== "completed") {
+    // Interview preconditions, shared with recruiting-manager/approve. These
+    // used to be written out inline here and were simply absent from the
+    // manager route; keeping one implementation is what stops that recurring.
+    // The shared version also fails closed if the AI-interview lookup itself
+    // errors, which this inline copy did not — it destructured only `data`, so
+    // a failed query looked identical to "no passing interview".
+    const precondition = await checkApprovalPreconditions(supabase, candidate);
+    if (!precondition.ok) {
       return NextResponse.json(
-        { error: "Second interview not completed" },
-        { status: 400 }
-      );
-    }
-
-    // Pre-condition 2: AI interview must be passed
-    const { data: aiInterview } = await supabase
-      .from("ai_interviews")
-      .select("id")
-      .eq("candidate_id", candidateId)
-      .eq("status", "completed")
-      .eq("passed", true)
-      .limit(1)
-      .maybeSingle();
-
-    if (!aiInterview) {
-      return NextResponse.json(
-        { error: "AI interview not passed" },
-        { status: 400 }
+        { error: precondition.error },
+        { status: precondition.status }
       );
     }
 

@@ -1,7 +1,22 @@
 /**
- * Shared 10-gate approval check for candidate profiles.
- * Used by both recruiter/approve and recruiting-manager/approve endpoints.
+ * Shared approval checks for candidate profiles.
+ *
+ * Used by both recruiter/approve and recruiting-manager/approve. The ten
+ * profile-completeness gates below were already shared; the two INTERVIEW
+ * preconditions were not, and only the recruiter route had them. So the
+ * manager route would approve a candidate who had never completed a second
+ * interview and never passed the AI interview — it even selected
+ * second_interview_status and then never looked at it.
+ *
+ * Measured before fixing: 48 candidates passed all ten gates, all 48 had no
+ * completed second interview, and 23 of them had never passed the AI
+ * interview. 41 were approvable through the manager route at that moment and
+ * refused by the recruiter route.
+ *
+ * Both checks now live here together, so the next route that approves a
+ * candidate cannot pick up one half and miss the other.
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface GateCandidate {
   english_mc_score: number | null;
@@ -58,4 +73,48 @@ export function checkApprovalGates(candidate: GateCandidate): {
   }
 
   return { pass: failingConditions.length === 0, failingConditions };
+}
+
+/**
+ * The two interview preconditions that must hold before ANY approval.
+ *
+ * Separate from checkApprovalGates because these need a database round trip
+ * while the gates are pure. Kept in the same module so they are found together.
+ */
+export async function checkApprovalPreconditions(
+  supabase: SupabaseClient,
+  candidate: { id: string; second_interview_status: string | null }
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  if (candidate.second_interview_status !== "completed") {
+    return {
+      ok: false,
+      status: 400,
+      error: "Second interview not completed",
+    };
+  }
+
+  const { data: aiInterview, error } = await supabase
+    .from("ai_interviews")
+    .select("id")
+    .eq("candidate_id", candidate.id)
+    .eq("status", "completed")
+    .eq("passed", true)
+    .limit(1)
+    .maybeSingle();
+
+  // Fail CLOSED. This decides whether an unvetted profile goes live to clients,
+  // so an unreachable check must block rather than wave the approval through.
+  if (error) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Could not verify the AI interview result. Please try again.",
+    };
+  }
+
+  if (!aiInterview) {
+    return { ok: false, status: 400, error: "AI interview not passed" };
+  }
+
+  return { ok: true };
 }

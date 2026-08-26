@@ -3,7 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
-import { checkApprovalGates } from "@/lib/approvalGates";
+import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(
@@ -39,6 +39,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
     }
 
+    // Interview preconditions. These were missing here entirely — this route
+    // selected second_interview_status and never read it, and never looked at
+    // the AI interview at all. At the time of the fix that meant 41 candidates
+    // could be pushed live through this endpoint that recruiter/approve would
+    // have refused, 23 of whom had never passed the AI interview.
+    //
+    // A recruiting manager outranks a recruiter, so it is tempting to read the
+    // missing checks as an intentional override. They are not: there is no flag,
+    // no recorded reason and no audit trail — the checks are simply absent. If a
+    // deliberate override is wanted it should be explicit and recorded, not the
+    // default behaviour of the higher-privilege route.
+    const precondition = await checkApprovalPreconditions(admin, candidate);
+    if (!precondition.ok) {
+      return NextResponse.json(
+        { error: precondition.error },
+        { status: precondition.status }
+      );
+    }
+
     // 10-gate approval check (shared)
     const { pass, failingConditions } = checkApprovalGates(candidate);
 
@@ -49,14 +68,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Approve candidate
-    await admin
+    // Approve candidate. The .neq guard makes this a compare-and-swap: two
+    // managers clicking at once produce one approval and one 409, rather than
+    // two "successes", two approval emails and two profile_went_live_at writes.
+    // The result was also being discarded here, so a failed update reported
+    // success and the candidate was emailed to say they were live.
+    const { data: updated, error: updateError } = await admin
       .from("candidates")
       .update({
         admin_status: "approved",
         profile_went_live_at: new Date().toISOString(),
       })
-      .eq("id", candidateId);
+      .eq("id", candidateId)
+      .neq("admin_status", "approved")
+      .select("id")
+      .single();
+
+    if (updateError || !updated) {
+      return NextResponse.json(
+        { error: "Candidate already approved or update failed" },
+        { status: 409 }
+      );
+    }
 
     // Fire AI insights (fire-and-forget)
     generateInsights(candidateId).catch((err) =>
