@@ -337,15 +337,36 @@ function TagInput({ tags, setTags, max, placeholder, suggestions }: {
           </span>
         ))}
       </div>
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(input); } if (e.key === "Backspace" && !input && tags.length) setTags(tags.slice(0, -1)); }}
-        placeholder={tags.length >= max ? `Max ${max} reached` : placeholder}
-        disabled={tags.length >= max}
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-      />
+      {/* On a phone the keyboard shows "next", not "return", because this input
+          sits in a form with more fields below — and "next" moves focus without
+          ever firing a keydown for Enter. (Android GBoard advances focus
+          directly; mid-composition, keydown reports keyCode 229 rather than
+          Enter.) So the typed word was silently dropped and the form jumped on.
+          Three defences: a visible Add button, enterKeyHint so the key says
+          "done" instead of "next", and adding whatever is pending on blur so it
+          survives however focus leaves. addTag dedupes, so blur-then-tap on Add
+          cannot double-add. */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          enterKeyHint="done"
+          onChange={(e) => setInput(e.target.value)}
+          onBlur={() => addTag(input)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(input); } if (e.key === "Backspace" && !input && tags.length) setTags(tags.slice(0, -1)); }}
+          placeholder={tags.length >= max ? `Max ${max} reached` : placeholder}
+          disabled={tags.length >= max}
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={() => addTag(input)}
+          disabled={!input.trim() || tags.length >= max}
+          className="shrink-0 rounded-lg border border-primary px-4 py-3 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary"
+        >
+          Add
+        </button>
+      </div>
       {suggestions && suggestions.length > 0 && tags.length < max && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {suggestions.filter((s) => !tags.includes(s)).slice(0, 6).map((s) => (
@@ -786,12 +807,12 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
           <div>
             <label className="block text-sm font-medium text-text mb-1">Key Skills</label>
-            <TagInput tags={skills} setTags={setSkills} max={10} placeholder="Type a skill and press Enter" suggestions={SKILLS_BY_ROLE[roleCategory] ?? []} />
+            <TagInput tags={skills} setTags={setSkills} max={10} placeholder="Type a skill, then tap Add" suggestions={SKILLS_BY_ROLE[roleCategory] ?? []} />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-text mb-1">Tools & Software You Use</label>
-            <TagInput tags={tools} setTags={setTools} max={8} placeholder="Type and press Enter" suggestions={TOOLS_BY_ROLE[roleCategory] ?? []} />
+            <TagInput tags={tools} setTags={setTools} max={8} placeholder="Type a tool, then tap Add" suggestions={TOOLS_BY_ROLE[roleCategory] ?? []} />
           </div>
 
           <div>

@@ -486,6 +486,61 @@ const DURATIONS = [
   "5+ years",
 ];
 
+
+// ─── Work-entry tag entry ───
+//
+// Controlled, so the Add button has a value to read — the originals were
+// uncontrolled and pulled the value off the keydown event, which a button
+// cannot do.
+//
+// The bug this fixes: on a phone the keyboard shows "next" rather than
+// "return", because these inputs sit in a form with more fields below, and
+// "next" moves focus WITHOUT firing a keydown for Enter. The typed word was
+// dropped and the form advanced. Enter still works where the keyboard sends it;
+// the button and the blur handler cover where it does not.
+function WorkEntryTagInput({ placeholder, onAdd, disabled }: {
+  placeholder: string;
+  onAdd: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState("");
+
+  function commit() {
+    const v = value.trim().replace(/,+$/, "");
+    if (v) onAdd(v);
+    setValue("");
+  }
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={value}
+        enterKeyHint="done"
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+      />
+      <button
+        type="button"
+        onClick={commit}
+        disabled={disabled || !value.trim()}
+        className="shrink-0 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary"
+      >
+        Add
+      </button>
+    </div>
+  );
+}
+
 export default function ProfileBuilder({
   candidateId,
   candidateData,
@@ -1434,17 +1489,10 @@ export default function ProfileBuilder({
                       </span>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Type a tool and press Enter"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === ",") {
-                        e.preventDefault();
-                        const val = (e.target as HTMLInputElement).value.trim().replace(",", "");
-                        if (val) { addWorkEntryTag(i, "tools_used", val); (e.target as HTMLInputElement).value = ""; }
-                      }
-                    }}
-                    className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  <WorkEntryTagInput
+                    placeholder={entry.tools_used.length >= 5 ? "Max 5 reached" : "Type a tool, then tap Add"}
+                    disabled={entry.tools_used.length >= 5}
+                    onAdd={(v) => addWorkEntryTag(i, "tools_used", v)}
                   />
                 </div>
 
@@ -1459,17 +1507,10 @@ export default function ProfileBuilder({
                       </span>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Type a skill and press Enter"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === ",") {
-                        e.preventDefault();
-                        const val = (e.target as HTMLInputElement).value.trim().replace(",", "");
-                        if (val) { addWorkEntryTag(i, "skills_gained", val); (e.target as HTMLInputElement).value = ""; }
-                      }
-                    }}
-                    className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  <WorkEntryTagInput
+                    placeholder={entry.skills_gained.length >= 5 ? "Max 5 reached" : "Type a skill, then tap Add"}
+                    disabled={entry.skills_gained.length >= 5}
+                    onAdd={(v) => addWorkEntryTag(i, "skills_gained", v)}
                   />
                 </div>
               </div>
