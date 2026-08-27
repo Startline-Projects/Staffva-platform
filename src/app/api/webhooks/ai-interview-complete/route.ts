@@ -42,11 +42,20 @@ export async function POST(req: NextRequest) {
     const passed = overallScore >= 60;
 
     // Writeback to candidates row — ai_interview_completed_at marks completion
-    // regardless of pass/fail; admin_status advances on pass, or flips to
-    // 'ai_interview_failed' on fail so the dashboard can render the retake gate.
+    // regardless of pass/fail; on fail admin_status flips to
+    // 'ai_interview_failed' so the dashboard can render the retake gate.
+    //
+    // A pass no longer sets a status here. It used to write
+    // 'pending_2nd_interview', a step that no longer exists; whether a pass makes
+    // someone approvable also depends on the ten profile gates, so
+    // promote_candidate_if_ready decides that below.
+    //
+    // This route currently has no callers — the interview app scores and
+    // promotes directly. It is kept in working order rather than left holding a
+    // status that would strand anyone the day someone wires it up.
     const candidateUpdate: Record<string, unknown> = {
       ai_interview_completed_at: new Date().toISOString(),
-      admin_status: passed ? "pending_2nd_interview" : "ai_interview_failed",
+      ...(passed ? {} : { admin_status: "ai_interview_failed" }),
     };
     // Reset retake-ready notification flag on every fail so the cron will
     // re-notify the candidate when the new 3-day window unlocks.
@@ -54,6 +63,18 @@ export async function POST(req: NextRequest) {
       candidateUpdate.ai_interview_retake_notified_at = null;
     }
     await supabase.from("candidates").update(candidateUpdate).eq("id", candidateId);
+
+    if (passed) {
+      const { error: promoteError } = await supabase.rpc("promote_candidate_if_ready", {
+        p_candidate_id: candidateId,
+      });
+      if (promoteError) {
+        console.error(
+          `[CRITICAL] Could not decide placement for ${candidateId}:`,
+          promoteError.message
+        );
+      }
+    }
 
     const { data: candidate } = await supabase
       .from("candidates")

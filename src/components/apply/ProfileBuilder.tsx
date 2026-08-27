@@ -1006,7 +1006,12 @@ export default function ProfileBuilder({
         availability_status: availability,
         availability_date:
           availability === "available_by_date" ? availabilityDate : null,
-        admin_status: "active",
+        // admin_status is deliberately NOT set here. This write is unguarded and
+        // fired on every save, so it would knock an already-approved candidate
+        // back to 'active' — taking their live profile off the marketplace —
+        // simply for editing their availability. handleProfileComplete, which
+        // runs immediately after this via onComplete(), sets 'active' properly
+        // and skips the statuses that must not be overwritten.
         profile_completed_at: new Date().toISOString(),
         interview_consent: interviewConsent,
         interview_consent_at: interviewConsent ? new Date().toISOString() : null,

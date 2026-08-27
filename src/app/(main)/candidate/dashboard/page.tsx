@@ -846,7 +846,7 @@ export default function CandidateDashboardPage() {
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
     active: { label: "In Pipeline", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     profile_review: { label: "Profile Under Review", color: "text-yellow-700", bgColor: "bg-yellow-50 border-yellow-200" },
-    pending_2nd_interview: { label: "Pending 2nd Interview", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
+    pending_2nd_interview: { label: "Almost There", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     pending_review: { label: "Profile Under Review", color: "text-yellow-700", bgColor: "bg-yellow-50 border-yellow-200" },
     pending_speaking_review: { label: "Pending 2nd Interview", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     approved: { label: "Live", color: "text-green-700", bgColor: "bg-green-50 border-green-200" },

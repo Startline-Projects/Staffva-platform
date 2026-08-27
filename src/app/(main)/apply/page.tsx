@@ -328,7 +328,7 @@ export default function ApplyPage() {
       latest.interview_consent !== false;
 
     if (allComplete && !["approved", "under_review", "changes_requested", "active", "profile_review"].includes(latest.admin_status)) {
-      // Set to active — candidate enters the recruiter pipeline
+      // Set to active — candidate enters the pipeline
       await supabase
         .from("candidates")
         .update({
@@ -336,6 +336,23 @@ export default function ApplyPage() {
           profile_completed_at: new Date().toISOString(),
         })
         .eq("id", latest.id);
+    }
+
+    // Finishing the profile is the second of the two ways a candidate becomes
+    // approvable; the AI interview may already be passed and waiting on exactly
+    // this. Asked unconditionally rather than behind `allComplete` above,
+    // because that check is a partial copy of the real gate list — it omits ID
+    // verification — and the point of promote_candidate_if_ready (migration
+    // 00116) is that one definition decides. It returns the unchanged status
+    // when a gate is still open, so calling it is always safe.
+    const { error: promoteError } = await supabase.rpc("promote_candidate_if_ready", {
+      p_candidate_id: latest.id,
+    });
+
+    if (promoteError) {
+      // Not worth blocking the candidate's flow over: they have finished their
+      // part, and the hourly promote-ready sweep will pick them up.
+      console.error("Could not decide placement after profile completion:", promoteError.message);
     }
 
     setCandidateData({ ...candidateData!, ...latest, profile_completed_at: new Date().toISOString() } as CandidateData);
