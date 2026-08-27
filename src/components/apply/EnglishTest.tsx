@@ -109,31 +109,44 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     };
   }, [loading, questions.length, timerPaused]);
 
-  // Anti-cheat: mouse leave, tab switch, paste, fullscreen (mobile-aware)
+  // Anti-cheat telemetry: mouse leave, tab switch, paste, fullscreen —
+  // mobile-aware, and all of it through ONE server-side ingest.
+  //
+  // The previous version of this block wrote test_events from the browser and
+  // never landed a single row: the insert asked for the id back
+  // (.select("id").single()) against a table whose only RLS policy was
+  // INSERT, so PostgREST rejected the whole request, and the error was never
+  // checked. 113 tests, 0 events. The id existed only to pair the later
+  // return with its leave; now the CLIENT mints the pairing id, both rows are
+  // fire-and-forget appends, and nothing ever needs to round-trip.
   useEffect(() => {
     if (loading) return;
 
     const mobile = isMobileBrowser();
 
-    // Logs a leave event and returns the inserted row ID (for return tracking).
-    // For paste events (no return concept) the ID is not used.
-    async function logLeaveEvent(eventType: string): Promise<string | null> {
-      const supabase = createClient();
+    function postEvents(events: Record<string, unknown>[]) {
+      fetch("/api/proctor/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionKind: "english_test", events }),
+      }).catch(() => {});
+    }
 
-      // On mobile, log fullscreen_exit as mobile_device instead
+    // Records a leave and returns the pairing id for the eventual return.
+    function logLeaveEvent(eventType: string): string | null {
+      // On mobile, fullscreen_exit is really "the browser chrome moved" —
+      // record it as the mobile marker instead.
       const finalType = mobile && eventType === "fullscreen_exit" ? "mobile_device" : eventType;
+      const clientEventId = crypto.randomUUID();
 
-      const { data } = await supabase
-        .from("test_events")
-        .insert({
-          candidate_id: candidateId,
-          event_type: finalType,
-          question_number: currentIndex + 1,
-        })
-        .select("id")
-        .single();
+      postEvents([{
+        type: finalType,
+        question_number: currentIndex + 1,
+        client_event_id: clientEventId,
+        at: new Date().toISOString(),
+      }]);
 
-      // Mobile: don't increment flag count for mouse_leave / fullscreen_exit
+      // Mobile: mouse_leave / fullscreen_exit fire spuriously — log, don't count.
       if (mobile && (eventType === "mouse_leave" || eventType === "fullscreen_exit")) {
         return null;
       }
@@ -144,46 +157,27 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
         return newCount;
       });
 
-      // cheat_flag_count is no longer written from the browser. It was doubly
-      // wrong here: the value came from a stale closure (flagCount + 1 could
-      // rewind the counter under rapid events), and FocusEnforcement's
-      // /api/test/cheat-log already increments the same column server-side via
-      // the increment_cheat_flag RPC — so every leave event counted twice.
-      // Migration 00120 revoked the column grant; the server path is the count.
-
-      return data?.id ?? null;
+      return clientEventId;
     }
 
-    // Called when the candidate returns to the screen after a tracked leave event.
-    function handleReturn(eventId: string | null, leaveTime: number | null) {
-      if (!eventId || !leaveTime) return;
-      const absenceDurationSeconds = Math.round((Date.now() - leaveTime) / 1000);
-      const returnedAt = new Date().toISOString();
-
-      fetch("/api/test/anticheat-return", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: eventId,
-          returned_at: returnedAt,
-          absence_duration_seconds: absenceDurationSeconds,
-        }),
-      }).then(() => {
-        // Re-evaluate rules after each return
-        fetch("/api/test/anticheat-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidate_id: candidateId }),
-        });
-      });
+    // The candidate came back: append the paired return with the measured
+    // absence. The server recomputes the anticheat flags from the stored
+    // events on receipt — the client no longer orchestrates that.
+    function handleReturn(pairId: string | null, leaveTime: number | null) {
+      if (!pairId || !leaveTime) return;
+      postEvents([{
+        type: "focus_return",
+        question_number: currentIndex + 1,
+        client_event_id: pairId,
+        duration_ms: Math.max(0, Date.now() - leaveTime),
+        at: new Date().toISOString(),
+      }]);
     }
 
     function handleMouseLeave() {
       if (mobile) return; // Touch events trigger this spuriously on mobile
       leaveTimeRef.current = Date.now();
-      logLeaveEvent("mouse_leave").then((id) => {
-        leaveEventIdRef.current = id;
-      });
+      leaveEventIdRef.current = logLeaveEvent("mouse_leave");
     }
 
     function handleMouseEnter() {
@@ -198,9 +192,7 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     function handleVisibilityChange() {
       if (document.hidden) {
         leaveTimeRef.current = Date.now();
-        logLeaveEvent("tab_switch").then((id) => {
-          leaveEventIdRef.current = id;
-        });
+        leaveEventIdRef.current = logLeaveEvent("tab_switch");
       } else {
         const id = leaveEventIdRef.current;
         const t = leaveTimeRef.current;
@@ -232,9 +224,7 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
       if (!mobile && supportsFullscreen()) {
         if (!document.fullscreenElement) {
           leaveTimeRef.current = Date.now();
-          logLeaveEvent("fullscreen_exit").then((id) => {
-            leaveEventIdRef.current = id;
-          });
+          leaveEventIdRef.current = logLeaveEvent("fullscreen_exit");
         } else {
           // Fullscreen restored
           const id = leaveEventIdRef.current;
@@ -254,14 +244,9 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
 
-    // Log mobile device flag once
+    // Record once that this test ran on a mobile device.
     if (mobile) {
-      const supabase = createClient();
-      supabase.from("test_events").insert({
-        candidate_id: candidateId,
-        event_type: "mobile_device",
-        question_number: 0,
-      });
+      postEvents([{ type: "mobile_device", question_number: 0, at: new Date().toISOString() }]);
     }
 
     return () => {

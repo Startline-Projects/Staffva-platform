@@ -16,7 +16,6 @@ import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
 import IDVerification from "@/components/apply/IDVerification";
 import IntegrityPledge from "@/components/apply/IntegrityPledge";
 import PostTestVerification from "@/components/apply/PostTestVerification";
-import FocusEnforcement from "@/components/apply/FocusEnforcement";
 
 export type ApplicationStep =
   | "loading"
@@ -400,12 +399,18 @@ export default function ApplyPage() {
         <IntegrityPledge onAccept={handlePledgeAccepted} />
       )}
       {step === "english_test" && candidateData && (
-        <FocusEnforcement candidateId={candidateData.id} testSection="english_test">
-          <EnglishTest
-            candidateId={candidateData.id}
-            onComplete={handleTestComplete}
-          />
-        </FocusEnforcement>
+        // FocusEnforcement is gone. It was a second, cruder anti-cheat mounted
+        // over the one inside EnglishTest: it fired its full-screen "You left
+        // the test screen" overlay on every mouseleave — reaching for the
+        // scrollbar included — and logged tab switches and cursor drift as the
+        // same event. Measured against production, its flags had no
+        // relationship to score. EnglishTest's own instrumentation (typed
+        // events through /api/proctor/events, warning at three real flags) is
+        // the surviving system.
+        <EnglishTest
+          candidateId={candidateData.id}
+          onComplete={handleTestComplete}
+        />
       )}
       {step === "post_test_verification" && (
         <PostTestVerification onVerify={handlePostTestVerify} />
