@@ -14,6 +14,7 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [polling, setPolling] = useState(false);
+  const [stillProcessing, setStillProcessing] = useState(false);
 
   // Auto-advance if already passed
   useEffect(() => {
@@ -84,18 +85,32 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           setPolling(false);
-          // Auto-pass after 30 seconds if Stripe hasn't responded
-          // This handles cases where webhook is delayed or not configured
-          await supabase
-            .from("candidates")
-            .update({ id_verification_status: "passed" })
-            .eq("id", candidateId);
-          onComplete();
+          // This used to auto-pass: after 30 seconds without a webhook the
+          // CLIENT wrote id_verification_status='passed' itself, so a slow
+          // Stripe response — or anyone with the anon key — could mint a
+          // verified identity. Now the browser cannot write that column at all
+          // (migration 00120); only the Stripe webhook and the server's own
+          // Stripe lookup can. Ask the server one final time, then show the
+          // still-processing state rather than inventing a result.
+          try {
+            const checkRes = await fetch("/api/identity/check-status", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ candidateId }),
+            });
+            const checkData = await checkRes.json();
+            if (checkData.status === "passed") {
+              onComplete();
+              return;
+            }
+          } catch { /* fall through to the still-processing state */ }
+          setStillProcessing(true);
         }
       } catch {
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           setPolling(false);
+          setStillProcessing(true);
         }
       }
     }, 1000);
@@ -120,6 +135,34 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
     );
   }
 
+  // Verification genuinely still processing at Stripe after 30s of polling.
+  // The old behaviour here was to pass the candidate; now we tell the truth.
+  if (stillProcessing) {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+          <svg className="h-8 w-8 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-semibold text-text">Still verifying your identity</h1>
+        <p className="mt-3 text-text-muted">
+          Verification is taking longer than usual. This can happen when the photo needs a closer look. You can check again in a moment — your progress is saved.
+        </p>
+        <button
+          onClick={() => {
+            setStillProcessing(false);
+            setPolling(true);
+            pollForVerification();
+          }}
+          className="mt-6 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
+        >
+          Check again
+        </button>
+      </div>
+    );
+  }
+
   // Failed state
   if (verificationStatus === "failed") {
     return (
@@ -134,16 +177,11 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
           This may be due to an unclear photo or unsupported document. Please try again or contact <a href="mailto:support@staffva.com" className="text-primary underline">support@staffva.com</a>.
         </p>
         <button
-          onClick={async () => {
-            setLoading(true);
-            const supabase = createClient();
-            await supabase.from("candidates").update({ id_verification_status: "pending" }).eq("id", candidateId);
-            window.location.reload();
-          }}
+          onClick={handleVerify}
           disabled={loading}
           className="mt-6 text-sm text-primary hover:underline"
         >
-          {loading ? "Resetting..." : "Try again"}
+          {loading ? "Starting..." : "Try again"}
         </button>
       </div>
     );
@@ -206,25 +244,12 @@ export default function IDVerification({ candidateId, verificationStatus, onComp
       }
 
       if (data.error) {
-        // Stripe not configured — auto-pass
-        const isStripeUnavailable =
-          data.error.includes("Stripe") ||
-          data.error.includes("identity") ||
-          data.error.includes("No such") ||
-          data.error.includes("configuration") ||
-          data.error.includes("resource");
-
-        if (isStripeUnavailable) {
-          await supabase.from("candidates").update({ id_verification_status: "passed" }).eq("id", candidateId);
-          onComplete();
-          return;
-        }
-
-        setError(data.error);
+        // This used to detect "Stripe not configured" and PASS the candidate —
+        // identity verification waved through precisely when the verifier was
+        // down. A vendor outage is a reason to stop, not a reason to approve.
+        setError("Identity verification is temporarily unavailable. Please try again in a few minutes.");
       } else {
-        // No URL returned, no error — auto-pass as fallback
-        await supabase.from("candidates").update({ id_verification_status: "passed" }).eq("id", candidateId);
-        onComplete();
+        setError("Something went wrong starting verification. Please try again.");
       }
     } catch {
       setError("Something went wrong. Please try again.");

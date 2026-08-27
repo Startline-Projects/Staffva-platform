@@ -144,10 +144,12 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
         return newCount;
       });
 
-      supabase
-        .from("candidates")
-        .update({ cheat_flag_count: flagCount + 1 })
-        .eq("id", candidateId);
+      // cheat_flag_count is no longer written from the browser. It was doubly
+      // wrong here: the value came from a stale closure (flagCount + 1 could
+      // rewind the counter under rapid events), and FocusEnforcement's
+      // /api/test/cheat-log already increments the same column server-side via
+      // the increment_cheat_flag RPC — so every leave event counted twice.
+      // Migration 00120 revoked the column grant; the server path is the count.
 
       return data?.id ?? null;
     }

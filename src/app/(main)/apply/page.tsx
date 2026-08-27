@@ -314,28 +314,17 @@ export default function ApplyPage() {
 
     if (!latest) return;
 
-    const allComplete =
-      latest.english_mc_score !== null &&
-      latest.english_mc_score >= 70 &&
-      (latest.english_comprehension_score ?? 0) >= 70 &&
-      !!latest.voice_recording_1_url &&
-      !!latest.voice_recording_2_url &&
-      !!latest.profile_photo_url &&
-      !!latest.resume_url &&
-      !!latest.tagline &&
-      !!latest.bio &&
-      !!latest.payout_method &&
-      latest.interview_consent !== false;
-
-    if (allComplete && !["approved", "under_review", "changes_requested", "active", "profile_review"].includes(latest.admin_status)) {
-      // Set to active — candidate enters the pipeline
-      await supabase
-        .from("candidates")
-        .update({
-          admin_status: "active",
-          profile_completed_at: new Date().toISOString(),
-        })
-        .eq("id", latest.id);
+    // The "set to active" transition now happens in mark_profile_complete
+    // (migration 00120), not here. The browser can no longer write admin_status
+    // at all: the column-level UPDATE grant was revoked, because with it any
+    // signed-in candidate could set their own row to 'approved' from devtools.
+    // The RPC re-checks completeness server-side and refuses to touch protected
+    // statuses, so the allComplete guard that used to live here moved with it.
+    const { error: completeError } = await supabase.rpc("mark_profile_complete");
+    if (completeError) {
+      // Not fatal for the candidate's flow — the hourly promote-ready sweep
+      // asks the same question again — but say so rather than swallowing it.
+      console.error("mark_profile_complete failed:", completeError.message);
     }
 
     // Finishing the profile is the second of the two ways a candidate becomes
