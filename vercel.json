@@ -65,6 +65,9 @@
     },
     "src/app/api/cron/drain-email-outbox/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/admin/identity/backfill/route.ts": {
+      "maxDuration": 300
     }
   }
 }
