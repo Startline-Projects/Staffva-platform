@@ -29,9 +29,9 @@ function getLockoutDays(attemptNumber: number): number | null {
 }
 
 export async function POST(request: Request) {
-  const { candidateId, answers, timeRemaining } = await request.json();
+  const { candidateId, attemptId, answers, timeRemaining } = await request.json();
 
-  if (!candidateId || !answers) {
+  if (!candidateId || !attemptId || !answers || typeof answers !== "object") {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
 
@@ -44,26 +44,75 @@ export async function POST(request: Request) {
 
   const supabase = getAdminClient();
 
-  // Fetch the correct answers
-  const questionIds = Object.keys(answers);
+  // ═══ GRADE AGAINST THE SERVED ATTEMPT ═══
+  //
+  // The old grading ran over Object.keys(answers) — whatever set the CANDIDATE
+  // chose to submit. Answer only the ten questions you were sure of and you
+  // scored 10/10; the server had no record of the twenty it served. Grading
+  // now runs over the attempt row the questions route stored: every served
+  // question is graded, unanswered means wrong, the client's display indices
+  // are translated through the server-held permutation, and the deadline on
+  // the attempt is enforced with a one-minute grace for slow networks.
+  //
+  // The claim is atomic (submitted_at IS NULL in the WHERE): a double submit —
+  // two tabs, a retry racing the original — grades exactly once.
+  const { data: attempt } = await supabase
+    .from("test_attempts")
+    .update({ submitted_at: new Date().toISOString() })
+    .eq("id", attemptId)
+    .eq("candidate_id", candidateId)
+    .is("submitted_at", null)
+    .select("id, questions, expires_at")
+    .maybeSingle();
+
+  if (!attempt) {
+    return NextResponse.json(
+      { error: "This test attempt was already submitted or does not exist." },
+      { status: 409 }
+    );
+  }
+
+  const GRACE_MS = 60_000;
+  if (Date.now() > new Date(attempt.expires_at).getTime() + GRACE_MS) {
+    return NextResponse.json(
+      { error: "Time expired for this attempt. Please start the test again." },
+      { status: 410 }
+    );
+  }
+
+  interface ServedQuestion { qid: string; eph: string; map: number[] }
+  const served = attempt.questions as ServedQuestion[];
+
   const { data: questions } = await supabase
     .from("english_test_questions")
     .select("id, section, correct_answer")
-    .in("id", questionIds);
+    .in("id", served.map((s) => s.qid));
 
-  if (!questions) {
+  if (!questions || questions.length !== served.length) {
     return NextResponse.json({ error: "Failed to load answers" }, { status: 500 });
   }
 
-  // Grade each answer
+  const questionById = new Map(questions.map((q) => [q.id, q]));
+
+  // Grade each SERVED question
   let grammarCorrect = 0;
   let grammarTotal = 0;
   let compCorrect = 0;
   let compTotal = 0;
 
-  const answerRecords = questions.map((q) => {
-    const selectedAnswer = answers[q.id] as number;
-    const isCorrect = selectedAnswer === q.correct_answer;
+  const answerRecords = served.map((s) => {
+    const q = questionById.get(s.qid)!;
+    const displayIndex = (answers as Record<string, unknown>)[s.eph];
+    // Translate display position -> original option index. An unanswered or
+    // malformed entry stays null and grades as wrong.
+    const selectedAnswer =
+      typeof displayIndex === "number" &&
+      Number.isInteger(displayIndex) &&
+      displayIndex >= 0 &&
+      displayIndex < s.map.length
+        ? s.map[displayIndex]
+        : null;
+    const isCorrect = selectedAnswer !== null && selectedAnswer === q.correct_answer;
 
     if (q.section === "grammar") {
       grammarTotal++;
@@ -76,6 +125,7 @@ export async function POST(request: Request) {
     return {
       candidate_id: candidateId,
       question_id: q.id,
+      attempt_id: attempt.id,
       selected_answer: selectedAnswer,
       is_correct: isCorrect,
     };

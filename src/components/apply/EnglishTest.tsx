@@ -16,11 +16,14 @@ import {
 } from "@/lib/testProgress";
 
 interface TestQuestion {
+  // Per-attempt EPHEMERAL id. Real question ids and the option permutation
+  // never reach the browser any more — the server holds them on the attempt
+  // row and translates at grading. What the candidate clicks is a display
+  // index, and a display index is what we submit.
   id: string;
   section: string;
   question_text: string;
   options: string[];
-  shuffled_indices: number[];
 }
 
 interface Props {
@@ -29,10 +32,14 @@ interface Props {
 }
 
 const TOTAL_TIME = 15 * 60; // 15 minutes in seconds
-const COMPREHENSION_PASSAGE = `Our client submitted a request last Tuesday asking for a revised version of the contract. The original document included a clause that both parties had agreed to remove during the last call. Since then, our team has been waiting on confirmation from the legal department before sending the updated file. We want to make sure all changes are reviewed and approved before anything is shared externally. Please follow up with the client to let them know we expect to have everything ready by end of week.`;
 
 export default function EnglishTest({ candidateId, onComplete }: Props) {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
+  // The server deals one passage per attempt from the passage bank; the text
+  // arrives with the questions. It used to be a hardcoded constant in this
+  // file — one passage, shipped in the JS bundle, served to everyone forever.
+  const [passage, setPassage] = useState<string>("");
+  const attemptIdRef = useRef<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
@@ -48,7 +55,6 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
   const progressRef = useRef<TestProgress | null>(null);
   const leaveEventIdRef = useRef<string | null>(null);
   const leaveTimeRef = useRef<number | null>(null);
-  const lastTimeTrackRef = useRef<number>(0);
 
   // Detect mobile on mount
   useEffect(() => {
@@ -61,6 +67,7 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
       const section = questions[currentIndex]?.section || "grammar";
       const progress: TestProgress = {
         candidateId,
+        attemptId: attemptIdRef.current,
         section,
         questionIndex: currentIndex,
         answers,
@@ -273,10 +280,19 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
 
     const data = await res.json();
     setQuestions(data.questions);
+    setPassage(data.passage || "");
+    attemptIdRef.current = data.attemptId || null;
 
-    // Try to restore progress from localStorage (same-session refresh)
+    // Try to restore progress from localStorage (same-session refresh). Only
+    // valid for the SAME attempt: the server re-serves an open attempt with
+    // the same ephemeral ids, so saved answers still match; a fresh attempt
+    // has new ids and stale progress must not be applied to it.
     const savedProgress = loadProgressLocal();
-    if (savedProgress && savedProgress.candidateId === candidateId) {
+    if (
+      savedProgress &&
+      savedProgress.candidateId === candidateId &&
+      savedProgress.attemptId === data.attemptId
+    ) {
       setCurrentIndex(savedProgress.questionIndex);
       setAnswers(savedProgress.answers);
       setTimeLeft(savedProgress.timerRemaining > 0 ? savedProgress.timerRemaining : TOTAL_TIME);
@@ -299,14 +315,15 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
 
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Track time on last question (force bypasses debounce)
-    await trackQuestionTime(true);
+    // Track time on the last question
+    await trackQuestionTime();
 
     const res = await fetch("/api/test/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         candidateId,
+        attemptId: attemptIdRef.current,
         answers,
         timeRemaining: timeLeft,
       }),
@@ -324,28 +341,34 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     onComplete(result.passed, result.candidate);
   }, [submitting, candidateId, answers, timeLeft, onComplete]);
 
-  async function trackQuestionTime(force = false) {
-    if (!questions[currentIndex]) return;
+  async function trackQuestionTime() {
+    if (!questions[currentIndex] || !attemptIdRef.current) return;
     const now = Date.now();
-    if (!force && now - lastTimeTrackRef.current < 10_000) return;
-    lastTimeTrackRef.current = now;
     const elapsed = Math.round((now - questionStartTime.current) / 1000);
-    const supabase = createClient();
-    await supabase.from("question_time_tracking").insert({
-      candidate_id: candidateId,
-      question_id: questions[currentIndex].id,
-      time_spent_seconds: elapsed,
-    });
+    // Through the server now (the browser's direct insert grant is revoked),
+    // and the 10-second debounce is gone with it: the debounce meant fast
+    // answers produced NO timing row at all — measured at ~23.6 rows per
+    // 25-question test — which threw away exactly the fast-answer signal the
+    // per-item latency analysis needs most.
+    fetch("/api/test/track-time", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attemptId: attemptIdRef.current,
+        questionId: questions[currentIndex].id,
+        seconds: elapsed,
+      }),
+    }).catch(() => {});
   }
 
   async function handleAnswer(shuffledIndex: number) {
     const question = questions[currentIndex];
-    // Map shuffled index back to original index
-    const originalIndex = question.shuffled_indices[shuffledIndex];
-
+    // Store the DISPLAY index. The un-mapping through the permutation happens
+    // server-side at grading — sending the permutation here is what made the
+    // old shuffle purely cosmetic.
     setAnswers((prev) => ({
       ...prev,
-      [question.id]: originalIndex,
+      [question.id]: shuffledIndex,
     }));
 
     // Track time spent
@@ -497,7 +520,7 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
               </h3>
             </div>
             <p className="text-sm leading-relaxed text-text/80">
-              {COMPREHENSION_PASSAGE}
+              {passage}
             </p>
           </div>
         )}

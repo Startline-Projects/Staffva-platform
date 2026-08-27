@@ -10,6 +10,10 @@ const LS_KEY = "staffva_test_progress";
 
 export interface TestProgress {
   candidateId: string;
+  // Which server-held attempt these answers belong to. Restoring progress
+  // across a DIFFERENT attempt would apply answers keyed by another attempt's
+  // ephemeral question ids, so restore only matches on this.
+  attemptId?: string | null;
   section: string;
   questionIndex: number;
   answers: Record<string, number>;
