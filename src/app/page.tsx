@@ -705,10 +705,10 @@ export default async function Home() {
             <div className="footer-col">
               <div className="footer-col-title">Legal</div>
               <ul className="footer-col-links">
-                <li><a href="#">Terms of service</a></li>
-                <li><a href="#">Privacy policy</a></li>
-                <li><a href="#">Cookie policy</a></li>
-                <li><a href="#">Acceptable use</a></li>
+                <li><a href="/terms">Terms of service</a></li>
+                <li><a href="/privacy">Privacy policy</a></li>
+                <li><a href="/cookies">Cookie policy</a></li>
+                <li><a href="/terms">Acceptable use</a></li>
               </ul>
             </div>
           </div>
@@ -718,9 +718,9 @@ export default async function Home() {
               &copy; 2026 <strong>Stafva LLC</strong> &middot; Dearborn, Michigan &middot; All rights reserved.
             </div>
             <div className="footer-meta">
-              <a href="#">Terms</a>
-              <a href="#">Privacy</a>
-              <a href="#">Cookies</a>
+              <a href="/terms">Terms</a>
+              <a href="/privacy">Privacy</a>
+              <a href="/cookies">Cookies</a>
               <a href="mailto:hello@staffva.com">hello@staffva.com</a>
             </div>
           </div>
