@@ -500,6 +500,7 @@ export default function ProfileBuilder({
   const [tagline, setTagline] = useState("");
   const [monthlyRate, setMonthlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const portfolioInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — About
   const [bio, setBio] = useState(candidateData.bio || "");
@@ -729,9 +730,30 @@ export default function ProfileBuilder({
     setWorkEntries(updated);
   }
 
+  // "Add Portfolio Item" now opens the file picker rather than appending an
+  // empty row. The row it used to add contained a bare <input type="file"> next
+  // to a full-width bordered text input, so the description box read as the
+  // control and the file field looked like nothing — people saw a text box and
+  // reasonably concluded there was no way to attach a file.
   function addPortfolioItem() {
     if (portfolioItems.length >= 3) return;
-    setPortfolioItems([...portfolioItems, { file: null, description: "" }]);
+    portfolioInputRef.current?.click();
+  }
+
+  // The row is created only once a file has actually been chosen, so an item
+  // can never exist without one.
+  function handlePortfolioFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset immediately so picking the SAME file again still fires onChange.
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Portfolio file must be under 5MB");
+      return;
+    }
+    if (portfolioItems.length >= 3) return;
+    setError("");
+    setPortfolioItems([...portfolioItems, { file, description: "" }]);
   }
 
   function removePortfolioItem(index: number) {
@@ -895,13 +917,21 @@ export default function ProfileBuilder({
           .from("portfolio")
           .getPublicUrl(path);
 
-        await supabase.from("portfolio_items").insert({
+        // The upload above is checked; this row insert was not, so a file could
+        // land in storage while the record pointing at it silently failed —
+        // leaving the candidate with a portfolio item that uploaded fine and
+        // then does not exist.
+        const { error: itemError } = await supabase.from("portfolio_items").insert({
           candidate_id: candidateId,
           file_url: urlData.publicUrl,
           file_type: item.file.type.includes("pdf") ? "pdf" : "image",
           description: item.description || null,
           display_order: i,
         });
+
+        if (itemError) {
+          throw new Error("Failed to save portfolio item: " + itemError.message);
+        }
       }
 
       // Filter valid work entries
@@ -1496,22 +1526,17 @@ export default function ProfileBuilder({
                   className="mt-3 flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4"
                 >
                   <div className="flex-1 space-y-2">
-                    <input
-                      type="file"
-                      accept=".pdf,image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file && file.size > 5 * 1024 * 1024) {
-                          setError("Portfolio file must be under 5MB");
-                          return;
-                        }
-                        const updated = [...portfolioItems];
-                        updated[i] = { ...updated[i], file: file || null };
-                        setPortfolioItems(updated);
-                        setError("");
-                      }}
-                      className="block w-full text-sm text-text/70"
-                    />
+                    {/* The file is chosen before the row exists, so show WHAT is
+                        attached rather than an empty picker that looks unfilled. */}
+                    <p className="flex items-center gap-2 text-sm font-medium text-text">
+                      <span aria-hidden="true" className="text-green-600">✓</span>
+                      <span className="truncate">{item.file?.name ?? "No file attached"}</span>
+                      {item.file && (
+                        <span className="shrink-0 text-xs font-normal text-text/40">
+                          {(item.file.size / 1024 / 1024).toFixed(1)}MB
+                        </span>
+                      )}
+                    </p>
                     <input
                       type="text"
                       maxLength={100}
@@ -1537,13 +1562,23 @@ export default function ProfileBuilder({
                   </button>
                 </div>
               ))}
+              {/* Hidden: the visible control is the button below, so that
+                  clicking "Add Portfolio Item" opens the file dialog, which is
+                  what the label promises. */}
+              <input
+                ref={portfolioInputRef}
+                type="file"
+                accept=".pdf,image/*"
+                onChange={handlePortfolioFilePicked}
+                className="hidden"
+              />
               {portfolioItems.length < 3 && (
                 <button
                   type="button"
                   onClick={addPortfolioItem}
                   className="mt-3 w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-primary hover:text-primary transition-colors"
                 >
-                  + Add Portfolio Item
+                  + Add Portfolio Item &mdash; choose a PDF or image
                 </button>
               )}
             </div>
