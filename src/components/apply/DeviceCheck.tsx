@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 interface Props {
   onPass: () => void;
+  candidateId?: string;
 }
 
 const MIN_WIDTH = 1024;
@@ -31,7 +32,7 @@ function evaluateDevice(): "mobile" | "screen" | "touch" | null {
   return null;
 }
 
-export default function DeviceCheck({ onPass }: Props) {
+export default function DeviceCheck({ onPass, candidateId }: Props) {
   const [checking, setChecking] = useState(true);
   const [failed, setFailed] = useState(false);
   const [failReason, setFailReason] = useState("");
@@ -73,6 +74,42 @@ export default function DeviceCheck({ onPass }: Props) {
     // the listener.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Measure-only camera/mic capability report. enumerateDevices() lists device
+  // KINDS without a permission prompt and without capturing anything; labels
+  // stay empty until permission is granted, which is fine — presence is all
+  // this measures. Fire-and-forget: it must never gate the candidate, never
+  // block the step, and a failure to report is simply an unknown. This is how
+  // "webcam required" gets decided from data instead of by watching signups
+  // fall after the gate ships.
+  useEffect(() => {
+    if (!candidateId) return;
+    let cancelled = false;
+    (async () => {
+      let camera: boolean | null = null;
+      let mic: boolean | null = null;
+      try {
+        if (navigator.mediaDevices?.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          if (devices.length > 0) {
+            camera = devices.some((d) => d.kind === "videoinput");
+            mic = devices.some((d) => d.kind === "audioinput");
+          }
+        }
+      } catch {
+        // API blocked (privacy mode, permissions policy) — report unknowns.
+      }
+      if (cancelled) return;
+      fetch("/api/apply/device-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId, cameraPresent: camera, micPresent: mic }),
+      }).catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateId]);
 
   if (checking) {
     return (

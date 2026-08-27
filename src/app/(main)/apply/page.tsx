@@ -390,7 +390,7 @@ export default function ApplyPage() {
         />
       )}
       {step === "device_check" && (
-        <DeviceCheck onPass={handleDeviceCheckPass} />
+        <DeviceCheck onPass={handleDeviceCheckPass} candidateId={candidateData?.id} />
       )}
       {step === "test_instructions" && (
         <TestInstructions onStart={handleTestStart} />
