@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin()
     .from("profiles")
-    .select("id, full_name, email, calendar_link")
+    .select("id, full_name, email")
     .in("role", ["recruiter", "recruiting_manager", "admin"])
     .eq("is_active", true)
     .order("full_name", { ascending: true });

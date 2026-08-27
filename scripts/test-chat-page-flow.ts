@@ -31,7 +31,7 @@ async function testForCandidate(candidateUserId: string, candidateName: string) 
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate.assigned_recruiter);
   let profile = null;
   if (isUUID) {
-    const { data } = await admin.from("profiles").select("id, full_name, calendar_link").eq("id", candidate.assigned_recruiter).single();
+    const { data } = await admin.from("profiles").select("id, full_name").eq("id", candidate.assigned_recruiter).single();
     profile = data;
   }
   if (!profile) { console.log("FAIL: recruiter profile not found"); return; }

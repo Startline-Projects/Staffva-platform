@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
-import { assertRecruiterScope } from "@/lib/recruiterScope";
 
 function getAdminClient() {
   return createClient(
@@ -57,7 +55,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("candidates")
     .select(
-      "id, full_name, display_name, email, country, role_category, hourly_rate, english_written_tier, screening_tag, screening_score, admin_status, profile_photo_url, created_at, waiting_since, second_interview_status, second_interview_scheduled_at, assigned_recruiter, assignment_pending_review, voice_recording_1_url, voice_recording_2_url"
+      "id, full_name, display_name, email, country, role_category, hourly_rate, english_written_tier, screening_tag, screening_score, admin_status, profile_photo_url, created_at, waiting_since, assigned_recruiter, assignment_pending_review, voice_recording_1_url, voice_recording_2_url"
     );
 
   // Recruiter: filter by assigned categories; recruiting_manager sees all.
@@ -117,16 +115,6 @@ export async function GET(req: NextRequest) {
   // Workload summary
   const workload = {
     total: enriched.length,
-    pending_second: enriched.filter((c) => c.second_interview_status === "pending" || c.second_interview_status === "none").length,
-    scheduled: enriched.filter((c) => c.second_interview_status === "scheduled").length,
-    completed_this_week: (() => {
-      const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-      return enriched.filter((c) =>
-        c.second_interview_status === "completed" &&
-        c.second_interview_scheduled_at &&
-        c.second_interview_scheduled_at > weekAgo
-      ).length;
-    })(),
     avg_wait_hours: (() => {
       const waiting = enriched.filter((c) => c.waiting_since);
       if (waiting.length === 0) return 0;
@@ -170,143 +158,4 @@ export async function GET(req: NextRequest) {
     recruiterBreakdown,
     assignedCategories,
   });
-}
-
-// POST — Schedule interview
-export async function POST(req: NextRequest) {
-  const supabase = getAdminClient();
-
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = authHeader.replace("Bearer ", "");
-  const { data: { user } } = await createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ).auth.getUser(token);
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || (profile.role !== "recruiter" && profile.role !== "admin" && profile.role !== "recruiting_manager")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { candidateId, scheduledDate, scheduledTime } = await req.json();
-
-  if (!candidateId || !scheduledDate || !scheduledTime) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  }
-
-  // Validate the date/time before constructing a Date. Previously a malformed
-  // value (e.g. "99:99") produced an Invalid Date whose .toISOString() throws
-  // RangeError, and the handler has no try/catch — so bad input returned an
-  // unhandled 500 instead of a 400.
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(String(scheduledDate)) ||
-    !/^\d{2}:\d{2}$/.test(String(scheduledTime)) ||
-    Number.isNaN(new Date(`${scheduledDate}T${scheduledTime}:00Z`).getTime())
-  ) {
-    return NextResponse.json(
-      { error: "scheduledDate must be YYYY-MM-DD and scheduledTime HH:MM" },
-      { status: 400 }
-    );
-  }
-
-  // Recruiters may only schedule interviews for candidates in their categories.
-  if (profile.role === "recruiter") {
-    const scopeError = await assertRecruiterScope(user.id, candidateId);
-    if (scopeError) {
-      return NextResponse.json({ error: scopeError.error }, { status: scopeError.status });
-    }
-  }
-
-  // Get candidate info
-  const { data: candidate } = await supabase
-    .from("candidates")
-    .select("email, display_name, full_name, role_category")
-    .eq("id", candidateId)
-    .single();
-
-  if (!candidate) {
-    return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
-  }
-
-  const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}:00Z`).toISOString();
-
-  // Update candidate
-  await supabase
-    .from("candidates")
-    .update({
-      second_interview_status: "scheduled",
-      second_interview_scheduled_at: scheduledAt,
-    })
-    .eq("id", candidateId);
-
-  // Send calendar invite email via Resend
-  if (process.env.RESEND_API_KEY) {
-    const formattedDate = new Date(scheduledAt).toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    const formattedTime = new Date(scheduledAt).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: "short",
-    });
-
-    try {
-      await sendEmail({
-          from: "StaffVA <notifications@staffva.com>",
-          to: candidate.email,
-          subject: `Interview Scheduled — ${formattedDate} at ${formattedTime}`,
-          html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-            <h2 style="color:#1C1B1A;">Your Interview is Scheduled</h2>
-            <p style="color:#444;font-size:14px;">Hi ${candidate.display_name?.split(" ")[0] || candidate.full_name?.split(" ")[0] || "there"},</p>
-            <p style="color:#444;font-size:14px;line-height:1.6;">Your second interview with StaffVA has been scheduled.</p>
-            <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:16px 0;">
-              <p style="margin:0 0 8px;font-size:14px;color:#1C1B1A;"><strong>Date:</strong> ${formattedDate}</p>
-              <p style="margin:0 0 8px;font-size:14px;color:#1C1B1A;"><strong>Time:</strong> ${formattedTime}</p>
-              <p style="margin:0;font-size:14px;color:#1C1B1A;"><strong>Interviewer:</strong> ${profile.full_name || "StaffVA Team"}</p>
-            </div>
-            <p style="color:#444;font-size:14px;line-height:1.6;">Please ensure you are in a quiet environment with a stable internet connection. The interview will last approximately 20 minutes.</p>
-            <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
-          </div>`,
-        });
-    } catch { /* silent */ }
-  }
-
-  // Trigger 6: Second interview scheduled email
-  try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
-    fetch(`${siteUrl}/api/candidate-emails`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Internal server-to-server call — authenticate to the gated route.
-        authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
-      },
-      body: JSON.stringify({
-        candidateId,
-        emailType: "second_interview_scheduled",
-        data: {
-          date: new Date(scheduledAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }),
-          time: new Date(scheduledAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" }),
-        },
-      }),
-    }).catch(() => {});
-  } catch { /* non-fatal */ }
-
-  return NextResponse.json({ success: true, scheduledAt });
 }

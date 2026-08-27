@@ -35,7 +35,6 @@ export async function GET() {
     idVerifiedRes,
     profileBuiltRes,
     aiInterviewRes,
-    pending2ndInterviewRes,
     pendingProfileReviewRes,
     triageRes,
     clientsTotalRes,
@@ -78,8 +77,6 @@ export async function GET() {
       .eq("interview_consent", true),
     // Pipeline: AI interview completed
     admin.from("candidates").select("id", { count: "exact", head: true }).not("ai_interview_completed_at", "is", null),
-    // Pipeline: Pending 2nd interview (includes legacy pending_speaking_review)
-    admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", ["pending_speaking_review", "pending_2nd_interview"]),
     // Pipeline: Pending Profile Review (step 10 — profile review before push live)
     admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", ["pending_review", "profile_review"]),
     // Triage queue count (sidebar badge)
@@ -107,7 +104,7 @@ export async function GET() {
     // Active conversations
     admin.from("messages").select("thread_id").gte("created_at", weekAgo).limit(500),
     // Talent specialists (for route modal + recruiter alerts)
-    admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url, calendar_link").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
+    admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
     // Route candidates (assignment_pending_review)
     admin.from("candidates").select("id, full_name, display_name, role_category, country, hourly_rate, created_at").eq("assignment_pending_review", true).limit(20),
   ]);
@@ -117,7 +114,6 @@ export async function GET() {
   const activeEngagements = activeEngRes.count || 0;
   const mrr = (activeEngDataRes.data || []).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
   const newEngThisWeek = newEngThisWeekRes.count || 0;
-  const pending2ndInterview = pending2ndInterviewRes.count || 0;
   const pendingProfileReview = pendingProfileReviewRes.count || 0;
 
   // Pipeline
@@ -127,7 +123,6 @@ export async function GET() {
     idVerified: idVerifiedRes.count || 0,
     profileBuilt: profileBuiltRes.count || 0,
     aiInterview: aiInterviewRes.count || 0,
-    pending2ndInterview,
     pendingProfileReview,
     live: liveCandidates,
   };
@@ -230,29 +225,12 @@ export async function GET() {
 
   // ═══ RECRUITER ALERTS ═══
   const recruiters = talentSpecialistsRes.data || [];
-  const missingCalendar = recruiters.filter((r) => !r.calendar_link);
-
-  // Unreviewed candidates per recruiter
-  const { data: assignedCandidates } = await admin
-    .from("candidates")
-    .select("assigned_recruiter, id")
-    .is("second_interview_status", null)
-    .not("assigned_recruiter", "is", null);
-
-  const recruiterUnreviewed = new Map<string, number>();
-  for (const c of assignedCandidates || []) {
-    recruiterUnreviewed.set(c.assigned_recruiter, (recruiterUnreviewed.get(c.assigned_recruiter) || 0) + 1);
-  }
-
-  const unreviewedByRecruiter = recruiters
-    .map((r) => ({ id: r.id, name: r.full_name, count: recruiterUnreviewed.get(r.id) || 0 }))
-    .filter((r) => r.count > 10);
 
   // ═══ PENDING PROFILE REVIEW CANDIDATES (for Review Modal — step 10) ═══
   const { data: pendingCandidates } = await admin
     .from("candidates")
     .select("id, full_name, display_name, role_category, country, hourly_rate, english_written_tier, english_mc_score, english_comprehension_score, ai_interview_score, years_experience, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url")
-    .in("admin_status", ["pending_speaking_review", "pending_review", "profile_review"])
+    .in("admin_status", ["pending_review", "profile_review"])
     .order("created_at", { ascending: true })
     .limit(20);
 
@@ -327,14 +305,11 @@ export async function GET() {
     pipeline,
 
     // Action cards
-    pending2ndInterview,
     pendingProfileReview,
     pendingCandidates: pendingCandidates || [],
     warmLeads: warmLeads.slice(0, 20),
     recruiterAlerts: {
-      missingCalendar: missingCalendar.map((r) => ({ id: r.id, name: r.full_name })),
       needsRouting: triageRes.count || 0,
-      unreviewedByRecruiter,
     },
 
     // Screening
@@ -374,8 +349,7 @@ export async function GET() {
 
     // Sidebar badges
     badges: {
-      pending2ndInterview,
-      pendingProfileReview,
+        pendingProfileReview,
       pendingReview: pendingReviewRes.count || 0,
       clients: clientsTotalRes.count || 0,
       talentPool: totalCandidates,

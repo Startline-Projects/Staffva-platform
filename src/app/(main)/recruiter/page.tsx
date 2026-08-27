@@ -19,30 +19,19 @@ interface CandidateBase {
 
 interface PipelineRow extends CandidateBase {
   admin_status: string | null;
-  second_interview_status: string | null;
-  second_interview_scheduled_at: string | null;
   created_at: string | null;
   ai_interview_completed_at: string | null;
   ai_interview_score?: number | null;
   recruiter_notes?: string | null;
-  second_interview_communication_score?: number | null;
-  second_interview_demeanor_score?: number | null;
-  second_interview_role_knowledge_score?: number | null;
 }
 
 interface DashboardData {
   kpi: {
-    interviewsToday: number;
-    dailyTarget: number;
     recruiterType: string;
     socialPosts: { id: string; post_url: string; created_at: string }[];
-    calendarLink: string | null;
-    calendarValid: boolean | null;
   };
   queue: (CandidateBase & { ai_interview_completed_at: string; email: string })[];
   allAssigned: CandidateBase[];
-  lane1: (CandidateBase & { second_interview_scheduled_at: string })[];
-  lane2: (CandidateBase & { second_interview_completed_at: string | null })[];
   lane3: {
     id: string;
     candidate_id: string;
@@ -52,25 +41,13 @@ interface DashboardData {
     candidates: CandidateBase;
   }[];
   pipeline: PipelineRow[];
-  googleConnected: boolean;
-  upcoming_interviews: (CandidateBase & {
-    second_interview_scheduled_at: string;
-    google_calendar_event_id: string | null;
-  })[];
-  unmatched_bookings: {
-    id: string;
-    event_id: string;
-    event_start: string | null;
-    attendee_name: string | null;
-    created_at: string;
-  }[];
   threads: {
     candidate_id: string;
     last_message: string;
     last_message_at: string;
     unread_count: number;
   }[];
-  profile: { role: string; calendarLink: string | null };
+  profile: { role: string };
 }
 
 type SidebarTab = "messages" | "team";
@@ -82,16 +59,8 @@ function getPipelineStatus(row: PipelineRow): { label: string; className: string
   if (row.admin_status === "revision_required") {
     return { label: "Needs Revision", className: "bg-orange-100 text-orange-800" };
   }
-  if (row.admin_status != null && ["pending_speaking_review", "pending_review", "profile_review"].includes(row.admin_status) && row.second_interview_status === "completed") {
-    return { label: "Ready to Submit", className: "bg-blue-100 text-blue-800" };
-  }
-  if (row.second_interview_status === "scheduled") {
-    const dateStr = row.second_interview_scheduled_at ? formatShortDate(row.second_interview_scheduled_at) : null;
-    const label = dateStr && dateStr !== "—" ? `Interview Scheduled \u00b7 ${dateStr}` : "Interview Scheduled";
-    return { label, className: "bg-purple-100 text-purple-800" };
-  }
-  if (row.second_interview_status === "none" && row.ai_interview_completed_at) {
-    return { label: "Ready to Schedule", className: "bg-orange-100 text-orange-800" };
+  if (row.ai_interview_completed_at) {
+    return { label: "Interview Complete", className: "bg-blue-100 text-blue-800" };
   }
   return { label: "In Progress", className: "bg-gray-100 text-gray-700" };
 }
@@ -205,10 +174,6 @@ export default function RecruiterDashboardPage() {
   const [authError, setAuthError] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("messages");
   const [pendingMessageCandidateId, setPendingMessageCandidateId] = useState<string | null>(null);
-  const [unmatchedModal, setUnmatchedModal] = useState(false);
-  const [localUnmatched, setLocalUnmatched] = useState<DashboardData["unmatched_bookings"]>([]);
-  const [linkSelections, setLinkSelections] = useState<Record<string, string>>({});
-  const [linkingId, setLinkingId] = useState<string | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<PipelineRow | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelNotes, setPanelNotes] = useState("");
@@ -268,45 +233,6 @@ export default function RecruiterDashboardPage() {
       const c = rev.candidates;
       candidateMap.set(c.id, { name: c.display_name || c.full_name || "Unnamed", photo: c.profile_photo_url });
     }
-  }
-
-  async function handleCalendarSave(link: string) {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    await fetch("/api/recruiter/calendar-link", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ calendar_link: link || null }),
-    });
-    loadDashboard();
-  }
-
-  useEffect(() => {
-    if (data) setLocalUnmatched(data.unmatched_bookings || []);
-  }, [data]);
-
-  async function handleLinkBooking(bookingId: string) {
-    const candidateId = linkSelections[bookingId];
-    if (!candidateId || !token) return;
-    setLinkingId(bookingId);
-    try {
-      const res = await fetch("/api/recruiter/google/link-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ bookingId, candidateId }),
-      });
-      if (res.ok) {
-        const remaining = localUnmatched.filter((b) => b.id !== bookingId);
-        setLocalUnmatched(remaining);
-        if (remaining.length === 0) setUnmatchedModal(false);
-        loadDashboard();
-      }
-    } catch { /* silent */ }
-    setLinkingId(null);
   }
 
   function openCandidatePanel(candidateId: string) {
@@ -396,9 +322,6 @@ export default function RecruiterDashboardPage() {
         <KpiStrip
           kpi={data.kpi}
           token={token}
-          pipelineCount={pipelineCount}
-          googleConnected={data.googleConnected ?? false}
-          onCalendarSaved={handleCalendarSave}
           onPostLogged={loadDashboard}
         />
         {token && (
@@ -409,77 +332,9 @@ export default function RecruiterDashboardPage() {
       </div>
 
       <div className="mx-auto max-w-[1600px] px-4 py-6">
-        {/* Unmatched Bookings Banner */}
-        {localUnmatched.length > 0 && (
-          <button
-            onClick={() => setUnmatchedModal(true)}
-            className="mb-4 w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors"
-          >
-            ⚠️ You have {localUnmatched.length} unmatched calendar booking{localUnmatched.length !== 1 ? "s" : ""}. Tap to review and link manually.
-          </button>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left column — 75% (Zone 1 + Zone 2) */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Upcoming Interviews */}
-            <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                <h2 className="text-base font-semibold text-[#1C1B1A]">Upcoming Interviews</h2>
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                  {data.upcoming_interviews.length}
-                </span>
-              </div>
-              {data.upcoming_interviews.length === 0 ? (
-                <div className="px-5 py-6 text-center">
-                  <p className="text-sm text-gray-400">No interviews scheduled. Candidates in your Ready to Schedule lane are waiting to book.</p>
-                </div>
-              ) : (
-                <div className="flex gap-4 overflow-x-auto px-5 py-4">
-                  {data.upcoming_interviews.map((iv) => {
-                    const countdown = getCountdownLabel(iv.second_interview_scheduled_at);
-                    return (
-                      <div
-                        key={iv.id}
-                        className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                        style={{ minWidth: 200 }}
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <Avatar src={iv.profile_photo_url} name={iv.display_name} size={40} />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-[#1C1B1A] truncate">{iv.display_name || "Unnamed"}</p>
-                            <p className="text-xs text-gray-500 truncate">{iv.role_category || "—"}</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">{formatInterviewDateTime(iv.second_interview_scheduled_at)}</p>
-                        {countdown.text && (
-                          <p className={`text-xs font-semibold mt-1 ${countdown.orange ? "text-[#FE6E3E]" : "text-gray-500"}`}>
-                            {countdown.text}
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSidebarTab("messages");
-                            setPendingMessageCandidateId(iv.id);
-                            if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                              document.getElementById("recruiter-sidebar")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                            }
-                          }}
-                          className="mt-3 inline-flex items-center justify-center gap-1 rounded-md bg-[#FE6E3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-                        >
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                          </svg>
-                          Message
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
             {/* Zone 1 — My Pipeline */}
             <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -501,7 +356,6 @@ export default function RecruiterDashboardPage() {
                         <th className="px-5 py-3 text-left">Name</th>
                         <th className="px-5 py-3 text-left">Status</th>
                         <th className="px-5 py-3 text-left">AI Score</th>
-                        <th className="px-5 py-3 text-left">2nd Interview</th>
                         <th className="px-5 py-3 text-left">Assigned</th>
                         <th className="px-5 py-3 text-left w-1"></th>
                       </tr>
@@ -532,11 +386,6 @@ export default function RecruiterDashboardPage() {
                             </td>
                             <td className="px-5 py-3 text-[#1C1B1A]">
                               {typeof score === "number" ? `${score}/100` : "—"}
-                            </td>
-                            <td className="px-5 py-3 text-[#1C1B1A]">
-                              {row.second_interview_communication_score != null && row.second_interview_demeanor_score != null && row.second_interview_role_knowledge_score != null
-                                ? `${((row.second_interview_communication_score + row.second_interview_demeanor_score + row.second_interview_role_knowledge_score) / 3).toFixed(1)}/5`
-                                : "—"}
                             </td>
                             <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
                               {formatShortDate(row.created_at)}
@@ -572,27 +421,9 @@ export default function RecruiterDashboardPage() {
             {/* Zone 2 — Action Lanes */}
             <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               <ActionLaneCard
-                title="Ready to Schedule"
+                title="Awaiting Approval"
                 onCandidateClick={openCandidatePanel}
                 candidates={data.queue.map((c) => ({
-                  id: c.id,
-                  display_name: c.display_name || c.full_name || null,
-                  profile_photo_url: c.profile_photo_url,
-                }))}
-              />
-              <ActionLaneCard
-                title="Interview Scheduled"
-                onCandidateClick={openCandidatePanel}
-                candidates={data.lane1.map((c) => ({
-                  id: c.id,
-                  display_name: c.display_name || c.full_name || null,
-                  profile_photo_url: c.profile_photo_url,
-                }))}
-              />
-              <ActionLaneCard
-                title="Ready to Submit"
-                onCandidateClick={openCandidatePanel}
-                candidates={data.lane2.map((c) => ({
                   id: c.id,
                   display_name: c.display_name || c.full_name || null,
                   profile_photo_url: c.profile_photo_url,
@@ -723,11 +554,6 @@ export default function RecruiterDashboardPage() {
                   View Full Profile
                 </a>
 
-                {selectedCandidate.second_interview_status === "scheduled" && selectedCandidate.second_interview_scheduled_at && (
-                  <div className="w-full rounded-lg border border-green-300 bg-green-50 py-2.5 text-center text-sm font-semibold text-green-800">
-                    Interview: {formatInterviewDateTime(selectedCandidate.second_interview_scheduled_at)}
-                  </div>
-                )}
               </div>
 
               <hr className="border-gray-200 mb-4" />
@@ -760,64 +586,6 @@ export default function RecruiterDashboardPage() {
         </>
       )}
 
-      {/* Unmatched Bookings Modal */}
-      {unmatchedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setUnmatchedModal(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1C1B1A]">Unmatched Calendar Bookings</h3>
-              <button onClick={() => setUnmatchedModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">These calendar events could not be automatically matched to a candidate. Select the correct candidate and click Link.</p>
-            {localUnmatched.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">All bookings have been linked.</p>
-            ) : (
-              <div className="space-y-4">
-                {localUnmatched.map((booking) => {
-                  const linkableCandidates = pipeline.filter(
-                    (c) => c.second_interview_status === "none" || c.second_interview_status === "scheduled"
-                  );
-                  return (
-                    <div key={booking.id} className="rounded-lg border border-gray-200 p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-semibold text-[#1C1B1A]">{booking.attendee_name || "Unknown attendee"}</p>
-                          <p className="text-xs text-gray-500">{formatBookingDateTime(booking.event_start)}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <select
-                          value={linkSelections[booking.id] || ""}
-                          onChange={(e) => setLinkSelections((prev) => ({ ...prev, [booking.id]: e.target.value }))}
-                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
-                        >
-                          <option value="">Select candidate…</option>
-                          {linkableCandidates.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.display_name || "Unnamed"} — {c.role_category || "No role"}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => handleLinkBooking(booking.id)}
-                          disabled={!linkSelections[booking.id] || linkingId === booking.id}
-                          className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50"
-                        >
-                          {linkingId === booking.id ? "Linking…" : "Link"}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

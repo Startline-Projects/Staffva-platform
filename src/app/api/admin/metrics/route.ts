@@ -57,7 +57,6 @@ export async function GET() {
     clientsRes,
     profileViewsRes,
     talentSpecialistsRes,
-    calendarAlertsRes,
     // Sparkline: approved counts at end of each of past 4 weeks
     // We'll calculate these from candidates with created_at snapshots
   ] = await Promise.all([
@@ -86,9 +85,8 @@ export async function GET() {
     // Profile views (last 14 days for "browsed not hired")
     admin.from("profile_views").select("client_id").gte("created_at", twoWeeksAgo),
     // Talent specialist cards
-    admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url, calendar_link").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
+    admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
     // Calendar link alerts (unacknowledged)
-    admin.from("calendar_link_alerts").select("id, recruiter_id, recruiter_name, alerted_at").eq("acknowledged", false).order("alerted_at", { ascending: false }),
   ]);
 
   const liveCandidates = liveCandidatesRes.count || 0;
@@ -242,6 +240,5 @@ export async function GET() {
     // Talent specialist cards
     talentSpecialists: talentSpecialistsRes.data || [],
     // Calendar link alerts (unacknowledged)
-    calendarAlerts: calendarAlertsRes.data || [],
   });
 }

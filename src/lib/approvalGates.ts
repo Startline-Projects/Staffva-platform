@@ -84,9 +84,7 @@ export function checkApprovalGates(candidate: GateCandidate): {
  */
 export async function checkApprovalPreconditions(
   supabase: SupabaseClient,
-  // second_interview_status is still accepted so callers do not have to change,
-  // but it is no longer read. See below.
-  candidate: { id: string; second_interview_status?: string | null }
+  candidate: { id: string }
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
   // THE SECOND INTERVIEW REQUIREMENT IS GONE.
   //

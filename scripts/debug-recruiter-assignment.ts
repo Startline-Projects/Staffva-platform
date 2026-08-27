@@ -32,7 +32,7 @@ async function main() {
   // Try selecting with avatar_url — will error if column doesn't exist
   const { data: profileTest, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, calendar_link, role")
+    .select("id, full_name, avatar_url, role")
     .eq("role", "recruiter")
     .limit(5);
 
@@ -41,7 +41,7 @@ async function main() {
     // Try without avatar_url
     const { data: profileTest2, error: profileErr2 } = await supabase
       .from("profiles")
-      .select("id, full_name, calendar_link, role")
+      .select("id, full_name, role")
       .eq("role", "recruiter")
       .limit(5);
     if (profileErr2) console.error("Profile query without avatar_url also failed:", profileErr2.message);

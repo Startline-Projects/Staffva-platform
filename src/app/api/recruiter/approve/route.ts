@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const { data: candidate } = await supabase
       .from("candidates")
       .select(
-        "id, email, full_name, display_name, assigned_recruiter, role_category, second_interview_status, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
+        "id, email, full_name, display_name, assigned_recruiter, role_category, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
       )
       .eq("id", candidateId)
       .single();
@@ -144,11 +144,11 @@ export async function POST(req: NextRequest) {
             from: "StaffVA <notifications@staffva.com>",
             to: candidate.email,
             subject:
-              "You passed your second interview — your profile is live.",
+              "Your profile is live on StaffVA.",
             html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
               <h2 style="color:#1C1B1A;">Congratulations — You're Live!</h2>
               <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-              <p style="color:#444;font-size:14px;">Congratulations on passing your second interview! Your profile is now live on StaffVA and visible to clients looking for talent like you.</p>
+              <p style="color:#444;font-size:14px;">Congratulations. Your profile is now live on StaffVA and visible to clients looking for talent like you.</p>
               <a href="${siteUrl}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View My Live Profile</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,

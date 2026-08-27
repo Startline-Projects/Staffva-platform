@@ -8,7 +8,7 @@ function getAdminClient() {
 
 /**
  * Generate two AI-powered insights for a candidate profile.
- * Assembles data from three sources: candidate profile, AI interview, second interview scorecard.
+ * Assembles data from two sources: candidate profile and AI interview.
  * Calls Claude claude-sonnet-4-6 and writes results to candidates table.
  * On failure: logs error, leaves existing insight values untouched.
  */
@@ -44,16 +44,6 @@ export async function generateInsights(candidateId: string): Promise<void> {
       .limit(1)
       .maybeSingle();
 
-    // ── Source 3: Second interview scorecard ──
-    const { data: secondInterview } = await supabase
-      .from("candidate_interviews")
-      .select("communication_score, demeanor_score, role_knowledge_score, notes_pdf_url")
-      .eq("candidate_id", candidateId)
-      .eq("status", "completed")
-      .order("conducted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     // ── Assemble prompt data ──
     const profileSummary = [
       `Name: ${candidate.display_name || candidate.full_name}`,
@@ -78,13 +68,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
         `Overall: ${aiInterview.overall_score}/100, Technical: ${aiInterview.technical_knowledge_score}/100, Problem Solving: ${aiInterview.problem_solving_score}/100, Communication: ${aiInterview.communication_score}/100, Experience Depth: ${aiInterview.experience_depth_score}/100, Professionalism: ${aiInterview.professionalism_score}/100`;
     }
 
-    let secondInterviewSummary = "";
-    if (secondInterview) {
-      secondInterviewSummary = `\n\nSecond Interview Scorecard:\n` +
-        `Communication: ${secondInterview.communication_score}/5, Demeanor: ${secondInterview.demeanor_score}/5, Role Knowledge: ${secondInterview.role_knowledge_score}/5`;
-    }
-
-    const userContent = profileSummary + aiInterviewSummary + secondInterviewSummary;
+    const userContent = profileSummary + aiInterviewSummary;
 
     // ── Call Claude API ──
     const controller = new AbortController();
@@ -100,7 +84,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 300,
-        system: `You are an insight generator for StaffVA, a professional talent marketplace connecting US clients with vetted remote professionals. Given a candidate's profile data, AI interview scores, and second interview scorecard, return a JSON array of exactly 2 strings. Each string is one specific, compelling insight a US client would value when evaluating this candidate. Max 20 words per insight. Be specific — reference actual skills, scores, or experience from the data. No generic statements like "strong communicator" or "hard worker". Focus on what makes this candidate uniquely valuable. Return only the JSON array, no other text.`,
+        system: `You are an insight generator for StaffVA, a professional talent marketplace connecting US clients with vetted remote professionals. Given a candidate's profile data and AI interview scores, return a JSON array of exactly 2 strings. Each string is one specific, compelling insight a US client would value when evaluating this candidate. Max 20 words per insight. Be specific — reference actual skills, scores, or experience from the data. No generic statements like "strong communicator" or "hard worker". Focus on what makes this candidate uniquely valuable. Return only the JSON array, no other text.`,
         messages: [{ role: "user", content: userContent }],
       }),
       signal: controller.signal,

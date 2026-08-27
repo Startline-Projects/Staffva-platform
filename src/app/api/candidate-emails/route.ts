@@ -14,9 +14,6 @@ type EmailType =
   | "application_received"
   | "english_test_invitation"
   | "english_test_passed"
-  | "ai_interview_passed"
-  | "24h_nudge"
-  | "second_interview_scheduled"
   | "profile_approved";
 
 interface EmailTemplate {
@@ -69,49 +66,8 @@ const TEMPLATES: Record<EmailType, EmailTemplate> = {
     `,
   },
 
-  ai_interview_passed: {
-    subject: (data) => `Your AI interview scored ${data?.score || "—"}/100 — a Talent Specialist is reviewing you now`,
-    body: (name, data) => `
-      <h2 style="color:#1C1B1A;">AI Interview Complete</h2>
-      <p>Hi ${name},</p>
-      <p>You completed the AI interview${data?.score ? ` with a score of <strong>${data.score}/100</strong>` : ""}. Well done.</p>
-      <p><strong>What happens next:</strong> A Talent Specialist from our team will reach out to you within <strong>48 hours</strong> to schedule a brief second interview.</p>
-      <p>Two steps remain — complete the recruiter interview and get your profile approved. Then your profile goes live to U.S. clients.</p>
-      <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Dashboard</a>
-    `,
-  },
 
-  "24h_nudge": {
-    subject: "Your Talent Specialist interview is being scheduled",
-    body: (name) => `
-      <h2 style="color:#1C1B1A;">We Haven't Forgotten You</h2>
-      <p>Hi ${name},</p>
-      <p>Your AI interview is complete and a Talent Specialist is preparing to schedule your second interview. We aim to reach out within 48 hours of your AI interview completion.</p>
-      <p>In the meantime, make sure your profile is up to date — a complete profile helps our team match you with the right opportunities faster.</p>
-      <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Update My Profile</a>
-    `,
-  },
 
-  second_interview_scheduled: {
-    subject: "Your interview is confirmed — here's what to expect",
-    body: (name, data) => `
-      <h2 style="color:#1C1B1A;">Interview Scheduled</h2>
-      <p>Hi ${name},</p>
-      <p>Your second interview with StaffVA has been confirmed.</p>
-      <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:16px 0;">
-        <p style="margin:0 0 8px;"><strong>Date:</strong> ${data?.date || "See your dashboard"}</p>
-        <p style="margin:0 0 8px;"><strong>Time:</strong> ${data?.time || "See your dashboard"}</p>
-        ${data?.link ? `<p style="margin:0;"><strong>Video call:</strong> <a href="${data.link}" style="color:#FE6E3E;">${data.link}</a></p>` : ""}
-      </div>
-      <p><strong>Preparation tips:</strong></p>
-      <ul>
-        <li>Be in a quiet environment with good lighting</li>
-        <li>Test your microphone and camera beforehand</li>
-        <li>Have a brief summary of your work experience ready</li>
-        <li>The interview lasts approximately 20 minutes</li>
-      </ul>
-    `,
-  },
 
   profile_approved: {
     subject: "You're live. Clients can find you right now.",

@@ -123,21 +123,12 @@ export async function GET(request: Request) {
   // Chunked: this query is unbounded, so at the 10k target candidateIds runs to
   // several thousand and a single .in() would exceed the ~1,650-id URL ceiling
   // and drop the connection. See src/lib/selectIn.ts for the measurements.
-  const [{ data: testEvents }, { data: interviews }] = await Promise.all([
+  const [{ data: testEvents }] = await Promise.all([
     selectIn(candidateIds, (chunk) =>
       supabase
         .from("test_events")
         .select("*")
         .in("candidate_id", chunk)
-    ),
-    selectIn(candidateIds, (chunk) =>
-      supabase
-        .from("candidate_interviews")
-        .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
-        .eq("interview_number", 2)
-        .eq("status", "completed")
-        .in("candidate_id", chunk)
-        .order("conducted_at", { ascending: false })
     ),
   ]);
 
@@ -150,24 +141,10 @@ export async function GET(request: Request) {
     eventsByCandidate[event.candidate_id]!.push(event);
   }
 
-  // Keep only the most recent interview per candidate
-  const interviewByCandidate: Record<string, { communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }> = {};
-  for (const iv of interviews || []) {
-    if (!interviewByCandidate[iv.candidate_id]) {
-      interviewByCandidate[iv.candidate_id] = iv;
-    }
-  }
-
-  const enriched = (candidates || []).map((c) => {
-    const iv = interviewByCandidate[c.id];
-    return {
-      ...c,
-      test_events: eventsByCandidate[c.id] || [],
-      second_interview_communication_score: iv?.communication_score ?? null,
-      second_interview_demeanor_score: iv?.demeanor_score ?? null,
-      second_interview_role_knowledge_score: iv?.role_knowledge_score ?? null,
-    };
-  });
+  const enriched = (candidates || []).map((c) => ({
+    ...c,
+    test_events: eventsByCandidate[c.id] || [],
+  }));
 
   return NextResponse.json({
     candidates: enriched,

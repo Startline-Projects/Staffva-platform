@@ -33,7 +33,6 @@ function classifyStage(c: {
   english_written_tier: string | null;
   id_verification_status: string | null;
   profile_completed_at: string | null;
-  second_interview_status: string | null;
   admin_status: string | null;
   screening_score: number | null;
 }): string {
@@ -42,10 +41,10 @@ function classifyStage(c: {
   if (c.admin_status === "deactivated" || c.admin_status === "rejected") return "excluded";
 
   // Pending approval
-  if (c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review" || c.admin_status === "pending_speaking_review" || c.admin_status === "active" || c.admin_status === "profile_review") return "pending_approval";
+  // pending_2nd_interview has no holders and nothing writes it; pending_speaking_review
+  // and profile_review are not labels of the admin_status enum at all.
+  if (c.admin_status === "pending_review" || c.admin_status === "active") return "pending_approval";
 
-  // Second interview
-  if (c.second_interview_status === "scheduled" || c.second_interview_status === "completed") return "second_interview";
 
   // AI interview — has screening score means AI interview done
   if (c.screening_score != null) return "ai_interview";
@@ -72,7 +71,7 @@ export async function GET(req: NextRequest) {
   // Fetch all candidates with relevant fields
   const { data: candidates, error } = await supabase
     .from("candidates")
-    .select("id, role_category, role_category_custom, admin_status, english_mc_score, english_written_tier, id_verification_status, profile_completed_at, second_interview_status, screening_score, assigned_recruiter");
+    .select("id, role_category, role_category_custom, admin_status, english_mc_score, english_written_tier, id_verification_status, profile_completed_at, screening_score, assigned_recruiter");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -95,7 +94,7 @@ export async function GET(req: NextRequest) {
         role: roleKey === "__other__" ? "Custom Roles (Unrouted)" : roleKey,
         live: 0,
         pending: 0,
-        stages: { applied: 0, english_test: 0, id_verification: 0, profile_builder: 0, ai_interview: 0, second_interview: 0, pending_approval: 0 },
+        stages: { applied: 0, english_test: 0, id_verification: 0, profile_builder: 0, ai_interview: 0, pending_approval: 0 },
       });
     }
 

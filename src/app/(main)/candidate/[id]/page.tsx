@@ -243,7 +243,7 @@ export default async function CandidateProfilePage({
   // Fetch completed AI interview (latest) — includes scorecard fields for Interview 1 & 2
   const { data: aiInterview } = await supabase
     .from("ai_interviews")
-    .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed, badge_level, technical_knowledge_feedback, problem_solving_feedback, communication_feedback, experience_depth_feedback, professionalism_feedback, strengths, weaknesses, ai_notes, second_interview_status, second_interview_overall, second_interview_technical, second_interview_problem, second_interview_communication, second_interview_experience, second_interview_professionalism, second_interview_feedback, second_interview_ai_notes, combined_recommendation, combined_recommendation_reason, second_interview_recruiter_name")
+    .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed, badge_level, technical_knowledge_feedback, problem_solving_feedback, communication_feedback, experience_depth_feedback, professionalism_feedback, strengths, weaknesses, ai_notes")
     .eq("candidate_id", id)
     .eq("status", "completed")
     .order("created_at", { ascending: false })
@@ -266,7 +266,6 @@ export default async function CandidateProfilePage({
       : null;
 
   const aiInterviewCompleted = !!aiInterview;
-  const secondInterviewCompleted = candidate.second_interview_status === "completed";
   const tools: string[] = candidate.tools || [];
   const rawWorkExperience: { company_name?: string; role_title: string; industry: string; duration: string; description: string; start_date?: string; end_date?: string }[] = candidate.work_experience || [];
   const workExperience = [...rawWorkExperience].sort((a, b) => {
@@ -388,14 +387,12 @@ export default async function CandidateProfilePage({
               <p className="text-xs text-amber-700 mt-0.5">
                 Status: <strong>{candidate.admin_status?.replace(/_/g, " ")}</strong>
                 {" · "}AI interview: <strong>{aiInterviewCompleted ? "completed" : "not completed"}</strong>
-                {" · "}Second interview: <strong>{secondInterviewCompleted ? "completed" : candidate.second_interview_status?.replace(/_/g, " ") || "none"}</strong>
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <ApproveButton
                 candidateId={candidate.id}
                 aiInterviewCompleted={aiInterviewCompleted}
-                secondInterviewCompleted={secondInterviewCompleted}
                 alreadyApproved={candidate.admin_status === "approved"}
               />
               <BanButton
@@ -739,110 +736,6 @@ export default async function CandidateProfilePage({
                     ) : null
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center">
-                <svg className="mx-auto w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <p className="mt-2 text-xs text-text/50">Create a free account to view interview scorecard.</p>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ═══════════ INTERVIEW 2 — SCORECARD & NOTES ═══════════ */}
-      {aiInterview?.second_interview_status === "completed" && (() => {
-        const iv = aiInterview!;
-        const score2 = iv.second_interview_overall;
-        const score2Border = score2 && score2 >= 80 ? "border-primary" : score2 && score2 >= 60 ? "border-amber-500" : "border-gray-300";
-        const score2Text = score2 && score2 >= 80 ? "text-primary" : score2 && score2 >= 60 ? "text-amber-600" : "text-gray-400";
-
-        const dims2 = [
-          { label: "Technical Knowledge", score: iv.second_interview_technical },
-          { label: "Problem Solving", score: iv.second_interview_problem },
-          { label: "Communication", score: iv.second_interview_communication },
-          { label: "Experience Depth", score: iv.second_interview_experience },
-          { label: "Professionalism", score: iv.second_interview_professionalism },
-        ];
-
-        const recMap: Record<string, { label: string; cls: string }> = {
-          pass: { label: "Recommended", cls: "bg-green-100 text-green-700 border-green-200" },
-          hold: { label: "Under Review", cls: "bg-amber-100 text-amber-700 border-amber-200" },
-          reject: { label: "Not Recommended", cls: "bg-red-100 text-red-700 border-red-200" },
-        };
-        const rec = iv.combined_recommendation ? recMap[iv.combined_recommendation] : null;
-
-        return (
-          <div className="mx-auto max-w-5xl px-6 mt-6">
-            {canViewGated ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Interview 2 — Scorecard &amp; Notes</h2>
-
-                {/* Score circle */}
-                {score2 != null && (
-                  <div className="mt-5">
-                    <div className={`flex h-16 w-16 items-center justify-center rounded-full border-[3px] ${score2Border}`}>
-                      <span className={`text-xl font-bold ${score2Text}`}>{score2}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Five dimension bars */}
-                <div className="mt-5 space-y-4">
-                  {dims2.map((d) => {
-                    if (d.score == null) return null;
-                    const pct = Math.min(Math.round((d.score / 20) * 100), 100);
-                    return (
-                      <div key={d.label}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium text-text-secondary">{d.label}</span>
-                          <span className="text-xs font-semibold text-text tabular-nums">{d.score}/20</span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-gray-100">
-                          <div
-                            className="h-2 rounded-full bg-primary transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Text blocks */}
-                <div className="mt-5 space-y-4">
-                  {iv.second_interview_feedback && (
-                    <div>
-                      <p className="text-xs font-semibold text-text/40 uppercase tracking-wider">Recruiter Feedback</p>
-                      <p className="mt-1 text-sm text-text/70">{iv.second_interview_feedback}</p>
-                    </div>
-                  )}
-                  {iv.second_interview_ai_notes && (
-                    <div>
-                      <p className="text-xs font-semibold text-text/40 uppercase tracking-wider">Recruiter Notes</p>
-                      <p className="mt-1 text-sm text-text/70">{iv.second_interview_ai_notes}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Combined recommendation badge */}
-                {rec && (
-                  <div className="mt-5">
-                    <span className={`inline-flex rounded-full border px-4 py-1.5 text-sm font-semibold ${rec.cls}`}>
-                      {rec.label}
-                    </span>
-                    {iv.combined_recommendation_reason && (
-                      <p className="mt-2 text-xs text-text/50">{iv.combined_recommendation_reason}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Interviewer name */}
-                {iv.second_interview_recruiter_name && (
-                  <p className="mt-4 text-xs text-text/40">Assessed by {iv.second_interview_recruiter_name}</p>
-                )}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center">

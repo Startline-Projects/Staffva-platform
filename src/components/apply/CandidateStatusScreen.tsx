@@ -36,26 +36,12 @@ const STATUS_CONFIG: Record<string, {
     title: "Profile Under Review",
     message: "Our team is doing a final review of your profile — we'll email you within 2 business days.",
   },
-  pending_2nd_interview: {
-    icon: "check",
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
-    title: "Almost There",
-    message: "You have passed your interview. Finish the remaining steps on your profile and you will go live automatically — there is nothing to wait for.",
-  },
   pending_review: {
     icon: "check",
     iconBg: "bg-yellow-100",
     iconColor: "text-yellow-600",
     title: "Profile Under Review",
     message: "Our team is doing a final review of your profile — we'll email you within 2 business days.",
-  },
-  pending_speaking_review: {
-    icon: "check",
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
-    title: "Almost There",
-    message: "You have passed your interview. Finish the remaining steps on your profile and you will go live automatically — there is nothing to wait for.",
   },
   rejected: {
     icon: "x",

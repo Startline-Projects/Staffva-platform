@@ -9,16 +9,10 @@ import RecruiterPhotoQueue from "@/components/admin/RecruiterPhotoQueue";
 
 interface ManagerData {
   personalKpi: {
-    interviewsToday: number;
-    dailyTarget: number;
     recruiterType: string;
     socialPosts: { id: string; post_url: string; created_at: string }[];
-    calendarLink: string | null;
-    calendarValid: boolean | null;
   };
   teamSummary: {
-    totalInterviewsToday: number;
-    totalTarget: number;
     postingCompliance: { at2Posts: number; totalRecruiters: number };
     unroutedAlertCount: number;
   };
@@ -26,12 +20,8 @@ interface ManagerData {
     id: string;
     name: string;
     role: string;
-    interviewsToday: number;
-    dailyTarget: number;
     socialPostsToday: number;
     queueDepth: number;
-    calendarLink: string | null;
-    calendarValid: boolean;
   }[];
   unroutedQueue: {
     id: string;
@@ -100,12 +90,6 @@ interface ManagerData {
   }[];
   gridDays: string[];
   recruiterNameMap: Record<string, string>;
-  calendarAlerts: {
-    id: string;
-    recruiter_id: string;
-    recruiter_name: string;
-    alerted_at: string;
-  }[];
   myQueue: {
     id: string;
     display_name: string;
@@ -139,7 +123,6 @@ interface ManagerData {
     english_comprehension_score: number | null;
     id_verification_status: string | null;
     ai_interview_completed_at: string | null;
-    second_interview_status: string | null;
   }[];
 }
 
@@ -148,9 +131,6 @@ function stageBadge(status: string, pendingRouting: boolean) {
   // a value that column never holds, so this badge never rendered.
   if (pendingRouting) return { label: "Needs routing", cls: "bg-red-100 text-red-700" };
   switch (status) {
-    case "pending_speaking_review":
-    case "pending_2nd_interview":
-      return { label: "Pending 2nd Interview", cls: "bg-amber-100 text-amber-700" };
     case "pending_review":
     case "profile_review":
       return { label: "Profile Under Review", cls: "bg-yellow-100 text-yellow-700" };
@@ -186,7 +166,6 @@ export default function ManagerDashboard() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [candidatesSearch, setCandidatesSearch] = useState("");
   const [tsSearch, setTsSearch] = useState("");
-  const [dismissedCalendarAlerts, setDismissedCalendarAlerts] = useState<Set<string>>(new Set());
   const [assignModal, setAssignModal] = useState<{ candidateId: string; name: string } | null>(null);
   const [selectedRecruiterId, setSelectedRecruiterId] = useState("");
   const [assigning, setAssigning] = useState(false);
@@ -293,7 +272,6 @@ export default function ManagerDashboard() {
   const myQueue = data.myQueue || [];
   const totalCandidates = allCandidates.length;
   const approvedThisWeek = data.metrics.approvedThisWeek;
-  const pendingRecruiterInterview = allCandidates.filter((c) => c.assigned_recruiter && c.second_interview_status !== "completed").length;
   const needsRouting = allCandidates.filter((c) => c.assignment_pending_review).length;
 
   // Pipeline counts — matches the 6-step candidate flow
@@ -302,19 +280,16 @@ export default function ManagerDashboard() {
     { label: "English test passed", count: allCandidates.filter((c) => (c.english_mc_score ?? 0) >= 70 && (c.english_comprehension_score ?? 0) >= 70).length, color: "bg-purple-500" },
     { label: "Identity verified", count: allCandidates.filter((c) => c.id_verification_status === "passed").length, color: "bg-indigo-500" },
     { label: "AI interview complete", count: allCandidates.filter((c) => !!c.ai_interview_completed_at).length, color: "bg-blue-500" },
-    { label: "Pending recruiter interview", count: pendingRecruiterInterview, color: "bg-amber-500" },
     { label: "Approved & live", count: allCandidates.filter((c) => c.admin_status === "approved").length, color: "bg-green-500" },
   ];
 
   // TS view counts
-  const myActionNeeded = myQueue.filter((c) => ["pending_speaking_review", "pending_review", "profile_review", "pending_2nd_interview"].includes(c.admin_status) || c.assignment_pending_review);
+  const myActionNeeded = myQueue.filter((c) => c.admin_status === "pending_review" || c.assignment_pending_review);
   const myApprovedThisWeek = myQueue.filter((c) => c.admin_status === "approved" && isThisWeek(c.updated_at)).length;
   const myNeedsRouting = myQueue.filter((c) => c.assignment_pending_review).length;
 
   // Alerts
   const routingAlert = needsRouting > 0;
-  const calendarAlerts = (data.calendarAlerts || []).filter((a) => !dismissedCalendarAlerts.has(a.id));
-  const missingCalendarRecruiters = data.teamStatus.filter((r) => !r.calendarLink);
 
   // Sorted all candidates: needs routing first, then by created_at desc
   const filteredCandidates = allCandidates
@@ -377,10 +352,6 @@ export default function ManagerDashboard() {
               <p className="text-xs text-gray-500 mt-1">Approved this week</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <p className="text-2xl font-medium text-amber-600">{pendingRecruiterInterview}</p>
-              <p className="text-xs text-gray-500 mt-1">Pending recruiter interview</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <p className="text-2xl font-medium text-[#1C1B1A]">
                 {needsRouting}
                 {needsRouting > 0 && <span className="inline-block ml-1.5 h-2 w-2 rounded-full bg-red-500 align-middle" />}
@@ -422,30 +393,13 @@ export default function ManagerDashboard() {
                     <button onClick={() => setViewMode("ts")} className="shrink-0 rounded-lg bg-[#FE6E3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E55A2B]">Switch to TS view</button>
                   </div>
                 )}
-                {calendarAlerts.map((alert) => (
-                  <div key={alert.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-center justify-between gap-3">
-                    <p className="text-xs text-blue-800 font-medium">{alert.recruiter_name} removed their calendar link. Candidates cannot book second interview.</p>
-                    <button
-                      onClick={async () => {
-                        setDismissedCalendarAlerts((prev) => new Set(prev).add(alert.id));
-                        await fetch("/api/admin/calendar-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alert_id: alert.id }) });
-                      }}
-                      className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100"
-                    >Dismiss</button>
-                  </div>
-                ))}
-                {missingCalendarRecruiters.map((r) => (
-                  <div key={r.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                    <p className="text-xs text-blue-800 font-medium">{r.name} — calendar link missing. Candidates cannot book second interview.</p>
-                  </div>
-                ))}
                 {data.unroutedAlerts.length > 0 && data.unroutedAlerts.map((alert) => (
                   <div key={alert.id} className="rounded-lg border border-orange-200 bg-orange-50 p-3 flex items-center gap-2">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold">!</span>
                     <p className="text-xs text-orange-800 font-medium">{alert.candidate_name} ({alert.role_category_custom || "Other"}) — needs recruiter assignment</p>
                   </div>
                 ))}
-                {!routingAlert && calendarAlerts.length === 0 && missingCalendarRecruiters.length === 0 && data.unroutedAlerts.length === 0 && (
+                {!routingAlert && data.unroutedAlerts.length === 0 && (
                   <p className="text-xs text-gray-400 py-4 text-center">No alerts — team is on track.</p>
                 )}
               </div>
@@ -462,7 +416,6 @@ export default function ManagerDashboard() {
                       <th className="px-3 py-2 text-center">Queue</th>
                       <th className="px-3 py-2 text-center">Interviews</th>
                       <th className="px-3 py-2 text-center">Posts</th>
-                      <th className="px-3 py-2 text-center">Cal</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -470,11 +423,7 @@ export default function ManagerDashboard() {
                       <tr key={r.id} className="border-b border-gray-50">
                         <td className="px-3 py-2 font-medium text-[#1C1B1A]">{r.name}</td>
                         <td className="px-3 py-2 text-center text-gray-600">{r.queueDepth}</td>
-                        <td className="px-3 py-2 text-center text-gray-600">{r.interviewsToday}/{r.dailyTarget || 14}</td>
                         <td className="px-3 py-2 text-center text-gray-600">{r.socialPostsToday}</td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={`inline-block h-2.5 w-2.5 rounded-full ${r.calendarValid ? "bg-green-500" : "bg-red-500"}`} />
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -745,15 +694,12 @@ export default function ManagerDashboard() {
                   })
                   .map((c) => {
                     const isRouting = c.assignment_pending_review;
-                    const isPending2nd = ["pending_speaking_review", "pending_2nd_interview"].includes(c.admin_status);
-                    const isPendingProfileReview = ["pending_review", "profile_review"].includes(c.admin_status);
-                    const isPendingReview = isPending2nd || isPendingProfileReview;
+                    const isPendingProfileReview = c.admin_status === "pending_review";
+                    const isPendingReview = isPendingProfileReview;
                     const statusText = isRouting
                       ? "Needs routing — review and reassign"
                       : isPendingProfileReview
                       ? "Ready to push live"
-                      : isPending2nd
-                      ? "Ready for 2nd interview"
                       : "Action required";
                     const initials = (c.display_name || "??").slice(0, 2).toUpperCase();
                     return (
@@ -791,7 +737,7 @@ export default function ManagerDashboard() {
                               )
                             )}
                             {isPendingReview && (
-                              <Link href={isPendingProfileReview ? `/admin/candidates?status=pending_review` : `/admin/candidates?status=pending_2nd_interview`} className="rounded-lg bg-[#FE6E3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E55A2B]">Review</Link>
+                              <Link href={`/admin/candidates?status=pending_review`} className="rounded-lg bg-[#FE6E3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E55A2B]">Review</Link>
                             )}
                           </div>
                         </div>

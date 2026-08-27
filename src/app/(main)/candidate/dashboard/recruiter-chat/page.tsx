@@ -16,7 +16,6 @@ interface Message {
 
 interface RecruiterProfile {
   full_name: string;
-  calendar_link: string | null;
   recruiter_photo_url: string | null;
 }
 

@@ -134,7 +134,6 @@ export default function InterviewPanel({ candidateId, candidateName }: Props) {
   }
 
   const interview1 = interviews.find((i) => i.interview_number === 1);
-  const interview2 = interviews.find((i) => i.interview_number === 2);
 
   if (loading) {
     return <p className="text-sm text-text/40">Loading interviews...</p>;
@@ -154,15 +153,6 @@ export default function InterviewPanel({ candidateId, candidateName }: Props) {
               className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               Schedule Interview 1
-            </button>
-          )}
-          {interview1?.status === "completed" && !interview2 && (
-            <button
-              onClick={() => requestInterview(2)}
-              disabled={requestLoading}
-              className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              Schedule Interview 2
             </button>
           )}
         </div>

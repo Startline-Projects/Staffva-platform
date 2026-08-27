@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Fetch candidate with all fields required for 10-gate check
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, email, full_name, display_name, second_interview_status, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status")
+      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status")
       .eq("id", candidateId)
       .single();
 

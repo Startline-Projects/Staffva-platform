@@ -20,7 +20,7 @@ async function getRecruiterUser(req: NextRequest) {
   const supabase = getAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, calendar_link, daily_interview_target, recruiter_type, google_calendar_connected")
+    .select("role, recruiter_type")
     .eq("id", user.id)
     .single();
   if (!profile || (profile.role !== "recruiter" && profile.role !== "recruiting_manager")) return null;
@@ -35,8 +35,6 @@ export async function GET(req: NextRequest) {
   console.log(`[RECRUITER DASHBOARD] user.id: ${user.id}, profile.role: ${profile.role}`);
   const supabase = getAdminClient();
   const today = new Date().toISOString().split("T")[0];
-  const todayStart = `${today}T00:00:00.000Z`;
-  const todayEnd = `${today}T23:59:59.999Z`;
 
   const recruiterId = user.id.toString();
 
@@ -48,28 +46,22 @@ export async function GET(req: NextRequest) {
   const assignedCandidateIds = (assignedCandidates || []).map((c: { id: string }) => c.id);
 
   // Parallel fetches
+  // Lane 1 (resumes to review before the call), Lane 2 (profiles to submit after
+  // it), the "interviews completed today" KPI, the upcoming-bookings list and the
+  // unmatched-bookings list have all been removed. Every one of them was keyed on
+  // second_interview_status, which nothing sets any more, so each would render as
+  // a permanently empty column on the recruiter's main screen. Approval is now
+  // automatic once a candidate passes and completes their profile, so the
+  // schedule -> interview -> score -> submit workflow they implemented no longer
+  // exists. What is left is the work a specialist actually still does: their
+  // assigned candidates, revision follow-ups, messages and social posts.
   const [
-    interviewsRes,
     socialRes,
     queueRes,
-    lane1Res,
-    lane2Res,
     lane3Res,
     threadsRes,
     pipelineRes,
-    upcomingRes,
-    unmatchedRes,
-    pipelineInterviewsRes,
   ] = await Promise.all([
-    // KPI: completed interviews today for this recruiter
-    supabase
-      .from("candidates")
-      .select("id", { count: "exact", head: true })
-      .eq("assigned_recruiter", recruiterId)
-      .eq("second_interview_status", "completed")
-      .gte("second_interview_completed_at", todayStart)
-      .lte("second_interview_completed_at", todayEnd),
-
     // KPI: social posts today
     supabase
       .from("social_posts")
@@ -84,25 +76,8 @@ export async function GET(req: NextRequest) {
       .select("id, display_name, full_name, role_category, profile_photo_url, ai_interview_completed_at, email")
       .eq("assigned_recruiter", recruiterId)
       .not("ai_interview_completed_at", "is", null)
-      .eq("second_interview_status", "none")
       .not("admin_status", "eq", "approved")
       .order("ai_interview_completed_at", { ascending: true }),
-
-    // Lane 1: Resumes to review — interviews scheduled today or upcoming
-    supabase
-      .from("candidates")
-      .select("id, display_name, full_name, role_category, profile_photo_url, second_interview_scheduled_at, screening_score, resume_url, recruiter_ai_score_results")
-      .eq("assigned_recruiter", recruiterId)
-      .eq("second_interview_status", "scheduled")
-      .order("second_interview_scheduled_at", { ascending: true }),
-
-    // Lane 2: Profiles to submit — interview completed, not yet submitted, no pending revision
-    supabase
-      .from("candidates")
-      .select("id, display_name, full_name, role_category, profile_photo_url, screening_score, second_interview_completed_at, admin_status, profile_photo_url, tagline, bio, resume_url, payout_method, id_verification_status, voice_recording_1_url, voice_recording_2_url, english_mc_score, english_comprehension_score, interview_consent_at, recruiter_ai_score_results, video_intro_url, id_verification_consent")
-      .eq("assigned_recruiter", recruiterId)
-      .eq("second_interview_status", "completed")
-      .in("admin_status", ["pending_speaking_review", "pending_review", "profile_review"]),
 
     // Lane 3: Revision follow-ups — pending revisions for assigned candidates
     // Two-step approach: filter by candidate IDs instead of nested join filter
@@ -126,55 +101,18 @@ export async function GET(req: NextRequest) {
     // (candidates.assigned_at doesn't exist; created_at is the closest stable proxy)
     supabase
       .from("candidates")
-      .select("id, display_name, role_category, profile_photo_url, admin_status, second_interview_status, second_interview_scheduled_at, ai_interview_completed_at, ai_interview_score, created_at, recruiter_notes")
+      .select("id, display_name, role_category, profile_photo_url, admin_status, ai_interview_completed_at, ai_interview_score, created_at, recruiter_notes")
       .eq("assigned_recruiter", recruiterId)
       .order("created_at", { ascending: false }),
 
-    // Second interview scores for pipeline candidates
-    assignedCandidateIds.length > 0
-      ? supabase
-          .from("candidate_interviews")
-          .select("candidate_id, communication_score, demeanor_score, role_knowledge_score, conducted_at")
-          .eq("interview_number", 2)
-          .eq("status", "completed")
-          .in("candidate_id", assignedCandidateIds)
-          .order("conducted_at", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
-
-    // Upcoming interviews — scheduled via Google Calendar
-    supabase
-      .from("candidates")
-      .select("id, display_name, role_category, profile_photo_url, second_interview_scheduled_at, google_calendar_event_id")
-      .eq("assigned_recruiter", recruiterId)
-      .eq("second_interview_status", "scheduled")
-      .not("second_interview_scheduled_at", "is", null)
-      .order("second_interview_scheduled_at", { ascending: true }),
-
-    // Unmatched calendar bookings
-    supabase
-      .from("calendar_unmatched_bookings")
-      .select("id, event_id, event_start, attendee_name, created_at")
-      .eq("recruiter_id", recruiterId),
   ]);
 
-  console.log(`[RECRUITER DASHBOARD] recruiterId: ${recruiterId}, assignedTotal: ${assignedCandidateIds.length}, Queue: ${queueRes.data?.length ?? 0}, Lane1: ${lane1Res.data?.length ?? 0}, Lane2: ${lane2Res.data?.length ?? 0}, Lane3: ${lane3Res.data?.length ?? 0}, errors: ${JSON.stringify({ q: queueRes.error?.message, l1: lane1Res.error?.message, l2: lane2Res.error?.message, l3: lane3Res.error?.message })}`);
-
-  // Process interviews count
-  const interviewsToday = interviewsRes.count ?? 0;
+  console.log(`[RECRUITER DASHBOARD] recruiterId: ${recruiterId}, assignedTotal: ${assignedCandidateIds.length}, Queue: ${queueRes.data?.length ?? 0}, Lane3: ${lane3Res.data?.length ?? 0}, errors: ${JSON.stringify({ q: queueRes.error?.message, l3: lane3Res.error?.message })}`);
 
   // Process social posts
   const socialPosts = socialRes.data || [];
 
-  // Lane 2: filter out candidates with pending revisions
-  const lane2Candidates = lane2Res.data || [];
   const lane3Data = lane3Res.data || [];
-  const candidatesWithPendingRevisions = new Set(
-    lane3Data.map((r: { candidate_id: string }) => r.candidate_id)
-  );
-  const lane2Filtered = lane2Candidates.filter(
-    (c: { id: string }) =>
-      !candidatesWithPendingRevisions.has(c.id)
-  );
 
   // Process message threads
   const msgs = threadsRes.data || [];
@@ -190,56 +128,18 @@ export async function GET(req: NextRequest) {
     return { candidate_id: candidateId, last_message: latest.body, last_message_at: latest.created_at, unread_count: unread };
   }).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-  // Calendar link validation — 3-second timeout to avoid blocking the response
-  let calendarValid: boolean | null = null;
-  if (profile.calendar_link) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(profile.calendar_link, { method: "HEAD", redirect: "follow", signal: controller.signal });
-      clearTimeout(timeout);
-      calendarValid = res.ok;
-    } catch {
-      calendarValid = false;
-    }
-  }
-
   return NextResponse.json({
     kpi: {
-      interviewsToday,
-      dailyTarget: profile.daily_interview_target,
       recruiterType: profile.recruiter_type,
       socialPosts,
-      calendarLink: profile.calendar_link || null,
-      calendarValid,
     },
-    googleConnected: profile.google_calendar_connected ?? false,
     queue: queueRes.data || [],
     allAssigned: assignedCandidates || [],
-    lane1: lane1Res.data || [],
-    lane2: lane2Filtered,
     lane3: lane3Data,
-    pipeline: (() => {
-      const ivByCandidate: Record<string, { communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }> = {};
-      for (const iv of (pipelineInterviewsRes.data || []) as unknown as { candidate_id: string; communication_score: number | null; demeanor_score: number | null; role_knowledge_score: number | null }[]) {
-        if (!ivByCandidate[iv.candidate_id]) ivByCandidate[iv.candidate_id] = iv;
-      }
-      return (pipelineRes.data || []).map((c: { id: string }) => {
-        const iv = ivByCandidate[c.id];
-        return {
-          ...c,
-          second_interview_communication_score: iv?.communication_score ?? null,
-          second_interview_demeanor_score: iv?.demeanor_score ?? null,
-          second_interview_role_knowledge_score: iv?.role_knowledge_score ?? null,
-        };
-      });
-    })(),
-    upcoming_interviews: upcomingRes.data || [],
-    unmatched_bookings: unmatchedRes.data || [],
+    pipeline: pipelineRes.data || [],
     threads,
     profile: {
       role: profile.role,
-      calendarLink: profile.calendar_link,
     },
   });
 }

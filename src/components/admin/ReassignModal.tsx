@@ -6,7 +6,6 @@ interface Recruiter {
   id: string;
   full_name: string;
   email: string;
-  calendar_link: string | null;
 }
 
 interface ReassignModalProps {

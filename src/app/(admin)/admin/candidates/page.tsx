@@ -32,8 +32,6 @@ const US_EXP_LABELS: Record<string, string> = {
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
   active: { label: "Active", color: "bg-blue-100 text-blue-700" },
   profile_review: { label: "Profile Under Review", color: "bg-yellow-100 text-yellow-700" },
-  pending_speaking_review: { label: "Pending 2nd Interview", color: "bg-amber-100 text-amber-700" },
-  pending_2nd_interview: { label: "Pending 2nd Interview", color: "bg-amber-100 text-amber-700" },
   pending_review: { label: "Profile Under Review", color: "bg-yellow-100 text-yellow-700" },
   ai_interview_failed: { label: "AI Interview Failed", color: "bg-red-100 text-red-700" },
   approved: { label: "Live", color: "bg-green-100 text-green-700" },
@@ -108,108 +106,13 @@ interface Candidate {
   has_headset: boolean | null;
   has_webcam: boolean | null;
   speed_test_url: string | null;
-  second_interview_status: string | null;
   recruiter_ai_score_results: { dimension: string; score: number; justification: string }[] | null;
   payout_status: string | null;
   payout_failure_reason?: string | null;
   ai_interview_score: number | null;
-  second_interview_communication_score: number | null;
-  second_interview_demeanor_score: number | null;
-  second_interview_role_knowledge_score: number | null;
 }
 
 // ─── Recruiter Post-Interview Scoring Panel ───
-function RecruiterScoringPanel({ candidate, onUpdate }: { candidate: Candidate; onUpdate: () => void }) {
-  const [notes, setNotes] = useState("");
-  const [scoring, setScoring] = useState(false);
-  const [error, setError] = useState("");
-  const [results, setResults] = useState<{ dimension: string; score: number; justification: string }[] | null>(
-    candidate.recruiter_ai_score_results || null
-  );
-
-  const step1Done = !!results && results.length > 0;
-
-  async function handleAIScoring() {
-    if (!notes.trim()) { setError("Please enter interview notes"); return; }
-    setScoring(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/admin/recruiter-scoring", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId: candidate.id, interviewNotes: notes.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "AI scoring failed"); setScoring(false); return; }
-      setResults(data.scores);
-      onUpdate();
-    } catch {
-      setError("AI scoring failed. Please try again.");
-    }
-    setScoring(false);
-  }
-
-  return (
-    <div className="space-y-6">
-      <h3 className="text-sm font-semibold text-[#1C1B1A]">Post-Interview Scoring</h3>
-
-      {/* Step 1: AI Interview Scoring */}
-      <div className={`rounded-xl border p-5 ${step1Done ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-white"}`}>
-        <div className="flex items-center gap-2 mb-3">
-          {step1Done ? (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
-              <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-            </div>
-          ) : (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FE6E3E] text-white text-xs font-bold">1</div>
-          )}
-          <p className="text-sm font-semibold text-[#1C1B1A]">AI Interview Scoring</p>
-        </div>
-
-        {!step1Done && (
-          <>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={5}
-              placeholder="Enter your interview notes and observations from the second interview."
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
-            />
-            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-            <button
-              onClick={handleAIScoring}
-              disabled={scoring}
-              className="mt-3 rounded-lg bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors disabled:opacity-50"
-            >
-              {scoring ? "Scoring..." : "Submit to AI Scoring"}
-            </button>
-          </>
-        )}
-
-        {/* Display AI scoring results */}
-        {results && results.length > 0 && (
-          <div className="mt-4 space-y-3">
-            {results.map((r) => (
-              <div key={r.dimension} className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-[#1C1B1A]">{r.dimension}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{r.justification}</p>
-                </div>
-                <span className="shrink-0 text-sm font-bold text-[#FE6E3E]">{r.score}/5</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Step 2: Profile Review — unlocked after AI scoring complete */}
-      <ProfileReviewStep candidate={candidate} aiScoringDone={step1Done} />
-    </div>
-  );
-}
-
-// ─── Step 2: Profile Review ───
 function ProfileReviewStep({ candidate, aiScoringDone }: { candidate: Candidate; aiScoringDone: boolean }) {
   const unlocked = aiScoringDone;
   const alreadyApproved = candidate.admin_status === "approved";
@@ -693,7 +596,6 @@ export default function CandidateReviewPage() {
                 <th className="pb-3 pr-4">Role</th>
                 <th className="pb-3 pr-4">Rate</th>
                 <th className="pb-3 pr-4">AI Score</th>
-                <th className="pb-3 pr-4">2nd Interview</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Payout</th>
                 <th className="pb-3 pr-4">Lock</th>
@@ -754,13 +656,6 @@ export default function CandidateReviewPage() {
                     </td>
                     <td className="py-3 pr-4">
                       <span className="text-xs text-text/70">{c.ai_interview_score != null ? `${c.ai_interview_score}/100` : "—"}</span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="text-xs text-text/70">
-                        {c.second_interview_communication_score != null && c.second_interview_demeanor_score != null && c.second_interview_role_knowledge_score != null
-                          ? `${((c.second_interview_communication_score + c.second_interview_demeanor_score + c.second_interview_role_knowledge_score) / 3).toFixed(1)}/5`
-                          : "—"}
-                      </span>
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${badge.color}`}>
@@ -830,7 +725,7 @@ export default function CandidateReviewPage() {
                           >
                             Edit Verified Earnings
                           </button>
-                          {(c.admin_status === "active" || c.admin_status === "profile_review" || c.admin_status === "pending_2nd_interview" || c.admin_status === "pending_review" || c.admin_status === "pending_speaking_review") && (
+                          {(c.admin_status === "active" || c.admin_status === "pending_review") && (
                             <>
                               <div className="border-t border-gray-100 my-1" />
                               <button
@@ -983,7 +878,7 @@ export default function CandidateReviewPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-200">
                     <div className="flex border-b border-gray-200 px-6">
-                      {[...["overview", "recordings", "interviews", "profile", "test"], ...(c.second_interview_status === "completed" ? ["scoring"] : [])].map((t) => (
+                      {["overview", "recordings", "interviews", "profile", "test"].map((t) => (
                         <button
                           key={t}
                           onClick={() => setTab(c.id, t)}
@@ -1193,9 +1088,6 @@ export default function CandidateReviewPage() {
                         </div>
                       )}
 
-                      {tab === "scoring" && c.second_interview_status === "completed" && (
-                        <RecruiterScoringPanel candidate={c} onUpdate={() => window.location.reload()} />
-                      )}
                     </div>
                   </div>
                 )}
@@ -1284,7 +1176,7 @@ export default function CandidateReviewPage() {
           revisionNote={revisionNotes[previewCandidate.id] || ""}
           onRevisionNoteChange={(note) => setRevisionNotes((prev) => ({ ...prev, [previewCandidate.id]: note }))}
           actionLoading={actionLoading === previewCandidate.id}
-          showActions={previewCandidate.admin_status === "active" || previewCandidate.admin_status === "profile_review" || previewCandidate.admin_status === "pending_2nd_interview" || previewCandidate.admin_status === "pending_review" || previewCandidate.admin_status === "pending_speaking_review" || previewCandidate.admin_status === "revision_required"}
+          showActions={previewCandidate.admin_status === "active" || previewCandidate.admin_status === "pending_review" || previewCandidate.admin_status === "revision_required"}
           token={token}
           onCandidateUpdated={loadCandidates}
         />

@@ -16,14 +16,14 @@ async function lookupRecruiterProfile(assignedRecruiter: string) {
   if (isUUID) {
     const { data, error } = await admin
       .from("profiles")
-      .select("id, full_name, calendar_link")
+      .select("id, full_name")
       .eq("id", assignedRecruiter)
       .single();
     return { profile: data, error };
   } else {
     const { data, error } = await admin
       .from("profiles")
-      .select("id, full_name, calendar_link")
+      .select("id, full_name")
       .eq("role", "recruiter")
       .ilike("full_name", `${assignedRecruiter}%`)
       .limit(1)

@@ -5,27 +5,21 @@ import { useState } from "react";
 interface ApproveButtonProps {
   candidateId: string;
   aiInterviewCompleted: boolean;
-  secondInterviewCompleted: boolean;
   alreadyApproved: boolean;
 }
 
 export default function ApproveButton({
   candidateId,
   aiInterviewCompleted,
-  secondInterviewCompleted,
   alreadyApproved,
 }: ApproveButtonProps) {
   const [loading, setLoading] = useState(false);
   const [approved, setApproved] = useState(alreadyApproved);
   const [error, setError] = useState<string | null>(null);
 
-  const meetsRequirements = aiInterviewCompleted && secondInterviewCompleted;
+  const meetsRequirements = aiInterviewCompleted;
 
-  const tooltipText = !aiInterviewCompleted && !secondInterviewCompleted
-    ? "Requires: AI interview completed + second interview completed"
-    : !aiInterviewCompleted
-    ? "Requires: AI interview must be completed first"
-    : "Requires: second interview must be completed first";
+  const tooltipText = "Requires: AI interview must be passed first";
 
   async function handleApprove() {
     if (!meetsRequirements || loading || approved) return;

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   // Get new recruiter name and calendar link
   const { data: newRecruiter } = await supabase
     .from("profiles")
-    .select("full_name, calendar_link")
+    .select("full_name")
     .eq("id", newRecruiterId)
     .single();
 
@@ -161,8 +161,8 @@ export async function POST(req: NextRequest) {
             html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
               <h2 style="color:#1C1B1A;">Your Recruiter Has Been Assigned</h2>
               <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-              <p style="color:#444;font-size:14px;">You have been assigned a recruiter: <strong>${recruiterName}</strong>. You can now schedule your second interview.</p>
-              ${newRecruiter.calendar_link ? `<a href="${newRecruiter.calendar_link}" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Schedule My Interview</a>` : `<a href="${siteUrl}/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>`}
+              <p style="color:#444;font-size:14px;">You have been assigned a talent specialist: <strong>${recruiterName}</strong>. They are your point of contact at StaffVA.</p>
+              <a href="${siteUrl}/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
           });

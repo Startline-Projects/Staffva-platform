@@ -9,20 +9,13 @@ interface SocialPost {
 }
 
 interface KpiData {
-  interviewsToday: number;
-  dailyTarget: number;
   recruiterType: string;
   socialPosts: SocialPost[];
-  calendarLink: string | null;
-  calendarValid: boolean | null;
 }
 
 interface KpiStripProps {
   kpi: KpiData;
   token: string;
-  pipelineCount: number;
-  googleConnected: boolean;
-  onCalendarSaved: (link: string) => void;
   onPostLogged: () => void;
 }
 
@@ -32,31 +25,12 @@ interface PhotoState {
   recruiter_photo_status: string | null;
 }
 
-export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, onCalendarSaved, onPostLogged }: KpiStripProps) {
-  const [googleConnecting, setGoogleConnecting] = useState(false);
+export default function KpiStrip({ kpi, token, onPostLogged }: KpiStripProps) {
 
-  async function handleConnectGoogle() {
-    if (!token) return;
-    setGoogleConnecting(true);
-    try {
-      const res = await fetch("/api/recruiter/google/connect", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-        return;
-      }
-    } catch { /* silent */ }
-    setGoogleConnecting(false);
-  }
+
   const [postModal, setPostModal] = useState(false);
   const [postUrl, setPostUrl] = useState("");
   const [postSaving, setPostSaving] = useState(false);
-  const [calendarEdit, setCalendarEdit] = useState(false);
-  const [calendarInput, setCalendarInput] = useState(kpi.calendarLink || "");
-  const [calendarSaving, setCalendarSaving] = useState(false);
-  const [calendarValidState, setCalendarValidState] = useState(kpi.calendarValid);
 
   // Photo state
   const [photoOpen, setPhotoOpen] = useState(false);
@@ -105,18 +79,6 @@ export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, o
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  // Interview progress — denominator is the recruiter's assigned pipeline count
-  const denominator = pipelineCount;
-  const progress = denominator > 0 ? kpi.interviewsToday / denominator : 0;
-  const now = new Date();
-  const hoursIntoDay = now.getHours() + now.getMinutes() / 60;
-  const expectedPace = hoursIntoDay / 10; // ~10 working hours
-  const paceRatio = expectedPace > 0 ? progress / expectedPace : progress;
-  const progressColor = paceRatio >= 0.8 ? "#22c55e" : paceRatio >= 0.5 ? "#f59e0b" : "#ef4444";
-
-  const circumference = 2 * Math.PI * 36;
-  const strokeDash = circumference * Math.min(progress, 1);
-
   // Social posts
   const postCount = kpi.socialPosts.length;
 
@@ -138,59 +100,10 @@ export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, o
     setPostSaving(false);
   }
 
-  async function handleSaveCalendar() {
-    setCalendarSaving(true);
-    try {
-      const res = await fetch("/api/recruiter/queue", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      });
-      // Use supabase directly via the parent — simplified: just save via API
-      // For now, fire to a dedicated endpoint or handle inline
-      onCalendarSaved(calendarInput.trim());
-
-      // Async validation
-      if (calendarInput.trim()) {
-        try {
-          const headRes = await fetch(calendarInput.trim(), { method: "HEAD", mode: "no-cors" });
-          setCalendarValidState(true);
-        } catch {
-          setCalendarValidState(false);
-        }
-      } else {
-        setCalendarValidState(null);
-      }
-    } catch { /* silent */ }
-    setCalendarSaving(false);
-    setCalendarEdit(false);
-  }
 
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3">
       <div className="mx-auto max-w-7xl flex items-center gap-6 flex-wrap">
-        {/* Interview Progress */}
-        <div className="flex items-center gap-3">
-          <div className="relative h-20 w-20">
-            <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
-              <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" />
-              <circle
-                cx="40" cy="40" r="36" fill="none"
-                stroke={progressColor} strokeWidth="6"
-                strokeDasharray={`${strokeDash} ${circumference}`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-lg font-bold text-[#1C1B1A]">{kpi.interviewsToday}</span>
-              <span className="text-[9px] text-gray-400">/{denominator}</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-[#1C1B1A]">Interviews</p>
-            <p className="text-[10px] text-gray-400">today</p>
-          </div>
-        </div>
-
         {/* Social Posts Pills */}
         <div className="flex items-center gap-2">
           {[0, 1].map((idx) => {
@@ -219,44 +132,10 @@ export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, o
           })}
         </div>
 
-        {/* Calendar Link */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setCalendarEdit(!calendarEdit); setPhotoOpen(false); }}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-[#1C1B1A]"
-          >
-            <span className={`h-3 w-3 rounded-full ${
-              kpi.calendarLink && calendarValidState !== false ? "bg-green-500" : "bg-red-500"
-            }`} />
-            Calendar
-          </button>
-        </div>
-
-        {/* Google Calendar Connection */}
-        <div className="flex items-center gap-2">
-          {googleConnected ? (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-              <span className="h-3 w-3 rounded-full bg-green-500" />
-              Calendar Connected
-            </span>
-          ) : (
-            <button
-              onClick={handleConnectGoogle}
-              disabled={googleConnecting}
-              className="flex items-center gap-1.5 rounded-lg border border-[#FE6E3E] px-3 py-1 text-xs font-semibold text-[#FE6E3E] hover:bg-orange-50 disabled:opacity-50 transition-colors"
-            >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.5 3h-2V1h-2v2h-6V1h-2v2h-2A2.5 2.5 0 002 5.5v14A2.5 2.5 0 004.5 22h15a2.5 2.5 0 002.5-2.5v-14A2.5 2.5 0 0019.5 3zm.5 16.5a.5.5 0 01-.5.5h-15a.5.5 0 01-.5-.5V9h16v10.5zM20 7H4V5.5a.5.5 0 01.5-.5h15a.5.5 0 01.5.5V7z" />
-              </svg>
-              {googleConnecting ? "Connecting…" : "Connect Google Calendar"}
-            </button>
-          )}
-        </div>
-
         {/* Profile Photo */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setPhotoOpen(!photoOpen); setCalendarEdit(false); }}
+            onClick={() => setPhotoOpen(!photoOpen)}
             className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-[#1C1B1A]"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -266,26 +145,6 @@ export default function KpiStrip({ kpi, token, pipelineCount, googleConnected, o
           </button>
         </div>
       </div>
-
-      {/* Calendar inline edit */}
-      {calendarEdit && (
-        <div className="mx-auto max-w-7xl mt-2 flex gap-2">
-          <input
-            type="url"
-            value={calendarInput}
-            onChange={(e) => setCalendarInput(e.target.value)}
-            placeholder="https://calendar.google.com/calendar/appointments/..."
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FE6E3E] focus:outline-none focus:ring-1 focus:ring-[#FE6E3E]"
-          />
-          <button
-            onClick={handleSaveCalendar}
-            disabled={calendarSaving}
-            className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] disabled:opacity-50"
-          >
-            {calendarSaving ? "Saving..." : "Save"}
-          </button>
-        </div>
-      )}
 
       {/* Profile Photo panel */}
       {photoOpen && (

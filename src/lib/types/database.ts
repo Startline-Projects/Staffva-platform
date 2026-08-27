@@ -19,7 +19,11 @@ export type USExperience =
   | "international_only"
   | "none";
 
-export type AdminStatus = "pending_2nd_interview" | "pending_speaking_review" | "pending_review" | "ai_interview_failed" | "approved";
+// Mirrors the admin_status_type enum in Postgres. pending_2nd_interview is
+// retained only because the enum label still exists for historical rows; nothing
+// writes it and no candidate holds it. pending_speaking_review was never a label
+// of that enum at all and has been removed.
+export type AdminStatus = "active" | "pending_2nd_interview" | "pending_review" | "ai_interview_failed" | "approved" | "rejected" | "revision_required" | "duplicate_blocked" | "changes_requested" | "under_review" | "deactivated";
 
 export type EnglishWrittenTier = "exceptional" | "proficient" | "competent";
 

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   // Fetch candidate
   const { data: candidate } = await supabase
     .from("candidates")
-    .select("id, display_name, full_name, email, role_category, assigned_recruiter, second_interview_status")
+    .select("id, display_name, full_name, email, role_category, assigned_recruiter")
     .eq("id", candidateId)
     .single();
   if (!candidate) return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   // Fetch new recruiter
   const { data: newRecruiter } = await supabase
     .from("profiles")
-    .select("id, full_name, email, calendar_link")
+    .select("id, full_name, email")
     .eq("id", newRecruiterId)
     .single();
   if (!newRecruiter) return NextResponse.json({ error: "Recruiter not found" }, { status: 404 });
@@ -105,18 +105,14 @@ export async function POST(req: NextRequest) {
   // 4a. Email candidate
   if (candidate.email) {
     const firstName = candidateName.split(" ")[0];
-    const newFirst = (newRecruiter.full_name || "").split(" ")[0];
-    const hasScheduled =
-      candidate.second_interview_status &&
-      candidate.second_interview_status !== "none" &&
-      candidate.second_interview_status !== "not_scheduled";
-    const appointmentLine = hasScheduled
-      ? `If you had a previously scheduled appointment with your previous specialist, that appointment has been cancelled — please disregard any prior calendar invites and any booking confirmation emails you received from them. ${newFirst} will send you a fresh booking link to schedule your second interview.`
-      : `Your new talent specialist will be in touch shortly with a booking link for your second interview.`;
+    // The booking-link paragraph that used to sit here promised an appointment
+    // with the new specialist. That step no longer exists, so there is nothing
+    // to schedule and nothing to re-book -- the specialist is simply the
+    // candidate's point of contact.
     await sendEmail(
       candidate.email,
       "Your StaffVA talent specialist has been updated.",
-      wrap(`<p style="color:#444;font-size:14px;">${firstName}, your talent specialist on StaffVA has been updated. <strong>${newRecruiter.full_name}</strong> is now your assigned specialist and will be in touch shortly to schedule or confirm your second interview.</p><p style="color:#444;font-size:14px;">${appointmentLine}</p>`)
+      wrap(`<p style="color:#444;font-size:14px;">${firstName}, your talent specialist on StaffVA has been updated. <strong>${newRecruiter.full_name}</strong> is now your assigned specialist and your point of contact.</p>`)
     );
   }
 
@@ -126,7 +122,7 @@ export async function POST(req: NextRequest) {
     await sendEmail(
       fromRecruiter.email,
       "Candidate reassigned — action required.",
-      wrap(`<p style="color:#444;font-size:14px;">${fromFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been reassigned to <strong>${newRecruiter.full_name}</strong>. Please cancel any scheduled calendar appointments you have with this candidate immediately. They have already been notified that their previous appointment is cancelled. No further action is needed on their application — it is now being managed by ${newRecruiter.full_name}.</p>`)
+      wrap(`<p style="color:#444;font-size:14px;">${fromFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been reassigned to <strong>${newRecruiter.full_name}</strong>. No further action is needed on their application — it is now being managed by ${newRecruiter.full_name}.</p>`)
     );
   }
 
@@ -136,7 +132,7 @@ export async function POST(req: NextRequest) {
     await sendEmail(
       newRecruiter.email,
       "New candidate assigned to you.",
-      wrap(`<p style="color:#444;font-size:14px;">${toFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been assigned to you. Review their profile and send them your calendar booking link to schedule their second interview.</p><a href="${SITE}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Candidate Profile</a>`)
+      wrap(`<p style="color:#444;font-size:14px;">${toFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been assigned to you. Review their profile.</p><a href="${SITE}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Candidate Profile</a>`)
     );
   }
 

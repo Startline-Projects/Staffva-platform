@@ -16,7 +16,6 @@ interface RoleRow {
     id_verification: number;
     profile_builder: number;
     ai_interview: number;
-    second_interview: number;
     pending_approval: number;
   };
 }
@@ -29,7 +28,6 @@ const STAGE_LABELS: Record<string, string> = {
   id_verification: "ID Verification",
   profile_builder: "Profile Builder",
   ai_interview: "AI Interview",
-  second_interview: "Second Interview",
   pending_approval: "Pending Approval",
 };
 

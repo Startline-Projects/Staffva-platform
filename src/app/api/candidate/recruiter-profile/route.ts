@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   // Use maybeSingle so a missing/stale UUID degrades to null instead of erroring.
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, full_name, calendar_link, recruiter_photo_url")
+    .select("id, full_name, recruiter_photo_url")
     .eq("id", candidate.assigned_recruiter)
     .maybeSingle();
 

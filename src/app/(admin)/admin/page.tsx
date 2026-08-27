@@ -14,7 +14,6 @@ interface Pipeline {
   idVerified: number;
   profileBuilt: number;
   aiInterview: number;
-  pending2ndInterview: number;
   pendingProfileReview: number;
   live: number;
 }
@@ -81,9 +80,7 @@ interface DashboardData {
   pendingCandidates: PendingCandidate[];
   warmLeads: WarmLead[];
   recruiterAlerts: {
-    missingCalendar: { id: string; name: string }[];
     needsRouting: number;
-    unreviewedByRecruiter: { id: string; name: string; count: number }[];
   };
   screening: { pending: number; processing: number; complete: number; failed: number; screenedToday: number };
   identity: { lockouts: number; dupesWeek: number; flagged: number; verified: number };
@@ -254,7 +251,6 @@ export default function AdminDashboard() {
         ["ID Verified", data.pipeline.idVerified],
         ["Profile Built", data.pipeline.profileBuilt],
         ["AI Interview", data.pipeline.aiInterview],
-        ["Pending 2nd Interview", data.pipeline.pending2ndInterview],
         ["Profile Under Review", data.pipeline.pendingProfileReview],
         ["Live", data.pipeline.live],
       ] as [string, number][];
@@ -269,11 +265,7 @@ export default function AdminDashboard() {
       }
       filename = "client_health.csv";
     } else {
-      csv = "Recruiter,Unreviewed\n";
-      for (const r of data.recruiterAlerts.unreviewedByRecruiter) {
-        csv += `"${r.name}",${r.count}\n`;
-      }
-      filename = "recruiter_performance.csv";
+      return;
     }
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -309,7 +301,6 @@ export default function AdminDashboard() {
     { label: "ID Verified", count: data.pipeline.idVerified, color: "#B5D4F4" },
     { label: "Profile Built", count: data.pipeline.profileBuilt, color: "#85B7EB" },
     { label: "AI Interview", count: data.pipeline.aiInterview, color: "#FDD4B8" },
-    { label: "Pending 2nd Interview", count: data.pipeline.pending2ndInterview, color: "#FE9E6E" },
     { label: "Profile Under Review", count: data.pipeline.pendingProfileReview, color: "#F59E0B" },
     { label: "Live ✓", count: data.pipeline.live, color: "#FE6E3E" },
   ];
@@ -472,16 +463,6 @@ export default function AdminDashboard() {
             <span style={{ fontSize: 10, color: "#9C9A94" }}>Needs routing</span>
           </div>
           <div style={{ marginBottom: 10 }}>
-            {data.recruiterAlerts.missingCalendar.slice(0, 1).map((r) => (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F0EDE8", fontSize: 11.5 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E24B4A", flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500 }}>{r.name}</span>
-                </div>
-                <span style={{ color: "#9C9A94", fontSize: 10.5 }}>Calendar link missing</span>
-                <span onClick={() => showToast(`✓ Alert sent to ${r.name}`)} style={{ color: "#FE6E3E", fontSize: 11, fontWeight: 500, cursor: "pointer", padding: "3px 7px", borderRadius: 5 }}>Fix →</span>
-              </div>
-            ))}
             {data.recruiterAlerts.needsRouting > 0 && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F0EDE8", fontSize: 11.5 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -492,16 +473,6 @@ export default function AdminDashboard() {
                 <span onClick={() => setModal("route")} style={{ color: "#FE6E3E", fontSize: 11, fontWeight: 500, cursor: "pointer", padding: "3px 7px", borderRadius: 5 }}>Route →</span>
               </div>
             )}
-            {data.recruiterAlerts.unreviewedByRecruiter.slice(0, 1).map((r) => (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", fontSize: 11.5 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF9F27", flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500 }}>{r.name}</span>
-                </div>
-                <span style={{ color: "#9C9A94", fontSize: 10.5 }}>{r.count} unreviewed</span>
-                <span onClick={() => showToast(`Opening ${r.name}'s queue...`)} style={{ color: "#FE6E3E", fontSize: 11, fontWeight: 500, cursor: "pointer", padding: "3px 7px", borderRadius: 5 }}>View →</span>
-              </div>
-            ))}
           </div>
           <button onClick={() => router.push("/admin/recruiters")} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54", padding: "5px 10px", fontSize: 11.5 }}>Manage Team →</button>
         </div>
@@ -811,7 +782,6 @@ export default function AdminDashboard() {
           {[
             { type: "pipeline", icon: "📊", bg: "#EEF5FF", title: "Candidate Pipeline CSV", desc: `All ${data.pipeline.applied} candidates with stage, scores, and status` },
             { type: "clients", icon: "📋", bg: "#F0FAF4", title: "Client Health Report", desc: `All ${data.totalClients} clients with login, browse activity, and fees` },
-            { type: "recruiter", icon: "👥", bg: "#FFF8F0", title: "Recruiter Performance", desc: "Assignment counts, review rates, and response times" },
           ].map((opt) => (
             <div key={opt.type} onClick={() => exportCSV(opt.type)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: "1px solid #E8E6E1", borderRadius: 9, marginBottom: 8, cursor: "pointer", transition: "all 0.12s" }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, background: opt.bg, flexShrink: 0 }}>{opt.icon}</div>

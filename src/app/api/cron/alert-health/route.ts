@@ -172,24 +172,37 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Passed the AI interview, but no second interviewer was ever assigned — so
-  // no delegation email went out and no recruiter knows they exist. This is the
-  // state 27 of 29 passed candidates sat in for the whole of the last campaign,
-  // undetected, because the routing lookup returned no rows and the code treated
-  // that as "nothing to do" rather than as a failure.
-  const { count: unrouted } = await supabase
-    .from("ai_interviews")
-    .select("*", head)
-    .eq("passed", true)
-    .is("second_interviewer_email", null)
-    .lt("completed_at", since(60 * 60 * 1000));
+  // Passed the AI interview and met every profile requirement, but still is not
+  // approved.
+  //
+  // This replaces the old second_interview_unrouted check, which watched for a
+  // passed candidate who was never routed to a human interviewer. There is no
+  // human interviewer now, and nothing writes the column that check read, so it
+  // could only ever fire falsely — on every future pass.
+  //
+  // The failure it was really guarding against has not gone away: a candidate who
+  // is qualified, invisible, and waiting forever. Only the mechanism changed.
+  // promote_candidate_if_ready runs on the pass, again on profile completion, and
+  // hourly via the promote-ready sweep; a candidate still unapproved after all
+  // three means the promotion path itself is broken.
+  const { data: readyUnapproved, error: readyError } = await supabase.rpc(
+    "count_ready_but_unapproved",
+    { p_older_than: "1 hour" }
+  );
 
-  if (unrouted) {
+  if (readyError) {
     checks.push({
-      key: "second_interview_unrouted",
+      key: "promotion_check_failed",
       severity: "critical",
-      count: unrouted,
-      message: `${unrouted} candidate(s) passed the AI interview over an hour ago with no second interviewer assigned — nobody was emailed, and no recruiter knows they are waiting.`,
+      count: 1,
+      message: `Could not check for candidates stuck below approval: ${readyError.message}`,
+    });
+  } else if (readyUnapproved) {
+    checks.push({
+      key: "ready_but_unapproved",
+      severity: "critical",
+      count: readyUnapproved as number,
+      message: `${readyUnapproved} candidate(s) passed the interview over an hour ago and meet every profile requirement, but are still not approved — the promotion path is not running.`,
     });
   }
 

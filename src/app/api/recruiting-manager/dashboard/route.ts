@@ -20,7 +20,7 @@ async function getManagerUser(req: NextRequest) {
   const supabase = getAdminClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, calendar_link, daily_interview_target, recruiter_type")
+    .select("role, daily_interview_target, recruiter_type")
     .eq("id", user.id)
     .single();
   if (!profile || profile.role !== "recruiting_manager") return null;
@@ -34,8 +34,6 @@ export async function GET(req: NextRequest) {
   const { user, profile } = auth;
   const supabase = getAdminClient();
   const today = new Date().toISOString().split("T")[0];
-  const todayStart = `${today}T00:00:00.000Z`;
-  const todayEnd = `${today}T23:59:59.999Z`;
 
   // Week boundaries for metrics
   const now = new Date();
@@ -47,7 +45,6 @@ export async function GET(req: NextRequest) {
 
   const [
     // Personal KPI
-    myInterviewsRes,
     mySocialRes,
     // Team data
     allRecruitersRes,
@@ -65,24 +62,13 @@ export async function GET(req: NextRequest) {
     // Stalled revisions (>72h)
     stalledRes,
     // All team interviews today
-    teamInterviewsRes,
     // Social posts this week (for compliance grid)
     weeklyPostsRes,
     // Revision item aggregation
     allRevisionsRes,
     // Candidates for pipeline velocity
     approvedThisWeekRes,
-    // Calendar link alerts (unacknowledged)
-    calendarAlertsRes,
   ] = await Promise.all([
-    // My interviews today
-    supabase
-      .from("candidates")
-      .select("id", { count: "exact", head: true })
-      .eq("assigned_recruiter", user.id)
-      .eq("second_interview_status", "completed")
-      .gte("second_interview_completed_at", todayStart)
-      .lte("second_interview_completed_at", todayEnd),
     // My social posts
     supabase
       .from("social_posts")
@@ -92,7 +78,7 @@ export async function GET(req: NextRequest) {
     // All recruiters
     supabase
       .from("profiles")
-      .select("id, full_name, role, calendar_link, daily_interview_target, recruiter_type")
+      .select("id, full_name, role, daily_interview_target, recruiter_type")
       .in("role", ["recruiter", "recruiting_manager"])
       .order("full_name"),
     // All social posts today
@@ -139,13 +125,6 @@ export async function GET(req: NextRequest) {
       .select("id, candidate_id, items, status, created_at, candidates!inner(id, display_name, full_name, role_category, profile_photo_url, assigned_recruiter)")
       .eq("status", "pending")
       .lt("created_at", new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()),
-    // All team interviews today
-    supabase
-      .from("candidates")
-      .select("assigned_recruiter", { count: "exact" })
-      .eq("second_interview_status", "completed")
-      .gte("second_interview_completed_at", todayStart)
-      .lte("second_interview_completed_at", todayEnd),
     // Weekly social posts (for compliance grid)
     supabase
       .from("social_posts")
@@ -162,12 +141,6 @@ export async function GET(req: NextRequest) {
       .select("id", { count: "exact", head: true })
       .eq("admin_status", "approved")
       .gte("updated_at", weekStartISO),
-    // Calendar link alerts (unacknowledged)
-    supabase
-      .from("calendar_link_alerts")
-      .select("id, recruiter_id, recruiter_name, alerted_at")
-      .eq("acknowledged", false)
-      .order("alerted_at", { ascending: false }),
   ]);
 
   // Process team status
@@ -179,13 +152,6 @@ export async function GET(req: NextRequest) {
   }
 
   // Count interviews per recruiter today
-  const teamInterviews = teamInterviewsRes.data || [];
-  const interviewsByRecruiter = new Map<string, number>();
-  for (const c of teamInterviews) {
-    if (c.assigned_recruiter) {
-      interviewsByRecruiter.set(c.assigned_recruiter, (interviewsByRecruiter.get(c.assigned_recruiter) || 0) + 1);
-    }
-  }
 
   // Get queue depth per recruiter
   const { data: queueCounts } = await supabase
@@ -205,17 +171,11 @@ export async function GET(req: NextRequest) {
     id: r.id,
     name: r.full_name,
     role: r.role,
-    interviewsToday: interviewsByRecruiter.get(r.id) || 0,
-    dailyTarget: r.daily_interview_target,
     socialPostsToday: socialByRecruiter.get(r.id) || 0,
     queueDepth: queueByRecruiter.get(r.id) || 0,
-    calendarLink: r.calendar_link,
-    calendarValid: !!r.calendar_link,
   }));
 
   // Team totals
-  const totalTeamTarget = recruiters.reduce((s, r) => s + (r.daily_interview_target || 0), 0);
-  const totalTeamInterviews = teamInterviews.length;
   const recruitersAt2Posts = recruiters.filter((r) => (socialByRecruiter.get(r.id) || 0) >= 2).length;
 
   // Recruiter name map for enrichment
@@ -234,7 +194,7 @@ export async function GET(req: NextRequest) {
   // All candidates with assignment info (for manager assignment table)
   const { data: allCandidatesRaw } = await supabase
     .from("candidates")
-    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, assignment_pending_review, country, updated_at, created_at, assigned_recruiter, english_mc_score, english_comprehension_score, id_verification_status, ai_interview_completed_at, second_interview_status")
+    .select("id, display_name, role_category, role_category_custom, admin_status, screening_tag, assignment_pending_review, country, updated_at, created_at, assigned_recruiter, english_mc_score, english_comprehension_score, id_verification_status, ai_interview_completed_at")
     .not("admin_status", "in", '("rejected")')
     .order("created_at", { ascending: false })
     .limit(500);
@@ -338,16 +298,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     personalKpi: {
-      interviewsToday: myInterviewsRes.count ?? 0,
-      dailyTarget: profile.daily_interview_target,
       recruiterType: profile.recruiter_type,
       socialPosts: mySocialRes.data || [],
-      calendarLink: profile.calendar_link || null,
-      calendarValid: !!profile.calendar_link,
     },
     teamSummary: {
-      totalInterviewsToday: totalTeamInterviews,
-      totalTarget: totalTeamTarget,
       postingCompliance: { at2Posts: recruitersAt2Posts, totalRecruiters: recruiters.length },
       unroutedAlertCount: enrichedAlerts.length,
     },
@@ -366,7 +320,6 @@ export async function GET(req: NextRequest) {
     complianceGrid,
     gridDays,
     recruiterNameMap: Object.fromEntries(recruiterNameMap),
-    calendarAlerts: calendarAlertsRes.data || [],
     myQueue: myQueue || [],
     allCandidates,
   });

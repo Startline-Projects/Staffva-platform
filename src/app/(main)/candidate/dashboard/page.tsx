@@ -57,7 +57,6 @@ interface CandidateData {
   ai_interview_completed_at: string | null;
   english_comprehension_score: number | null;
   interview_consent_at: string | null;
-  second_interview_status: string | null;
   test_lockout_until: string | null;
 }
 
@@ -77,7 +76,6 @@ interface AIInterviewData {
   passed: boolean;
   created_at: string;
   completed_at: string | null;
-  second_interview_status: string | null;
 }
 
 interface RetakeData {
@@ -570,7 +568,7 @@ export default function CandidateDashboardPage() {
   const [retakeData, setRetakeData] = useState<RetakeData | null>(null);
   const [hasPortfolio, setHasPortfolio] = useState(false);
   const [changeRequests, setChangeRequests] = useState<{ area: string; instruction: string }[]>([]);
-  const [recruiterProfile, setRecruiterProfile] = useState<{ full_name: string; calendar_link: string | null; recruiter_photo_url: string | null } | null>(null);
+  const [recruiterProfile, setRecruiterProfile] = useState<{ full_name: string; recruiter_photo_url: string | null } | null>(null);
   const [recruiterUnread, setRecruiterUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -640,7 +638,7 @@ export default function CandidateDashboardPage() {
         // Load AI interview (new system)
         const { data: aiData } = await supabase
           .from("ai_interviews")
-          .select("id, status, overall_score, badge_level, passed, created_at, completed_at, second_interview_status")
+          .select("id, status, overall_score, badge_level, passed, created_at, completed_at")
           .eq("candidate_id", c.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -752,7 +750,7 @@ export default function CandidateDashboardPage() {
         const supabase = createClient();
         const { data: aiData } = await supabase
           .from("ai_interviews")
-          .select("id, status, overall_score, badge_level, passed, created_at, completed_at, second_interview_status")
+          .select("id, status, overall_score, badge_level, passed, created_at, completed_at")
           .eq("candidate_id", candidate.id)
           .eq("status", "completed")
           .eq("passed", true)
@@ -846,9 +844,7 @@ export default function CandidateDashboardPage() {
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
     active: { label: "In Pipeline", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     profile_review: { label: "Profile Under Review", color: "text-yellow-700", bgColor: "bg-yellow-50 border-yellow-200" },
-    pending_2nd_interview: { label: "Almost There", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     pending_review: { label: "Profile Under Review", color: "text-yellow-700", bgColor: "bg-yellow-50 border-yellow-200" },
-    pending_speaking_review: { label: "Pending 2nd Interview", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
     approved: { label: "Live", color: "text-green-700", bgColor: "bg-green-50 border-green-200" },
     rejected: { label: "Not Approved", color: "text-red-700", bgColor: "bg-red-50 border-red-200" },
     revision_required: { label: "Revision Needed", color: "text-orange-700", bgColor: "bg-orange-50 border-orange-200" },
@@ -904,7 +900,6 @@ export default function CandidateDashboardPage() {
         // Step 5 is only "done" if the interview completed AND did not fail — a failed
         // interview blocks progress past Step 4 until the candidate retakes and passes.
         const step5Done = !!candidate.ai_interview_completed_at && !aiFailed;
-        const step6Done = candidate.second_interview_status === "completed";
         const step7Done = candidate.admin_status === "approved";
 
         // Derived flags for 9-stage message card logic
@@ -913,9 +908,13 @@ export default function CandidateDashboardPage() {
         const idVerified = step3Done;
         const idManualReview = candidate.id_verification_status === "manual_review";
         const aiDone = step5Done;
-        const recruiterScheduled = candidate.second_interview_status === "scheduled";
-        const recruiterDone = step6Done;
-        const profileUnderReview = recruiterDone && !step7Done && candidate.admin_status !== "changes_requested";
+        // The "Recruiter" stage used to sit between the interview and going live,
+        // and completed when second_interview_status became 'completed'. Nothing
+        // ever set that — not once across 57 candidates — so every approved
+        // candidate saw a progress bar permanently stuck one stage short of Live
+        // while their profile was already public. The stage is gone; passing the
+        // interview and completing the profile now leads straight to Live.
+        const awaitingGoLive = aiDone && !step7Done && candidate.admin_status !== "changes_requested";
         const changesRequested = candidate.admin_status === "changes_requested";
         const profileLive = step7Done;
 
@@ -932,7 +931,6 @@ export default function CandidateDashboardPage() {
           { label: "ID Verified", done: step3Done },
           { label: "Profile", done: step4Done },
           { label: aiStageLabel, done: step5Done, state: aiStageState },
-          { label: "Recruiter", done: step6Done },
           { label: "Live", done: step7Done },
         ];
 
@@ -995,23 +993,16 @@ export default function CandidateDashboardPage() {
             isInterviewButton = true;
             nextLabel = "Start AI Interview";
           }
-        } else if (aiDone && !recruiterScheduled && !recruiterDone) {
-          // Stage 5: AI interview complete, awaiting recruiter
+        } else if (awaitingGoLive) {
+          // Interview passed, not live yet — which now means something in the
+          // profile is still outstanding, not that anyone is reviewing them.
           if (recruiterProfile) {
             nextHeading = "Meet your StaffVA Talent Specialist";
             nextBody = "";
           } else {
-            nextHeading = "Your AI interview is complete";
-            nextBody = "A Talent Specialist will be assigned to you shortly to schedule your second interview.";
+            nextHeading = "Your interview is complete";
+            nextBody = "Your profile goes live once every part of it is complete.";
           }
-        } else if (recruiterScheduled && !recruiterDone) {
-          // Stage 6: Recruiter interview scheduled
-          nextHeading = "Your Talent Specialist interview is scheduled";
-          nextBody = "Check your email for the details.";
-        } else if (profileUnderReview) {
-          // Stage 7: Recruiter interview complete + spoken scored, under review
-          nextHeading = "Your profile is under review";
-          nextBody = "Our team is carefully reviewing your profile, voice recordings, and experience. We will be in touch soon.";
         } else if (changesRequested) {
           // Stage 8: Recruiter requested changes
           nextHeading = "Your reviewer has requested some updates";
@@ -1081,7 +1072,7 @@ export default function CandidateDashboardPage() {
               {nextBody && <p className="mt-1 text-sm text-gray-500">{nextBody}</p>}
 
               {/* Recruiter intro card — Step 5 */}
-              {recruiterProfile && aiDone && !recruiterScheduled && !recruiterDone && (
+              {recruiterProfile && aiDone && (
                 <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-start gap-4">
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100">
@@ -1096,7 +1087,7 @@ export default function CandidateDashboardPage() {
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#1C1B1A]">{recruiterProfile.full_name}</p>
                       <p className="mt-1 text-sm text-gray-500">
-                        Hi {candidate.display_name?.split(" ")[0] || "there"}, I reviewed your application and I am excited to connect. Book a time below for your second interview.
+                        Hi {candidate.display_name?.split(" ")[0] || "there"}, I reviewed your application and I am excited to connect. Message me any time if you have questions.
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {candidate.role_category === "Other" && !candidate.assigned_recruiter ? (
@@ -1105,21 +1096,6 @@ export default function CandidateDashboardPage() {
                           </div>
                         ) : (
                           <>
-                            {recruiterProfile.calendar_link ? (
-                              <a
-                                href={recruiterProfile.calendar_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-full bg-[#FE6E3E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-                              >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                                </svg>
-                                Schedule My Interview
-                              </a>
-                            ) : (
-                              <p className="text-xs text-gray-400 italic">Your Talent Specialist will reach out to schedule your second interview shortly.</p>
-                            )}
                             <Link
                               href={`/candidate/dashboard/recruiter-chat`}
                               className="relative inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-[#1C1B1A] hover:bg-gray-50 transition-colors"

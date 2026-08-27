@@ -14,7 +14,6 @@ interface Candidate {
   admin_status: string;
   profile_photo_url: string | null;
   waiting_since: string | null;
-  second_interview_status: string;
   assigned_recruiter: string | null;
   sla_status: "green" | "yellow" | "red";
   wait_hours: number;
@@ -29,9 +28,6 @@ interface RecruiterSummary {
 
 interface Workload {
   total: number;
-  pending_second: number;
-  scheduled: number;
-  completed_this_week: number;
   avg_wait_hours: number;
   red_count: number;
   yellow_count: number;
@@ -110,10 +106,6 @@ export default function AdminTriagePage() {
           <div className="rounded-lg border border-gray-200 bg-white p-3 text-center">
             <p className="text-xl font-bold text-[#1C1B1A]">{workload.avg_wait_hours}h</p>
             <p className="text-[10px] text-gray-500 font-medium">Avg Wait</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3 text-center">
-            <p className="text-xl font-bold text-green-600">{workload.completed_this_week}</p>
-            <p className="text-[10px] text-gray-500 font-medium">Done (Week)</p>
           </div>
         </div>
       )}
