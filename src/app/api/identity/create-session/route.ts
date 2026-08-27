@@ -58,12 +58,17 @@ export async function POST(request: Request) {
       return_url: `${siteUrl}/apply?id_check=returning`,
     });
 
-    // Update candidate status to pending and store session ID
+    // Update candidate status to pending and store the session id. The id is
+    // the retrieval key for everything Stripe holds about this verification —
+    // including the selfie the proctor will one day match against. It used to
+    // be returned to the browser and discarded, which is why 105 "verified"
+    // candidates had no retrievable session at all.
     await admin
       .from("candidates")
       .update({
         id_verification_status: "pending",
         id_verification_submitted_at: new Date().toISOString(),
+        identity_session_id: session.id,
       })
       .eq("id", candidateId);
 

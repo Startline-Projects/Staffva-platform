@@ -89,6 +89,33 @@ export async function POST(request: Request) {
           .update({ id_verification_status: "passed" })
           .eq("id", candidateId);
 
+        // Anchor the verified identity: store the session id, compute the
+        // identity hash, and flag if this same document already verified a
+        // different account. Failure here must not lose the webhook — the
+        // backfill route can re-anchor any candidate later.
+        try {
+          const { getStripe } = await import("@/lib/stripe");
+          const { recordVerifiedIdentity } = await import("@/lib/identityAnchor");
+          const anchor = await recordVerifiedIdentity({
+            supabase,
+            stripe: getStripe(),
+            candidateId,
+            sessionId: session.id,
+          });
+          if (anchor.outcome === "error") {
+            console.error(`[identity-anchor] ${candidateId}: ${anchor.message}`);
+          } else if (anchor.outcome === "duplicate") {
+            console.warn(
+              `[identity-anchor] ${candidateId}: same document as candidate ${anchor.originalCandidateId} — flagged for review`
+            );
+          }
+        } catch (err) {
+          console.error(
+            `[identity-anchor] ${candidateId}: unexpected failure`,
+            err instanceof Error ? err.message : err
+          );
+        }
+
         // The anti-cheat enforcement branch that lived here is gone.
         //
         // On a candidate flagged during the test it applied a 7-day lockout AND
