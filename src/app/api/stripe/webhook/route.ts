@@ -89,82 +89,27 @@ export async function POST(request: Request) {
           .update({ id_verification_status: "passed" })
           .eq("id", candidateId);
 
-        // Check if the candidate was flagged by the anti-cheat system during the test
+        // The anti-cheat enforcement branch that lived here is gone.
+        //
+        // On a candidate flagged during the test it applied a 7-day lockout AND
+        // nulled english_mc_score, english_comprehension_score and both voice
+        // recording URLs — a destructive, irreversible punishment decided by a
+        // vendor webhook, with no human in the loop and nothing left to
+        // override. It never fired in production (its gate,
+        // anticheat_lockout_triggered, was fed by test_events, which has never
+        // successfully recorded a row), which is the only reason 13% of
+        // candidates still have their scores.
+        //
+        // The design rule it violated: the machine flags, a person decides.
+        // The anticheat_* columns remain as the flag surface; the forthcoming
+        // proctor review queue is what reads them. Nothing enforces here.
         const { data: candidate } = await supabase
           .from("candidates")
-          .select("email, display_name, full_name, anticheat_lockout_triggered, anticheat_lockout_reason")
+          .select("email, display_name, full_name")
           .eq("id", candidateId)
           .single();
 
-        if (candidate?.anticheat_lockout_triggered) {
-          // Apply the 7-day lockout now that identity is confirmed
-          const lockoutUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-          const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-          const formattedReturnDate = returnDate.toLocaleDateString("en-US", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          });
-
-          await supabase
-            .from("candidates")
-            .update({
-              test_lockout_until: lockoutUntil,
-              test_lockout_notified: false,
-              english_mc_score: null,
-              english_comprehension_score: null,
-              voice_recording_1_url: null,
-              voice_recording_2_url: null,
-              admin_status: "active",
-              identity_session_id: session.id,
-            })
-            .eq("id", candidateId);
-
-          // Send lockout email
-          if (process.env.RESEND_API_KEY && candidate) {
-            const isFourStrikes = candidate.anticheat_lockout_reason === "four_strikes";
-            const emailBody = isFourStrikes
-              ? `During your English assessment, our system detected that you left the test screen 4 or more times. To protect the integrity of our vetting process, your application has been paused for 7 days. You may return on ${formattedReturnDate} to retake the assessment from the beginning. We take the quality of our candidate pool seriously — every professional on StaffVA earned their place.`
-              : `During your English assessment, our system detected that you were away from the test screen for more than 10 seconds. To protect the integrity of our vetting process, your application has been paused for 7 days. You may return on ${formattedReturnDate} to retake the assessment from the beginning. We take the quality of our candidate pool seriously — every professional on StaffVA earned their place.`;
-
-            try {
-              await sendEmail({
-                  from: "StaffVA <notifications@staffva.com>",
-                  to: candidate.email,
-                  subject: "Your application has been paused for 7 days",
-                  html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#1C1B1A;">Application Paused</h2>
-                    <p style="color:#444;font-size:14px;">Hi ${candidate.display_name || candidate.full_name},</p>
-                    <p style="color:#444;font-size:14px;line-height:1.6;">${emailBody}</p>
-                    <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
-                  </div>`,
-                });
-            } catch { /* silent */ }
-          }
-
-          // Check for duplicate identity against other locked-out candidates.
-          // Flag in verified_identities if a match exists.
-          const { data: existingIdentity } = await supabase
-            .from("verified_identities")
-            .select("candidate_id")
-            .eq("stripe_verification_session_id", session.id)
-            .neq("candidate_id", candidateId)
-            .maybeSingle();
-
-          if (existingIdentity) {
-            await supabase
-              .from("verified_identities")
-              .update({
-                flagged_for_review: true,
-                review_reason: "anticheat_duplicate",
-              })
-              .eq("stripe_verification_session_id", session.id);
-          }
-
-          break;
-        }
-
-        // No anti-cheat flag — send the normal success email
+        // Send the success email
         if (process.env.RESEND_API_KEY && candidate) {
           try {
             await sendEmail({
