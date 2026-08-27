@@ -11,6 +11,7 @@ interface ProfileBuilderProps {
     role_category: string;
     hourly_rate: number;
     bio?: string;
+    tagline?: string;
     english_written_tier?: string;
     skills?: string[];
     tools?: string[];
@@ -497,7 +498,9 @@ export default function ProfileBuilder({
   // Step 1 — Photo and Basic Info
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [tagline, setTagline] = useState("");
+  // Seeded, like bio and hourly_rate. Candidates who entered a tagline under
+  // the older application flow should not have to retype it here.
+  const [tagline, setTagline] = useState(candidateData.tagline || "");
   const [monthlyRate, setMonthlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const portfolioInputRef = useRef<HTMLInputElement>(null);

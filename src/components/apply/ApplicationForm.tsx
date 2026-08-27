@@ -407,7 +407,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
   const [customRoleDescription, setCustomRoleDescription] = useState("");
 
   // Stage 2 fields
-  const [tagline, setTagline] = useState(existingCandidate?.tagline || "");
   const [yearsExperience, setYearsExperience] = useState(existingCandidate?.years_experience || "");
   const [bio, setBio] = useState(existingCandidate?.bio || "");
   const [skills, setSkills] = useState<string[]>(existingCandidate?.skills || []);
@@ -417,9 +416,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
   // Stage 3 fields
   const [hourlyRate, setHourlyRate] = useState(existingCandidate?.hourly_rate || 0);
-  const [availability, setAvailability] = useState(existingCandidate?.availability_status || "available_now");
   const [timeZone, setTimeZone] = useState("");
-  const [startDate, setStartDate] = useState("");
 
   // Pre-fill from auth
   useEffect(() => {
@@ -453,14 +450,12 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       setEmail(existingCandidate.email || "");
       setCountry(existingCandidate.country || "");
       setRoleCategory(existingCandidate.role_category || "");
-      setTagline(existingCandidate.tagline || "");
       setYearsExperience(existingCandidate.years_experience || "");
       setBio(existingCandidate.bio || "");
       setTools(existingCandidate.tools || []);
       setUsExperience(existingCandidate.us_client_experience || "");
       setLinkedinUrl(existingCandidate.linkedin_url || "");
       setHourlyRate(existingCandidate.hourly_rate || 0);
-      setAvailability(existingCandidate.availability_status || "available_now");
       setTimeZone(existingCandidate.time_zone || "UTC");
     }
   }, [existingCandidate]);
@@ -596,7 +591,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
     e.preventDefault();
     setError("");
 
-    if (!tagline.trim()) { setError("Please add a professional tagline"); return; }
     if (!yearsExperience) { setError("Please select your years of experience"); return; }
     if (!bio.trim()) { setError("Please write a short bio"); return; }
     if (!usExperienceYesNo) { setError("Please answer the US client experience question"); return; }
@@ -609,7 +603,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
     const supabase = createClient();
     const { error: updateErr } = await supabase.from("candidates").update({
-      tagline: tagline.trim(),
       years_experience: yearsExperience,
       bio: bio.trim(),
       skills,
@@ -672,8 +665,15 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
     const supabase = createClient();
     const { error: updateErr } = await supabase.from("candidates").update({
+      // hourly_rate stays: the AI screening that runs at the end of this form
+      // reads it, along with bio. Removing either would have the screening judge
+      // a $0 rate and an empty bio — the exact shape of the bug that once tagged
+      // 85% of candidates "Hold".
       hourly_rate: hourlyRate,
-      availability_status: availability,
+      // availability_status is NOT written here any more. It is asked in Build
+      // Your Profile, where it is required and paired with a date. The column is
+      // NOT NULL with a database default of 'available_now', which is what this
+      // form defaulted to anyway, so nothing downstream sees a gap.
       time_zone: timeZone,
       application_stage: 3,
     }).eq("id", candidateId);
@@ -771,12 +771,6 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
         <form onSubmit={handleStage2} className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text">Professional Tagline <span className="text-red-500">*</span></label>
-            <input required maxLength={120} value={tagline} onChange={(e) => setTagline(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Senior Paralegal with 8 years of litigation experience" />
-            <p className="mt-1 text-xs text-gray-400">{tagline.length}/120</p>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-text">Years of Experience <span className="text-red-500">*</span></label>
             <select required value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
               <option value="">Select</option>
@@ -868,22 +862,8 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text">Weekly Availability</label>
-            <select value={availability} onChange={(e) => setAvailability(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
-              <option value="available_now">Available now — full time</option>
-              <option value="partially_available">Partially available — some hours open</option>
-              <option value="not_available">Not available yet — future start</option>
-            </select>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-text">Time Zone</label>
             <input type="text" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-text/60" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text">Available Start Date <span className="text-text/40">(optional)</span></label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

@@ -441,6 +441,7 @@ export default function ApplyPage() {
             role_category: candidateData.role_category,
             hourly_rate: candidateData.hourly_rate,
             bio: candidateData.bio ?? undefined,
+            tagline: candidateData.tagline ?? undefined,
             english_written_tier: candidateData.english_written_tier ?? undefined,
             skills: candidateData.skills || [],
             tools: candidateData.tools || [],
