@@ -2,19 +2,20 @@
  * Shared approval checks for candidate profiles.
  *
  * Used by both recruiter/approve and recruiting-manager/approve. The ten
- * profile-completeness gates below were already shared; the two INTERVIEW
+ * profile-completeness gates below were already shared; the interview
  * preconditions were not, and only the recruiter route had them. So the
- * manager route would approve a candidate who had never completed a second
- * interview and never passed the AI interview — it even selected
- * second_interview_status and then never looked at it.
+ * manager route would approve a candidate who had never passed the AI
+ * interview — it even selected second_interview_status and then never looked
+ * at it.
  *
- * Measured before fixing: 48 candidates passed all ten gates, all 48 had no
- * completed second interview, and 23 of them had never passed the AI
- * interview. 41 were approvable through the manager route at that moment and
- * refused by the recruiter route.
+ * Measured before fixing: 48 candidates passed all ten gates and 23 of them
+ * had never passed the AI interview. 41 were approvable through the manager
+ * route at that moment and refused by the recruiter route.
  *
- * Both checks now live here together, so the next route that approves a
- * candidate cannot pick up one half and miss the other.
+ * Every check lives here, so the next route that approves a candidate cannot
+ * pick up one half and miss the other. The second-interview precondition was
+ * one of them until the second interview was removed entirely; see
+ * checkApprovalPreconditions below for why.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -83,16 +84,25 @@ export function checkApprovalGates(candidate: GateCandidate): {
  */
 export async function checkApprovalPreconditions(
   supabase: SupabaseClient,
-  candidate: { id: string; second_interview_status: string | null }
+  // second_interview_status is still accepted so callers do not have to change,
+  // but it is no longer read. See below.
+  candidate: { id: string; second_interview_status?: string | null }
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  if (candidate.second_interview_status !== "completed") {
-    return {
-      ok: false,
-      status: 400,
-      error: "Second interview not completed",
-    };
-  }
-
+  // THE SECOND INTERVIEW REQUIREMENT IS GONE.
+  //
+  // This used to require second_interview_status === 'completed'. That step was
+  // a human recruiter on a call, which does not survive contact with thousands
+  // of candidates — StaffVA is a marketplace, not a staffing agency, and the
+  // pipeline has to run without a person in it.
+  //
+  // The signal did not disappear, it moved: the AI interview is now the only
+  // interview and asks 10 questions, or 12 for specialised roles, with explicit
+  // instructions to probe experience claims for evidence, test accountability,
+  // and check what the candidate says against what they claimed on their
+  // application. See staffva-interview-main, lib/interviewDepth.
+  //
+  // The ten profile gates below are untouched, so approval still requires ID
+  // verification, both voice recordings, a photo, a resume and the rest.
   const { data: aiInterview, error } = await supabase
     .from("ai_interviews")
     .select("id")
