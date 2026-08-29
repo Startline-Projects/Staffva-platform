@@ -5,7 +5,7 @@ import { useState } from 'react';
 const FAQ_ITEMS = [
   {
     question: 'How is StaffVA different from other hiring platforms?',
-    answer: `<p>Three things set us apart. <strong>Every candidate records two live voice samples during vetting</strong> — a self-introduction and a reading passage. You can hear them before you ever message. Second, <strong>every candidate passes two interviews</strong> — an AI-led first interview and a live recruiter interview. Third, <strong>candidates never pay a fee</strong>. That means the best professionals stay on the platform because leaving makes no economic sense for them.</p>`,
+    answer: `<p>Three things. <strong>Every candidate records two voice samples during vetting</strong>, a self-introduction and a reading passage, so you can hear them before you ever message. Every candidate also passes a <strong>written English assessment and a skills interview</strong> before their profile goes live. And <strong>candidates never pay a fee</strong>, which means the best professionals stay — leaving makes no economic sense for them.</p>`,
   },
   {
     question: 'What does it cost to hire someone?',
@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How are candidates vetted?',
-    answer: `<p>Every candidate goes through a five-step vetting process before their profile goes live. It starts with a <strong>college degree requirement</strong>, followed by a timed <strong>English grammar and comprehension test</strong> with anti-cheat measures, two <strong>live voice recordings</strong> reviewed by a human, <strong>government ID verification</strong> via Stripe Identity, and a <strong>two-interview process</strong> — one AI-led and one with our recruiting team.</p><p>Under 30% of applicants make it through. Every badge you see on a profile is locked and cannot be edited by the candidate.</p>`,
+    answer: `<p>Every candidate clears a multi-step vetting process before their profile goes live: a timed <strong>English grammar and comprehension test</strong> with anti-cheat monitoring, two <strong>voice recordings</strong> captured during vetting, <strong>government ID verification</strong> via Stripe Identity, and a <strong>skills interview</strong> built around their role.</p><p>About 1 in 10 applicants make it through. Every badge you see on a profile is locked and cannot be edited by the candidate.</p>`,
   },
   {
     question: "What happens if the hire doesn't work out?",
@@ -25,7 +25,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'Can I interview a candidate before I commit?',
-    answer: `<p>Yes, and you have more information than any other platform gives you. Every candidate profile shows their <strong>two voice samples</strong>, their <strong>interview scorecard</strong> from our recruiting team (covering communication clarity, professional demeanor, and role knowledge), and their <strong>AI interview tier</strong>.</p><p>After that, messaging is free. You can ask questions, request a call, or send a small paid project before committing to an ongoing role.</p>`,
+    answer: `<p>Yes, and you start with more information than most platforms give you: every profile carries the candidate&apos;s <strong>two voice samples</strong> and their <strong>assessment badges</strong>, including English tier.</p><p>After that, messaging is free. You can ask questions, request a call, or send a small paid project before committing to an ongoing role.</p>`,
   },
   {
     question: 'How do I pay — what currencies and cards are accepted?',

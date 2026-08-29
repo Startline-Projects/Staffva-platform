@@ -248,8 +248,7 @@ export default function VoiceMoment({ candidates }: Props) {
         )}
 
         <p className="voice-footnote">
-          <strong>Every voice sample is recorded live during vetting.</strong> No uploads. No edits. No
-          AI-generated audio.
+          <strong>Every voice sample is recorded live during vetting.</strong> No uploads, no edits.
         </p>
       </div>
     </section>

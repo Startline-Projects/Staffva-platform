@@ -27,13 +27,13 @@ const dmSerifDisplay = DM_Serif_Display({
 
 // ── Metadata ───────────────────────────────────────────────────────────────
 export const metadata: Metadata = {
-  title: 'Staff VA — Every Candidate Passed Two Interviews',
+  title: 'StaffVA — Vetted Virtual Assistants & Remote Talent',
   description:
-    'No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live interviews and a voice introduction reviewed by our team before you ever see their name.',
+    'Browse remote professionals who passed a written English assessment, government-ID verification, and a skills interview before their profile went live. Listen to their voice samples, then hire with escrow protection.',
   openGraph: {
-    title: 'Staff VA — Every Candidate Passed Two Interviews',
+    title: 'StaffVA — Vetted Virtual Assistants & Remote Talent',
     description:
-      'No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live interviews and a voice introduction reviewed by our team before you ever see their name.',
+      'Browse remote professionals who passed a written English assessment, government-ID verification, and a skills interview before their profile went live. Listen to their voice samples, then hire with escrow protection.',
     siteName: 'StaffVA',
     type: 'website',
   },
@@ -161,16 +161,17 @@ export default async function Home() {
         <div className="hero-content">
           <div className="hero-badge">
             <span className="dot"></span>
-            Every candidate. Two interviews. Zero exceptions.
+            English-tested · ID-verified · Interviewed
           </div>
 
           <h1 className="hero-headline">
-            Every candidate passed<br /><em>two interviews to be here.</em>
+            Only 1 in 10 applicants<br /><em>make it onto StaffVA.</em>
           </h1>
 
           <p className="hero-sub">
-            No scraped profiles. No unvetted résumés. Every professional on StaffVA passed two live
-            interviews and a voice introduction reviewed by our team before you ever see their name.
+            Before a profile appears here, the person behind it passed a written English assessment,
+            government-ID verification, and a skills interview. Two voice samples sit on every profile,
+            so you can hear how they speak before you send a single message.
           </p>
 
           <HeroSearch />
@@ -184,9 +185,9 @@ export default async function Home() {
         </div>
 
         <div className="stats-bar">
-          <div className="stat"><div className="stat-number">2</div><div className="stat-label">Live Interviews</div></div>
-          <div className="stat"><div className="stat-number">&lt;30%</div><div className="stat-label">Pass Rate</div></div>
-          <div className="stat"><div className="stat-number">100%</div><div className="stat-label">Human Reviewed</div></div>
+          <div className="stat"><div className="stat-number">1 in 10</div><div className="stat-label">Applicants Approved</div></div>
+          <div className="stat"><div className="stat-number">3</div><div className="stat-label">Vetting Stages</div></div>
+          <div className="stat"><div className="stat-number">2</div><div className="stat-label">Voice Samples / Profile</div></div>
           <div className="stat"><div className="stat-number">10+</div><div className="stat-label">Countries</div></div>
         </div>
       </section>
@@ -209,7 +210,7 @@ export default async function Home() {
                 </svg>
               </div>
               <h3 className="hiw-step-title">Browse instantly</h3>
-              <p className="hiw-step-desc">No login. No subscription. Profiles load the moment you arrive — rates, skills, and availability, all visible upfront.</p>
+              <p className="hiw-step-desc">There is no login wall and no subscription. Profiles load the moment you arrive, with rates, skills and availability visible upfront.</p>
             </div>
             <div className="hiw-step">
               <div className="hiw-step-icon">
@@ -223,7 +224,7 @@ export default async function Home() {
                 </svg>
               </div>
               <h3 className="hiw-step-title">View, listen, then decide</h3>
-              <p className="hiw-step-desc">Every profile comes with a voice recording and video intro. See their work, hear their English, watch them speak — before you ever reach out.</p>
+              <p className="hiw-step-desc">Every profile carries two voice samples and the candidate&apos;s assessment badges. Hear their English and check their work history before you reach out.</p>
             </div>
             <div className="hiw-step">
               <div className="hiw-step-icon">
@@ -235,7 +236,7 @@ export default async function Home() {
                 </svg>
               </div>
               <h3 className="hiw-step-title">Pay through escrow</h3>
-              <p className="hiw-step-desc">Funds are held until you approve the work. Protected on both sides. No surprises, no chasing invoices.</p>
+              <p className="hiw-step-desc">Funds are held in escrow until you approve the work, which protects both sides. Nobody chases invoices.</p>
             </div>
           </div>
         </div>
@@ -355,11 +356,11 @@ export default async function Home() {
                 <div className="vetting-stage-connector"></div>
               </div>
               <div className="vetting-stage-content">
-                <div className="vetting-stage-badge">Interview 1</div>
-                <h3 className="vetting-stage-title">Skills &amp; experience assessment</h3>
-                <p className="vetting-stage-desc">A live interview with our team evaluating role-specific knowledge, tool proficiency, and professional experience. We ask real questions — not checkbox quizzes.</p>
+                <div className="vetting-stage-badge">Stage 1</div>
+                <h3 className="vetting-stage-title">Written English assessment</h3>
+                <p className="vetting-stage-desc">A timed test of grammar and reading comprehension, dealt from a rotating question bank so no two attempts look alike. A minimum score is required to continue, and retakes are limited.</p>
                 <div className="vetting-proof-points">
-                  {['Role-specific scenario questions', 'Tool & software proficiency check', 'Work history verified by a human'].map((pt) => (
+                  {['Timed, with anti-cheat monitoring', 'Rotating question bank on every attempt', 'Minimum passing score of 70%'].map((pt) => (
                     <div className="proof-point" key={pt}>
                       <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
                       <span>{pt}</span>
@@ -375,11 +376,31 @@ export default async function Home() {
                 <div className="vetting-stage-connector"></div>
               </div>
               <div className="vetting-stage-content">
-                <div className="vetting-stage-badge">Interview 2</div>
-                <h3 className="vetting-stage-title">Spoken English &amp; communication</h3>
-                <p className="vetting-stage-desc">A second live interview focused entirely on spoken English. We test clarity, comprehension, and confidence — then record a voice sample and video intro so clients can judge for themselves.</p>
+                <div className="vetting-stage-badge">Stage 2</div>
+                <h3 className="vetting-stage-title">Identity &amp; voice</h3>
+                <p className="vetting-stage-desc">Government-ID verification through Stripe Identity, then two voice recordings made inside the vetting flow: a reading passage and a self-introduction. Both go on the profile, so clients judge the spoken English for themselves.</p>
                 <div className="vetting-proof-points">
-                  {['Live conversational English test', 'Voice recording captured on the spot', 'Video intro filmed and reviewed'].map((pt) => (
+                  {['Government ID checked via Stripe Identity', 'Two voice samples recorded on the spot', 'Duplicate identities detected and flagged'].map((pt) => (
+                    <div className="proof-point" key={pt}>
+                      <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span>{pt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="vetting-stage">
+              <div className="vetting-stage-line">
+                <div className="vetting-stage-dot"></div>
+                <div className="vetting-stage-connector"></div>
+              </div>
+              <div className="vetting-stage-content">
+                <div className="vetting-stage-badge">Stage 3</div>
+                <h3 className="vetting-stage-title">Skills interview</h3>
+                <p className="vetting-stage-desc">A structured voice interview built around the candidate&apos;s role — ten to twelve questions, more for specialised roles. Vague answers get follow-ups, and experience claims are checked against the application. Five scored dimensions, with a minimum score to pass.</p>
+                <div className="vetting-proof-points">
+                  {['Role-specific questions, asked one at a time', 'Scored on five dimensions, communication included', 'Passing score required before approval'].map((pt) => (
                     <div className="proof-point" key={pt}>
                       <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
                       <span>{pt}</span>
@@ -396,7 +417,7 @@ export default async function Home() {
               <div className="vetting-stage-content">
                 <div className="vetting-stage-badge badge-final">Approved</div>
                 <h3 className="vetting-stage-title">Profile goes live</h3>
-                <p className="vetting-stage-desc">Less than 30% make it through. Those who do get a verified badge, a published profile, and access to clients — permanently. The candidate never touches the badge.</p>
+                <p className="vetting-stage-desc">About 1 in 10 applicants make it through. Approved profiles get a verified badge and go live to clients. The badges are locked, and candidates cannot edit them.</p>
               </div>
             </div>
           </div>
@@ -407,21 +428,21 @@ export default async function Home() {
                 <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <h4 className="vetting-stat-title">Badges that can&apos;t be faked</h4>
-              <p className="vetting-stat-desc">English tier is assigned by our team after the written assessment. The voice introduction is recorded live and reviewed by a human. Both are locked. The candidate never touches them.</p>
+              <p className="vetting-stat-desc">English tier comes from the written assessment score, and voice samples are recorded inside the vetting flow rather than uploaded. Candidates cannot edit either one.</p>
             </div>
             <div className="vetting-stat">
               <div className="vetting-stat-icon">
                 <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth={2}/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth={2}/><circle cx="7.5" cy="14.5" r="1.5" fill="currentColor"/></svg>
               </div>
               <h4 className="vetting-stat-title">One identity per person</h4>
-              <p className="vetting-stat-desc">Government ID verification through Stripe Identity. Duplicate accounts are detected and blocked automatically.</p>
+              <p className="vetting-stat-desc">Government ID verification through Stripe Identity. The same identity document cannot verify a second account without being flagged.</p>
             </div>
             <div className="vetting-stat">
               <div className="vetting-stat-icon">
                 <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={2}/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth={2} strokeLinecap="round"/></svg>
               </div>
               <h4 className="vetting-stat-title">Candidates earn 100%</h4>
-              <p className="vetting-stat-desc">We never take a cut from the professional. Professionals receive 100% of their stated rate. That&apos;s why talent stays.</p>
+              <p className="vetting-stat-desc">Our fee is added on top of the professional&apos;s rate, never taken out of it. They receive 100% of the rate they quote you, which is why good people stay.</p>
             </div>
           </div>
         </div>
@@ -436,7 +457,7 @@ export default async function Home() {
           <div className="payment-header">
             <span className="section-tag">How payment works</span>
             <h2 className="section-headline">Your money doesn&apos;t move<br /><em>until you say so.</em></h2>
-            <p className="section-sub">Every dollar sits in escrow. Work happens. You release payment when you&apos;re ready — not a moment before.</p>
+            <p className="section-sub">Funds wait in escrow while the work happens. You approve first; payment moves second.</p>
           </div>
 
           <div className="payment-snapshot">
@@ -469,11 +490,11 @@ export default async function Home() {
           <div className="payment-flow">
             {[
               {
-                num: 'Step 1', title: 'Fund', desc: 'You fund the cycle before work begins. Payment is captured and held — not sent to the professional yet.', note: 'Secured by Stripe',
+                num: 'Step 1', title: 'Fund', desc: 'You fund the cycle before work begins. Payment is captured and held; nothing reaches the professional yet.', note: 'Secured by Stripe',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
               },
               {
-                num: 'Step 2', title: 'Work happens', desc: 'Your professional delivers the work — answering emails, updating books, managing projects, whatever you hired them for.', note: 'Funds stay locked',
+                num: 'Step 2', title: 'Work happens', desc: 'Your professional delivers the work: answering emails, updating books, managing projects, whatever you hired them for.', note: 'Funds stay locked',
                 icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
               },
               {
@@ -608,13 +629,13 @@ export default async function Home() {
             Your next hire<br /><em>is already waiting.</em>
           </h2>
           <p className="final-cta-sub">
-            No login required to browse. No subscription. No candidate fees. Search a role, listen to a voice sample, message for free — and hire when you&apos;re ready.
+            Browsing needs no login and no subscription, and candidates never pay fees. Search a role, listen to a few voice samples, and message for free. Hire when you&apos;re ready.
           </p>
           <CtaSearch />
           <div className="final-cta-trust-row">
             <div className="final-cta-trust-item">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-              Two live interviews per candidate
+              Tested, verified and interviewed candidates
             </div>
             <div className="final-cta-trust-item">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -637,7 +658,7 @@ export default async function Home() {
                 StaffVA<span className="footer-logo-dot"></span>
               </Link>
               <p className="footer-tagline">
-                The offshore talent marketplace where every candidate passed two interviews before you ever see their name.
+                The offshore talent marketplace where every candidate is tested, ID-verified and interviewed before you ever see their name.
               </p>
               <div className="footer-socials">
                 <a href="#" className="footer-social" aria-label="LinkedIn">
