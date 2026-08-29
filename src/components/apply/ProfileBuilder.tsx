@@ -556,7 +556,7 @@ export default function ProfileBuilder({
   // Seeded, like bio and hourly_rate. Candidates who entered a tagline under
   // the older application flow should not have to retype it here.
   const [tagline, setTagline] = useState(candidateData.tagline || "");
-  const [monthlyRate, setMonthlyRate] = useState(candidateData.hourly_rate || 0);
+  const [hourlyRate, setHourlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const portfolioInputRef = useRef<HTMLInputElement>(null);
 
@@ -830,7 +830,7 @@ export default function ProfileBuilder({
           setError("Tagline is required");
           return false;
         }
-        if (monthlyRate < 3) {
+        if (hourlyRate < 3) {
           setError("Hourly rate must be at least $3/hr");
           return false;
         }
@@ -998,7 +998,7 @@ export default function ProfileBuilder({
       // Update candidate record
       const updateData: Record<string, unknown> = {
         tagline,
-        hourly_rate: monthlyRate,
+        hourly_rate: hourlyRate,
         bio,
         tools: selectedTools,
         work_experience: validWorkEntries,
@@ -1248,8 +1248,8 @@ export default function ProfileBuilder({
                 id="rate"
                 type="number"
                 min={3}
-                value={monthlyRate || ""}
-                onChange={(e) => setMonthlyRate(parseInt(e.target.value) || 0)}
+                value={hourlyRate || ""}
+                onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
               />
               <p className="mt-1 text-xs text-gray-400">Minimum $3/hr. Clients see this rate on your profile.</p>

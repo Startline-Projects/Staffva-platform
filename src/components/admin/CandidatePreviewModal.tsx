@@ -189,7 +189,7 @@ export default function CandidatePreviewModal({
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-4xl font-bold text-primary">${c.hourly_rate?.toLocaleString()}</p>
-                <p className="text-xs text-white/40 mt-1">per month</p>
+                <p className="text-xs text-white/40 mt-1">per hour</p>
                 <div className="mt-3">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
                     c.availability_status === "available_now"

@@ -279,20 +279,20 @@ export default async function Home() {
                           <span>{initials}</span>
                         </div>
                       )}
-                      <div className="talent-availability" style={{ color: avail.color }}>
-                        <span className="avail-dot" style={{ background: avail.dotBg }}></span>
-                        {avail.label}
-                      </div>
-                    </div>
-                    <div className="talent-info">
-                      <div className="talent-name-row">
-                        <h4 className="talent-name">{name}</h4>
+                      <div className="talent-top-right">
                         {c.hourly_rate != null && (
                           <span className="talent-rate">
                             ${c.hourly_rate.toLocaleString()}<small>/hr</small>
                           </span>
                         )}
+                        <div className="talent-availability" style={{ color: avail.color }}>
+                          <span className="avail-dot" style={{ background: avail.dotBg }}></span>
+                          {avail.label}
+                        </div>
                       </div>
+                    </div>
+                    <div className="talent-info">
+                      <h4 className="talent-name">{name}</h4>
                       {c.role_category && <p className="talent-role">{c.role_category}</p>}
                       {c.country && <p className="talent-location">{c.country}</p>}
                       {skills.length > 0 && (
@@ -304,24 +304,15 @@ export default async function Home() {
                       )}
                     </div>
                     <div className="talent-card-footer">
-                      <div className="talent-media-icons">
-                        {hasVoice && (
-                          <div className="media-badge" title="Voice recording">
-                            <svg viewBox="0 0 20 20" fill="none">
-                              <path d="M10 2a3 3 0 00-3 3v5a3 3 0 006 0V5a3 3 0 00-3-3z" stroke="currentColor" strokeWidth={1.5}/>
-                              <path d="M5 10a5 5 0 0010 0" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/>
-                              <line x1="10" y1="15" x2="10" y2="18" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/>
-                            </svg>
-                          </div>
-                        )}
-                        <div className="media-badge" title="Video intro">
-                          <svg viewBox="0 0 20 20" fill="none">
-                            <rect x="2" y="4" width="11" height="12" rx="2" stroke="currentColor" strokeWidth={1.5}/>
-                            <path d="M13 8l5-3v10l-5-3V8z" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      </div>
-                      <span className="talent-view">View →</span>
+                      {hasVoice ? (
+                        <span className="voice-chip">
+                          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 4.5v11l9-5.5-9-5.5z"/></svg>
+                          Voice sample
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span className="talent-view">View profile →</span>
                     </div>
                   </Link>
                 );

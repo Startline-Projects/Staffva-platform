@@ -307,51 +307,51 @@
   border-color: rgba(232,87,58,0.2);
 }
 .landingRoot :global(.talent-card-top) {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
 }
 .landingRoot :global(.talent-avatar) {
-  width: 48px; height: 48px; border-radius: 50%;
+  width: 72px; height: 72px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.85rem; font-weight: 700; color: var(--gray-800); letter-spacing: 0.02em;
+  font-size: 1.1rem; font-weight: 700; color: var(--gray-800); letter-spacing: 0.02em;
+}
+.landingRoot :global(.talent-top-right) {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
 }
 .landingRoot :global(.talent-availability) {
-  display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 500;
+  display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 500;
 }
 .landingRoot :global(.avail-dot) {
   width: 7px; height: 7px; border-radius: 50%; animation: landingPulse 2s ease infinite;
 }
-.landingRoot :global(.talent-info) { display: flex; flex-direction: column; gap: 4px; }
-.landingRoot :global(.talent-name-row) {
-  display: flex; align-items: baseline; justify-content: space-between;
-}
+.landingRoot :global(.talent-info) { display: flex; flex-direction: column; gap: 3px; }
 .landingRoot :global(.talent-name) {
-  font-size: 1rem; font-weight: 600; color: var(--black); letter-spacing: -0.01em;
+  font-size: 1.08rem; font-weight: 600; color: var(--black); letter-spacing: -0.01em;
 }
 .landingRoot :global(.talent-rate) {
-  font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 1.15rem; color: var(--black);
+  font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 1.5rem;
+  color: var(--black); line-height: 1;
 }
 .landingRoot :global(.talent-rate small) {
   font-family: var(--font-body, 'DM Sans', sans-serif); font-size: 0.75rem; color: var(--gray-400); font-weight: 400;
 }
 .landingRoot :global(.talent-role) { font-size: 0.85rem; color: var(--gray-600); }
 .landingRoot :global(.talent-location) { font-size: 0.78rem; color: var(--gray-400); }
-.landingRoot :global(.talent-tags) { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.landingRoot :global(.talent-tags) { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .landingRoot :global(.talent-tag) {
-  font-size: 0.72rem; font-weight: 500; color: var(--accent); background: var(--accent-light);
-  border: 1px solid rgba(232,87,58,0.1); border-radius: 100px; padding: 3px 10px;
+  font-size: 0.72rem; font-weight: 500; color: var(--gray-600); background: var(--gray-100);
+  border: 1px solid var(--gray-200); border-radius: 6px; padding: 3px 9px;
 }
 .landingRoot :global(.talent-card-footer) {
   display: flex; align-items: center; justify-content: space-between;
-  padding-top: 12px; border-top: 1px solid var(--gray-100); margin-top: auto;
+  padding-top: 14px; border-top: 1px solid var(--gray-100); margin-top: auto;
 }
-.landingRoot :global(.talent-media-icons) { display: flex; gap: 8px; }
-.landingRoot :global(.media-badge) {
-  width: 32px; height: 32px; border-radius: 8px; background: var(--gray-100);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--gray-600); transition: background 0.2s, color 0.2s; cursor: pointer;
+.landingRoot :global(.voice-chip) {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-light); border: 1px solid rgba(232,87,58,0.15);
+  border-radius: 100px; padding: 5px 12px;
 }
-.landingRoot :global(.media-badge:hover) { background: var(--accent-light); color: var(--accent); }
-.landingRoot :global(.media-badge svg) { width: 16px; height: 16px; }
+.landingRoot :global(.voice-chip svg) { width: 10px; height: 10px; }
 .landingRoot :global(.talent-view) {
   font-size: 0.82rem; font-weight: 600; color: var(--accent); text-decoration: none;
   transition: gap 0.2s; display: flex; align-items: center; gap: 2px;
