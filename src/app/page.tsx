@@ -201,7 +201,6 @@ export default async function Home() {
           </div>
           <div className="hiw-steps">
             <div className="hiw-step">
-              <div className="hiw-step-number">01</div>
               <div className="hiw-step-icon">
                 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="20" cy="20" r="12" stroke="currentColor" strokeWidth={2.5}/>
@@ -212,14 +211,7 @@ export default async function Home() {
               <h3 className="hiw-step-title">Browse instantly</h3>
               <p className="hiw-step-desc">No login. No subscription. Profiles load the moment you arrive — rates, skills, and availability, all visible upfront.</p>
             </div>
-            <div className="hiw-connector">
-              <svg viewBox="0 0 80 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="0" y1="10" x2="60" y2="10" stroke="currentColor" strokeWidth={1.5} strokeDasharray="6 4"/>
-                <polyline points="58,5 66,10 58,15" stroke="currentColor" strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
             <div className="hiw-step">
-              <div className="hiw-step-number">02</div>
               <div className="hiw-step-icon">
                 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="8" y="12" width="32" height="24" rx="4" stroke="currentColor" strokeWidth={2.5}/>
@@ -233,14 +225,7 @@ export default async function Home() {
               <h3 className="hiw-step-title">View, listen, then decide</h3>
               <p className="hiw-step-desc">Every profile comes with a voice recording and video intro. See their work, hear their English, watch them speak — before you ever reach out.</p>
             </div>
-            <div className="hiw-connector">
-              <svg viewBox="0 0 80 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="0" y1="10" x2="60" y2="10" stroke="currentColor" strokeWidth={1.5} strokeDasharray="6 4"/>
-                <polyline points="58,5 66,10 58,15" stroke="currentColor" strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
             <div className="hiw-step">
-              <div className="hiw-step-number">03</div>
               <div className="hiw-step-icon">
                 <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="10" y="8" width="28" height="32" rx="3" stroke="currentColor" strokeWidth={2.5}/>
@@ -482,7 +467,6 @@ export default async function Home() {
           </div>
 
           <div className="payment-flow">
-            <span className="payment-flow-dot" aria-hidden="true"></span>
             {[
               {
                 num: 'Step 1', title: 'Fund', desc: 'You fund the cycle before work begins. Payment is captured and held — not sent to the professional yet.', note: 'Secured by Stripe',
