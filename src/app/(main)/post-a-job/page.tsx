@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { DM_Serif_Display } from "next/font/google";
 import { SKILLS_BY_ROLE, ALL_ROLES } from "@/lib/roleSkills";
+
+const serif = DM_Serif_Display({ subsets: ["latin"], weight: "400" });
 
 /**
  * The AI job composer. A client describes what they need in plain words; the
@@ -34,7 +37,7 @@ interface JobDraft {
 
 const STORAGE_KEY = "staffva-job-composer";
 const EXAMPLES = [
-  "A bookkeeper for my Shopify store — reconciliation and monthly close, about 10 hours a week",
+  "A bookkeeper for my Shopify store, reconciliation and monthly close, about 10 hours a week",
   "Someone to answer customer support emails on US evening hours, ongoing",
   "A paralegal for a 3-month document review project, must know eDiscovery",
 ];
@@ -45,13 +48,6 @@ const LEVELS: { value: JobDraft["experience_level"]; label: string }[] = [
   { value: "mid", label: "Mid-level" },
   { value: "senior", label: "Senior" },
 ];
-const DRAFTING_LINES = [
-  "Reading your brief…",
-  "Picking the right role…",
-  "Checking rates on the marketplace…",
-  "Writing the post…",
-];
-
 export default function PostAJobPage() {
   const router = useRouter();
   const [phase, setPhase] = useState<"brief" | "drafting" | "edit" | "publishing">("brief");
@@ -59,7 +55,6 @@ export default function PostAJobPage() {
   const [draft, setDraft] = useState<JobDraft | null>(null);
   const [error, setError] = useState("");
   const [refusal, setRefusal] = useState("");
-  const [draftingLine, setDraftingLine] = useState(0);
   const [rewriting, setRewriting] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState("");
   const [startDate, setStartDate] = useState("Immediately");
@@ -94,14 +89,6 @@ export default function PostAJobPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ brief, draft }));
     } catch { /* storage unavailable */ }
   }, [brief, draft]);
-
-  // Rotate the drafting status line
-  useEffect(() => {
-    if (phase !== "drafting") return;
-    setDraftingLine(0);
-    const t = setInterval(() => setDraftingLine((i) => Math.min(i + 1, DRAFTING_LINES.length - 1)), 2600);
-    return () => clearInterval(t);
-  }, [phase]);
 
   async function requestDraft(instruction?: string, extraBrief?: string) {
     setError("");
@@ -205,59 +192,71 @@ export default function PostAJobPage() {
 
   // ── Brief phase ──────────────────────────────────────────────────────────
   if (phase === "brief" || phase === "drafting") {
+    const drafting = phase === "drafting";
     return (
-      <main className="mx-auto max-w-2xl px-6 py-16">
-        <h1 className="text-3xl font-bold text-text">Post a job</h1>
-        <p className="mt-2 text-text/60">
-          Describe who you need, in your own words. We&apos;ll turn it into a job post you can edit.
+      <main className="mx-auto max-w-2xl px-6 pb-24 pt-16">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          Post a job
+        </p>
+        <h1 className={`${serif.className} text-4xl text-text sm:text-5xl`}>
+          Who are you hiring?
+        </h1>
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-text-secondary">
+          Plain words are fine. A couple of sentences about the work, the hours,
+          and what you&apos;d like to pay.
         </p>
 
-        {refusal && (
-          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{refusal}</div>
-        )}
-        {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-        )}
-
-        <textarea
-          value={brief}
-          onChange={(e) => setBrief(e.target.value)}
-          maxLength={2000}
-          rows={5}
-          disabled={phase === "drafting"}
-          placeholder="e.g. I run a small law firm and need help preparing discovery documents, roughly 15 hours a week…"
-          className="mt-6 w-full rounded-xl border border-text/15 bg-white p-4 text-[15px] leading-relaxed text-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-        />
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              type="button"
-              disabled={phase === "drafting"}
-              onClick={() => setBrief(ex)}
-              className="rounded-full border border-text/10 bg-white px-3 py-1.5 text-xs text-text/60 hover:border-primary/40 hover:text-text transition-colors"
-            >
-              {ex.length > 60 ? ex.slice(0, 57) + "…" : ex}
-            </button>
-          ))}
+        <div className="mt-10">
+          <textarea
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            disabled={drafting}
+            rows={4}
+            maxLength={2000}
+            autoFocus
+            placeholder="I run a small law firm and need help preparing discovery documents…"
+            className="w-full resize-none border-0 border-b border-border bg-transparent pb-3 text-lg leading-relaxed text-text placeholder:text-text-tertiary/70 focus:border-text focus:outline-none disabled:opacity-60"
+          />
+          {drafting && <div className="h-px w-full animate-pulse bg-primary" />}
         </div>
 
-        <button
-          onClick={() => requestDraft()}
-          disabled={phase === "drafting" || brief.trim().length < 10}
-          className="mt-8 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-        >
-          {phase === "drafting" ? DRAFTING_LINES[draftingLine] : "Draft my job post"}
-        </button>
-        {phase === "drafting" && (
-          <div className="mt-6 space-y-3" aria-hidden>
-            <div className="h-6 w-2/3 animate-pulse rounded bg-text/10" />
-            <div className="h-4 w-full animate-pulse rounded bg-text/10" />
-            <div className="h-4 w-5/6 animate-pulse rounded bg-text/10" />
-            <div className="h-4 w-4/6 animate-pulse rounded bg-text/10" />
-          </div>
+        {refusal && (
+          <p className="mt-5 border-l-2 border-border pl-4 text-sm leading-relaxed text-text-secondary">
+            {refusal}
+          </p>
         )}
+        {error && <p className="mt-5 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-6 flex items-center justify-between gap-4">
+          <p className="text-xs text-text-tertiary">
+            {drafting ? "Writing your post…" : "Nothing is posted until you say so."}
+          </p>
+          <button
+            onClick={() => requestDraft()}
+            disabled={drafting || brief.trim().length < 10}
+            className="rounded-full bg-primary px-7 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-40"
+          >
+            {drafting ? "Writing…" : "Write the post"}
+          </button>
+        </div>
+
+        <div className="mt-16 border-t border-border pt-8">
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.12em] text-text-tertiary">
+            For example
+          </p>
+          <div className="space-y-3">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                onClick={() => setBrief(ex)}
+                disabled={drafting}
+                className="block text-left text-[15px] leading-snug text-text-secondary underline decoration-border underline-offset-4 transition-colors hover:text-text hover:decoration-primary"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        </div>
       </main>
     );
   }
@@ -265,173 +264,209 @@ export default function PostAJobPage() {
   // ── Edit phase ───────────────────────────────────────────────────────────
   if (!draft) return null;
 
+  const chip = (selected: boolean) =>
+    selected
+      ? "rounded-full bg-text px-4 py-1.5 text-xs font-semibold text-white"
+      : "rounded-full border border-border px-4 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-text-tertiary";
+
+  const label = "mb-1.5 block text-xs font-medium text-text/50";
+
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto max-w-5xl px-6 pb-24 pt-12">
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text">Review your job post</h1>
-          <p className="mt-1 text-sm text-text/60">Everything is editable — the draft is a starting point, not a verdict.</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            Post a job
+          </p>
+          <h1 className={`${serif.className} text-3xl text-text sm:text-4xl`}>Your job post</h1>
+          <p className="mt-2 text-[15px] text-text-secondary">
+            Change anything. Publish when it reads right.
+          </p>
         </div>
         <button
-          onClick={() => setPhase("brief")}
-          className="text-sm text-text/60 underline hover:text-text"
+          onClick={() => {
+            setDraft(null);
+            setPhase("brief");
+          }}
+          className="text-sm text-text-tertiary underline decoration-border underline-offset-4 transition-colors hover:text-text"
         >
-          Start over with a new brief
+          Start over
         </button>
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-      )}
-
       {draft.follow_up_question && (
-        <div className="mb-6 rounded-xl border border-primary/25 bg-primary/5 p-4">
-          <p className="text-sm font-medium text-text">{draft.follow_up_question}</p>
+        <div className="mb-8 max-w-2xl border-l-2 border-text pl-5">
+          <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-text-tertiary">
+            One question
+          </p>
+          <p className="text-[15px] text-text">{draft.follow_up_question}</p>
           <div className="mt-3 flex gap-2">
             <input
               value={followUpAnswer}
               onChange={(e) => setFollowUpAnswer(e.target.value)}
-              maxLength={300}
-              placeholder="Type a quick answer (optional)"
-              className="flex-1 rounded-lg border border-text/15 px-3 py-2 text-sm outline-none focus:border-primary"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && followUpAnswer.trim()) requestDraft(undefined, followUpAnswer.trim());
+              }}
+              placeholder="Answer in a few words"
+              className="w-full max-w-sm rounded-lg border border-border bg-card px-3 py-2 text-sm text-text placeholder:text-text-tertiary/70 focus:border-text focus:outline-none"
             />
             <button
-              onClick={() => followUpAnswer.trim() && requestDraft("Incorporate the client's additional detail.", followUpAnswer.trim())}
+              onClick={() => followUpAnswer.trim() && requestDraft(undefined, followUpAnswer.trim())}
               disabled={!followUpAnswer.trim() || !!rewriting}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-full bg-text px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
             >
-              Update draft
-            </button>
-            <button
-              onClick={() => update("follow_up_question", null)}
-              className="rounded-lg border border-text/15 px-3 py-2 text-sm text-text/60"
-            >
-              Skip
+              {rewriting ? "…" : "Update"}
             </button>
           </div>
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        {/* ── The post ── */}
-        <div className="rounded-2xl border border-text/10 bg-white p-8">
-          <input
+      {error && <p className="mb-6 text-sm text-red-600">{error}</p>}
+
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* ── The post, as a document ── */}
+        <article className="rounded-xl border border-border bg-card px-8 py-9 sm:px-10">
+          <textarea
             value={draft.title}
-            onChange={(e) => update("title", e.target.value.slice(0, 90))}
-            className="w-full border-none bg-transparent text-2xl font-bold text-text outline-none focus:ring-0"
-            aria-label="Job title"
+            onChange={(e) => update("title", e.target.value.replace(/\n/g, " "))}
+            maxLength={90}
+            rows={2}
+            className={`${serif.className} w-full resize-none border-0 bg-transparent text-[26px] leading-tight text-text focus:outline-none sm:text-3xl`}
+            placeholder="Job title"
           />
-          <p className="mt-1 text-sm text-text/50">
+          <p className="mt-2 text-xs uppercase tracking-[0.1em] text-text-tertiary">
             {draft.role_category} · {draft.hours_per_week_estimate} · {draft.duration_estimate}
           </p>
 
-          <div className="mt-6">
-            <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-text/50">About the role</h3>
-              <div className="flex gap-2">
-                {["Shorter", "Friendlier", "More specific"].map((how) => (
-                  <button
-                    key={how}
-                    onClick={() => requestDraft(`Rewrite the summary to be ${how.toLowerCase()}. Keep everything else unchanged.`)}
-                    disabled={!!rewriting}
-                    className="rounded-full border border-text/10 px-2.5 py-1 text-[11px] text-text/60 hover:border-primary/40 hover:text-primary disabled:opacity-40"
-                  >
-                    {rewriting?.includes(how.toLowerCase()) ? "…" : how}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="mt-8">
+            <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-text-tertiary">
+              About the role
+            </p>
             <textarea
               value={draft.summary}
-              onChange={(e) => update("summary", e.target.value.slice(0, 600))}
-              rows={5}
-              className="w-full resize-none rounded-lg border border-transparent bg-transparent p-2 -m-2 text-[15px] leading-relaxed text-text/90 outline-none hover:border-text/10 focus:border-primary/40"
+              onChange={(e) => update("summary", e.target.value)}
+              rows={4}
+              maxLength={600}
+              className="w-full resize-none border-0 bg-transparent text-[15px] leading-relaxed text-text-secondary focus:outline-none"
             />
+            <p className="text-xs text-text-tertiary">
+              Rewrite:{" "}
+              {["shorter", "friendlier", "more specific"].map((mode, i) => (
+                <span key={mode}>
+                  {i > 0 && " · "}
+                  <button
+                    onClick={() => requestDraft(`Rewrite the summary to be ${mode}. Keep everything else unchanged.`)}
+                    disabled={!!rewriting}
+                    className="underline decoration-border underline-offset-2 transition-colors hover:text-text disabled:opacity-40"
+                  >
+                    {rewriting?.includes(mode) ? "…" : mode}
+                  </button>
+                </span>
+              ))}
+            </p>
           </div>
 
-          <div className="mt-6">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text/50">What you&apos;ll do</h3>
-            <ul className="space-y-2">
+          <div className="mt-8">
+            <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-text-tertiary">
+              What you&apos;ll do
+            </p>
+            <div>
               {draft.responsibilities.map((r, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="mt-[9px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />
+                <div key={i} className="group flex items-center gap-3 border-b border-border-light/60 py-1.5 last:border-b-0">
+                  <span className="text-text-tertiary">–</span>
                   <input
                     value={r}
                     onChange={(e) => {
                       const next = [...draft.responsibilities];
-                      next[i] = e.target.value.slice(0, 120);
+                      next[i] = e.target.value;
                       update("responsibilities", next);
                     }}
-                    className="w-full border-none bg-transparent text-[15px] text-text/90 outline-none"
+                    maxLength={120}
+                    className="w-full border-0 bg-transparent py-0.5 text-[15px] text-text-secondary focus:outline-none"
                   />
                   <button
                     onClick={() => update("responsibilities", draft.responsibilities.filter((_, j) => j !== i))}
-                    className="text-text/30 hover:text-red-500"
+                    className="text-text-tertiary opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
                     aria-label="Remove"
                   >
                     ×
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
             {draft.responsibilities.length < 6 && (
               <button
                 onClick={() => update("responsibilities", [...draft.responsibilities, ""])}
-                className="mt-2 text-sm text-primary hover:underline"
+                className="mt-2 text-xs text-text-tertiary underline decoration-border underline-offset-2 hover:text-text"
               >
-                + Add a task
+                Add a line
               </button>
             )}
           </div>
 
-          <div className="mt-6">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text/50">Skills</h3>
-            <div className="flex flex-wrap gap-2">
-              {draft.must_have_skills.map((s) => (
-                <span key={s} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  {s}
-                  <button onClick={() => update("must_have_skills", draft.must_have_skills.filter((x) => x !== s))} aria-label={`Remove ${s}`}>×</button>
-                </span>
+          <div className="mt-8">
+            <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-text-tertiary">
+              Skills
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {draft.must_have_skills.map((sk) => (
+                <button
+                  key={sk}
+                  onClick={() => update("must_have_skills", draft.must_have_skills.filter((x) => x !== sk))}
+                  title="Click to remove"
+                  className="group rounded-full bg-text px-3 py-1 text-xs font-medium text-white"
+                >
+                  {sk} <span className="opacity-50 group-hover:opacity-100">×</span>
+                </button>
               ))}
-              {draft.nice_to_have_skills.map((s) => (
-                <span key={s} className="inline-flex items-center gap-1.5 rounded-full border border-text/15 px-3 py-1 text-xs text-text/60">
-                  {s} <span className="text-text/35">nice-to-have</span>
-                  <button onClick={() => update("nice_to_have_skills", draft.nice_to_have_skills.filter((x) => x !== s))} aria-label={`Remove ${s}`}>×</button>
-                </span>
+              {draft.nice_to_have_skills.map((sk) => (
+                <button
+                  key={sk}
+                  onClick={() => update("nice_to_have_skills", draft.nice_to_have_skills.filter((x) => x !== sk))}
+                  title="Click to remove"
+                  className="group rounded-full border border-border px-3 py-1 text-xs text-text-secondary"
+                >
+                  {sk} <span className="text-text-tertiary">· optional</span>{" "}
+                  <span className="opacity-40 group-hover:opacity-100">×</span>
+                </button>
               ))}
-            </div>
-            <div className="mt-3 flex gap-2">
               <input
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addSkill("must_have_skills", newSkill)}
-                placeholder="Add a skill…"
-                maxLength={40}
-                className="w-44 rounded-lg border border-text/15 px-3 py-1.5 text-xs outline-none focus:border-primary"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addSkill("must_have_skills", newSkill);
+                }}
+                placeholder="Add a skill"
+                className="w-28 border-0 border-b border-border bg-transparent px-1 py-1 text-xs text-text placeholder:text-text-tertiary/70 focus:border-text focus:outline-none"
               />
-              <button onClick={() => addSkill("must_have_skills", newSkill)} className="rounded-lg border border-text/15 px-3 py-1.5 text-xs text-text/60 hover:border-primary/40">Add</button>
             </div>
             {roleSkillSuggestions.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-text/40">Common for this role:</span>
-                {roleSkillSuggestions.slice(0, 5).map((s) => (
-                  <button key={s} onClick={() => addSkill("must_have_skills", s)} className="rounded-full border border-dashed border-text/20 px-2.5 py-0.5 text-[11px] text-text/50 hover:border-primary/50 hover:text-primary">
-                    + {s}
-                  </button>
+              <p className="mt-3 text-xs leading-relaxed text-text-tertiary">
+                Common for this role:{" "}
+                {roleSkillSuggestions.slice(0, 6).map((sk, i) => (
+                  <span key={sk}>
+                    {i > 0 && " · "}
+                    <button
+                      onClick={() => addSkill("must_have_skills", sk)}
+                      className="underline decoration-border underline-offset-2 transition-colors hover:text-text"
+                    >
+                      {sk}
+                    </button>
+                  </span>
                 ))}
-              </div>
+              </p>
             )}
           </div>
-        </div>
+        </article>
 
-        {/* ── The controls ── */}
-        <aside className="space-y-5 self-start rounded-2xl border border-text/10 bg-white p-6">
+        {/* ── The terms ── */}
+        <aside className="space-y-6 self-start rounded-xl border border-border bg-card p-5 lg:sticky lg:top-24">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Role category</label>
+            <span className={label}>Role category</span>
             <select
               value={draft.role_category}
               onChange={(e) => update("role_category", e.target.value)}
-              className="w-full rounded-lg border border-text/15 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text focus:border-text focus:outline-none"
             >
               {ALL_ROLES.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -440,50 +475,95 @@ export default function PostAJobPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Hours per week</label>
-            <div className="grid grid-cols-2 gap-2">
+            <span className={label}>Pay</span>
+            <div className="mb-2 flex gap-1.5">
+              <button className={chip(draft.rate_type === "hourly")} onClick={() => update("rate_type", "hourly")}>
+                Hourly rate
+              </button>
+              <button className={chip(draft.rate_type === "fixed")} onClick={() => update("rate_type", "fixed")}>
+                Project budget
+              </button>
+            </div>
+            {draft.rate_type === "hourly" ? (
+              <div className="flex items-center gap-2">
+                <div className="relative w-full">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">$</span>
+                  <input
+                    type="number"
+                    min={3}
+                    max={500}
+                    value={draft.hourly_rate_min ?? ""}
+                    onChange={(e) => update("hourly_rate_min", e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-lg border border-border bg-card py-2 pl-7 pr-2 text-sm text-text focus:border-text focus:outline-none"
+                  />
+                </div>
+                <span className="text-text-tertiary">–</span>
+                <div className="relative w-full">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">$</span>
+                  <input
+                    type="number"
+                    min={3}
+                    max={500}
+                    value={draft.hourly_rate_max ?? ""}
+                    onChange={(e) => update("hourly_rate_max", e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-lg border border-border bg-card py-2 pl-7 pr-2 text-sm text-text focus:border-text focus:outline-none"
+                  />
+                </div>
+                <span className="whitespace-nowrap text-xs text-text-tertiary">/hr</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">$</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100000}
+                  value={draft.fixed_budget ?? ""}
+                  onChange={(e) => update("fixed_budget", e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Total for the project"
+                  className="w-full rounded-lg border border-border bg-card py-2 pl-7 pr-3 text-sm text-text placeholder:text-text-tertiary/70 focus:border-text focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <span className={label}>Hours per week</span>
+            <div className="flex flex-wrap gap-1.5">
               {HOURS_BUCKETS.map((h) => (
-                <button
-                  key={h}
-                  onClick={() => update("hours_per_week_estimate", h)}
-                  className={`rounded-lg border px-2 py-2 text-xs transition-colors ${draft.hours_per_week_estimate === h ? "border-primary bg-primary/5 font-semibold text-primary" : "border-text/15 text-text/70 hover:border-text/30"}`}
-                >
-                  {h}
+                <button key={h} className={chip(draft.hours_per_week_estimate === h)} onClick={() => update("hours_per_week_estimate", h)}>
+                  {h.replace(/ \(.*\)/, "")}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Duration</label>
-            <div className="flex gap-2">
-              {(["ongoing", "project"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => update("duration_type", t)}
-                  className={`flex-1 rounded-lg border px-2 py-2 text-xs capitalize transition-colors ${draft.duration_type === t ? "border-primary bg-primary/5 font-semibold text-primary" : "border-text/15 text-text/70 hover:border-text/30"}`}
-                >
-                  {t}
-                </button>
-              ))}
+            <span className={label}>Duration</span>
+            <div className="mb-2 flex gap-1.5">
+              <button className={chip(draft.duration_type === "ongoing")} onClick={() => { update("duration_type", "ongoing"); update("duration_estimate", "Ongoing"); }}>
+                Ongoing
+              </button>
+              <button className={chip(draft.duration_type === "project")} onClick={() => update("duration_type", "project")}>
+                Project
+              </button>
             </div>
-            <input
-              value={draft.duration_estimate}
-              onChange={(e) => update("duration_estimate", e.target.value.slice(0, 60))}
-              placeholder={draft.duration_type === "ongoing" ? "Ongoing" : "e.g. About 3 months"}
-              className="mt-2 w-full rounded-lg border border-text/15 px-3 py-2 text-sm outline-none focus:border-primary"
-            />
+            {draft.duration_type === "project" && (
+              <input
+                value={draft.duration_estimate}
+                onChange={(e) => update("duration_estimate", e.target.value)}
+                maxLength={60}
+                placeholder="About 3 months"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text placeholder:text-text-tertiary/70 focus:border-text focus:outline-none"
+              />
+            )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Experience level</label>
-            <div className="grid grid-cols-2 gap-2">
+            <span className={label}>Experience</span>
+            <div className="flex flex-wrap gap-1.5">
               {LEVELS.map((l) => (
-                <button
-                  key={l.value}
-                  onClick={() => update("experience_level", l.value)}
-                  className={`rounded-lg border px-2 py-2 text-xs transition-colors ${draft.experience_level === l.value ? "border-primary bg-primary/5 font-semibold text-primary" : "border-text/15 text-text/70 hover:border-text/30"}`}
-                >
+                <button key={l.value} className={chip(draft.experience_level === l.value)} onClick={() => update("experience_level", l.value)}>
                   {l.label}
                 </button>
               ))}
@@ -491,83 +571,29 @@ export default function PostAJobPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Pay</label>
-            <div className="flex gap-2">
-              {(["hourly", "fixed"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => update("rate_type", t)}
-                  className={`flex-1 rounded-lg border px-2 py-2 text-xs capitalize transition-colors ${draft.rate_type === t ? "border-primary bg-primary/5 font-semibold text-primary" : "border-text/15 text-text/70 hover:border-text/30"}`}
-                >
-                  {t === "hourly" ? "Hourly range" : "Fixed budget"}
-                </button>
-              ))}
-            </div>
-            {draft.rate_type === "hourly" ? (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text/40">$</span>
-                  <input
-                    type="number" min={3} max={500}
-                    value={draft.hourly_rate_min ?? ""}
-                    onChange={(e) => update("hourly_rate_min", e.target.value ? Number(e.target.value) : null)}
-                    className="w-full rounded-lg border border-text/15 py-2 pl-7 pr-2 text-sm outline-none focus:border-primary"
-                    aria-label="Minimum hourly rate"
-                  />
-                </div>
-                <span className="text-text/40">–</span>
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text/40">$</span>
-                  <input
-                    type="number" min={3} max={500}
-                    value={draft.hourly_rate_max ?? ""}
-                    onChange={(e) => update("hourly_rate_max", e.target.value ? Number(e.target.value) : null)}
-                    className="w-full rounded-lg border border-text/15 py-2 pl-7 pr-2 text-sm outline-none focus:border-primary"
-                    aria-label="Maximum hourly rate"
-                  />
-                </div>
-                <span className="text-sm text-text/40">/hr</span>
-              </div>
-            ) : (
-              <div className="relative mt-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text/40">$</span>
-                <input
-                  type="number" min={1} max={100000}
-                  value={draft.fixed_budget ?? ""}
-                  onChange={(e) => update("fixed_budget", e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Total project budget"
-                  className="w-full rounded-lg border border-text/15 py-2 pl-7 pr-2 text-sm outline-none focus:border-primary"
-                  aria-label="Fixed project budget"
-                />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text/50">Start</label>
-            <div className="grid grid-cols-3 gap-2">
+            <span className={label}>Start</span>
+            <div className="flex flex-wrap gap-1.5">
               {["Immediately", "Within 2 weeks", "Within a month"].map((sd) => (
-                <button
-                  key={sd}
-                  onClick={() => setStartDate(sd)}
-                  className={`rounded-lg border px-1 py-2 text-[11px] transition-colors ${startDate === sd ? "border-primary bg-primary/5 font-semibold text-primary" : "border-text/15 text-text/70 hover:border-text/30"}`}
-                >
+                <button key={sd} className={chip(startDate === sd)} onClick={() => setStartDate(sd)}>
                   {sd}
                 </button>
               ))}
             </div>
           </div>
 
-          <button
-            onClick={publish}
-            disabled={phase === "publishing" || !draft.title.trim()}
-            className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-          >
-            {phase === "publishing" ? "Publishing…" : "Publish and see matches"}
-          </button>
-          <p className="text-center text-[11px] leading-relaxed text-text/40">
-            Only candidates who match the role or its must-have skills will see this posting.
-          </p>
+          <div className="border-t border-border-light pt-5">
+            <button
+              onClick={publish}
+              disabled={phase === "publishing" || !draft.title.trim()}
+              className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-40"
+            >
+              {phase === "publishing" ? "Publishing…" : "Publish this job"}
+            </button>
+            <p className="mt-3 text-xs leading-relaxed text-text-tertiary">
+              Only candidates matching this role or its skills will see the post.
+              You&apos;ll get a shortlist of matches the moment it&apos;s live.
+            </p>
+          </div>
         </aside>
       </div>
     </main>
