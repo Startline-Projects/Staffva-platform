@@ -572,6 +572,7 @@ export default function CandidateDashboardPage() {
   const [recruiterUnread, setRecruiterUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [availabilityCount, setAvailabilityCount] = useState<number | null>(null);
   const [interviewLoading, setInterviewLoading] = useState(false);
   const [interviewError, setInterviewError] = useState<string | null>(null);
 
@@ -620,6 +621,15 @@ export default function CandidateDashboardPage() {
 
       if (c) {
         setCandidate(c as CandidateData);
+        // Interview-calendar nudge: an approved candidate with no published
+        // hours cannot be booked, and nothing else tells them that.
+        if (c.admin_status === "approved") {
+          const { count: availCount } = await supabase
+            .from("candidate_availability")
+            .select("id", { count: "exact", head: true })
+            .eq("candidate_id", c.id);
+          setAvailabilityCount(availCount ?? 0);
+        }
 
         // Check portfolio
         const { count } = await supabase
@@ -880,6 +890,23 @@ export default function CandidateDashboardPage() {
           </div>
         </div>
       </div>
+
+      {candidate.admin_status === "approved" && availabilityCount === 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Clients can&apos;t book an interview with you yet</p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              Your profile is live, but your interview calendar is empty. List the hours you can take calls and clients can book you directly.
+            </p>
+          </div>
+          <Link
+            href="/candidate/availability"
+            className="rounded-full bg-amber-600 px-5 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+          >
+            Set your hours
+          </Link>
+        </div>
+      )}
 
       {/* ═══ PROGRESS TRACKER + NEXT STEP (9-stage pipeline) ═══ */}
       {(() => {
