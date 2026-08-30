@@ -409,7 +409,7 @@ function BrowseContent() {
           <aside
             className={`${
               showFilters ? "translate-y-0" : "translate-y-full"
-            } fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl transition-transform duration-300 lg:translate-y-0 lg:relative lg:z-auto lg:max-h-none lg:rounded-xl lg:shadow-none lg:block w-full lg:w-64 lg:shrink-0`}
+            } fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl transition-transform duration-300 lg:translate-y-0 lg:relative lg:z-auto lg:max-h-none lg:overflow-visible lg:rounded-none lg:bg-transparent lg:shadow-none lg:block w-full lg:w-64 lg:shrink-0`}
           >
             {/* Mobile drag handle */}
             <div
@@ -419,39 +419,7 @@ function BrowseContent() {
               <div className="h-1 w-10 rounded-full bg-gray-300" />
             </div>
 
-            <div className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path d="M10 2l1.7 4.3L16 8l-4.3 1.7L10 14l-1.7-4.3L4 8l4.3-1.7L10 2zM16.5 12l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></svg>
-                Search with AI
-              </label>
-              <textarea
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAiSearch(); } }}
-                rows={2}
-                maxLength={300}
-                placeholder='Try: "bookkeeper under $8/hr in the Philippines who knows QuickBooks"'
-                className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder:text-text/35 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <button
-                onClick={runAiSearch}
-                disabled={aiBusy || aiQuery.trim().length < 3}
-                className="mt-2 w-full rounded-lg bg-primary py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-              >
-                {aiBusy ? "Setting your filters…" : "Find matches"}
-              </button>
-              {aiError && <p className="mt-2 text-xs text-red-600">{aiError}</p>}
-              {aiApplied.length > 0 && !aiError && (
-                <div className="mt-2 flex flex-wrap items-center gap-1">
-                  <span className="text-[11px] text-text/45">Applied:</span>
-                  {aiApplied.map((a) => (
-                    <span key={a} className="rounded-full bg-white px-2 py-0.5 text-[11px] text-primary ring-1 ring-primary/25">{a}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-5 p-5 lg:sticky lg:top-24 lg:rounded-xl lg:border lg:border-gray-200">
+            <div className="space-y-5 p-5 lg:sticky lg:top-24 lg:rounded-xl lg:border lg:border-gray-200 lg:bg-card">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text">Filters</h2>
                 <button
@@ -460,6 +428,37 @@ function BrowseContent() {
                 >
                   Reset
                 </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text/50 mb-1.5">
+                  Describe who you need
+                </label>
+                <textarea
+                  value={aiQuery}
+                  onChange={(e) => setAiQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAiSearch(); } }}
+                  rows={2}
+                  maxLength={300}
+                  placeholder="Bookkeeper under $8/hr, knows QuickBooks"
+                  className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder:text-text/35 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  onClick={runAiSearch}
+                  disabled={aiBusy || aiQuery.trim().length < 3}
+                  className="mt-2 rounded-full bg-text px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-85 disabled:opacity-40"
+                >
+                  {aiBusy ? "Reading…" : "Set filters"}
+                </button>
+                {aiError && <p className="mt-2 text-xs text-red-600">{aiError}</p>}
+                {aiApplied.length > 0 && !aiError && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
+                    {aiApplied.map((a) => (
+                      <span key={a} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-text/70">{a}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4 border-t border-gray-100" />
               </div>
 
               {/* Country */}
