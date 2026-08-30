@@ -83,6 +83,10 @@ function BrowseContent() {
   // lockStatus removed — availability computed from committed_hours
   const [sort, setSort] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiApplied, setAiApplied] = useState<string[]>([]);
+  const [aiError, setAiError] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [skillFilters, setSkillFilters] = useState<string[]>(() => {
     const s = searchParams.get("skills");
@@ -188,6 +192,46 @@ function BrowseContent() {
     checkAuth();
   }, []);
 
+  // Plain-words search: the server parses the sentence into the SAME filter
+  // state the controls below set — the model never sees or ranks candidates,
+  // it only translates words into clicks.
+  async function runAiSearch() {
+    const q = aiQuery.trim();
+    if (q.length < 3 || aiBusy) return;
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const res = await fetch("/api/browse/ai-filter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAiError(data.error || "Try rewording that.");
+        return;
+      }
+      const f = data.filters || {};
+      const applied: string[] = [];
+      if (f.role) { setRole(f.role); applied.push(f.role); }
+      if (f.country) { setCountry(f.country); applied.push(f.country); }
+      if (f.min_rate !== null && f.min_rate !== undefined) { setMinRate(f.min_rate); applied.push(`≥ $${f.min_rate}/hr`); }
+      if (f.max_rate !== null && f.max_rate !== undefined) { setMaxRate(f.max_rate); applied.push(`≤ $${f.max_rate}/hr`); }
+      if (f.availability) { setAvailability(f.availability); applied.push(f.availability === "available" ? "Available now" : "Partially available"); }
+      if (f.tier) { setTier(f.tier); applied.push(`English: ${f.tier}`); }
+      if (f.us_experience) { setUsExperience(f.us_experience); applied.push("US experience"); }
+      if (Array.isArray(f.skills) && f.skills.length) { setSkillFilters(f.skills); applied.push(...f.skills); }
+      if (f.search_terms) { setSearch(f.search_terms); applied.push(`“${f.search_terms}”`); }
+      setPage(1);
+      setAiApplied(applied);
+      if (applied.length === 0) setAiError("That search did not map to any filters — try naming a role, rate, or skill.");
+    } catch {
+      setAiError("Could not reach the server.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   function resetFilters() {
     setSearch("");
     setRole("All");
@@ -197,6 +241,9 @@ function BrowseContent() {
     setAvailability("");
     setTier("any");
     setUsExperience("");
+    setAiApplied([]);
+    setAiQuery("");
+    setAiError("");
     // lockStatus removed
     setSort("newest");
     setPage(1);
@@ -370,6 +417,38 @@ function BrowseContent() {
               onClick={() => setShowFilters(false)}
             >
               <div className="h-1 w-10 rounded-full bg-gray-300" />
+            </div>
+
+            <div className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path d="M10 2l1.7 4.3L16 8l-4.3 1.7L10 14l-1.7-4.3L4 8l4.3-1.7L10 2zM16.5 12l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></svg>
+                Search with AI
+              </label>
+              <textarea
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAiSearch(); } }}
+                rows={2}
+                maxLength={300}
+                placeholder='Try: "bookkeeper under $8/hr in the Philippines who knows QuickBooks"'
+                className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder:text-text/35 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                onClick={runAiSearch}
+                disabled={aiBusy || aiQuery.trim().length < 3}
+                className="mt-2 w-full rounded-lg bg-primary py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {aiBusy ? "Setting your filters…" : "Find matches"}
+              </button>
+              {aiError && <p className="mt-2 text-xs text-red-600">{aiError}</p>}
+              {aiApplied.length > 0 && !aiError && (
+                <div className="mt-2 flex flex-wrap items-center gap-1">
+                  <span className="text-[11px] text-text/45">Applied:</span>
+                  {aiApplied.map((a) => (
+                    <span key={a} className="rounded-full bg-white px-2 py-0.5 text-[11px] text-primary ring-1 ring-primary/25">{a}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-5 p-5 lg:sticky lg:top-24 lg:rounded-xl lg:border lg:border-gray-200">

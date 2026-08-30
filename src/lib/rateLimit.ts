@@ -55,6 +55,11 @@ export const LIMITS = {
   // iterating on one post — a draft plus a dozen rewrites — while capping a
   // scripted burn of Anthropic credit from one address.
   jobDraft: { limit: 30, windowSeconds: 3600 },
+
+  // Natural-language filter parsing on /browse. Public page, tiny fast model,
+  // but still Anthropic credit per call — cap a single address at one parse
+  // every ~30s sustained.
+  browseParse: { limit: 120, windowSeconds: 3600 },
   classifyRole: { limit: 20, windowSeconds: 3600 },
   offerMessage: { limit: 30, windowSeconds: 3600 },
   recruiterScoring: { limit: 100, windowSeconds: 3600 },
