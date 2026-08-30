@@ -49,6 +49,12 @@ export const LIMITS = {
   // These are ceilings on abuse, not throttles on use: /api/match has served a
   // single request in its lifetime and classify-role has fired three times.
   matchSearch: { limit: 300, windowSeconds: 3600 },
+
+  // The AI job composer. Anonymous by design (drafting needs no account), so
+  // the key is the client IP until they sign in. 30/hr is roomy for a human
+  // iterating on one post — a draft plus a dozen rewrites — while capping a
+  // scripted burn of Anthropic credit from one address.
+  jobDraft: { limit: 30, windowSeconds: 3600 },
   classifyRole: { limit: 20, windowSeconds: 3600 },
   offerMessage: { limit: 30, windowSeconds: 3600 },
   recruiterScoring: { limit: 100, windowSeconds: 3600 },
