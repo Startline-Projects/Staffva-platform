@@ -83,6 +83,15 @@ function LoginForm() {
 
     const role = data.user?.app_metadata?.role;
 
+    // Honor ?next= for flows that send people here mid-task (the job composer
+    // does: the draft waits in localStorage). Same-origin relative paths only —
+    // a leading single slash — so this can never become an open redirect.
+    const next = searchParams.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      router.push(next);
+      return;
+    }
+
     if (role === "candidate") {
       router.push("/candidate/dashboard");
     } else if (role === "client") {

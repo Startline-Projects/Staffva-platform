@@ -1,6 +1,7 @@
 // src/app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { validateDraft, type JobDraft } from "@/lib/jobDraft";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -44,6 +45,129 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+
+    // ── Structured branch: the AI composer publishes here ──
+    //
+    // The draft arrives client-shaped but is NEVER trusted: it goes back
+    // through validateDraft — the same clamps the model's own output passes —
+    // so a hand-crafted request can publish nothing a legitimate draft could
+    // not. Legacy compat fields are derived so the existing shortlist and
+    // invite email keep working unchanged.
+    if (body.draft && typeof body.draft === "object") {
+      const checked = validateDraft(JSON.stringify(body.draft));
+      if (!checked.ok) {
+        return NextResponse.json(
+          { error: "refusal" in checked ? checked.refusal : "Invalid job draft" },
+          { status: 400 }
+        );
+      }
+      const d: JobDraft = checked.draft;
+      const startDate = ["Immediately", "Within 2 weeks", "Within a month"].includes(body.start_date)
+        ? (body.start_date as string)
+        : "Immediately";
+      const brief = typeof body.brief === "string" ? body.brief.slice(0, 2000) : null;
+
+      const legacyBudget =
+        d.rate_type === "hourly"
+          ? `$${d.hourly_rate_min}-$${d.hourly_rate_max}/hr`
+          : `$${d.fixed_budget} fixed`;
+
+      const { data: jobPost, error: insertError } = await supabase
+        .from("job_posts")
+        .insert({
+          client_id: client.id,
+          role_category: d.role_category,
+          title: d.title,
+          summary: d.summary,
+          responsibilities: d.responsibilities,
+          must_have_skills: d.must_have_skills,
+          nice_to_have_skills: d.nice_to_have_skills,
+          rate_type: d.rate_type,
+          hourly_rate_min: d.hourly_rate_min,
+          hourly_rate_max: d.hourly_rate_max,
+          fixed_budget: d.fixed_budget,
+          duration_type: d.duration_type,
+          duration_estimate: d.duration_estimate,
+          experience_level: d.experience_level,
+          hours_per_week_estimate: d.hours_per_week_estimate,
+          ai_brief: brief,
+          description: d.summary,
+          hours_per_week: d.hours_per_week_estimate,
+          budget_range: legacyBudget,
+          start_date: startDate,
+          status: "active",
+          published_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      }
+
+      // The match pool is gated by THE visibility rule — the SQL function is
+      // the single definition of "this candidate may see this job" (role
+      // match, or a must-have skill they carry). Shortlisting anyone the rule
+      // would hide makes no sense: they could never be invited.
+      const availabilityFilter =
+        startDate === "Immediately"
+          ? ["available_now"]
+          : ["available_now", "available_by_date"];
+
+      const { data: pool } = await supabase
+        .from("candidates")
+        .select(
+          "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url, skills, tools"
+        )
+        .eq("admin_status", "approved")
+        .in("availability_status", availabilityFilter);
+
+      const visible: typeof pool = [];
+      for (const c of pool || []) {
+        const { data: ok } = await supabase.rpc("job_visible_to_candidate", {
+          p_job_id: jobPost.id,
+          p_candidate_id: c.id,
+        });
+        if (ok === true) visible.push(c);
+      }
+
+      const norm = (arr: unknown): string[] =>
+        Array.isArray(arr) ? arr.map((x) => String(x).toLowerCase()) : [];
+
+      const matches = visible
+        .map((c) => {
+          let score = 0;
+          if (c.role_category?.toLowerCase() === d.role_category.toLowerCase()) score += 40;
+          const candidateSkills = new Set([...norm(c.skills), ...norm(c.tools)]);
+          let must = 0;
+          for (const skill of d.must_have_skills) {
+            if (candidateSkills.has(skill.toLowerCase())) must += 8;
+          }
+          score += Math.min(must, 24);
+          let nice = 0;
+          for (const skill of d.nice_to_have_skills) {
+            if (candidateSkills.has(skill.toLowerCase())) nice += 3;
+          }
+          score += Math.min(nice, 9);
+          if (d.rate_type === "hourly" && typeof c.hourly_rate === "number") {
+            if (c.hourly_rate <= (d.hourly_rate_max as number)) score += 15;
+            else if (c.hourly_rate <= (d.hourly_rate_max as number) * 1.2) score += 8;
+          } else {
+            score += 8;
+          }
+          if (c.english_written_tier === "exceptional") score += 8;
+          else if (c.english_written_tier === "proficient") score += 5;
+          else if (c.english_written_tier === "competent") score += 3;
+          if (c.us_client_experience) score += 5;
+          if (c.availability_status === "available_now") score += 4;
+          return { ...c, match_score: score };
+        })
+        .sort((a, b) => b.match_score - a.match_score)
+        .slice(0, 12);
+
+      return NextResponse.json({ jobPost, matches });
+    }
+
     const {
       role_category,
       custom_role_description,
