@@ -102,6 +102,27 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // The transcript pipeline's stuck states: a job that errored, or one
+  // "transcribing" for over a day (the batch processor finishes in minutes).
+  // Each is a recorded interview the safety review will never see unless
+  // someone looks.
+  const { count: stuckTranscripts } = await supabase
+    .from("interview_bookings")
+    .select("*", head)
+    .or(
+      `transcript_status.eq.error,and(transcript_status.eq.transcribing,starts_at.lt.${since(24 * 60 * 60 * 1000)})`
+    )
+    .gte("starts_at", since(7 * 24 * 60 * 60 * 1000));
+
+  if (stuckTranscripts) {
+    checks.push({
+      key: "interview_transcripts_stuck",
+      severity: "warning",
+      count: stuckTranscripts,
+      message: `${stuckTranscripts} interview recording(s) from the last 7 days have no transcript — errored or stuck mid-pipeline. Each is an interview the safety review cannot see.`,
+    });
+  }
+
   // Each of these is a person who signed up and can never log in.
   const { count: failedEmails } = await supabase
     .from("email_outbox")
