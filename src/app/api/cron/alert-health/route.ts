@@ -123,6 +123,46 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Transcripts done but never reviewed: the watchdog cron is not running,
+  // or its model calls are failing on every pass (a dead Anthropic key looks
+  // exactly like this).
+  const { count: unreviewedTranscripts } = await supabase
+    .from("interview_bookings")
+    .select("*", head)
+    .eq("transcript_status", "done")
+    .is("watchdog_status", null)
+    .lt("starts_at", since(6 * 60 * 60 * 1000))
+    .gte("starts_at", since(7 * 24 * 60 * 60 * 1000));
+
+  if (unreviewedTranscripts) {
+    checks.push({
+      key: "interview_watchdog_stalled",
+      severity: "warning",
+      count: unreviewedTranscripts,
+      message: `${unreviewedTranscripts} interview transcript(s) have waited over 6 hours for the safety review — the watchdog cron is failing or not running.`,
+    });
+  }
+
+  // A flag that never reached Slack — most likely a dead or rotated webhook.
+  // The watchdog cron already goes non-2xx on this, but flags are rare
+  // enough that silence looks normal; count them here too so the state is
+  // named, not just red.
+  const { count: unalertedFlags } = await supabase
+    .from("interview_bookings")
+    .select("*", head)
+    .eq("watchdog_status", "flagged")
+    .is("watchdog->alerted_at", null)
+    .lt("starts_at", since(60 * 60 * 1000));
+
+  if (unalertedFlags) {
+    checks.push({
+      key: "interview_flags_unalerted",
+      severity: "critical",
+      count: unalertedFlags,
+      message: `${unalertedFlags} flagged interview(s) never reached Slack — the watchdog's alert channel is broken. These are the exact conversations a human is supposed to see.`,
+    });
+  }
+
   // Each of these is a person who signed up and can never log in.
   const { count: failedEmails } = await supabase
     .from("email_outbox")

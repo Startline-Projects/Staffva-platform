@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/interview-transcripts",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/interview-watchdog",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {
@@ -78,6 +82,9 @@
       "maxDuration": 300
     },
     "src/app/api/cron/interview-transcripts/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/cron/interview-watchdog/route.ts": {
       "maxDuration": 120
     }
   }
