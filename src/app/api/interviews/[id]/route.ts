@@ -18,7 +18,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const admin = interviewAdminClient();
   const { data: b } = await admin
     .from("interview_bookings")
-    .select("id, candidate_id, client_id, starts_at, duration_minutes, status, cancelled_at")
+    .select(
+      "id, candidate_id, client_id, starts_at, duration_minutes, status, cancelled_at, client_consented_at, candidate_consented_at"
+    )
     .eq("id", id)
     .single();
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -60,5 +62,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     viewerRole,
     counterpart,
     candidatePath: viewerRole === "client" ? `/candidate/${b.candidate_id}` : null,
+    myConsentAt: viewerRole === "client" ? b.client_consented_at : b.candidate_consented_at,
+    // The join window is decided against this, not the viewer's clock.
+    serverNow: new Date().toISOString(),
   });
 }

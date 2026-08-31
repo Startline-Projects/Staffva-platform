@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { hasCronSecret } from "@/lib/auth";
+import { dailyHealthProbe } from "@/lib/daily";
 
 /**
  * GET /api/cron/alert-health
@@ -85,6 +86,19 @@ export async function GET(request: NextRequest) {
       severity: "critical",
       count: fatalVendor,
       message: `${fatalVendor} fatal vendor failure(s) in the last hour — a key or model id is wrong, and every request is hitting it.`,
+    });
+  }
+
+  // The video vendor, probed directly rather than waiting for an interview
+  // to fail first: an invalid or missing DAILY_API_KEY means every join
+  // button on every booked interview is broken right now.
+  const dailyError = await dailyHealthProbe();
+  if (dailyError) {
+    checks.push({
+      key: "daily_unhealthy",
+      severity: "critical",
+      count: 1,
+      message: `The Daily.co video API is not usable (${dailyError}) — nobody can join a booked interview until this is fixed.`,
     });
   }
 
