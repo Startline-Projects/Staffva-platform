@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { describeUsExperience } from "@/lib/usExperienceLabels";
 import { extractText } from "@/lib/anthropic";
+import { maskCandidateText } from "@/lib/contactMask";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -45,14 +46,20 @@ export async function generateInsights(candidateId: string): Promise<void> {
       .maybeSingle();
 
     // ── Assemble prompt data ──
+    // Free text goes in masked: the insights render on the PUBLIC browse
+    // card, and a model told to "reference actual experience" will happily
+    // repeat a bio's URL or phone number onto it.
+    const masked = maskCandidateText(candidate);
     const profileSummary = [
       `Name: ${candidate.display_name || candidate.full_name}`,
       `Role: ${candidate.role_category}`,
-      candidate.tagline ? `Tagline: ${candidate.tagline}` : null,
-      candidate.bio ? `Bio: ${candidate.bio}` : null,
+      masked.tagline ? `Tagline: ${masked.tagline}` : null,
+      masked.bio ? `Bio: ${masked.bio}` : null,
       candidate.skills?.length ? `Skills: ${candidate.skills.join(", ")}` : null,
       candidate.tools?.length ? `Tools: ${candidate.tools.join(", ")}` : null,
-      candidate.work_experience?.length ? `Work experience: ${JSON.stringify(candidate.work_experience)}` : null,
+      Array.isArray(masked.work_experience) && masked.work_experience.length
+        ? `Work experience: ${JSON.stringify(masked.work_experience)}`
+        : null,
       `Hourly rate: $${candidate.hourly_rate}`,
       `Country: ${candidate.country}`,
       candidate.english_written_tier ? `English written tier: ${candidate.english_written_tier}` : null,

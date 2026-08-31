@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { maskCandidateText } from "@/lib/contactMask";
 
 function getAdminClient() {
   return createClient(
@@ -75,9 +76,10 @@ export async function GET(request: Request) {
     }
   }
 
-  // Merge AI interview data into candidates
+  // Merge AI interview data into candidates. This listing is the public
+  // browse surface, so free text goes out with contact details masked.
   const enriched = (data || []).map((c: Record<string, unknown>) => ({
-    ...c,
+    ...maskCandidateText(c),
     ai_interview: aiInterviewMap[c.id as string] || null,
   }));
 

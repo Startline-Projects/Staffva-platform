@@ -9,6 +9,7 @@ import ProfileViewTracker from "@/components/ProfileViewTracker";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
 import BanButton from "@/components/recruiting-manager/BanButton";
 import { hasUsExperience } from "@/lib/usExperienceLabels";
+import { maskCandidateText } from "@/lib/contactMask";
 
 async function InterviewNotesPDF({ path }: { path: string }) {
   const supabase = createClient(
@@ -220,6 +221,16 @@ export default async function CandidateProfilePage({
     if (client) {
       clientId = client.id;
     }
+  }
+
+  // Pre-hire contact masking: clients and anonymous visitors see the bio,
+  // tagline and work history with contact details masked. The candidate
+  // sees their own text raw (an approved candidate resolves via the public
+  // branch, so isOwnProfile alone isn't enough), and staff always see raw.
+  const isStaff = isAdmin || isRecruitingManager || isRecruiter;
+  const viewingOwn = isOwnProfile || (isCandidate && !!user && candidate.user_id === user.id);
+  if (!viewingOwn && !isStaff) {
+    candidate = maskCandidateText(candidate);
   }
 
   // Compute availability from committed_hours

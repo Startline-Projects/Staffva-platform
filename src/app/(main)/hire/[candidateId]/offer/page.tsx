@@ -24,7 +24,7 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase.from("candidates").select("display_name, hourly_rate, role_category, country, profile_photo_url").eq("id", candidateId).single();
+      const { data } = await supabase.from("candidate_hire_card").select("display_name, hourly_rate, role_category, country, profile_photo_url").eq("id", candidateId).single();
       if (data) {
         setCandidate(data);
         setHourlyRate(Number(data.hourly_rate));

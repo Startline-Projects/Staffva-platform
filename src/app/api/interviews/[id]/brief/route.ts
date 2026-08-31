@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { interviewAdminClient } from "@/lib/interviewBookingData";
 import { extractText } from "@/lib/anthropic";
+import { maskContact } from "@/lib/contactMask";
 import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
 /**
@@ -101,7 +102,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       profile: {
         name: cand.display_name,
         role: cand.role_category,
-        bio: (cand.bio || "").slice(0, 2000),
+        // Masked like every client-facing surface — the model must not be
+        // able to repeat contact details the profile view hides.
+        bio: maskContact((cand.bio || "").slice(0, 2000)),
         skills: cand.skills,
         tools: cand.tools,
         years_experience: cand.years_experience,

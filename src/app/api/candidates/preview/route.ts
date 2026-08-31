@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { maskCandidateText } from "@/lib/contactMask";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -82,7 +83,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      candidate,
+      // The browse preview is a client/anonymous surface — free text goes
+      // out with contact details masked.
+      candidate: maskCandidateText(candidate),
       aiInterview: aiInterview || null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       review: review ? { ...review, clientName: (review.clients as any)?.full_name || null } : null,

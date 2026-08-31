@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { extractText } from "@/lib/anthropic";
 import { enforceRateLimit, clientIp, LIMITS } from "@/lib/rateLimit";
+import { maskCandidateText } from "@/lib/contactMask";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -194,9 +195,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results: [], extracted, message: "No candidates available" });
     }
 
-    // Score and rank
+    // Score and rank. Scoring reads the raw row; what leaves the server is
+    // masked — this is a public surface, same rule as /api/candidates.
     const scored = candidates.map((c) => ({
-      ...c,
+      ...maskCandidateText(c),
       match_score: calculateScore(c, extracted),
     }));
 

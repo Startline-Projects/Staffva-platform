@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { validateDraft, type JobDraft } from "@/lib/jobDraft";
+import { containsContact, maskCandidateText } from "@/lib/contactMask";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -66,6 +67,22 @@ export async function POST(req: NextRequest) {
         ? (body.start_date as string)
         : "Immediately";
       const brief = typeof body.brief === "string" ? body.brief.slice(0, 2000) : null;
+
+      // Job posts reach every matched candidate — the same pre-hire rule as
+      // messages applies: no contact details in the text. The client's raw
+      // brief to the composer is deliberately NOT checked: it is never shown
+      // to candidates, and "I run acme-shop.com, need a Shopify VA" is the
+      // normal way to use a composer.
+      const freeText = [d.title, d.summary, ...(d.responsibilities || [])].join("\n");
+      if (containsContact(freeText)) {
+        return NextResponse.json(
+          {
+            error:
+              "Job posts can't include contact details — candidates apply and message you here on StaffVA, which keeps both sides protected.",
+          },
+          { status: 400 }
+        );
+      }
 
       const legacyBudget =
         d.rate_type === "hourly"
@@ -160,7 +177,7 @@ export async function POST(req: NextRequest) {
           else if (c.english_written_tier === "competent") score += 3;
           if (c.us_client_experience) score += 5;
           if (c.availability_status === "available_now") score += 4;
-          return { ...c, match_score: score };
+          return { ...maskCandidateText(c), match_score: score };
         })
         .sort((a, b) => b.match_score - a.match_score)
         .slice(0, 12);
@@ -180,6 +197,16 @@ export async function POST(req: NextRequest) {
     if (!role_category || !hours_per_week || !budget_range || !start_date) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (containsContact([description || "", custom_role_description || ""].join("\n"))) {
+      return NextResponse.json(
+        {
+          error:
+            "Job posts can't include contact details — candidates apply and message you here on StaffVA, which keeps both sides protected.",
+        },
         { status: 400 }
       );
     }
@@ -316,7 +343,7 @@ export async function POST(req: NextRequest) {
       else if (c.total_earnings_usd > 1000) score += 3;
       else if (c.total_earnings_usd > 0) score += 1;
 
-      return { ...c, match_score: score };
+      return { ...maskCandidateText(c), match_score: score };
     });
 
     scored.sort((a, b) => b.match_score - a.match_score);

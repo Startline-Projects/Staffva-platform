@@ -39,7 +39,7 @@ export default function HirePage() {
   async function loadCandidate() {
     const supabase = createClient();
     const { data } = await supabase
-      .from("candidates")
+      .from("candidate_hire_card")
       .select("display_name, hourly_rate, lock_status")
       .eq("id", candidateId)
       .single();
