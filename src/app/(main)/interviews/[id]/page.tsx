@@ -240,7 +240,14 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
               <h2 className="text-sm font-semibold text-text">Before you join</h2>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
                 Interviews on StaffVA are recorded and transcribed, and reviewed to keep the
-                marketplace safe for both sides. By continuing, you agree to be recorded.
+                marketplace safe for both sides. By continuing, you agree to be recorded.{" "}
+                <Link
+                  href="/privacy"
+                  className="underline decoration-border underline-offset-2 hover:text-text"
+                >
+                  How recordings are handled
+                </Link>
+                .
               </p>
               <button
                 onClick={agree}

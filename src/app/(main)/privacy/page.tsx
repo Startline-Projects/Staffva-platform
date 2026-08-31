@@ -10,7 +10,7 @@ export const metadata = {
 // processing to the product without updating this page in the same change.
 export default function PrivacyPolicy() {
   return (
-    <LegalShell title="Privacy Policy" updated="August 27, 2026 (v1.0)">
+    <LegalShell title="Privacy Policy" updated="August 31, 2026 (v1.1)">
       <p>
         StaffVA is a marketplace operated by Stafva LLC (&quot;StaffVA&quot;,
         &quot;we&quot;) that connects businesses with remote professionals. This
@@ -71,6 +71,27 @@ export default function PrivacyPolicy() {
           processed by Stripe; we do not store full card numbers.
         </li>
       </ul>
+      <h3>From interviews between clients and candidates</h3>
+      <ul>
+        <li>
+          <strong>Interview recordings</strong> — when a client books an
+          interview with a candidate, the call happens in a video room on
+          StaffVA and is recorded (video and audio). Recording is a standing
+          feature of on-platform interviews: both parties agree to it before
+          they can join, and neither party can turn it off.
+        </li>
+        <li>
+          <strong>Transcripts</strong> — after the call, the recording is
+          transcribed automatically into a speaker-labeled transcript.
+        </li>
+        <li>
+          <strong>Automated safety review</strong> — transcripts are reviewed
+          automatically for attempts to take the working relationship off the
+          platform, such as exchanging direct contact details or arranging
+          outside payment. Conversations the automated review flags are read
+          by our team. No adverse decision is made automatically.
+        </li>
+      </ul>
       <h3>From everyone</h3>
       <ul>
         <li>
@@ -99,6 +120,11 @@ export default function PrivacyPolicy() {
           review by our team; adverse decisions about integrity are made by
           people, not automatically.
         </li>
+        <li>
+          To prepare clients for interviews: we generate interview guidance
+          for the client from the candidate&apos;s marketplace profile and
+          StaffVA screening results.
+        </li>
         <li>To communicate with you about your application, account and transactions.</li>
         <li>To handle disputes, prevent fraud and duplicate accounts, and comply with law.</li>
       </ul>
@@ -113,8 +139,9 @@ export default function PrivacyPolicy() {
         <li><strong>Supabase</strong> — database, authentication and file storage.</li>
         <li><strong>Vercel</strong> — application hosting.</li>
         <li><strong>Stripe</strong> — client payments, escrow and identity verification.</li>
-        <li><strong>Anthropic</strong> — AI processing of application screening and interview scoring.</li>
-        <li><strong>Deepgram</strong> — speech-to-text transcription during the AI interview.</li>
+        <li><strong>Anthropic</strong> — AI processing of application screening, interview scoring, the automated review of interview transcripts, and interview preparation for clients.</li>
+        <li><strong>Daily</strong> — video infrastructure for client–candidate interviews: the call, the recording, and the transcription pipeline.</li>
+        <li><strong>Deepgram</strong> — speech-to-text transcription during the AI interview and (via Daily) of interview recordings.</li>
         <li><strong>ElevenLabs</strong> — text-to-speech for the AI interviewer&apos;s voice.</li>
         <li><strong>Resend</strong> — transactional email delivery.</li>
       </ul>
@@ -135,6 +162,11 @@ export default function PrivacyPolicy() {
       <ul>
         <li>Account and profile data: for as long as your account exists.</li>
         <li>Assessment results, transcripts and integrity events: for as long as your account exists, because they are the basis of your standing on the marketplace.</li>
+        <li>
+          Client–candidate interview recordings: deleted 30 days after the
+          interview. Interview transcripts: for as long as your account
+          exists, as part of the safety and dispute record.
+        </li>
         <li>Transaction, contract and dispute records: retained as needed for legal, tax and accounting obligations, even after account deletion.</li>
         <li>
           To request deletion of your account and data, email{" "}

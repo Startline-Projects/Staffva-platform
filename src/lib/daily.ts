@@ -91,7 +91,10 @@ export async function ensureInterviewRoom(booking: {
           enable_recording: "cloud",
           enable_knocking: false,
           enable_screenshare: true,
-          enable_chat: true,
+          // No text chat: it would be an unrecorded, unreviewed side channel
+          // in a call whose whole premise is that the conversation is on the
+          // record. The parties are on video — they can talk.
+          enable_chat: false,
           enable_prejoin_ui: true,
         },
       }),
@@ -372,6 +375,31 @@ export async function deleteTranscriptJob(jobId: string): Promise<void> {
     await dailyFetch(`/batch-processor/${jobId}`, { method: "DELETE" });
   } catch {
     // best-effort
+  }
+}
+
+/**
+ * Backstop for the retention promise: delete ANY finished recording in the
+ * domain older than the cutoff, regardless of what the bookings table
+ * knows. A pipeline row stuck mid-state must not be able to keep a
+ * recording alive past the 30 days the privacy policy states. Bounded per
+ * run — recording deletes are among Daily's throttled operations.
+ */
+export async function sweepRecordingsOlderThan(cutoffUnix: number, maxDeletes: number): Promise<number> {
+  try {
+    const res = await dailyFetch(`/recordings?limit=100`);
+    if (!res.ok) return 0;
+    const rows = Array.isArray(res.body.data) ? (res.body.data as Record<string, unknown>[]) : [];
+    let deleted = 0;
+    for (const r of rows) {
+      if (deleted >= maxDeletes) break;
+      if (r.status !== "finished" || typeof r.id !== "string") continue;
+      if (typeof r.start_ts !== "number" || r.start_ts >= cutoffUnix) continue;
+      if (await deleteRecording(r.id, "retention-sweep")) deleted++;
+    }
+    return deleted;
+  } catch {
+    return 0;
   }
 }
 

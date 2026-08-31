@@ -9,6 +9,7 @@ import {
   fetchTranscript,
   deleteTranscriptJob,
   deleteRecording,
+  sweepRecordingsOlderThan,
   OVERRUN_MS,
   type ParsedTranscript,
 } from "@/lib/daily";
@@ -297,6 +298,12 @@ export async function GET(req: NextRequest) {
       stats.retired++;
     }
   }
+
+  // Backstop for the privacy policy's 30-day promise: a row stuck in a
+  // failure state must not keep its recording alive at the vendor. This
+  // sweeps the DOMAIN's recordings by age, independent of the table.
+  const swept = await sweepRecordingsOlderThan(Math.floor((now - RETENTION_DAYS * 24 * 3600_000) / 1000), 8);
+  stats.retired += swept;
 
   return NextResponse.json(stats);
 }

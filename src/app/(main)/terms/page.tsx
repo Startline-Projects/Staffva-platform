@@ -7,10 +7,13 @@ export const metadata = {
 
 // The commitments in here mirror what the product actually enforces — the
 // 48-hour dispute window is checked in /api/disputes/file, escrow release in
-// the engagement routes, retake rules in the interview app. Keep them in sync.
+// the engagement routes, retake rules in the interview app, and the
+// non-circumvention rules in section 5 by the message blocker, contact
+// masking (lib/contactMask), interview recording consent, and the transcript
+// watchdog. Keep them in sync.
 export default function TermsOfService() {
   return (
-    <LegalShell title="Terms of Service" updated="August 27, 2026 (v1.0)">
+    <LegalShell title="Terms of Service" updated="August 31, 2026 (v1.1)">
       <p>
         These terms are an agreement between you and Stafva LLC
         (&quot;StaffVA&quot;, &quot;we&quot;) and govern your use of
@@ -82,7 +85,41 @@ export default function TermsOfService() {
         <li>Professionals are paid to the payout method on their profile. Taxes on earnings are the professional&apos;s own responsibility.</li>
       </ul>
 
-      <h2>5. Your content</h2>
+      <h2>5. Interviews, hiring and non-circumvention</h2>
+      <ul>
+        <li>
+          Interviews between clients and candidates take place on StaffVA, in
+          the platform&apos;s video room. Interviews are recorded and
+          transcribed, and both parties must agree to that before joining. The
+          recording, its automated review and its retention are described in
+          the <a href="/privacy">Privacy Policy</a>.
+        </li>
+        <li>
+          If you met through StaffVA, you hire through StaffVA. Offers,
+          contracts and payment for a professional the platform introduced to
+          you must go through the platform.
+        </li>
+        <li>
+          For 24 months after an introduction through StaffVA — a first
+          message, interview or engagement — clients and professionals may not
+          solicit, hire, contract with or pay one another outside the
+          platform. StaffVA does not offer a buy-out or conversion fee; no
+          payment makes an off-platform arrangement permitted.
+        </li>
+        <li>
+          Before a contract is in place, sharing direct contact details —
+          email, phone number, social or messaging handles — through the
+          platform is not permitted, in either direction.
+        </li>
+        <li>
+          Circumvention, attempting it, or helping another user attempt it may
+          result in suspension or removal under section 8, and the
+          circumventing parties remain liable to StaffVA for the platform fees
+          that would have applied to the engagement.
+        </li>
+      </ul>
+
+      <h2>6. Your content</h2>
       <p>
         You own the content you submit — your profile, photo, recordings,
         résumé and portfolio. You grant StaffVA a license to host, process and
@@ -92,7 +129,7 @@ export default function TermsOfService() {
         <a href="/privacy">Privacy Policy</a>.
       </p>
 
-      <h2>6. Acceptable use</h2>
+      <h2>7. Acceptable use</h2>
       <ul>
         <li>No unlawful activity, fraud, or misrepresentation of identity, skills or experience.</li>
         <li>No interfering with the platform, probing its security, scraping it, or accessing data that is not yours.</li>
@@ -100,7 +137,7 @@ export default function TermsOfService() {
         <li>No using the platform to collect personal data about others.</li>
       </ul>
 
-      <h2>7. Suspension and termination</h2>
+      <h2>8. Suspension and termination</h2>
       <p>
         You may close your account at any time. We may suspend or terminate an
         account that violates these terms, compromises the integrity of the
@@ -108,7 +145,7 @@ export default function TermsOfService() {
         escrowed funds are handled under section 4.
       </p>
 
-      <h2>8. Disclaimers</h2>
+      <h2>9. Disclaimers</h2>
       <p>
         The platform is provided &quot;as is&quot;. We do not guarantee that a
         candidate will find work, that a client will find a professional, or
@@ -116,7 +153,7 @@ export default function TermsOfService() {
         warranty of any professional&apos;s work.
       </p>
 
-      <h2>9. Limitation of liability</h2>
+      <h2>10. Limitation of liability</h2>
       <p>
         To the maximum extent the law allows, StaffVA&apos;s total liability
         arising out of the platform is limited to the fees you paid to StaffVA
@@ -125,20 +162,20 @@ export default function TermsOfService() {
         limits liability that cannot lawfully be limited.
       </p>
 
-      <h2>10. Governing law</h2>
+      <h2>11. Governing law</h2>
       <p>
         These terms are governed by the laws of the State of Michigan, United
         States, without regard to conflict-of-law rules.
       </p>
 
-      <h2>11. Changes</h2>
+      <h2>12. Changes</h2>
       <p>
         We may update these terms. We will post updates here and, for material
         changes, notify you by email. Continuing to use the platform after a
         change takes effect means you accept it.
       </p>
 
-      <h2>12. Contact</h2>
+      <h2>13. Contact</h2>
       <p>
         Stafva LLC, Dearborn, Michigan, United States ·{" "}
         <a href="mailto:hello@staffva.com">hello@staffva.com</a>
