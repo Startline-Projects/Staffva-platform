@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/promote-ready",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/interview-reminders",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {

@@ -63,6 +63,11 @@ export const LIMITS = {
   classifyRole: { limit: 20, windowSeconds: 3600 },
   offerMessage: { limit: 30, windowSeconds: 3600 },
   recruiterScoring: { limit: 100, windowSeconds: 3600 },
+
+  // Interview booking + cancelling, keyed on user id. Every booking emails a
+  // candidate, so this caps the cancel→rebook spam loop; a real client books
+  // a handful of interviews an hour at most.
+  interviewBook: { limit: 20, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

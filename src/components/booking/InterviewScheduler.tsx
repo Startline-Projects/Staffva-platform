@@ -127,19 +127,22 @@ export default function InterviewScheduler({
     if (!selectedSlot || booking) return;
     setBooking(true);
     setError("");
-    const supabase = createClient();
-    const { data, error: rpcError } = await supabase.rpc("book_interview", {
-      p_candidate_id: candidateId,
-      p_starts_at: selectedSlot,
+    // The route wraps the same book_interview RPC and adds what a browser
+    // can't: confirmation emails with calendar invites to both parties.
+    const res = await fetch("/api/interviews/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidateId, startsAt: selectedSlot }),
     });
-    if (rpcError) {
-      setError(rpcError.message.replace(/^.*?: /, ""));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Could not book that slot.");
       setBooking(false);
       setSelectedSlot(null);
       loadSlots(); // the slot may have just been taken — show the truth
       return;
     }
-    setExisting({ id: data as string, starts_at: selectedSlot });
+    setExisting({ id: data.id as string, starts_at: selectedSlot });
     setJustBooked(true);
     setBooking(false);
   }
@@ -147,12 +150,13 @@ export default function InterviewScheduler({
   async function cancelExisting() {
     if (!existing || cancelling) return;
     setCancelling(true);
-    const supabase = createClient();
-    const { error: rpcError } = await supabase.rpc("cancel_interview", {
-      p_booking_id: existing.id,
+    const res = await fetch("/api/interviews/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: existing.id }),
     });
     setCancelling(false);
-    if (!rpcError) {
+    if (res.ok) {
       setExisting(null);
       setJustBooked(false);
       setSelectedSlot(null);
@@ -178,16 +182,24 @@ export default function InterviewScheduler({
         </p>
         {justBooked && (
           <p className="mt-2 text-xs text-text-secondary">
-            A confirmation with the call link is on its way to your email.
+            A confirmation with a calendar invite is on its way to your email.
           </p>
         )}
-        <button
-          onClick={cancelExisting}
-          disabled={cancelling}
-          className="mt-4 text-xs text-text-tertiary underline decoration-border underline-offset-2 hover:text-text disabled:opacity-40"
-        >
-          {cancelling ? "Cancelling…" : "Cancel this interview"}
-        </button>
+        <div className="mt-4 flex items-center gap-4">
+          <Link
+            href={`/interviews/${existing.id}`}
+            className="text-xs font-semibold text-text underline decoration-border underline-offset-2"
+          >
+            View interview
+          </Link>
+          <button
+            onClick={cancelExisting}
+            disabled={cancelling}
+            className="text-xs text-text-tertiary underline decoration-border underline-offset-2 hover:text-text disabled:opacity-40"
+          >
+            {cancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        </div>
       </div>
     );
   }
