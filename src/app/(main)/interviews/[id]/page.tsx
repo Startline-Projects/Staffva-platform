@@ -193,9 +193,12 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
   const started = now >= startsMs;
 
   const wide = inCall && isBooked && windowOpen;
+  // Clients keep their prep docked beside the video, so the call gets a
+  // wider canvas for them than for candidates.
+  const wideMax = viewerRole === "client" ? "max-w-6xl" : "max-w-4xl";
 
   return (
-    <div className={`mx-auto px-4 py-12 ${wide ? "max-w-4xl" : "max-w-lg"}`}>
+    <div className={`mx-auto px-4 py-12 ${wide ? wideMax : "max-w-lg"}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
         {viewerRole === "client" ? "Your interview" : "Client interview"}
       </p>
@@ -208,19 +211,22 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         Times shown in your timezone{theirTime ? ` — that's ${theirTime} for ${firstName}` : ""}
       </p>
 
-      {/* ── In the call ── */}
-      {wide ? (
-        <div className="mt-6">
-          <InterviewCall
-            bookingId={booking.id}
-            onLeft={() => {
-              setInCall(false);
-              setLeftOnce(true);
-            }}
-          />
-        </div>
-      ) : (
-        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
+      {/* ── The call / status column, with the client's prep in a STABLE
+           second slot: the prep card must keep its React instance when the
+           call starts, or it remounts, refetches mid-generation, and pays
+           for a second brief that doesn't match the cached one. ── */}
+      <div className={wide ? "mt-6 lg:flex lg:items-start lg:gap-4" : "mt-6"}>
+        <div className={wide ? "min-w-0 flex-1" : undefined}>
+          {wide ? (
+            <InterviewCall
+              bookingId={booking.id}
+              onLeft={() => {
+                setInCall(false);
+                setLeftOnce(true);
+              }}
+            />
+          ) : (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
           {/* ── Upcoming, not yet consented ── */}
           {isBooked && !isPast && !myConsentAt && (
             <div>
@@ -338,11 +344,21 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
 
           {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
         </div>
-      )}
+          )}
+        </div>
 
-      {!wide && viewerRole === "client" && isBooked && !isPast && myConsentAt && (
-        <InterviewPrep bookingId={booking.id} candidateFirstName={firstName} />
-      )}
+        {viewerRole === "client" && isBooked && !isPast && myConsentAt && (
+          <aside
+            className={
+              wide
+                ? "mt-4 lg:mt-0 lg:max-h-[calc(70vh+42px)] lg:w-80 lg:shrink-0 lg:overflow-y-auto"
+                : "mt-4"
+            }
+          >
+            <InterviewPrep bookingId={booking.id} candidateFirstName={firstName} />
+          </aside>
+        )}
+      </div>
 
       <div className="mt-4 text-sm">
         {viewerRole === "client" && candidatePath ? (

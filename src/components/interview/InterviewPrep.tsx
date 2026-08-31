@@ -50,7 +50,7 @@ export default function InterviewPrep({
 
   if (state === "loading") {
     return (
-      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-text">Interview prep</h2>
         <p className="mt-2 text-xs text-text-tertiary">
           Putting your brief together — about ten seconds, the first time only.
@@ -61,7 +61,7 @@ export default function InterviewPrep({
 
   if (state === "error" || !brief) {
     return (
-      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-text">Interview prep</h2>
         <p className="mt-2 text-xs text-text-tertiary">
           Your brief isn&apos;t available right now.
@@ -80,7 +80,7 @@ export default function InterviewPrep({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-white p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-6">
       <h2 className="text-sm font-semibold text-text">Interview prep</h2>
       <p className="mt-0.5 text-xs text-text-tertiary">
         Prepared from {candidateFirstName}&apos;s StaffVA{" "}

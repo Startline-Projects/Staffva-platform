@@ -178,5 +178,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   };
   await admin.from("interview_bookings").update({ prep_brief: stored }).eq("id", b.id).is("prep_brief", null);
 
-  return NextResponse.json({ brief: stored });
+  // If two generations raced, whichever write landed is THE brief every
+  // view shows from now on — return the row, not this request's own copy.
+  const { data: final } = await admin
+    .from("interview_bookings")
+    .select("prep_brief")
+    .eq("id", b.id)
+    .single();
+
+  return NextResponse.json({ brief: final?.prep_brief || stored });
 }
