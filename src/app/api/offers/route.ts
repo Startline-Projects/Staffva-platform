@@ -122,6 +122,23 @@ export async function POST(req: NextRequest) {
     const { data: candidate } = await supabase.from("candidates").select("id, email, display_name, full_name, hourly_rate, role_category").eq("id", candidateId).single();
     if (!candidate) return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
 
+    // One live offer per pair. The friendly refusal; the partial unique
+    // index (00136) is the backstop that closes the concurrent-send race.
+    const { data: existing } = await supabase
+      .from("engagement_offers")
+      .select("id")
+      .eq("client_id", client.id)
+      .eq("candidate_id", candidateId)
+      .in("status", ["sent", "viewed"])
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json(
+        { error: "You already have a pending offer with this candidate.", offerId: existing.id },
+        { status: 409 }
+      );
+    }
+
     const monthlyEquiv = hourlyRate * hoursPerWeek * 4.33;
     const platformFee = monthlyEquiv * 0.10;
     const clientMonthly = monthlyEquiv + platformFee;
@@ -194,7 +211,19 @@ export async function POST(req: NextRequest) {
     if (!offer) return NextResponse.json({ error: "Offer not found" }, { status: 404 });
 
     if (response === "accept") {
-      await supabase.from("engagement_offers").update({ status: "accepted", responded_at: new Date().toISOString() }).eq("id", offerId);
+      // Compare-and-set: only an open offer can transition, and every side
+      // effect below (engagement, contract, email) runs ONLY when this
+      // request is the one that transitioned it — a second accept from a
+      // stale tab, or an accept of an expired offer, does nothing.
+      const { data: transitioned } = await supabase
+        .from("engagement_offers")
+        .update({ status: "accepted", responded_at: new Date().toISOString() })
+        .eq("id", offerId)
+        .in("status", ["sent", "viewed"])
+        .select("id");
+      if (!transitioned?.length) {
+        return NextResponse.json({ error: "This offer is no longer open." }, { status: 409 });
+      }
 
       // Create engagement from offer terms
       const { data: engagement } = await supabase.from("engagements").insert({
@@ -265,7 +294,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (response === "decline") {
-      await supabase.from("engagement_offers").update({ status: "declined", responded_at: new Date().toISOString() }).eq("id", offerId);
+      const { data: transitioned } = await supabase
+        .from("engagement_offers")
+        .update({ status: "declined", responded_at: new Date().toISOString() })
+        .eq("id", offerId)
+        .in("status", ["sent", "viewed"])
+        .select("id");
+      if (!transitioned?.length) {
+        return NextResponse.json({ error: "This offer is no longer open." }, { status: 409 });
+      }
 
       // Notify client
       const clientInfo = offer.clients as { full_name: string; email: string } | null;

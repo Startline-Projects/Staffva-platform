@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: b } = await admin
     .from("interview_bookings")
     .select(
-      "id, candidate_id, client_id, starts_at, duration_minutes, status, cancelled_at, client_consented_at, candidate_consented_at"
+      "id, candidate_id, client_id, starts_at, duration_minutes, status, cancelled_at, client_consented_at, candidate_consented_at, room_name, transcript_status"
     )
     .eq("id", id)
     .single();
@@ -62,7 +62,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     viewerRole,
     counterpart,
     candidatePath: viewerRole === "client" ? `/candidate/${b.candidate_id}` : null,
+    candidateId: viewerRole === "client" ? b.candidate_id : null,
     myConsentAt: viewerRole === "client" ? b.client_consented_at : b.candidate_consented_at,
+    // Evidence the interview actually took place: someone opened the room,
+    // and the pipeline hasn't ruled out a recording. Gates the wrap-up so a
+    // no-show is never congratulated on an interview that didn't happen.
+    happened: b.room_name !== null && b.transcript_status !== "no_recording",
     // The join window is decided against this, not the viewer's clock.
     serverNow: new Date().toISOString(),
   });

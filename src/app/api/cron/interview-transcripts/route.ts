@@ -9,6 +9,7 @@ import {
   fetchTranscript,
   deleteTranscriptJob,
   deleteRecording,
+  OVERRUN_MS,
   type ParsedTranscript,
 } from "@/lib/daily";
 
@@ -96,13 +97,16 @@ export async function GET(req: NextRequest) {
     .in("status", ["booked", "cancelled_by_client", "cancelled_by_candidate"])
     .not("room_name", "is", null)
     .is("transcript_status", null)
-    .lt("starts_at", new Date(now - SETTLE_MS - 30 * 60_000).toISOString())
+    .lt("starts_at", new Date(now - SETTLE_MS - OVERRUN_MS - 30 * 60_000).toISOString())
     .order("starts_at", { ascending: true })
     .limit(10);
 
   for (const b of ended || []) {
     const endMs = new Date(b.starts_at).getTime() + (b.duration_minutes || 30) * 60_000;
-    if (now < endMs + SETTLE_MS) continue;
+    // Not until the room itself is dead (end + overrun): flipping a booking
+    // to 'completed' while the room is open would withdraw the promised
+    // rejoin and can dump a live participant onto the wrap-up card.
+    if (now < endMs + OVERRUN_MS + SETTLE_MS) continue;
 
     const rec = await findRoomRecordings(b.room_name as string, b.id);
     if (!rec) continue; // vendor hiccup — retry next run

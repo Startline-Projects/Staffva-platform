@@ -31,6 +31,8 @@ interface Detail {
   viewerRole: "client" | "candidate";
   counterpart: { name: string; company: string | null; tz: string | null };
   candidatePath: string | null;
+  candidateId: string | null;
+  happened: boolean;
   myConsentAt: string | null;
   serverNow: string;
 }
@@ -173,7 +175,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  const { booking, viewerRole, counterpart, candidatePath, myConsentAt } = detail;
+  const { booking, viewerRole, counterpart, candidatePath, candidateId, myConsentAt, happened } = detail;
   const who = counterpart.company ? `${counterpart.name} · ${counterpart.company}` : counterpart.name;
   const firstName = counterpart.name.split(" ")[0];
   const isBooked = booking.status === "booked";
@@ -188,6 +190,11 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
   const closesAt = startsMs + booking.durationMinutes * 60_000 + OVERRUN_MS;
   const isPast = now > closesAt;
   const windowOpen = now >= opensAt && now <= closesAt;
+  // The interview has happened: the cron marks it completed once the room
+  // dies and a recording exists, but a just-finished one is still 'booked'
+  // for a while — the page shouldn't dead-end in the gap. `happened` keeps
+  // a no-show from being congratulated on an interview that never occurred.
+  const wrapped = booking.status === "completed" || (isBooked && isPast && happened);
   // Cancelling makes sense up to the start; after that the interview is
   // happening (or already happened) and "cancel" would be a false record.
   const started = now >= startsMs;
@@ -276,28 +283,61 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
             </div>
           )}
 
-          {/* ── Past ── */}
-          {isBooked && isPast && (
+          {/* ── Past with no evidence anyone joined ── */}
+          {isBooked && isPast && !happened && (
             <p className="text-sm text-text-secondary">This interview time has passed.</p>
           )}
 
-          {/* ── Cancelled / completed ── */}
-          {!isBooked && (
+          {/* ── Wrapped up: the moment the whole funnel exists for ── */}
+          {wrapped &&
+            (viewerRole === "client" ? (
+              <div>
+                <h2 className="text-sm font-semibold text-text">How did it go?</h2>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                  If {firstName} is the one, send the offer right here — contract, onboarding and
+                  payment all run through StaffVA, so you&apos;re covered from day one.
+                </p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {candidateId && (
+                    <Link
+                      href={`/hire/${candidateId}/offer`}
+                      className="rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary/90"
+                    >
+                      Send {firstName} an offer
+                    </Link>
+                  )}
+                  <Link
+                    href="/browse"
+                    className="rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-text-secondary hover:border-gray-400"
+                  >
+                    Keep browsing
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-medium text-text">Interview complete — nice work.</p>
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                  If {firstName} wants to move forward, their offer will arrive here on StaffVA —
+                  we&apos;ll email you the moment it does. Offers and payment stay on the platform;
+                  that&apos;s what protects you.
+                </p>
+              </div>
+            ))}
+
+          {/* ── Cancelled ── */}
+          {!isBooked && booking.status !== "completed" && (
             <div>
               <p className="text-sm font-medium text-text">
-                {booking.status === "completed"
-                  ? "This interview is complete."
-                  : cancelledByViewer
-                    ? "You cancelled this interview."
-                    : `${firstName} cancelled this interview.`}
+                {cancelledByViewer
+                  ? "You cancelled this interview."
+                  : `${firstName} cancelled this interview.`}
               </p>
-              {booking.status !== "completed" && (
-                <p className="mt-1 text-xs text-text-secondary">
-                  {viewerRole === "client" && candidatePath
-                    ? "Their calendar is open if you'd like to pick a new time."
-                    : "The slot is open on your calendar again."}
-                </p>
-              )}
+              <p className="mt-1 text-xs text-text-secondary">
+                {viewerRole === "client" && candidatePath
+                  ? "Their calendar is open if you'd like to pick a new time."
+                  : "The slot is open on your calendar again."}
+              </p>
             </div>
           )}
 
