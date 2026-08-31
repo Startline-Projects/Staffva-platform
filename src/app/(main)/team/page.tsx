@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
 import ContractReviewModal from "@/components/ContractReviewModal";
+import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
 import {
   ResponsiveContainer,
   LineChart,
@@ -263,6 +264,11 @@ export default function TeamPortalPage() {
         <StatCard label="Candidates Contacted" value={stats.candidatesContacted} icon={<ChatIcon />} />
         <StatCard label="Interviews Completed" value={stats.interviewsCompleted} icon={<ClipboardIcon />} />
         <StatCard label="Total Platform Spend" value={`$${stats.totalSpend.toLocaleString()}`} icon={<DollarIcon />} />
+      </div>
+
+      {/* ═══ UPCOMING INTERVIEWS (renders nothing when there are none) ═══ */}
+      <div className="mt-6 empty:mt-0">
+        <UpcomingInterviews />
       </div>
 
       {/* ═══ CHART + PIPELINE ROW ═══ */}

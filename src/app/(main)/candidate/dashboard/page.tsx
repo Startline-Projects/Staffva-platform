@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
 import LockoutCard from "@/components/LockoutCard";
+import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
 
 interface DailyCount {
   day: string;
@@ -58,14 +59,6 @@ interface CandidateData {
   english_comprehension_score: number | null;
   interview_consent_at: string | null;
   test_lockout_until: string | null;
-}
-
-interface InterviewData {
-  interview_number: number;
-  status: string;
-  communication_score: number | null;
-  demeanor_score: number | null;
-  role_knowledge_score: number | null;
 }
 
 interface AIInterviewData {
@@ -563,7 +556,6 @@ function PayoutSetupCard({ payoutStatus }: { payoutStatus: string | null }) {
 export default function CandidateDashboardPage() {
   const [candidate, setCandidate] = useState<CandidateData | null>(null);
   const [viewStats, setViewStats] = useState<ViewStats | null>(null);
-  const [interviews, setInterviews] = useState<InterviewData[]>([]);
   const [aiInterview, setAiInterview] = useState<AIInterviewData | null>(null);
   const [retakeData, setRetakeData] = useState<RetakeData | null>(null);
   const [hasPortfolio, setHasPortfolio] = useState(false);
@@ -637,13 +629,6 @@ export default function CandidateDashboardPage() {
           .select("*", { count: "exact", head: true })
           .eq("candidate_id", c.id);
         setHasPortfolio((count || 0) > 0);
-
-        // Load interviews (legacy)
-        const { data: interviewData } = await supabase
-          .from("candidate_interviews")
-          .select("interview_number, status, communication_score, demeanor_score, role_knowledge_score")
-          .eq("candidate_id", c.id);
-        if (interviewData) setInterviews(interviewData as InterviewData[]);
 
         // Load AI interview (new system)
         const { data: aiData } = await supabase
@@ -905,6 +890,12 @@ export default function CandidateDashboardPage() {
           >
             Set your hours
           </Link>
+        </div>
+      )}
+
+      {candidate.admin_status === "approved" && (
+        <div className="mb-6 empty:mb-0">
+          <UpcomingInterviews />
         </div>
       )}
 

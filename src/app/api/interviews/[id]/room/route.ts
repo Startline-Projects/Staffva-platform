@@ -89,10 +89,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       durationMinutes: duration,
     });
     if (room) {
-      await admin
+      // If the DB doesn't know the room exists, nobody may enter it: a
+      // recorded call in a room the pipeline can't discover would later be
+      // swept as a no-show and its consented recording silently aged out.
+      const { error: roomWriteError } = await admin
         .from("interview_bookings")
         .update({ room_name: room.name, room_url: room.url })
         .eq("id", b.id);
+      if (roomWriteError) {
+        return NextResponse.json(
+          { error: "We couldn't start the video room — try again in a moment." },
+          { status: 502 }
+        );
+      }
     }
   }
   if (!room) {
@@ -115,6 +124,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     bookingId: b.id,
   });
   if (!token) {
+    return NextResponse.json(
+      { error: "We couldn't start the video room — try again in a moment." },
+      { status: 502 }
+    );
+  }
+
+  // Join evidence, stamped once: holding a token is what "showed up" means.
+  // The token must not outrun the evidence — this stamp is the sole input
+  // to completed-vs-no_show, so a failed write refuses the join (the call
+  // UI renders a retry, and the .is-null guard keeps retries idempotent).
+  const joinColumn = viewerRole === "client" ? "client_joined_at" : "candidate_joined_at";
+  const { error: stampError } = await admin
+    .from("interview_bookings")
+    .update({ [joinColumn]: new Date().toISOString() })
+    .eq("id", b.id)
+    .is(joinColumn, null);
+  if (stampError) {
+    console.error("[interview-room] join stamp failed", b.id, joinColumn, stampError.message);
     return NextResponse.json(
       { error: "We couldn't start the video room — try again in a moment." },
       { status: 502 }

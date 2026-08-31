@@ -332,8 +332,22 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
               </div>
             ))}
 
+          {/* ── No-show ── */}
+          {booking.status === "no_show" && (
+            <div>
+              <p className="text-sm font-medium text-text">
+                This interview didn&apos;t happen — not everyone made it into the room.
+              </p>
+              <p className="mt-1 text-xs text-text-secondary">
+                {viewerRole === "client" && candidatePath
+                  ? `${firstName}'s calendar is open if you'd like to book a new time.`
+                  : "The slot is open on your calendar again."}
+              </p>
+            </div>
+          )}
+
           {/* ── Cancelled ── */}
-          {!isBooked && booking.status !== "completed" && (
+          {!isBooked && booking.status !== "completed" && booking.status !== "no_show" && (
             <div>
               <p className="text-sm font-medium text-text">
                 {cancelledByViewer

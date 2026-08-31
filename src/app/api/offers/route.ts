@@ -77,17 +77,9 @@ export async function POST(req: NextRequest) {
 
     if (!candidate) return NextResponse.json({ message: "" });
 
-    // Get interview notes if any
-    const { data: interviews } = await supabase
-      .from("candidate_interviews")
-      .select("communication_score, demeanor_score, role_knowledge_score")
-      .eq("candidate_id", candidateId)
-      .eq("status", "completed")
-      .limit(1);
-
-    const interviewNote = interviews && interviews.length > 0
-      ? `Interview scores: Communication ${interviews[0].communication_score}/5, Demeanor ${interviews[0].demeanor_score}/5, Role Knowledge ${interviews[0].role_knowledge_score}/5.`
-      : "";
+    // (The old candidate_interviews scores are retired; the message is
+    // grounded in the profile alone.)
+    const interviewNote = "";
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ message: `Hi ${candidate.display_name?.split(" ")[0]}, I was impressed by your profile and would love to work with you on our team. Your experience in ${candidate.role_category} is exactly what we're looking for.` });

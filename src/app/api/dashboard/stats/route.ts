@@ -55,16 +55,17 @@ export async function GET() {
 
     const uniqueContacted = new Set((messageThreads || []).map((m) => m.candidate_id)).size;
 
-    // 3. Interviews completed
+    // 3. Interviews completed — the live scheduler's count, not the retired
+    // paid-interview product's.
     let interviewsCompleted = 0;
     try {
       const { count } = await admin
-        .from("interview_requests")
+        .from("interview_bookings")
         .select("*", { count: "exact", head: true })
         .eq("client_id", clientId)
-        .eq("payment_status", "paid");
+        .eq("status", "completed");
       interviewsCompleted = count || 0;
-    } catch { /* table may not exist */ }
+    } catch { /* defensive */ }
 
     // 4. Total platform spend
     // Sum payment_periods amounts for this client's engagements

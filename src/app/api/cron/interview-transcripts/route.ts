@@ -63,7 +63,25 @@ export async function GET(req: NextRequest) {
 
   const admin = interviewAdminClient();
   const now = Date.now();
-  const stats = { rescued: 0, gaveUp: 0, discovered: 0, noRecording: 0, transcribed: 0, errored: 0, retired: 0 };
+  const stats = { rescued: 0, gaveUp: 0, discovered: 0, noRecording: 0, noShows: 0, transcribed: 0, errored: 0, retired: 0 };
+
+  // ── no-shows nobody even clicked into ────────────────────────────────────
+  // A booking whose room was never provisioned can't be discovered by the
+  // recording sweep (it filters on room_name). Two hours past the end it is
+  // a no-show: mark it so, which frees the one-booking-per-pair index.
+  const { data: ghosted } = await admin
+    .from("interview_bookings")
+    .update({ status: "no_show", transcript_status: "no_recording" })
+    .eq("status", "booked")
+    .is("room_name", null)
+    .is("transcript_status", null)
+    // A join stamp with no room row is a write-failure inconsistency, not a
+    // ghost — leave those for a human rather than laundering them.
+    .is("client_joined_at", null)
+    .is("candidate_joined_at", null)
+    .lt("starts_at", new Date(now - 30 * 60_000 - GIVE_UP_MS).toISOString())
+    .select("id");
+  stats.noShows += ghosted?.length || 0;
 
   // ── rescue ────────────────────────────────────────────────────────────────
   // A run killed between claiming and writing job ids leaves
@@ -94,7 +112,7 @@ export async function GET(req: NextRequest) {
   // whose pipeline hasn't started.
   const { data: ended } = await admin
     .from("interview_bookings")
-    .select("id, starts_at, duration_minutes, status, room_name")
+    .select("id, starts_at, duration_minutes, status, room_name, client_joined_at, candidate_joined_at")
     .in("status", ["booked", "cancelled_by_client", "cancelled_by_candidate"])
     .not("room_name", "is", null)
     .is("transcript_status", null)
@@ -117,7 +135,12 @@ export async function GET(req: NextRequest) {
       if (now > endMs + GIVE_UP_MS) {
         await admin
           .from("interview_bookings")
-          .update({ transcript_status: "no_recording" })
+          .update({
+            transcript_status: "no_recording",
+            // No recording means the client never arrived (their join starts
+            // it) — the interview didn't happen; free the pair.
+            ...(b.status === "booked" ? { status: "no_show" } : {}),
+          })
           .eq("id", b.id)
           .is("transcript_status", null);
         stats.noRecording++;
@@ -160,14 +183,18 @@ export async function GET(req: NextRequest) {
     }
 
     const longest = rec.finished.reduce((a, s) => (s.durationSec > a.durationSec ? s : a), rec.finished[0]);
+    // A recording alone only proves the client sat in the room (their join
+    // starts it) — "completed" requires BOTH parties to have taken a token.
+    // A one-sided recording is a no-show, though it still gets transcribed
+    // for the record.
+    const bothJoined = !!b.client_joined_at && !!b.candidate_joined_at;
     const { error: writeError } = await admin
       .from("interview_bookings")
       .update({
         transcript_segments: segments,
         recording_id: longest.id,
         transcript_job_id: segments[0].job_id,
-        // A finished recording is evidence the interview happened.
-        ...(b.status === "booked" ? { status: "completed" } : {}),
+        ...(b.status === "booked" ? { status: bothJoined ? "completed" : "no_show" } : {}),
       })
       .eq("id", b.id)
       .eq("transcript_status", "transcribing");

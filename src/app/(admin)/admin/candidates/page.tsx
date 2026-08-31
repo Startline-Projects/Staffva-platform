@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import AudioPlayer from "@/components/AudioPlayer";
 import CandidatePreviewModal from "@/components/admin/CandidatePreviewModal";
-import InterviewPanel from "@/components/admin/InterviewPanel";
 import PhotoReviewModal from "@/components/admin/PhotoReviewModal";
 import ReassignModal from "@/components/admin/ReassignModal";
 import RecruiterPhotoQueue from "@/components/admin/RecruiterPhotoQueue";
@@ -878,7 +877,7 @@ export default function CandidateReviewPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-200">
                     <div className="flex border-b border-gray-200 px-6">
-                      {["overview", "recordings", "interviews", "profile", "test"].map((t) => (
+                      {["overview", "recordings", "profile", "test"].map((t) => (
                         <button
                           key={t}
                           onClick={() => setTab(c.id, t)}
@@ -1004,10 +1003,6 @@ export default function CandidateReviewPage() {
                             )}
                           </div>
                         </div>
-                      )}
-
-                      {tab === "interviews" && (
-                        <InterviewPanel candidateId={c.id} candidateName={c.full_name} />
                       )}
 
                       {tab === "profile" && (
