@@ -68,6 +68,10 @@ export const LIMITS = {
   // candidate, so this caps the cancel→rebook spam loop; a real client books
   // a handful of interviews an hour at most.
   interviewBook: { limit: 20, windowSeconds: 3600 },
+
+  // Prep-brief generation: one model call per booking (cached after), so
+  // this only bounds pathological cache-miss hammering.
+  interviewBrief: { limit: 20, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

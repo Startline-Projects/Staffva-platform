@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import InterviewCall from "@/components/interview/InterviewCall";
+import InterviewPrep from "@/components/interview/InterviewPrep";
 
 /**
  * One interview, for either party. This page is the URL every scheduler
@@ -337,6 +338,10 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
 
           {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
         </div>
+      )}
+
+      {!wide && viewerRole === "client" && isBooked && !isPast && myConsentAt && (
+        <InterviewPrep bookingId={booking.id} candidateFirstName={firstName} />
       )}
 
       <div className="mt-4 text-sm">
