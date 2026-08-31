@@ -3,6 +3,7 @@ import { getUser } from "@/lib/auth";
 import { generateInterviewToken } from "@/lib/interviewToken";
 import Link from "next/link";
 import MessageButton from "@/components/browse/MessageButton";
+import InterviewScheduler from "@/components/booking/InterviewScheduler";
 import NotifyButton from "@/components/browse/NotifyButton";
 import ProfileViewTracker from "@/components/ProfileViewTracker";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
@@ -953,6 +954,17 @@ export default async function CandidateProfilePage({
                   </div>
                 </div>
               ) : null}
+
+              {!isOwnProfile && !isCandidate && (
+                <InterviewScheduler
+                  candidateId={candidate.id}
+                  candidateFirstName={(candidate.display_name || candidate.full_name || "them").split(" ")[0]}
+                  candidateTz={candidate.time_zone || "UTC"}
+                  isLoggedIn={isLoggedIn}
+                  clientId={clientId}
+                  profilePath={`/candidate/${candidate.id}`}
+                />
+              )}
 
               {/* Verified info card */}
               <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
