@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
           your explicit, versioned consent — collected before the session,
           and required to sit the assessment — your camera records video for
           the whole session, along with periodic still frames; no audio is
-          captured. An automated review examines the frames and the session's
+          captured. An automated review examines the frames and the session&apos;s
           integrity events afterward. If nothing is flagged, the recording
           and frames are <strong>deleted right after that review</strong> and
           only the review outcome is kept. If the session is flagged, the
