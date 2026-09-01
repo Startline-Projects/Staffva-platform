@@ -205,6 +205,12 @@ export default function ProctorGate({ sessionKind, children }: Props) {
     if (busy || !streamRef.current) return;
     setBusy(true);
     setError("");
+    // Fullscreen was entered at the instructions screen, but the camera
+    // permission prompt kicks the page out of it — re-enter here, inside
+    // this click's gesture, so the test starts fullscreen as it always did.
+    document.documentElement.requestFullscreen?.().catch(() => {
+      /* unsupported or denied — the test tolerates windowed mode */
+    });
     const res = await fetch("/api/proctor/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -224,6 +230,8 @@ export default function ProctorGate({ sessionKind, children }: Props) {
   async function reconnectCamera() {
     if (busy) return;
     setBusy(true);
+    // The re-permission prompt may have dropped fullscreen too.
+    document.documentElement.requestFullscreen?.().catch(() => {});
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
