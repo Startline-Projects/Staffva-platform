@@ -197,7 +197,7 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
               {/* Trust signals */}
               <div className="flex items-center gap-1.5 text-xs overflow-x-auto">
                 <span className="shrink-0 font-semibold text-[#FE6E3E]">${c.hourly_rate}/hr</span>
-                {c.reputation_score && c.reputation_score > 0 && <><span className="text-gray-300">&middot;</span><span className="shrink-0 text-text-secondary">{c.reputation_score}%</span></>}
+                {c.reputation_tier && c.reputation_score && c.reputation_score > 0 && <><span className="text-gray-300">&middot;</span><span className="shrink-0 text-text-secondary">{c.reputation_score}%</span></>}
                 {earningsLabel && <><span className="text-gray-300">&middot;</span><span className="shrink-0 text-green-600">{earningsLabel}</span></>}
               </div>
 
@@ -341,7 +341,7 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
               {/* Trust signals */}
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="font-semibold text-[#FE6E3E]">${c.hourly_rate}/hr</span>
-                {c.reputation_score && c.reputation_score > 0 && <><span className="text-gray-300">&middot;</span><span className="text-text-secondary">{c.reputation_score}%</span></>}
+                {c.reputation_tier && c.reputation_score && c.reputation_score > 0 && <><span className="text-gray-300">&middot;</span><span className="text-text-secondary">{c.reputation_score}%</span></>}
               </div>
 
               {/* Bio */}

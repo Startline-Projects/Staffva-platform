@@ -98,6 +98,24 @@ const US_EXPERIENCE_LABELS: Record<string, string> = {
 };
 
 
+/** "Asia/Calcutta" is an IANA id, not a sentence — clients get the words. */
+function humanizeTimeZone(tz: string | null): string {
+  if (!tz) return "—";
+  try {
+    const at = new Date();
+    const name = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longGeneric" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value;
+    const offset = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value;
+    if (name && offset) return `${name} (${offset})`;
+    return name || tz;
+  } catch {
+    return tz;
+  }
+}
+
 export default async function CandidateProfilePage({
   params,
 }: {
@@ -211,7 +229,10 @@ export default async function CandidateProfilePage({
     : committedHours < 40
     ? "partial"
     : "unavailable";
-  const remainingHours = 50 - committedHours;
+  // One week length everywhere: full at 40 hours, so "remaining" counts
+  // down from 40 too (it used to count from 50, promising hours the
+  // availability cutoff would never honor).
+  const remainingHours = Math.max(0, 40 - committedHours);
 
 
   // Fetch completed AI interview (latest) — includes scorecard fields for Interview 1 & 2
@@ -703,10 +724,16 @@ export default async function CandidateProfilePage({
                   {workExperience.map((entry, i) => (
                     <div key={i} className="relative pl-6 border-l-2 border-primary/20">
                       <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-primary" />
-                      <p className="font-semibold text-text text-sm">{entry.company_name ? `${entry.company_name} · ${entry.role_title}` : entry.role_title}</p>
-                      <p className="text-xs text-text/50 mt-0.5">
-                        {entry.industry} &middot; {entry.duration}
+                      <p className="font-semibold text-text text-sm">
+                        {entry.company_name && entry.company_name !== entry.role_title
+                          ? `${entry.company_name} · ${entry.role_title}`
+                          : entry.role_title}
                       </p>
+                      {(entry.industry || entry.duration) && (
+                        <p className="text-xs text-text/50 mt-0.5">
+                          {[entry.industry, entry.duration].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                       {entry.description && (
                         <p className="mt-1 text-sm text-text/70">{entry.description}</p>
                       )}
@@ -722,11 +749,17 @@ export default async function CandidateProfilePage({
               <div className="mt-4 grid grid-cols-2 gap-y-4 gap-x-8">
                 <div>
                   <p className="text-xs text-text/40">Experience</p>
-                  <p className="mt-0.5 text-sm font-medium text-text">{candidate.years_experience}</p>
+                  <p className="mt-0.5 text-sm font-medium text-text">
+                    {candidate.years_experience
+                      ? `${candidate.years_experience} years`
+                      : "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-text/40">Time Zone</p>
-                  <p className="mt-0.5 text-sm font-medium text-text">{candidate.time_zone}</p>
+                  <p className="mt-0.5 text-sm font-medium text-text">
+                    {humanizeTimeZone(candidate.time_zone)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-text/40">US Client Experience</p>
@@ -807,7 +840,6 @@ export default async function CandidateProfilePage({
                     ${candidate.hourly_rate?.toLocaleString()}
                     <span className="text-sm font-normal text-text/40">/hr</span>
                   </p>
-                  <p className="mt-1 text-center text-xs text-text/40">per hour</p>
                   <div className="mt-5">
                     {availabilityComputed === "unavailable" ? (
                       <NotifyButton candidateId={candidate.id} isLoggedIn={isLoggedIn} />
@@ -987,8 +1019,14 @@ export default async function CandidateProfilePage({
                   href="/signup/client"
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
                 >
-                  Sign in to message {candidate.display_name?.split(" ")[0]}
+                  Create a free account to message {candidate.display_name?.split(" ")[0]}
                 </Link>
+                <p className="mt-2 text-xs text-text/50">
+                  Already have one?{" "}
+                  <Link href={`/login?next=/candidate/${candidate.id}`} className="underline">
+                    Sign in
+                  </Link>
+                </p>
               </div>
             ) : null}
           </div>

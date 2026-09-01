@@ -683,8 +683,9 @@ function BrowseContent() {
                   ))}
                 </div>
 
-                {/* Soft nudge */}
-                {candidates.length >= 12 && page === 1 && (
+                {/* Soft nudge — for visitors only; a signed-in client being
+                    told to sign up reads as the site not knowing them */}
+                {!isLoggedIn && candidates.length >= 12 && page === 1 && (
                   <div className="mt-10 py-8 text-center">
                     <p className="text-sm text-text-muted">
                       Sign up to message anyone on StaffVA. It&apos;s free.

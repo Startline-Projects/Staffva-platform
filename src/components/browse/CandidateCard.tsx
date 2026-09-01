@@ -154,7 +154,10 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
           {/* Row 4: Rate + reputation + earnings */}
           <div className="mt-1.5 flex items-center gap-1.5 text-xs">
             <span className="font-semibold text-[#FE6E3E]">${candidate.hourly_rate}/hr</span>
-            {candidate.reputation_score && candidate.reputation_score > 0 && (
+            {/* The raw percent only shows once a tier exists — a young
+                reputation system printing "38%" on every card reads as a
+                bad grade, not a new account. */}
+            {candidate.reputation_tier && candidate.reputation_score && candidate.reputation_score > 0 && (
               <>
                 <span className="text-gray-300">&middot;</span>
                 <span className="text-text-secondary">{candidate.reputation_score}% reputation</span>

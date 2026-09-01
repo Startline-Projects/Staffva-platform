@@ -193,7 +193,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
             the booking was made under.
           </p>
           <Link
-            href="/login"
+            href={`/login?next=/interviews/${id}`}
             className="mt-4 inline-block rounded-lg bg-text px-4 py-2 text-sm font-semibold text-white"
           >
             Sign in
