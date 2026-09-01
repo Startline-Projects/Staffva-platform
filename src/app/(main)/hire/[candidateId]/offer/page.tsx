@@ -162,6 +162,8 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
             <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-text-muted">Professional&apos;s rate</span><span className="font-medium text-text">${hourlyRate}/hr × {hoursPerWeek} hrs</span></div>
               <div className="flex justify-between"><span className="text-text-muted">Monthly equivalent</span><span className="font-medium text-text">${monthlyCandidate.toFixed(0)}</span></div>
+              <div className="flex justify-between"><span className="text-text-muted">Platform fee (10%)</span><span className="text-text">${platformFee.toFixed(0)}</span></div>
+              <p className="text-xs text-text-muted">Added on top — {candidate.display_name?.split(" ")[0] || "the candidate"} receives 100% of their rate.</p>
               <div className="border-t border-border-light pt-3 flex justify-between"><span className="font-semibold text-text">Total/month</span><span className="font-semibold text-text">${clientMonthly.toFixed(0)}</span></div>
               <div className="flex justify-between"><span className="text-text-muted">Contract total ({contractLength})</span><span className="text-text">${contractTotal.toFixed(0)}</span></div>
               {signingBonus && Number(signingBonus) > 0 && (
@@ -191,7 +193,11 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
             <div className="mt-4 rounded-xl bg-background p-4 text-sm space-y-2">
               <p><strong>${hourlyRate}/hr</strong> × {hoursPerWeek} hrs/week</p>
               <p>Contract: {contractLength} starting {new Date(startDate).toLocaleDateString()}</p>
-              <p>Client total: <strong>${clientMonthly.toFixed(0)}/month</strong></p>
+              <p>
+                Candidate: ${monthlyCandidate.toFixed(0)}/month · Platform fee (10%): $
+                {platformFee.toFixed(0)}
+              </p>
+              <p>Your total: <strong>${clientMonthly.toFixed(0)}/month</strong></p>
             </div>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-full border border-border py-2.5 text-sm font-medium text-text">Cancel</button>
