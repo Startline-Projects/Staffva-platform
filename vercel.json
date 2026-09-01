@@ -63,6 +63,10 @@
     {
       "path": "/api/cron/interview-watchdog",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/proctor-review",
+      "schedule": "*/10 * * * *"
     }
   ],
   "functions": {
@@ -85,6 +89,9 @@
       "maxDuration": 120
     },
     "src/app/api/cron/interview-watchdog/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/cron/proctor-review/route.ts": {
       "maxDuration": 120
     }
   }

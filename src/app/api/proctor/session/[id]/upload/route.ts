@@ -16,6 +16,30 @@ const MAX_FRAMES = 240;
 const MAX_CHUNK_BYTES = 4 * 1024 * 1024;
 const MAX_FRAME_BYTES = 400 * 1024;
 
+/** Width/height from a JPEG's SOF marker; null if it isn't a sane JPEG. */
+function jpegDimensions(buf: Buffer): { w: number; h: number } | null {
+  if (buf.length < 12 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) {
+      i++;
+      continue;
+    }
+    const marker = buf[i + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+    }
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
+      i += 2;
+      continue;
+    }
+    const len = buf.readUInt16BE(i + 2);
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
+}
+
 /**
  * POST /api/proctor/session/[id]/upload?kind=chunk&n=12
  * POST /api/proctor/session/[id]/upload?kind=frame&n=34
@@ -52,6 +76,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const maxBytes = kind === "chunk" ? MAX_CHUNK_BYTES : MAX_FRAME_BYTES;
   if (body.length === 0 || body.length > maxBytes) {
     return NextResponse.json({ error: "Bad size" }, { status: 413 });
+  }
+  // Frames feed a vision model with hard dimension limits; the 512px
+  // geometry is client-side and a crafted huge-but-compressible JPEG would
+  // poison every review of this session forever. Validate server-side.
+  if (kind === "frame") {
+    const dims = jpegDimensions(body);
+    if (!dims || dims.w > 1024 || dims.h > 1024 || dims.w < 16 || dims.h < 16) {
+      return NextResponse.json({ error: "Bad frame" }, { status: 415 });
+    }
   }
   const count = kind === "chunk" ? session.chunk_count : session.frame_count;
   const cap = kind === "chunk" ? MAX_CHUNKS : MAX_FRAMES;

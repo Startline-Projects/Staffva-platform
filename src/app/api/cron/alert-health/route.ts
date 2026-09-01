@@ -143,6 +143,42 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Proctored sessions waiting too long for their AI review: the reviewer
+  // cron is failing or not running, and candidates' recordings sit
+  // undeleted past the "deleted right after review" expectation.
+  const { count: staleProctor } = await supabase
+    .from("proctor_sessions")
+    .select("*", head)
+    .eq("review_status", "pending_review")
+    .lt("ended_at", since(2 * 60 * 60 * 1000));
+
+  if (staleProctor) {
+    checks.push({
+      key: "proctor_review_stalled",
+      severity: "warning",
+      count: staleProctor,
+      message: `${staleProctor} proctored session(s) have waited over 2 hours for AI review — recordings are sitting undeleted and candidates unreviewed.`,
+    });
+  }
+
+  // A flagged proctor session that never reached Slack is a specialist
+  // review that isn't happening.
+  const { count: unalertedProctor } = await supabase
+    .from("proctor_sessions")
+    .select("*", head)
+    .eq("review_status", "flagged")
+    .is("verdict->alerted_at", null)
+    .lt("reviewed_at", since(60 * 60 * 1000));
+
+  if (unalertedProctor) {
+    checks.push({
+      key: "proctor_flags_unalerted",
+      severity: "critical",
+      count: unalertedProctor,
+      message: `${unalertedProctor} flagged proctored session(s) never reached Slack — the specialist review channel is broken.`,
+    });
+  }
+
   // A flag that never reached Slack — most likely a dead or rotated webhook.
   // The watchdog cron already goes non-2xx on this, but flags are rare
   // enough that silence looks normal; count them here too so the state is
