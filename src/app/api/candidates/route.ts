@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { maskCandidateText } from "@/lib/contactMask";
+import { rolePatternsFor } from "@/lib/roleTaxonomy";
 
 function getAdminClient() {
   return createClient(
@@ -31,7 +32,9 @@ export async function GET(request: Request) {
   // all filtering, sorting, pagination, and skills aggregation
   const { data: rpcResult, error } = await supabase.rpc("get_candidates_with_skills", {
     p_search: search || null,
-    p_role: role || null,
+    // Pills map to the stored role values they cover; unknown values fall
+    // back to substring matching (hero chips pass full role names).
+    p_roles: role && role !== "All" ? rolePatternsFor(role) : null,
     p_country: country || null,
     p_min_rate: minRate ? parseInt(minRate) : null,
     p_max_rate: (maxRate && parseInt(maxRate) < 150) ? parseInt(maxRate) : null,

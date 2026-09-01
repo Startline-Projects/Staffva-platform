@@ -440,7 +440,7 @@ function BrowseContent() {
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAiSearch(); } }}
                   rows={2}
                   maxLength={300}
-                  placeholder="Bookkeeper under $8/hr, knows QuickBooks"
+                  placeholder="Legal assistant under $12/hr, knows Clio"
                   className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-text placeholder:text-text/35 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <button

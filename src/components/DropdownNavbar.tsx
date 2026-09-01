@@ -14,7 +14,7 @@ type DropdownKey = "build-team" | "for-professionals" | null;
 
 const BUILD_TEAM_NEEDS = [
   { label: "Legal and compliance work", href: "/browse?role=Paralegal" },
-  { label: "Books and finances", href: "/browse?role=Bookkeeping" },
+  { label: "Books and finances", href: "/browse?role=Bookkeeping/AP" },
   { label: "Operations and admin", href: "/browse?role=Admin" },
   { label: "Customer and client relations", href: "/browse?role=Customer+Support" },
   { label: "Content and creative work", href: "/browse?role=Content+Writer" },
