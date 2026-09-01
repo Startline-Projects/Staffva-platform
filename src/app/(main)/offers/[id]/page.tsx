@@ -99,7 +99,7 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex justify-between border-b border-border-light pb-3">
             <span className="text-text-muted">Start Date</span>
-            <span className="text-text">{new Date(offer.start_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+            <span className="text-text">{new Date(offer.start_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
           </div>
           {offer.signing_bonus_usd && Number(offer.signing_bonus_usd) > 0 && (
             <div className="flex justify-between border-b border-border-light pb-3">

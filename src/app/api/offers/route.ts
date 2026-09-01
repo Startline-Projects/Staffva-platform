@@ -10,6 +10,16 @@ function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
+// Client-typed text goes into the candidate's email verbatim — escape it so
+// a crafted message can't inject markup into someone else's inbox.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 // GET — list offers for current user (client or candidate)
 export async function GET() {
   const serverSupabase = await createServerClient();
@@ -177,10 +187,10 @@ export async function POST(req: NextRequest) {
             <div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:16px 0;">
               <p style="margin:0 0 8px;font-size:14px;"><strong>Rate:</strong> $${hourlyRate}/hr</p>
               <p style="margin:0 0 8px;font-size:14px;"><strong>Hours:</strong> ${hoursPerWeek}/week</p>
-              <p style="margin:0 0 8px;font-size:14px;"><strong>Start:</strong> ${new Date(startDate).toLocaleDateString()}</p>
+              <p style="margin:0 0 8px;font-size:14px;"><strong>Start:</strong> ${new Date(startDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</p>
               <p style="margin:0;font-size:14px;"><strong>Length:</strong> ${contractLength}</p>
             </div>
-            ${personalMessage ? `<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:16px;margin:16px 0;"><p style="margin:0;font-size:13px;color:#9A3412;font-style:italic;">"${personalMessage}"</p></div>` : ""}
+            ${personalMessage ? `<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:16px;margin:16px 0;"><p style="margin:0;font-size:13px;color:#9A3412;font-style:italic;">"${escapeHtml(personalMessage)}"</p></div>` : ""}
             <p style="color:#444;font-size:14px;">View and respond to this offer by <strong>${expiryDate}</strong>.</p>
             <a href="${siteUrl}/offers/${offer.id}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Offer</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
@@ -243,7 +253,7 @@ export async function POST(req: NextRequest) {
             hoursPerWeek: offer.hours_per_week || 40,
             paymentCycle: "monthly",
             contractType: offer.contract_length === "Ongoing" ? "ongoing" : "project",
-            startDate: offer.start_date ? new Date(offer.start_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+            startDate: offer.start_date ? new Date(offer.start_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
           });
 
           const { data: contract } = await supabase.from("engagement_contracts").insert({

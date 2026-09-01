@@ -192,7 +192,7 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
             <p className="mt-1 text-sm text-text-muted">Send this offer to {candidate.display_name}?</p>
             <div className="mt-4 rounded-xl bg-background p-4 text-sm space-y-2">
               <p><strong>${hourlyRate}/hr</strong> × {hoursPerWeek} hrs/week</p>
-              <p>Contract: {contractLength} starting {new Date(startDate).toLocaleDateString()}</p>
+              <p>Contract: {contractLength} starting {new Date(startDate + "T00:00:00").toLocaleDateString()}</p>
               <p>
                 Candidate: ${monthlyCandidate.toFixed(0)}/month · Platform fee (10%): $
                 {platformFee.toFixed(0)}

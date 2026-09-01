@@ -9,7 +9,7 @@ import ProfileViewTracker from "@/components/ProfileViewTracker";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
 import BanButton from "@/components/recruiting-manager/BanButton";
 import { hasUsExperience } from "@/lib/usExperienceLabels";
-import { maskCandidateText } from "@/lib/contactMask";
+import { maskCandidateText, maskContact } from "@/lib/contactMask";
 
 async function AudioPlayerServer({ bucket, path, label }: { bucket: string; path: string; label: string }) {
   const supabase = createClient(
@@ -274,11 +274,20 @@ export default async function CandidateProfilePage({
     return (b.start_date || "").localeCompare(a.start_date || "");
   });
 
-  const { data: portfolioItems } = await supabase
+  const { data: portfolioItemsRaw } = await supabase
     .from("portfolio_items")
     .select("*")
     .eq("candidate_id", id)
     .order("display_order");
+  // Portfolio descriptions are candidate free text — the one field the
+  // pre-hire contact-masking sweep missed.
+  const portfolioItems =
+    !viewingOwn && !isStaff
+      ? (portfolioItemsRaw || []).map((item) => ({
+          ...item,
+          description: item.description ? maskContact(item.description) : item.description,
+        }))
+      : portfolioItemsRaw;
 
   const { data: tenureBadges } = await supabase
     .from("tenure_badges")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface Props {
   contractId: string;
@@ -23,6 +23,13 @@ export default function ContractReviewModal({ contractId, contractHtml, onSigned
       setHasScrolledToBottom(true);
     }
   }, []);
+
+  // A short contract that fits without scrolling never fires a scroll
+  // event — the sign button would stay locked forever.
+  useEffect(() => {
+    const t = setTimeout(handleScroll, 0);
+    return () => clearTimeout(t);
+  }, [handleScroll]);
 
   async function handleSign() {
     setSigning(true);

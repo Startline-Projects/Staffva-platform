@@ -285,22 +285,30 @@ export default function TeamPortalPage() {
   async function handleRelease(engagementId: string) {
     if (!confirm("Release this candidate? Their profile will go live on browse immediately.")) return;
     setActionLoading(engagementId);
-    await fetch("/api/engagements/release", {
+    const res = await fetch("/api/engagements/release", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ engagementId }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't release the engagement — try again.");
+    }
     await loadEngagements();
     setActionLoading(null);
   }
 
   async function handleApproveMilestone(milestoneId: string) {
     setActionLoading(milestoneId);
-    await fetch("/api/engagements/milestones", {
+    const res = await fetch("/api/engagements/milestones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ milestoneId, action: "approve" }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't approve the milestone — try again.");
+    }
     await loadEngagements();
     setActionLoading(null);
   }
