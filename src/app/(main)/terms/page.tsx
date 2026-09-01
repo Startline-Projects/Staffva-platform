@@ -13,7 +13,7 @@ export const metadata = {
 // watchdog. Keep them in sync.
 export default function TermsOfService() {
   return (
-    <LegalShell title="Terms of Service" updated="August 31, 2026 (v1.1)">
+    <LegalShell title="Terms of Service" updated="September 1, 2026 (v1.2)">
       <p>
         These terms are an agreement between you and Stafva LLC
         (&quot;StaffVA&quot;, &quot;we&quot;) and govern your use of
@@ -50,10 +50,13 @@ export default function TermsOfService() {
           updated integrity monitoring.
         </li>
         <li>
-          Assessment sessions are monitored for integrity. Automated signals
-          may flag a session for review; decisions that reject a candidate for
-          an integrity violation are made by a person after reviewing the
-          evidence.
+          Assessment sessions are monitored for integrity, and proctored
+          sessions are camera-recorded with your consent — a working camera
+          is required to sit them. Automated review may flag a session;
+          decisions that reject a candidate for an integrity violation are
+          made by a person after reviewing the evidence. Recording, review
+          and retention are described in the{" "}
+          <a href="/privacy">Privacy Policy</a>.
         </li>
         <li>
           Dishonesty in an assessment — including having another person take

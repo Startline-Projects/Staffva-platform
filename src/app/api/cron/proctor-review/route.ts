@@ -416,6 +416,27 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── decided-evidence retention ────────────────────────────────────────────
+  // Flagged evidence is kept "until a decision is made and for 7 days
+  // after" — the consent promise's second half. Once a human resolves a
+  // flagged session (decided_at stamped), the footage's clock runs out here.
+  const { data: decided } = await db
+    .from("proctor_sessions")
+    .select("id, storage_prefix")
+    .in("review_status", ["cleared_by_human", "confirmed_cheating"])
+    .is("video_deleted_at", null)
+    .lt("decided_at", new Date(now - 7 * 24 * 3600_000).toISOString())
+    .limit(5);
+
+  for (const s of decided || []) {
+    if (await deleteAllUnder(db, s.storage_prefix)) {
+      await db
+        .from("proctor_sessions")
+        .update({ video_deleted_at: new Date().toISOString() })
+        .eq("id", s.id);
+    }
+  }
+
   // A flag nobody heard about is the feature broken — show red in Vercel.
   return NextResponse.json(
     { ...stats },

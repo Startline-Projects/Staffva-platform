@@ -10,7 +10,7 @@ export const metadata = {
 // processing to the product without updating this page in the same change.
 export default function PrivacyPolicy() {
   return (
-    <LegalShell title="Privacy Policy" updated="August 31, 2026 (v1.1)">
+    <LegalShell title="Privacy Policy" updated="September 1, 2026 (v1.2)">
       <p>
         StaffVA is a marketplace operated by Stafva LLC (&quot;StaffVA&quot;,
         &quot;we&quot;) that connects businesses with remote professionals. This
@@ -50,6 +50,21 @@ export default function PrivacyPolicy() {
           answers are processed to produce a transcript, and the transcript,
           scores and feedback are stored. The raw answer audio is processed for
           transcription and is not retained afterwards.
+        </li>
+        <li>
+          <strong>Proctored assessment recordings</strong> — assessment
+          sessions (currently the English test) are camera-proctored. With
+          your explicit, versioned consent — collected before the session,
+          and required to sit the assessment — your camera records video for
+          the whole session, along with periodic still frames; no audio is
+          captured. An automated review examines the frames and the session's
+          integrity events afterward. If nothing is flagged, the recording
+          and frames are <strong>deleted right after that review</strong> and
+          only the review outcome is kept. If the session is flagged, the
+          recording is preserved for review by a member of our team — only a
+          person can decide an integrity issue — and is deleted 7 days after
+          that decision. A visible indicator shows whenever the camera is
+          recording.
         </li>
         <li>
           <strong>Identity verification</strong> — verification is performed by
@@ -139,7 +154,7 @@ export default function PrivacyPolicy() {
         <li><strong>Supabase</strong> — database, authentication and file storage.</li>
         <li><strong>Vercel</strong> — application hosting.</li>
         <li><strong>Stripe</strong> — client payments, escrow and identity verification.</li>
-        <li><strong>Anthropic</strong> — AI processing of application screening, interview scoring, the automated review of interview transcripts, and interview preparation for clients.</li>
+        <li><strong>Anthropic</strong> — AI processing of application screening, interview scoring, the automated review of interview transcripts and of proctored-session frames, and interview preparation for clients.</li>
         <li><strong>Daily</strong> — video infrastructure for client–candidate interviews: the call, the recording, and the transcription pipeline.</li>
         <li><strong>Deepgram</strong> — speech-to-text transcription during the AI interview and (via Daily) of interview recordings.</li>
         <li><strong>ElevenLabs</strong> — text-to-speech for the AI interviewer&apos;s voice.</li>
@@ -166,6 +181,11 @@ export default function PrivacyPolicy() {
           Client–candidate interview recordings: deleted 30 days after the
           interview. Interview transcripts: for as long as your account
           exists, as part of the safety and dispute record.
+        </li>
+        <li>
+          Proctored assessment recordings: deleted right after the automated
+          review when nothing is flagged; when flagged, kept until a person
+          decides and deleted 7 days after the decision.
         </li>
         <li>Transaction, contract and dispute records: retained as needed for legal, tax and accounting obligations, even after account deletion.</li>
         <li>
