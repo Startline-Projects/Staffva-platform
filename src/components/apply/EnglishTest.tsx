@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { proctorLinkAttempt } from "@/lib/proctorBridge";
 import type { CandidateData } from "@/app/(main)/apply/page";
 import {
   saveProgressLocal,
@@ -282,6 +283,9 @@ export default function EnglishTest({ candidateId, onComplete }: Props) {
     setQuestions(data.questions);
     setPassage(data.passage || "");
     attemptIdRef.current = data.attemptId || null;
+    // The proctor gate wrapping this test binds its recording to the
+    // server-held attempt it covered.
+    if (data.attemptId) proctorLinkAttempt(data.attemptId);
 
     // Try to restore progress from localStorage (same-session refresh). Only
     // valid for the SAME attempt: the server re-serves an open attempt with

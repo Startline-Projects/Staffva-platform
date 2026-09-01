@@ -15,6 +15,7 @@ import CandidateStatusScreen from "@/components/apply/CandidateStatusScreen";
 import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
 import IDVerification from "@/components/apply/IDVerification";
 import IntegrityPledge from "@/components/apply/IntegrityPledge";
+import ProctorGate from "@/components/proctor/ProctorGate";
 import PostTestVerification from "@/components/apply/PostTestVerification";
 
 export type ApplicationStep =
@@ -407,10 +408,12 @@ export default function ApplyPage() {
         // relationship to score. EnglishTest's own instrumentation (typed
         // events through /api/proctor/events, warning at three real flags) is
         // the surviving system.
-        <EnglishTest
-          candidateId={candidateData.id}
-          onComplete={handleTestComplete}
-        />
+        <ProctorGate sessionKind="english_test">
+          <EnglishTest
+            candidateId={candidateData.id}
+            onComplete={handleTestComplete}
+          />
+        </ProctorGate>
       )}
       {step === "post_test_verification" && (
         <PostTestVerification onVerify={handlePostTestVerify} />
