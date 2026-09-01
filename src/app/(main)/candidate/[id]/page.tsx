@@ -563,27 +563,54 @@ export default async function CandidateProfilePage({
 
         if (!hasAiInterview && !hasEnglishScores) return null;
 
+        // ONE scorecard, one scale. The interview stores each dimension /20;
+        // everything renders /100 here and nowhere else — the audit found the
+        // same skill shown as 17/20 and 85/100 one screen apart.
         const dimensions = hasAiInterview ? [
-          { label: "Technical Knowledge", score: Math.round((aiInterview.technical_knowledge_score || 0) * 5) },
-          { label: "Problem Solving", score: Math.round((aiInterview.problem_solving_score || 0) * 5) },
-          { label: "Communication", score: Math.round((aiInterview.communication_score || 0) * 5) },
-          { label: "Experience Depth", score: Math.round((aiInterview.experience_depth_score || 0) * 5) },
-          { label: "Professionalism", score: Math.round((aiInterview.professionalism_score || 0) * 5) },
+          { label: "Technical Knowledge", score: Math.round((aiInterview.technical_knowledge_score || 0) * 5), feedback: aiInterview.technical_knowledge_feedback },
+          { label: "Problem Solving", score: Math.round((aiInterview.problem_solving_score || 0) * 5), feedback: aiInterview.problem_solving_feedback },
+          { label: "Communication", score: Math.round((aiInterview.communication_score || 0) * 5), feedback: aiInterview.communication_feedback },
+          { label: "Experience Depth", score: Math.round((aiInterview.experience_depth_score || 0) * 5), feedback: aiInterview.experience_depth_feedback },
+          { label: "Professionalism", score: Math.round((aiInterview.professionalism_score || 0) * 5), feedback: aiInterview.professionalism_feedback },
         ] : [
-          { label: "Reading", score: Math.round(candidate.english_comprehension_score || 0) },
-          { label: "Language", score: Math.round(candidate.english_mc_score || 0) },
+          { label: "Reading", score: Math.round(candidate.english_comprehension_score || 0), feedback: null },
+          { label: "Language", score: Math.round(candidate.english_mc_score || 0), feedback: null },
         ];
+
+        const textBlocks = hasAiInterview
+          ? [
+              { label: "Strengths", value: aiInterview.strengths },
+              { label: "Areas for Improvement", value: aiInterview.weaknesses },
+              { label: "Screening Notes", value: aiInterview.ai_notes },
+            ]
+          : [];
 
         const overallScore = hasAiInterview ? aiInterview.overall_score : null;
         const overallBorder = overallScore && overallScore >= 80 ? "border-primary" : overallScore && overallScore >= 60 ? "border-amber-500" : "border-gray-300";
         const overallText = overallScore && overallScore >= 80 ? "text-primary" : overallScore && overallScore >= 60 ? "text-amber-600" : "text-gray-400";
 
+        // The scorecard is gated for real: anonymous visitors get the lock
+        // card and NO numbers in the DOM — the old version rendered the
+        // scores above a "create an account to view" line.
+        if (!canViewGated) {
+          return (
+            <div className="mx-auto max-w-5xl px-6 mt-6">
+              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center">
+                <svg className="mx-auto w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <p className="mt-2 text-xs text-text/50">Create a free account to view the screening results.</p>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="mx-auto max-w-5xl px-6 mt-6">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 group/assessment relative">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Assessment Results</h2>
+                  <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Screening Results</h2>
                 </div>
                 {overallScore && (
                   <div className={`flex h-14 w-14 items-center justify-center rounded-full border-[3px] ${overallBorder}`}>
@@ -606,96 +633,14 @@ export default async function CandidateProfilePage({
                         style={{ width: `${Math.min(d.score, 100)}%` }}
                       />
                     </div>
+                    {d.feedback && <p className="mt-1 text-xs text-text/50">{d.feedback}</p>}
                   </div>
                 ))}
               </div>
 
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-72 rounded-lg bg-charcoal px-4 py-2.5 text-xs text-white shadow-lg group-hover/assessment:block z-10 text-center">
-                Scores are generated by AI-administered assessments and verified by our team. They are locked and cannot be edited by the candidate.
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-charcoal" />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-
-      {/* ═══════════ INTERVIEW 1 — SCORECARD & NOTES ═══════════ */}
-      {aiInterviewCompleted && (() => {
-        const iv = aiInterview!;
-        const score = iv.overall_score;
-        const scoreBorder = score >= 80 ? "border-primary" : score >= 60 ? "border-amber-500" : "border-gray-300";
-        const scoreText = score >= 80 ? "text-primary" : score >= 60 ? "text-amber-600" : "text-gray-400";
-        const badgeMap: Record<string, { label: string; bg: string }> = {
-          exceptional: { label: "Exceptional", bg: "bg-emerald-600" },
-          proficient: { label: "Proficient", bg: "bg-blue-600" },
-          developing: { label: "Developing", bg: "bg-amber-600" },
-          not_ready: { label: "Not Ready", bg: "bg-gray-500" },
-        };
-        const badge = iv.badge_level ? badgeMap[iv.badge_level] : null;
-
-        const dims = [
-          { label: "Technical Knowledge", score: iv.technical_knowledge_score, feedback: iv.technical_knowledge_feedback },
-          { label: "Problem Solving", score: iv.problem_solving_score, feedback: iv.problem_solving_feedback },
-          { label: "Communication", score: iv.communication_score, feedback: iv.communication_feedback },
-          { label: "Experience Depth", score: iv.experience_depth_score, feedback: iv.experience_depth_feedback },
-          { label: "Professionalism", score: iv.professionalism_score, feedback: iv.professionalism_feedback },
-        ];
-
-        const textBlocks = [
-          { label: "Strengths", value: iv.strengths },
-          { label: "Areas for Improvement", value: iv.weaknesses },
-          { label: "Recruiter Notes", value: iv.ai_notes },
-        ];
-
-        return (
-          <div className="mx-auto max-w-5xl px-6 mt-6">
-            {canViewGated ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">Interview 1 — Scorecard &amp; Notes</h2>
-
-                {/* Score circle + badge */}
-                <div className="mt-5 flex items-center gap-4">
-                  {score != null && (
-                    <div className={`flex h-16 w-16 items-center justify-center rounded-full border-[3px] ${scoreBorder}`}>
-                      <span className={`text-xl font-bold ${scoreText}`}>{score}</span>
-                    </div>
-                  )}
-                  {badge && (
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${badge.bg}`}>
-                      {badge.label}
-                    </span>
-                  )}
-                </div>
-
-                {/* Five dimension bars */}
-                <div className="mt-5 space-y-4">
-                  {dims.map((d) => {
-                    if (d.score == null) return null;
-                    const pct = Math.min(Math.round((d.score / 20) * 100), 100);
-                    return (
-                      <div key={d.label}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium text-text-secondary">{d.label}</span>
-                          <span className="text-xs font-semibold text-text tabular-nums">{d.score}/20</span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-gray-100">
-                          <div
-                            className="h-2 rounded-full bg-primary transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        {d.feedback && (
-                          <p className="mt-1 text-xs text-text/50">{d.feedback}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Text blocks */}
-                <div className="mt-5 space-y-4">
+              {/* Notes from the screening */}
+              {textBlocks.some((b) => b.value) && (
+                <div className="mt-5 space-y-4 border-t border-gray-100 pt-4">
                   {textBlocks.map((b) =>
                     b.value ? (
                       <div key={b.label}>
@@ -705,18 +650,18 @@ export default async function CandidateProfilePage({
                     ) : null
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center">
-                <svg className="mx-auto w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <p className="mt-2 text-xs text-text/50">Create a free account to view interview scorecard.</p>
-              </div>
-            )}
+              )}
+
+              {/* Provenance — always visible; phones have no hover */}
+              <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-text-tertiary">
+                Scores come from StaffVA&apos;s structured, monitored screening and are locked —
+                candidates can&apos;t edit them.
+              </p>
+            </div>
           </div>
         );
       })()}
+
 
       {/* ═══════════ MAIN CONTENT — 2/3 + 1/3 ═══════════ */}
       <div className="mx-auto max-w-5xl px-6 py-8">

@@ -204,7 +204,7 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
               {/* AI Assessment */}
               {data?.aiInterview && data.aiInterview.passed && (
                 <div>
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">AI Assessment Results</p>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">Screening Results</p>
                   <div className="space-y-2">
                     {[
                       { label: "Technical Knowledge", score: Math.round(data.aiInterview.technical_knowledge_score * 5) },
@@ -222,7 +222,7 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
                       </div>
                     ))}
                   </div>
-                  <p className="mt-2 text-[9px] text-gray-400 italic">These scores come from a real assessment. {firstName} completed a written English test and a full AI interview before appearing on this platform.</p>
+                  <p className="mt-2 text-[9px] text-gray-400 italic">These scores come from a real assessment. {firstName} completed a written English test and a structured skills interview before appearing on this platform.</p>
                 </div>
               )}
 

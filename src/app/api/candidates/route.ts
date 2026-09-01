@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { maskCandidateText } from "@/lib/contactMask";
 import { rolePatternsFor } from "@/lib/roleTaxonomy";
 
@@ -80,11 +81,30 @@ export async function GET(request: Request) {
   }
 
   // Merge AI interview data into candidates. This listing is the public
-  // browse surface, so free text goes out with contact details masked.
-  const enriched = (data || []).map((c: Record<string, unknown>) => ({
-    ...maskCandidateText(c),
-    ai_interview: aiInterviewMap[c.id as string] || null,
-  }));
+  // browse surface, so free text goes out with contact details masked —
+  // and scorecard numbers only reach signed-in viewers, matching the
+  // profile page's gate (the tier badge stays public; it's marketing).
+  let signedIn = false;
+  try {
+    const authClient = await createServerClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    signedIn = !!user;
+  } catch {
+    /* anonymous */
+  }
+
+  const enriched = (data || []).map((c: Record<string, unknown>) => {
+    const masked = maskCandidateText(c) as Record<string, unknown>;
+    if (!signedIn) {
+      masked.english_mc_score = null;
+      masked.english_comprehension_score = null;
+      masked.english_percentile = null;
+    }
+    return {
+      ...masked,
+      ai_interview: signedIn ? aiInterviewMap[c.id as string] || null : null,
+    };
+  });
 
   return NextResponse.json({
     candidates: enriched,

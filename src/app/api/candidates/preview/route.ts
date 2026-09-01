@@ -54,9 +54,11 @@ export async function GET(req: NextRequest) {
 
     // Check relationship with authenticated client
     let relationship = "none"; // none | messaged | engaged
+    let signedIn = false;
     try {
       const supabase = await createServerClient();
       const { data: { user } } = await supabase.auth.getUser();
+      signedIn = !!user;
       if (user?.app_metadata?.role === "client") {
         const { data: client } = await admin.from("clients").select("id").eq("user_id", user.id).single();
         if (client) {
@@ -86,7 +88,9 @@ export async function GET(req: NextRequest) {
       // The browse preview is a client/anonymous surface — free text goes
       // out with contact details masked.
       candidate: maskCandidateText(candidate),
-      aiInterview: aiInterview || null,
+      // The scorecard is sign-up-gated for real: anonymous callers get no
+      // numbers, matching what the profile page now shows them.
+      aiInterview: signedIn ? aiInterview || null : null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       review: review ? { ...review, clientName: (review.clients as any)?.full_name || null } : null,
       reviewCount: reviewCount || 0,
