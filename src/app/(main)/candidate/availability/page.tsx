@@ -52,6 +52,7 @@ export default function AvailabilityPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const hasInvalidWindow = days.some((wins) => wins.some((w) => w.start >= w.end));
   const [slotCount, setSlotCount] = useState<number | null>(null);
 
   async function refreshSlotCount(id: string) {
@@ -127,20 +128,22 @@ export default function AvailabilityPage() {
   }
 
   async function save() {
-    if (!candidateId || saving) return;
+    if (!candidateId || saving || hasInvalidWindow) return;
     setSaving(true);
     setSaveError("");
     const supabase = createClient();
 
+    // No silent filtering: save is blocked while any window is invalid, so
+    // what the candidate sees on screen is exactly what gets published — a
+    // dropped window meant someone believed they were bookable when nothing
+    // was saved.
     const rows = days.flatMap((wins, weekday) =>
-      wins
-        .filter((w) => w.start < w.end)
-        .map((w) => ({
-          candidate_id: candidateId,
-          weekday,
-          start_minute: w.start,
-          end_minute: w.end,
-        }))
+      wins.map((w) => ({
+        candidate_id: candidateId,
+        weekday,
+        start_minute: w.start,
+        end_minute: w.end,
+      }))
     );
 
     const { error: delError } = await supabase
@@ -336,10 +339,13 @@ export default function AvailabilityPage() {
                   : "No hours listed — clients cannot book you."}
           </p>
           <div className="flex items-center gap-3">
+            {hasInvalidWindow && (
+              <span className="text-xs text-red-600">Fix the highlighted window to save</span>
+            )}
             {saveError && <span className="text-xs text-red-600">{saveError}</span>}
             <button
               onClick={save}
-              disabled={!dirty || saving}
+              disabled={!dirty || saving || hasInvalidWindow}
               className="rounded-full bg-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save hours"}

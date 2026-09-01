@@ -321,10 +321,22 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
                 <p className="text-[11px] text-text-tertiary">{c.country}</p>
               </div>
 
-              {/* Action buttons */}
-              <Link href={`/inbox?candidate=${c.id}`} className="block w-full rounded-lg bg-[#FE6E3E] py-3 text-center text-sm font-semibold text-white">
-                {data?.relationship === "messaged" ? "Continue Conversation" : data?.relationship === "engaged" ? "Hire Again" : "Start a Conversation"}
-              </Link>
+              {/* Action buttons — "Hire Again" is a transaction, not a chat:
+                  it goes to the offer flow like desktop, with Message second. */}
+              {data?.relationship === "engaged" ? (
+                <div className="space-y-2">
+                  <Link href={`/hire/${c.id}/offer`} className="block w-full rounded-lg bg-[#FE6E3E] py-3 text-center text-sm font-semibold text-white">
+                    Hire Again
+                  </Link>
+                  <Link href={`/inbox?candidate=${c.id}`} className="block w-full rounded-lg border border-gray-200 py-2.5 text-center text-sm font-medium text-text-secondary">
+                    Message
+                  </Link>
+                </div>
+              ) : (
+                <Link href={`/inbox?candidate=${c.id}`} className="block w-full rounded-lg bg-[#FE6E3E] py-3 text-center text-sm font-semibold text-white">
+                  {data?.relationship === "messaged" ? "Continue Conversation" : "Start a Conversation"}
+                </Link>
+              )}
 
               {/* Trust signals */}
               <div className="flex items-center gap-1.5 text-xs">

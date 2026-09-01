@@ -80,6 +80,8 @@ export default function InterviewScheduler({
   const [error, setError] = useState("");
   const [existing, setExisting] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [justBooked, setJustBooked] = useState(false);
 
   const vz = useMemo(() => viewerZone(), []);
@@ -87,7 +89,17 @@ export default function InterviewScheduler({
 
   const loadSlots = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.rpc("candidate_open_slots", { p_candidate_id: candidateId });
+    const { data, error: rpcError } = await supabase.rpc("candidate_open_slots", {
+      p_candidate_id: candidateId,
+    });
+    // An RPC failure must not masquerade as "no availability" — that
+    // sentence blames the candidate for our outage.
+    if (rpcError) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     const list: string[] = Array.isArray(data)
       ? data.map((r: { starts_at: string }) => r.starts_at).sort()
       : [];
@@ -157,10 +169,14 @@ export default function InterviewScheduler({
     });
     setCancelling(false);
     if (res.ok) {
+      setCancelError("");
       setExisting(null);
       setJustBooked(false);
       setSelectedSlot(null);
       loadSlots();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setCancelError(data.error || "Couldn't cancel — try again.");
     }
   }
 
@@ -200,6 +216,7 @@ export default function InterviewScheduler({
             {cancelling ? "Cancelling…" : "Cancel"}
           </button>
         </div>
+        {cancelError && <p className="mt-2 text-xs text-red-600">{cancelError}</p>}
       </div>
     );
   }
@@ -210,6 +227,25 @@ export default function InterviewScheduler({
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h3 className="text-sm font-semibold text-text">Book an interview</h3>
         <p className="mt-2 text-xs text-text-tertiary">Checking the calendar…</p>
+      </div>
+    );
+  }
+  if (loadFailed) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-text">Book an interview</h3>
+        <p className="mt-2 text-xs leading-relaxed text-text-tertiary">
+          We couldn&apos;t load the calendar — that&apos;s on us, not {candidateFirstName}.
+        </p>
+        <button
+          onClick={() => {
+            setLoading(true);
+            loadSlots();
+          }}
+          className="mt-3 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-gray-400"
+        >
+          Try again
+        </button>
       </div>
     );
   }
