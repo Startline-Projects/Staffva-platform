@@ -52,6 +52,21 @@ export default function ProctorGate({ sessionKind, children }: Props) {
     });
   }, []);
 
+  // (Re)wire the stream to whatever video elements this phase just
+  // mounted. Assigning srcObject before the element exists left the
+  // camera-check preview black and — worse — the live thumbnail the
+  // frame-grabber reads from, so zero review frames ever uploaded and
+  // every clean session flagged as "no footage".
+  useEffect(() => {
+    if (!streamRef.current) return;
+    if (previewRef.current && previewRef.current.srcObject !== streamRef.current) {
+      previewRef.current.srcObject = streamRef.current;
+    }
+    if (thumbRef.current && thumbRef.current.srcObject !== streamRef.current) {
+      thumbRef.current.srcObject = streamRef.current;
+    }
+  }, [phase]);
+
   // End the session exactly once — on unmount (test submitted, step moved
   // on) or on page close.
   useEffect(() => {
