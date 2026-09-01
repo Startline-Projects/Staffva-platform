@@ -35,7 +35,7 @@ const MAX_REVIEW_PER_RUN = 4;
 const MAX_FRAMES_TO_MODEL = 36;
 const ABANDONED_AFTER_MS = 2 * 60 * 60 * 1000;
 
-const RUBRIC = `You are reviewing webcam frames from a PROCTORED online assessment (an English test for a staffing marketplace), in chronological order, plus a summary of browser integrity events. Judge as a fair human proctor would.
+const RUBRIC = `You are reviewing webcam frames from a PROCTORED online assessment for a staffing marketplace — either a written English test or a SPOKEN skills interview (in interviews the candidate talks aloud to an AI interviewer the whole time; speaking, gesturing and glancing while thinking are normal). Frames are in chronological order, with a summary of browser integrity events. Judge as a fair human proctor would.
 
 Flag as suspicious ONLY clear signs of cheating behavior:
 - a different person appearing to take over, or a second person interacting with the screen/candidate
