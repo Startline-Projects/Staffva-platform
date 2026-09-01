@@ -34,6 +34,7 @@ interface Detail {
   candidateId: string | null;
   happened: boolean;
   myConsentAt: string | null;
+  pendingOffer: { id: string; status: string } | null;
   serverNow: string;
 }
 
@@ -202,7 +203,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  const { booking, viewerRole, counterpart, candidatePath, candidateId, myConsentAt, happened } = detail;
+  const { booking, viewerRole, counterpart, candidatePath, candidateId, myConsentAt, happened, pendingOffer } = detail;
   const who = counterpart.company ? `${counterpart.name} · ${counterpart.company}` : counterpart.name;
   const firstName = counterpart.name.split(" ")[0];
   const isBooked = booking.status === "booked";
@@ -325,29 +326,47 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
           {/* ── Wrapped up: the moment the whole funnel exists for ── */}
           {wrapped &&
             (viewerRole === "client" ? (
-              <div>
-                <h2 className="text-sm font-semibold text-text">How did it go?</h2>
-                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                  If {firstName} is the one, send the offer right here — contract, onboarding and
-                  payment all run through StaffVA, so you&apos;re covered from day one.
-                </p>
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  {candidateId && (
-                    <Link
-                      href={`/hire/${candidateId}/offer`}
-                      className="rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary/90"
-                    >
-                      Send {firstName} an offer
-                    </Link>
-                  )}
+              pendingOffer ? (
+                <div>
+                  <h2 className="text-sm font-semibold text-text">Offer sent ✓</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                    Your offer is with {firstName} —{" "}
+                    {pendingOffer.status === "viewed"
+                      ? "they've seen it and are deciding."
+                      : "you'll be emailed the moment they respond."}
+                  </p>
                   <Link
-                    href="/browse"
-                    className="rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-text-secondary hover:border-gray-400"
+                    href="/team#offers"
+                    className="mt-4 inline-block rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-text-secondary hover:border-gray-400"
                   >
-                    Keep browsing
+                    View offer status
                   </Link>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <h2 className="text-sm font-semibold text-text">How did it go?</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                    If {firstName} is the one, send the offer right here — contract, onboarding and
+                    payment all run through StaffVA, so you&apos;re covered from day one.
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    {candidateId && (
+                      <Link
+                        href={`/hire/${candidateId}/offer`}
+                        className="rounded-lg bg-primary px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary/90"
+                      >
+                        Send {firstName} an offer
+                      </Link>
+                    )}
+                    <Link
+                      href="/browse"
+                      className="rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-text-secondary hover:border-gray-400"
+                    >
+                      Keep browsing
+                    </Link>
+                  </div>
+                </div>
+              )
             ) : (
               <div>
                 <p className="text-sm font-medium text-text">Interview complete — nice work.</p>

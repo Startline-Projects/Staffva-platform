@@ -51,6 +51,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           tz: null as string | null,
         };
 
+  // The wrap-up card must not offer "Send an offer" twice: tell the client
+  // viewer about a live offer to this candidate, if one exists.
+  let pendingOffer: { id: string; status: string } | null = null;
+  if (viewerRole === "client") {
+    const { data: po } = await admin
+      .from("engagement_offers")
+      .select("id, status")
+      .eq("client_id", b.client_id)
+      .eq("candidate_id", b.candidate_id)
+      .in("status", ["sent", "viewed"])
+      .limit(1)
+      .maybeSingle();
+    pendingOffer = po || null;
+  }
+
   return NextResponse.json({
     booking: {
       id: b.id,
@@ -64,6 +79,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     candidatePath: viewerRole === "client" ? `/candidate/${b.candidate_id}` : null,
     candidateId: viewerRole === "client" ? b.candidate_id : null,
     myConsentAt: viewerRole === "client" ? b.client_consented_at : b.candidate_consented_at,
+    pendingOffer,
     // Evidence the interview actually took place: someone opened the room,
     // and the pipeline hasn't ruled out a recording. Gates the wrap-up so a
     // no-show is never congratulated on an interview that didn't happen.

@@ -69,7 +69,7 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
         body: JSON.stringify({ action: "send_offer", candidateId, hourlyRate, hoursPerWeek, contractLength, startDate, signingBonus: signingBonus ? Number(signingBonus) : null, personalMessage }),
       });
       const d = await res.json();
-      if (d.offer) { router.push("/team"); }
+      if (d.offer) { router.push("/team#offers"); }
       else { setError(d.error || "Failed to send offer"); }
     } catch { setError("Something went wrong."); }
     setSending(false);

@@ -90,6 +90,30 @@ interface Engagement {
   } | null;
 }
 
+interface OfferRow {
+  id: string;
+  status: string;
+  hourly_rate: number;
+  hours_per_week: number;
+  contract_length: string;
+  sent_at: string | null;
+  responded_at: string | null;
+  candidates: {
+    display_name: string | null;
+    full_name: string | null;
+    role_category: string | null;
+    profile_photo_url: string | null;
+  } | null;
+}
+
+const OFFER_LABELS: Record<string, { label: string; color: string }> = {
+  sent: { label: "Awaiting response", color: "bg-amber-100 text-amber-700" },
+  viewed: { label: "Viewed", color: "bg-blue-100 text-blue-700" },
+  accepted: { label: "Accepted", color: "bg-green-100 text-green-700" },
+  declined: { label: "Declined", color: "bg-gray-100 text-gray-600" },
+  expired: { label: "Expired", color: "bg-gray-100 text-gray-500" },
+};
+
 interface DashboardStats {
   activeHires: number;
   candidatesContacted: number;
@@ -152,11 +176,23 @@ export default function TeamPortalPage() {
   const [topMatches, setTopMatches] = useState<TopMatch[]>([]);
   const [chartRange, setChartRange] = useState<"3M" | "6M" | "All">("6M");
   const [showPastEngagements, setShowPastEngagements] = useState(false);
+  const [offers, setOffers] = useState<OfferRow[]>([]);
 
   useEffect(() => {
     loadEngagements();
     loadDashboard();
+    loadOffers();
   }, []);
+
+  async function loadOffers() {
+    try {
+      const res = await fetch("/api/offers");
+      const data = await res.json();
+      if (res.ok) setOffers(data.offers || []);
+    } catch {
+      /* the section simply doesn't render */
+    }
+  }
 
   async function loadEngagements() {
     const res = await fetch("/api/engagements/list");
@@ -472,6 +508,46 @@ export default function TeamPortalPage() {
                   >
                     View
                   </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ OFFERS ═══ */}
+      {offers.length > 0 && (
+        <div className="mt-6" id="offers">
+          <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+            Offers ({offers.length})
+          </h2>
+          <div className="mt-4 space-y-2">
+            {offers.map((o) => (
+              <div
+                key={o.id}
+                className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text">
+                    {o.candidates?.display_name || o.candidates?.full_name || "Candidate"}
+                    <span className="ml-2 font-normal text-text/50">
+                      {o.candidates?.role_category}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-text/60">
+                    ${Number(o.hourly_rate)}/hr · {o.hours_per_week} hrs/week · {o.contract_length}
+                    {o.sent_at && ` · sent ${new Date(o.sent_at).toLocaleDateString()}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${OFFER_LABELS[o.status]?.color || "bg-gray-100 text-gray-600"}`}
+                  >
+                    {OFFER_LABELS[o.status]?.label || o.status}
+                  </span>
+                  {o.status === "accepted" && (
+                    <span className="text-xs text-text/50">contract in progress below</span>
+                  )}
                 </div>
               </div>
             ))}
