@@ -83,6 +83,7 @@ export async function POST(request: Request) {
 
     let amountUsd: number;
     let description: string;
+    let existingIntentId: string | null = null;
 
     if (periodId) {
       // Ongoing contract — fund a payment period
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Period already funded" }, { status: 400 });
       }
 
+      existingIntentId = period.stripe_payment_intent_id || null;
       amountUsd = Number(engagement.client_total_usd);
       description = `StaffVA — Period ${period.period_start} to ${period.period_end}`;
     } else {
@@ -123,14 +125,41 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Milestone not in pending state" }, { status: 400 });
       }
 
+      existingIntentId = milestone.stripe_payment_intent_id || null;
       // Milestone amount + 10% fee
       const fee = Number(milestone.amount_usd) * 0.1;
       amountUsd = Number(milestone.amount_usd) + fee;
       description = `StaffVA — Milestone: ${milestone.title}`;
     }
 
-    // Create Stripe PaymentIntent (immediate capture — funds held in platform account)
     const amountCents = Math.round(amountUsd * 100);
+
+    // ONE PaymentIntent per fundable row, ever. Two tabs, a closed-and-
+    // reopened modal, or a click during the webhook window must all land on
+    // the same intent — Stripe guarantees a single intent can only succeed
+    // once, which is the double-charge protection no funded_at check can
+    // give (funded_at is written asynchronously by the webhook).
+    if (existingIntentId) {
+      try {
+        const existing = await getStripe().paymentIntents.retrieve(existingIntentId);
+        if (existing.status === "succeeded" || existing.status === "processing") {
+          return NextResponse.json(
+            { error: "This payment was already made (or is settling) — nothing more to pay." },
+            { status: 409 }
+          );
+        }
+        if (existing.status !== "canceled") {
+          return NextResponse.json({
+            clientSecret: existing.client_secret,
+            paymentIntentId: existing.id,
+            amountUsd,
+          });
+        }
+        // canceled → fall through and mint a fresh intent
+      } catch {
+        // Unretrievable id (deleted test-mode data, wrong account) — mint anew.
+      }
+    }
 
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: amountCents,
@@ -146,6 +175,19 @@ export async function POST(request: Request) {
       },
       automatic_payment_methods: { enabled: true },
     });
+
+    // Persist the intent id BEFORE handing out the client secret; if the
+    // write fails, cancel the intent rather than leave an unrecorded one
+    // that a reopened modal could double-pay against.
+    const table = periodId ? "payment_periods" : "milestones";
+    const { error: recordError } = await admin
+      .from(table)
+      .update({ stripe_payment_intent_id: paymentIntent.id })
+      .eq("id", (periodId || milestoneId) as string);
+    if (recordError) {
+      await getStripe().paymentIntents.cancel(paymentIntent.id).catch(() => {});
+      return NextResponse.json({ error: "Failed to create payment" }, { status: 500 });
+    }
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EscrowStatusPanel from "@/components/EscrowStatusPanel";
 import ContractReviewModal from "@/components/ContractReviewModal";
+import EscrowPaymentModal from "@/components/escrow/EscrowPaymentModal";
 import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
 import {
   ResponsiveContainer,
@@ -124,6 +125,22 @@ export default function TeamPortalPage() {
   const [clientId, setClientId] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [payModal, setPayModal] = useState<{
+    engagementId: string;
+    periodId?: string;
+    milestoneId?: string;
+    title: string;
+  } | null>(null);
+  const [fundingInFlight, setFundingInFlight] = useState<Set<string>>(new Set());
+  const [returnBanner, setReturnBanner] = useState<"succeeded" | "processing" | "failed" | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Never leave the poll running after navigation.
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
   const [showContract, setShowContract] = useState(false);
   const [activeContractId, setActiveContractId] = useState("");
   const [activeContractHtml, setActiveContractHtml] = useState("");
@@ -165,15 +182,68 @@ export default function TeamPortalPage() {
 
   // ═══ ENGAGEMENT ACTIONS ═══
 
-  async function handleFundPeriod(engagementId: string) {
-    setActionLoading(engagementId);
-    await fetch("/api/engagements/periods", {
+  // Fund the CURRENT period if it's awaiting payment; otherwise create the
+  // next period and fund that. Either way the money moves through the
+  // payment modal — creating a row was never funding anything.
+  async function handleFundPeriod(eng: Engagement) {
+    if (eng.latest_period && eng.latest_period.status === "pending") {
+      setPayModal({
+        engagementId: eng.id,
+        periodId: eng.latest_period.id,
+        title: `Fund this period — ${eng.candidate?.display_name || "your hire"}`,
+      });
+      return;
+    }
+    setActionLoading(eng.id);
+    const res = await fetch("/api/engagements/periods", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ engagementId }),
+      body: JSON.stringify({ engagementId: eng.id }),
     });
-    await loadEngagements();
+    const data = await res.json().catch(() => ({}));
     setActionLoading(null);
+    // 409 hands back the still-unfunded current period — fund that one.
+    const period = data.period;
+    if (period?.id) {
+      await loadEngagements();
+      setPayModal({
+        engagementId: eng.id,
+        periodId: period.id,
+        title: `Fund this period — ${eng.candidate?.display_name || "your hire"}`,
+      });
+    } else {
+      alert(data.error || "Couldn't prepare the period — try again.");
+    }
+  }
+
+  function handleFundMilestone(eng: Engagement, ms: Engagement["milestones"][number]) {
+    setPayModal({
+      engagementId: eng.id,
+      milestoneId: ms.id,
+      title: `Fund milestone — ${ms.title}`,
+    });
+  }
+
+  // The webhook does the bookkeeping. Mark the paid row as in flight (its
+  // Fund button flips to "Payment processing…" until the status changes)
+  // and poll until the webhook lands — bounded, and cleaned up on unmount.
+  function handlePaid() {
+    const id = payModal?.periodId || payModal?.milestoneId;
+    if (id) setFundingInFlight((prev) => new Set(prev).add(id));
+    startPolling();
+  }
+
+  function startPolling() {
+    if (pollRef.current) return;
+    let ticks = 0;
+    pollRef.current = setInterval(() => {
+      ticks++;
+      loadEngagements();
+      if (ticks >= 40 && pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }, 3000);
   }
 
   async function handleRelease(engagementId: string) {
@@ -245,6 +315,42 @@ export default function TeamPortalPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
+      {/* A redirect-based payment (bank, wallet) returns here with Stripe's
+          outcome in the URL — read it, say what happened, start the poll. */}
+      <Suspense fallback={null}>
+        <StripeReturnReader
+          onReturn={(status) => {
+            setReturnBanner(status);
+            if (status !== "failed") startPolling();
+          }}
+        />
+      </Suspense>
+      {returnBanner && (
+        <div
+          className={`mb-6 flex items-start justify-between rounded-lg border p-4 text-sm ${
+            returnBanner === "failed"
+              ? "border-red-200 bg-red-50 text-red-800"
+              : "border-green-200 bg-green-50 text-green-800"
+          }`}
+        >
+          <p>
+            {returnBanner === "succeeded" &&
+              "Payment received — your escrow is updating and the period below flips to Funded in a moment."}
+            {returnBanner === "processing" &&
+              "Payment initiated — bank payments take a few business days to settle. Don't pay again; this payment is tracked."}
+            {returnBanner === "failed" &&
+              "The payment didn't go through — nothing was charged. You can try again below."}
+          </p>
+          <button
+            onClick={() => setReturnBanner(null)}
+            aria-label="Dismiss"
+            className="ml-4 shrink-0 opacity-60 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ═══ HEADER ═══ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -466,16 +572,31 @@ export default function TeamPortalPage() {
                   </div>
                 )}
 
-                {/* Ongoing: fund next period button */}
+                {/* Ongoing: fund the pending period, or start the next one */}
                 {eng.contract_type === "ongoing" && (
                   <div className="mt-4">
-                    <button
-                      onClick={() => handleFundPeriod(eng.id)}
-                      disabled={actionLoading === eng.id}
-                      className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
-                    >
-                      {actionLoading === eng.id ? "Creating..." : "Fund Next Period"}
-                    </button>
+                    {eng.latest_period &&
+                    eng.latest_period.status === "pending" &&
+                    fundingInFlight.has(eng.latest_period.id) ? (
+                      <button
+                        disabled
+                        className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-text-secondary"
+                      >
+                        Payment processing…
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleFundPeriod(eng)}
+                        disabled={actionLoading === eng.id}
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading === eng.id
+                          ? "Preparing…"
+                          : eng.latest_period?.status === "pending"
+                            ? "Fund This Period"
+                            : "Fund Next Period"}
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -497,6 +618,19 @@ export default function TeamPortalPage() {
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${MILESTONE_LABELS[ms.status]?.color || "bg-gray-100"}`}>
                               {MILESTONE_LABELS[ms.status]?.label || ms.status}
                             </span>
+                            {ms.status === "pending" &&
+                              (fundingInFlight.has(ms.id) ? (
+                                <span className="rounded bg-gray-200 px-3 py-1 text-xs font-semibold text-text-secondary">
+                                  Payment processing…
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleFundMilestone(eng, ms)}
+                                  className="rounded bg-primary px-3 py-1 text-xs font-semibold text-white hover:bg-primary/90"
+                                >
+                                  Fund
+                                </button>
+                              ))}
                             {ms.status === "candidate_marked_complete" && (
                               <button
                                 onClick={() => handleApproveMilestone(ms.id)}
@@ -640,11 +774,47 @@ export default function TeamPortalPage() {
           onClose={() => setShowContract(false)}
         />
       )}
+
+      {payModal && (
+        <EscrowPaymentModal
+          engagementId={payModal.engagementId}
+          periodId={payModal.periodId}
+          milestoneId={payModal.milestoneId}
+          title={payModal.title}
+          onClose={() => setPayModal(null)}
+          onPaid={handlePaid}
+        />
+      )}
     </div>
   );
 }
 
 // ═══ SUB-COMPONENTS ═══
+
+function StripeReturnReader({
+  onReturn,
+}: {
+  onReturn: (status: "succeeded" | "processing" | "failed") => void;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const reported = useRef(false);
+
+  useEffect(() => {
+    const status = searchParams.get("redirect_status");
+    if (!status || reported.current) return;
+    reported.current = true;
+    // Deferred so the parent's setState never runs synchronously inside an
+    // effect, and the Stripe params don't survive into history.
+    const t = setTimeout(() => {
+      onReturn(status === "succeeded" ? "succeeded" : status === "processing" ? "processing" : "failed");
+      router.replace("/team", { scroll: false });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [searchParams, onReturn, router]);
+
+  return null;
+}
 
 function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (

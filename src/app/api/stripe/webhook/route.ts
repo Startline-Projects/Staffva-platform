@@ -346,7 +346,7 @@ export async function POST(request: Request) {
           ? new Date(new Date(period.period_end).getTime() + 48 * 60 * 60 * 1000).toISOString()
           : null;
 
-        await supabase
+        const { data: fundedRows } = await supabase
           .from("payment_periods")
           .update({
             status: "funded",
@@ -358,17 +358,75 @@ export async function POST(request: Request) {
           // redelivered event (or a reconcile pass) would rewrite an already
           // RELEASED period back to 'funded', re-arming the release path — a
           // second Stripe transfer and a second earnings increment.
-          .is("funded_at", null);
+          .is("funded_at", null)
+          .select("id");
+
+        // A successful charge that funded nothing is money with no escrow
+        // row behind it — a DIFFERENT intent already funded this period
+        // (two tabs, a legacy pre-tracking intent). Refund it and shout;
+        // never keep it silently.
+        if (!fundedRows?.length) {
+          const { data: row } = await supabase
+            .from("payment_periods")
+            .select("stripe_payment_intent_id, funded_at")
+            .eq("id", periodId)
+            .single();
+          if (row?.funded_at && row.stripe_payment_intent_id !== pi.id) {
+            console.error(
+              `[StaffVA] MANUAL REVIEW: duplicate escrow charge ${pi.id} for period ${periodId} — issuing refund`
+            );
+            try {
+              await getStripe().refunds.create({ payment_intent: pi.id });
+            } catch (refundErr) {
+              console.error(`[StaffVA] MANUAL REVIEW: refund of ${pi.id} FAILED:`, refundErr);
+            }
+            await supabase.from("vendor_failures").insert({
+              app: "platform",
+              vendor: "stripe",
+              operation: "escrow.duplicate_charge",
+              fatal: true,
+              message: `PaymentIntent ${pi.id} succeeded for period ${periodId} that was already funded by ${row.stripe_payment_intent_id} — automatic refund attempted; verify in Stripe.`,
+              context: { periodId, paymentIntentId: pi.id },
+            });
+          }
+        }
       }
 
       if (milestoneId) {
-        await supabase
+        const { data: fundedMs } = await supabase
           .from("milestones")
           .update({ status: "funded", funded_at: now })
           .eq("id", milestoneId)
           // Only a pending milestone may transition to funded — never a
           // released/completed one.
-          .eq("status", "pending");
+          .eq("status", "pending")
+          .select("id");
+
+        if (!fundedMs?.length) {
+          const { data: msRow } = await supabase
+            .from("milestones")
+            .select("stripe_payment_intent_id, status")
+            .eq("id", milestoneId)
+            .single();
+          if (msRow && msRow.status !== "pending" && msRow.stripe_payment_intent_id !== pi.id) {
+            console.error(
+              `[StaffVA] MANUAL REVIEW: duplicate escrow charge ${pi.id} for milestone ${milestoneId} — issuing refund`
+            );
+            try {
+              await getStripe().refunds.create({ payment_intent: pi.id });
+            } catch (refundErr) {
+              console.error(`[StaffVA] MANUAL REVIEW: refund of ${pi.id} FAILED:`, refundErr);
+            }
+            await supabase.from("vendor_failures").insert({
+              app: "platform",
+              vendor: "stripe",
+              operation: "escrow.duplicate_charge",
+              fatal: true,
+              message: `PaymentIntent ${pi.id} succeeded for milestone ${milestoneId} that was already ${msRow.status} (funded by ${msRow.stripe_payment_intent_id}) — automatic refund attempted; verify in Stripe.`,
+              context: { milestoneId, paymentIntentId: pi.id },
+            });
+          }
+        }
       }
 
       // Ensure engagement is active and lock is set

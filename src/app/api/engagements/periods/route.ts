@@ -57,6 +57,15 @@ export async function POST(request: Request) {
       .limit(1)
       .single();
 
+    // One unfunded period at a time: creating another while the current one
+    // awaits payment just stacks debt rows the client never asked for.
+    if (latestPeriod && !latestPeriod.funded_at) {
+      return NextResponse.json(
+        { error: "The current period hasn't been funded yet — fund it first.", period: latestPeriod },
+        { status: 409 }
+      );
+    }
+
     const periodStart = latestPeriod
       ? new Date(latestPeriod.period_end)
       : new Date();
@@ -88,6 +97,19 @@ export async function POST(request: Request) {
       .single();
 
     if (periodError) {
+      // unique_violation on (engagement_id, period_start): a concurrent
+      // request created the same period a moment ago — hand that one back
+      // instead of erroring, so the caller funds it rather than retrying.
+      if (periodError.code === "23505") {
+        const { data: existing } = await admin
+          .from("payment_periods")
+          .select("*")
+          .eq("engagement_id", engagementId)
+          .order("period_end", { ascending: false })
+          .limit(1)
+          .single();
+        return NextResponse.json({ period: existing }, { status: 200 });
+      }
       return NextResponse.json({ error: periodError.message }, { status: 500 });
     }
 
