@@ -19,6 +19,7 @@ import {
 // ═══ STATUS MAPS ═══
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Awaiting Funding", color: "bg-amber-100 text-amber-700" },
   funded: { label: "Funded — Period Active", color: "bg-green-100 text-green-700" },
   released: { label: "Released", color: "bg-gray-100 text-gray-600" },
   disputed: { label: "Dispute Filed", color: "bg-red-100 text-red-700" },

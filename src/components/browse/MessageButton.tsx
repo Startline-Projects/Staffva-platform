@@ -76,7 +76,7 @@ export default function MessageButton({
         Message
       </button>
       <button
-        onClick={() => router.push(`/hire/${candidateId}`)}
+        onClick={() => router.push(`/hire/${candidateId}/offer`)}
         className="flex-1 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors"
       >
         Hire {candidateName}

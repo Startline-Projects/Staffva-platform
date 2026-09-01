@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // Verify candidate is available
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, lock_status, admin_status")
+      .select("id, lock_status, admin_status, hourly_rate, display_name")
       .eq("id", candidateId)
       .single();
 
@@ -76,6 +76,26 @@ export async function POST(request: Request) {
 
     // Calculate fees
     const rate = Number(candidateRateUsd);
+
+    // Sanity floor on ongoing rates: the rate is per PERIOD (week/2wk/month),
+    // and a period rate below ~10 hours/week at the candidate's own hourly
+    // rate is almost certainly the hourly figure typed into the period field
+    // — the unit confusion that once offered $8.80/month for an $8/hr VA.
+    // Refuse it server-side so no UI mistake can create an underpaying
+    // engagement.
+    if (contractType === "ongoing") {
+      const hourly = Number(candidate.hourly_rate) || 0;
+      const floorHours: Record<string, number> = { weekly: 10, biweekly: 20, monthly: 40 };
+      const floor = hourly * (floorHours[paymentCycle] || 40);
+      if (hourly > 0 && rate < floor) {
+        return NextResponse.json(
+          {
+            error: `That rate looks too low for a ${paymentCycle} period — ${candidate.display_name || "this candidate"}'s listed rate is $${hourly}/hr, so a ${paymentCycle} period should be at least $${floor.toLocaleString()}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
     const platformFee = Math.round(rate * 0.1 * 100) / 100; // 10%
     const clientTotal = Math.round((rate + platformFee) * 100) / 100;
 
