@@ -17,6 +17,7 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
   const [signingBonus, setSigningBonus] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
   const [loadingMsg, setLoadingMsg] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [sending, setSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
@@ -28,17 +29,23 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
       if (data) {
         setCandidate(data);
         setHourlyRate(Number(data.hourly_rate));
+      } else {
+        // Stale link, delisted candidate, or a failed query — say so
+        // instead of spinning forever on the money page.
+        setLoadFailed(true);
+        return;
       }
       // Generate AI message
       setLoadingMsg(true);
       try {
         const res = await fetch("/api/offers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_message", candidateId }) });
         const d = await res.json();
-        if (d.message) setPersonalMessage(d.message);
+        // Never clobber a note the client already started typing.
+        if (d.message) setPersonalMessage((prev) => prev || d.message);
       } catch { /* silent */ }
       setLoadingMsg(false);
     }
-    load();
+    load().catch(() => setLoadFailed(true));
     setStartDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
   }, [candidateId]);
 
@@ -69,7 +76,25 @@ export default function BuildOfferPage({ params }: { params: Promise<{ candidate
     setShowConfirm(false);
   }
 
-  if (!candidate) return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (!candidate) {
+    if (loadFailed) {
+      return (
+        <div className="mx-auto max-w-md px-4 py-20 text-center">
+          <p className="text-base font-semibold text-text">We couldn&apos;t load this candidate</p>
+          <p className="mt-2 text-sm text-text-secondary">
+            The link may be out of date, or the profile is no longer available.
+          </p>
+          <button
+            onClick={() => router.push("/browse")}
+            className="mt-5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
+          >
+            Browse candidates
+          </button>
+        </div>
+      );
+    }
+    return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">

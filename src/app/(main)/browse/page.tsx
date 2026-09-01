@@ -88,6 +88,7 @@ function BrowseContent() {
   const [aiApplied, setAiApplied] = useState<string[]>([]);
   const [aiError, setAiError] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState(false);
   const [skillFilters, setSkillFilters] = useState<string[]>(() => {
     const s = searchParams.get("skills");
     return s ? s.split(",").map((x) => decodeURIComponent(x.trim())).filter(Boolean) : [];
@@ -118,14 +119,23 @@ function BrowseContent() {
     const newUrl = urlParams.toString() ? `/browse?${urlParams}` : "/browse";
     window.history.replaceState(null, "", newUrl);
 
-    const res = await fetch(`/api/candidates?${params}`);
-    const data = await res.json();
-
-    setCandidates(data.candidates || []);
-    setTotal(data.total || 0);
-    setTotalPages(data.totalPages || 1);
-    setSkillAggregation(data.skillAggregation || []);
-    setLoading(false);
+    // An outage must render as an outage — falling through to an empty list
+    // showed "No matches" during API failures, an outage dressed as an
+    // empty marketplace.
+    try {
+      setFetchError(false);
+      const res = await fetch(`/api/candidates?${params}`);
+      if (!res.ok) throw new Error(`candidates ${res.status}`);
+      const data = await res.json();
+      setCandidates(data.candidates || []);
+      setTotal(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      setSkillAggregation(data.skillAggregation || []);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [search, role, country, minRate, maxRate, availability, tier, usExperience, skillFilters, sort, page]);
 
   useEffect(() => {
@@ -638,6 +648,19 @@ function BrowseContent() {
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <CandidateCardSkeleton key={i} />
                 ))}
+              </div>
+            ) : fetchError ? (
+              <div className="flex flex-col items-center justify-center py-24">
+                <p className="text-lg font-semibold text-text">Couldn&apos;t load candidates</p>
+                <p className="mt-2 text-sm text-text-muted">
+                  Something went wrong on our side — your filters are fine.
+                </p>
+                <button
+                  onClick={() => fetchCandidates()}
+                  className="mt-6 rounded-full border border-border px-6 py-2.5 text-sm font-medium text-text hover:border-text transition-colors"
+                >
+                  Try again
+                </button>
               </div>
             ) : candidates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24">

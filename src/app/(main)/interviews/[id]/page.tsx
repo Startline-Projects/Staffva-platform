@@ -62,7 +62,8 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const router = useRouter();
   const [detail, setDetail] = useState<Detail | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "missing">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "missing" | "failed">("loading");
+  const [retryKey, setRetryKey] = useState(0);
   const [skewMs, setSkewMs] = useState(0);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -78,7 +79,11 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     async function run() {
       const res = await fetch(`/api/interviews/${id}`);
       if (!res.ok) {
-        setState("missing");
+        // 401/403/404 mean "not yours / signed out" — a server error does
+        // not, and telling someone their interview doesn't exist during an
+        // outage is the wrong sentence. This URL is where every
+        // confirmation email points; it must never strand a spinner either.
+        setState(res.status === 401 || res.status === 403 || res.status === 404 ? "missing" : "failed");
         return;
       }
       const data: Detail = await res.json();
@@ -86,8 +91,8 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
       setSkewMs(new Date(data.serverNow).getTime() - Date.now());
       setState("ready");
     }
-    run();
-  }, [id]);
+    run().catch(() => setState("failed"));
+  }, [id, retryKey]);
 
   // Keep the join window fresh without a reload; 15s is plenty for a
   // 15-minute-early door.
@@ -150,6 +155,28 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
       <div className="mx-auto max-w-lg px-4 py-16">
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-text-tertiary">
           Loading your interview…
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+          <h1 className="text-base font-semibold text-text">Couldn&apos;t load your interview</h1>
+          <p className="mt-2 text-sm text-text-tertiary">
+            Check your connection — your booking is safe.
+          </p>
+          <button
+            onClick={() => {
+              setState("loading");
+              setRetryKey((k) => k + 1);
+            }}
+            className="mt-4 inline-block rounded-lg bg-text px-4 py-2 text-sm font-semibold text-white"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );
