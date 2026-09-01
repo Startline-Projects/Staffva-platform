@@ -88,7 +88,13 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
           {/* Hire Staff — hidden from candidates */}
           {role !== "candidate" && (
             <div className="relative" onMouseEnter={() => handleMouseEnter("build-team")} onMouseLeave={handleMouseLeave}>
-              <button className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}>
+              <button
+                type="button"
+                aria-haspopup="true"
+                aria-expanded={activeDropdown === "build-team"}
+                onClick={() => setActiveDropdown(activeDropdown === "build-team" ? null : "build-team")}
+                className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}
+              >
                 Hire Staff
                 <svg className={`w-3.5 h-3.5 transition-transform ${activeDropdown === "build-team" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -146,7 +152,13 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
           {/* For Professionals — visible to logged-out visitors only */}
           {!isLoggedIn && (
             <div className="relative" onMouseEnter={() => handleMouseEnter("for-professionals")} onMouseLeave={handleMouseLeave}>
-              <button className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}>
+              <button
+                type="button"
+                aria-haspopup="true"
+                aria-expanded={activeDropdown === "for-professionals"}
+                onClick={() => setActiveDropdown(activeDropdown === "for-professionals" ? null : "for-professionals")}
+                className={`flex items-center gap-1 px-3.5 py-1.5 text-[14px] font-medium transition-colors ${textColor}`}
+              >
                 For Professionals
                 <svg className={`w-3.5 h-3.5 transition-transform ${activeDropdown === "for-professionals" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -228,6 +240,8 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
         {/* Mobile hamburger */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
           className={`lg:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white hover:bg-white/10" : "text-text hover:bg-gray-100"}`}
         >
           {mobileOpen ? (

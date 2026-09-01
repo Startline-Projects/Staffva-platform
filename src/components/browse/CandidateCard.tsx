@@ -41,6 +41,31 @@ function getAvailability(hours: number) {
   return "bg-gray-300";
 }
 
+function getAvailabilityLabel(hours: number) {
+  if (!hours || hours === 0) return "Available now";
+  if (hours < 40) return "Partially available";
+  return "Fully booked";
+}
+
+// The card body opens the preview panel. A div with onClick is mouse-only;
+// these make the same regions keyboard- and screen-reader-operable without
+// nesting interactive elements (the card contains real links and buttons,
+// so it can't simply become one big <button>).
+function cardClickProps(onActivate: (() => void) | undefined, label: string) {
+  return {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": label,
+    onClick: onActivate,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+        e.preventDefault();
+        onActivate?.();
+      }
+    },
+  };
+}
+
 export function getEarningsBucketLabel(amount: number | null | undefined): string | null {
   if (!amount || amount <= 0) return null;
   if (amount >= 100000) return "$100K+ earned";
@@ -61,6 +86,7 @@ interface Props {
 
 export default function CandidateCard({ candidate, isLoggedIn = false, onSkillClick, activeSkills = [], onCardClick }: Props) {
   const availDot = getAvailability(candidate.committed_hours || 0);
+  const availLabel = getAvailabilityLabel(candidate.committed_hours || 0);
   const skills = candidate.skills || [];
   const maxSkills = 6;
   const visibleSkills = skills.slice(0, maxSkills);
@@ -84,12 +110,20 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
                 </div>
               )}
             </div>
-            <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${availDot}`} />
+            <span
+              title={availLabel}
+              className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${availDot}`}
+            >
+              <span className="sr-only">{availLabel}</span>
+            </span>
           </div>
         </div>
 
         {/* Center — Info */}
-        <div onClick={() => onCardClick?.(candidate.id)} className="flex-1 min-w-0 cursor-pointer">
+        <div
+          {...cardClickProps(() => onCardClick?.(candidate.id), `Preview ${candidate.display_name}`)}
+          className="flex-1 min-w-0 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
           {/* Row 1: Name + tier */}
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
@@ -199,7 +233,10 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
       {/* ═══ MOBILE LAYOUT ═══ */}
       <div className="md:hidden p-4 space-y-2.5">
         {/* Row 1: Photo + Name */}
-        <div onClick={() => onCardClick?.(candidate.id)} className="flex items-center gap-3 cursor-pointer">
+        <div
+          {...cardClickProps(() => onCardClick?.(candidate.id), `Preview ${candidate.display_name}`)}
+          className="flex items-center gap-3 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
           <div className="relative shrink-0">
             <div className="h-11 w-11 overflow-hidden rounded-full bg-gray-100">
               {candidate.profile_photo_url ? (
@@ -208,7 +245,12 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
                 <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-text-tertiary">{candidate.display_name?.[0] || "?"}</div>
               )}
             </div>
-            <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${availDot}`} />
+            <span
+              title={availLabel}
+              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${availDot}`}
+            >
+              <span className="sr-only">{availLabel}</span>
+            </span>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">

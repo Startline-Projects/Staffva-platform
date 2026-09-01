@@ -2,8 +2,12 @@
 
 @theme {
   /* Brand */
-  --color-primary: #fe6e3e;
-  --color-primary-dark: #e55a2b;
+  /* The lightest oranges that keep white button text WCAG AA readable
+     (4.5:1). The old #fe6e3e measured 2.79:1 — every primary CTA on the
+     platform failed contrast. One-token revert if the brand ever wants
+     the brighter coral back for non-text accents. */
+  --color-primary: #d14719;
+  --color-primary-dark: #b84118;
 
   /* Surfaces */
   --color-background: #FAFAFA;
@@ -13,7 +17,7 @@
   /* Text */
   --color-text: #1c1b1a;
   --color-text-secondary: #5a5550;
-  --color-text-tertiary: #9a9590;
+  --color-text-tertiary: #75706a; /* was #9a9590 (2.97:1 on white — unreadable captions) */
   --color-text-muted: #666666;
 
   /* Borders */
