@@ -14,6 +14,9 @@ import { createClient } from "@/lib/supabase/client";
 const FLAGS: Record<string, string> = {
   Philippines: "🇵🇭", India: "🇮🇳", Egypt: "🇪🇬", Kenya: "🇰🇪", Nigeria: "🇳🇬",
   Pakistan: "🇵🇰", Colombia: "🇨🇴", Argentina: "🇦🇷", Mexico: "🇲🇽", Brazil: "🇧🇷",
+  Kuwait: "🇰🇼", Jordan: "🇯🇴", Morocco: "🇲🇦", Tunisia: "🇹🇳", Bangladesh: "🇧🇩",
+  Indonesia: "🇮🇩", Vietnam: "🇻🇳", "South Africa": "🇿🇦", Ghana: "🇬🇭", Peru: "🇵🇪",
+  Venezuela: "🇻🇪", Honduras: "🇭🇳", Guatemala: "🇬🇹", "El Salvador": "🇸🇻", Nicaragua: "🇳🇮",
 };
 
 const ROLE_CATEGORIES = [
