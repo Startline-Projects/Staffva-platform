@@ -2224,3 +2224,285 @@
   padding-bottom: 1px;
   text-decoration: none;
 }
+
+/* ── WhatsApp phone verification (step 6) — extracted from the Atlas
+   prototype's WHATSAPP PHONE VERIFICATION + PHONE INPUT sections. Rules
+   that already landed with the login/OTP extraction are not repeated. ── */
+.lp-auth .back-to-dash {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+  padding: 6px 10px 6px 6px;
+  margin: 0 0 16px -6px;
+  border-radius: var(--r-sm);
+  transition: color .15s ease, background .15s ease;
+}
+.lp-auth .back-to-dash:hover { color: var(--ink); background: var(--cream-deep); }
+.lp-auth .back-to-dash svg { transition: transform .15s ease; }
+.lp-auth .back-to-dash:hover svg { transform: translateX(-2px); }
+.lp-auth .wa-brand-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: var(--r-md);
+  background: #25D366;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.25);
+  position: relative;
+}
+.lp-auth .wa-brand-icon::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--r-md) + 3px);
+  border: 1.5px solid #25D366;
+  opacity: 0.25;
+}
+.lp-auth .wa-intro {
+  padding: 8px 0 0;
+}
+.lp-auth .wa-benefits {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 28px;
+  padding: 18px 20px;
+  background: var(--cream);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.lp-auth .wa-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.lp-auth .wa-benefits li svg {
+  flex-shrink: 0;
+  color: var(--success);
+  margin-top: 2px;
+}
+.lp-auth .wa-benefits strong { color: var(--ink); font-weight: 500; }
+.lp-auth .wa-install-banner {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line-soft);
+  font-size: 13px;
+  color: var(--ink-mute);
+  line-height: 1.5;
+}
+.lp-auth .wa-install-banner strong { color: var(--ink); font-weight: 500; }
+.lp-auth .wa-install-banner .install-links {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.lp-auth .wa-install-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  transition: border-color .15s ease, background .15s ease;
+}
+.lp-auth .wa-install-link:hover { border-color: var(--ink); background: var(--cream-deep); }
+.lp-auth .phone-input-row {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #FFFDF7;
+  transition: border-color .15s ease, box-shadow .15s ease;
+  overflow: visible;
+  position: relative;
+}
+.lp-auth .phone-input-row:hover:not(:focus-within) { border-color: #C4BCA9; }
+.lp-auth .phone-input-row:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(14, 14, 12, 0.08);
+}
+.lp-auth .phone-country-trigger:focus { outline: none; }
+.lp-auth .phone-country-trigger::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translateY(-70%) rotate(45deg);
+  border-right: 1.5px solid var(--ink-mute);
+  border-bottom: 1.5px solid var(--ink-mute);
+  transition: transform .2s ease;
+}
+.lp-auth .phone-country-trigger .dial-code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.lp-auth .phone-number-input {
+  border: 0;
+  background: transparent;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  min-width: 0;
+  width: 100%;
+  color: var(--ink);
+}
+.lp-auth .phone-number-input:focus { outline: none; }
+.lp-auth .phone-number-input::placeholder {
+  color: var(--ink-mute);
+  opacity: 0.6;
+  font-family: var(--font-body);
+  letter-spacing: normal;
+}
+.lp-auth .wa-otp-hint {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-mute);
+  margin-bottom: 24px;
+}
+.lp-auth .wa-otp-hint .phone-display {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  background: var(--cream-deep);
+  border-radius: 4px;
+  font-size: 0.94em;
+}
+.lp-auth .wa-otp-actions .dot-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.lp-auth .wa-otp-actions a,
+.lp-auth .wa-otp-actions button {
+  color: var(--ink);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
+  transition: border-color .15s ease;
+}
+.lp-auth .wa-otp-actions a:hover,
+.lp-auth .wa-otp-actions button:hover:not(:disabled) { border-bottom-color: var(--ink); }
+.lp-auth .wa-otp-actions button:disabled {
+  color: var(--ink-mute);
+  cursor: not-allowed;
+  border-bottom-color: transparent;
+}
+.lp-auth .attempts-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+.lp-auth .attempts-hint.warning { color: var(--amber); }
+.lp-auth .wa-lockout-body {
+  text-align: center;
+}
+.lp-auth .wa-notactive-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: rgba(232, 118, 58, 0.14);
+  color: var(--amber);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.lp-auth .phone-country-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 30px 13px 14px;
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  position: relative;
+  min-height: 48px;
+  font-family: inherit;
+  text-align: left;
+}
+.lp-auth .phone-country-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 30;
+  max-height: 340px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lp-auth .linklike {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 1px;
+  transition: border-color .15s ease;
+}
+.lp-auth .linklike:hover { border-bottom-color: var(--ink); }
+.lp-auth .country-empty {
+  padding: 14px;
+  font-size: 13px;
+  color: var(--ink-mute);
+  text-align: center;
+}
+.lp-auth .wa-otp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--ink-mute);
+  flex-wrap: wrap;
+}
+.lp-auth .state-back:disabled { opacity: 0.5; cursor: not-allowed; }

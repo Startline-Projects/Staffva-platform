@@ -100,3 +100,23 @@ export const COUNTRIES: Country[] = [
   { code: "ZM", name: "Zambia", flag: "🇿🇲" },
   { code: "ZW", name: "Zimbabwe", flag: "🇿🇼" },
 ];
+
+/** Dial codes by ISO code — same 93 countries, from the Atlas prototype's
+ * phone verification view. Kept as a lookup rather than widening Country so
+ * the signup picker (which never shows dial codes) stays untouched. */
+export const DIAL_CODES: Record<string, string> = {
+  AR: "+54", AU: "+61", AT: "+43", BD: "+880", BE: "+32", BO: "+591", BA: "+387",
+  BR: "+55", BG: "+359", KH: "+855", CM: "+237", CA: "+1", CL: "+56", CN: "+86",
+  CO: "+57", CR: "+506", HR: "+385", CZ: "+420", DK: "+45", DO: "+1", EC: "+593",
+  EG: "+20", SV: "+503", EE: "+372", ET: "+251", FI: "+358", FR: "+33", GE: "+995",
+  DE: "+49", GH: "+233", GR: "+30", GT: "+502", HN: "+504", HK: "+852", HU: "+36",
+  IS: "+354", IN: "+91", ID: "+62", IE: "+353", IL: "+972", IT: "+39", JM: "+1",
+  JP: "+81", JO: "+962", KE: "+254", LV: "+371", LB: "+961", LT: "+370", MY: "+60",
+  MT: "+356", MX: "+52", MD: "+373", MA: "+212", NP: "+977", NL: "+31", NZ: "+64",
+  NI: "+505", NG: "+234", NO: "+47", PK: "+92", PA: "+507", PY: "+595", PE: "+51",
+  PH: "+63", PL: "+48", PT: "+351", PR: "+1", RO: "+40", RS: "+381", SG: "+65",
+  SK: "+421", SI: "+386", ZA: "+27", KR: "+82", ES: "+34", LK: "+94", SE: "+46",
+  CH: "+41", TW: "+886", TZ: "+255", TH: "+66", TN: "+216", TR: "+90", UG: "+256",
+  UA: "+380", AE: "+971", GB: "+44", US: "+1", UY: "+598", VE: "+58", VN: "+84",
+  ZM: "+260", ZW: "+263",
+};

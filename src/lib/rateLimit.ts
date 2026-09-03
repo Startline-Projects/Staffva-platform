@@ -72,6 +72,27 @@ export const LIMITS = {
   // Prep-brief generation: one model call per booking (cached after), so
   // this only bounds pathological cache-miss hammering.
   interviewBrief: { limit: 20, windowSeconds: 3600 },
+
+  // ── Twilio Verify (step 6) ──
+  //
+  // Each send costs real money and, worse, delivers a message to whatever
+  // number the caller typed — the raw material of SMS-pumping fraud. Three
+  // keys, three victims: the ACCOUNT limit stops one signed-in user burning
+  // spend; the NUMBER limit stops the endpoint being pointed at a stranger's
+  // phone from many accounts; the IP limit is only the NAT-safe raw ceiling
+  // (BPO offices share one address — never make this the precise control).
+  phoneSendIp: { limit: 300, windowSeconds: 3600 },
+  phoneSendAccount: { limit: 6, windowSeconds: 3600 },
+  phoneSendNumber: { limit: 5, windowSeconds: 3600 },
+  // The spend fuse: one shared bucket across ALL senders. 2000 sends/day is
+  // ~10x the most optimistic launch-week signup rate; a pumping operation
+  // that slips past the per-account/number caps hits this wall instead of
+  // the Twilio invoice. Raising it is a one-line change WITH a human aware.
+  phoneSendGlobal: { limit: 2000, windowSeconds: 86400 },
+  // Checks are free but bound the guessing loop across resends — Twilio
+  // already caps 5 checks per verification, this caps verifications.
+  phoneCheckAccount: { limit: 30, windowSeconds: 3600 },
+  phoneCheckNumber: { limit: 20, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

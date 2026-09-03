@@ -48,7 +48,7 @@ export default async function CandidateDashboardPage() {
 
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
-    admin.from("profiles").select("email_verified, full_name, email").eq("id", user.id).maybeSingle(),
+    admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
     admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
@@ -107,7 +107,14 @@ export default async function CandidateDashboardPage() {
     (candidate?.display_name || candidate?.full_name || profile?.full_name || "there").split(" ")[0];
 
   const emailDone = profile?.email_verified === true;
-  const phoneDone = false; // the WhatsApp step (and its column) ship in step 6
+  // The step is only REQUIRED once Twilio is configured — offering a verify
+  // button that 503s would be worse than an honest "coming soon".
+  const phoneEnabled = !!(
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_VERIFY_SERVICE_SID
+  );
+  const phoneDone = !!profile?.phone_verified_at;
   const idDone = candidate?.id_verification_status === "passed";
   const englishDone = (candidate?.english_mc_score ?? 0) >= 70 && (candidate?.english_comprehension_score ?? 0) >= 70;
   const interview1Done = candidate?.ai_interview_passed === true;
@@ -147,7 +154,13 @@ export default async function CandidateDashboardPage() {
 
   const nodes: PipelineNode[] = [
     { id: "email", label: "Email", xp: 25, state: emailDone ? "completed" : "current" },
-    { id: "whatsapp", label: "WhatsApp", xp: 25, state: phoneDone ? "completed" : "waived", detail: "Coming soon — not required yet" },
+    {
+      id: "whatsapp",
+      label: "WhatsApp",
+      xp: 25,
+      state: phoneDone ? "completed" : phoneEnabled ? "upcoming" : "waived",
+      detail: phoneDone || phoneEnabled ? undefined : "Coming soon — not required yet",
+    },
     { id: "english", label: "English", xp: 100, state: englishDone ? "completed" : "upcoming" },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
@@ -180,6 +193,14 @@ export default async function CandidateDashboardPage() {
       href: `/verify-email?email=${encodeURIComponent(candidate?.email || profile?.email || "")}`,
       minutes: "~1 min",
       tips: ["Check your spam folder if nothing arrives within 2 minutes.", "The link expires after 24 hours — you can always resend."],
+    },
+    whatsapp: {
+      title: "Verify your WhatsApp",
+      body: "We send a 6-digit code to your number — job matches, application updates and interview scheduling all reach you there.",
+      cta: "Verify my number",
+      href: "/verify-phone",
+      minutes: "~2 min",
+      tips: ["Use a number with WhatsApp active — the code arrives there.", "No WhatsApp on that number? You can get the code by SMS instead."],
     },
     english: {
       title: "Take the proctored English assessment",
@@ -251,7 +272,13 @@ export default async function CandidateDashboardPage() {
       minutes: "~10 min",
       tips: ["The email lists exactly what to change — fix only that.", "Resubmitting puts you back at the front of the reviewer's queue."],
     };
-  } else if (interviewFailed && currentNode.id === "interview1") {
+  } else if (interviewFailed) {
+    // The retake owns the card whenever the interview is failed, even when the
+    // step pointer sits on an earlier node (e.g. WhatsApp arriving mid-funnel
+    // put the pointer there for pre-Twilio candidates). The status banner says
+    // "interview didn't pass" — the card under it must answer THAT, retake
+    // date included, not change the subject. The skipped node's card comes
+    // back as soon as the retake is passed.
     card = {
       title: interviewLocked ? "Interview retake on cooldown" : "Retake your AI interview",
       body: interviewLocked
@@ -266,6 +293,7 @@ export default async function CandidateDashboardPage() {
   const currentIndex = nodes.findIndex((n) => n.id === currentNode.id);
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming").slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
+    whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",
     id: "Upload a government ID within 14 days of finishing your assessments — after that, unverified profiles hide from clients.",
     english: "A camera-proctored assessment of grammar and comprehension.",
     interview1: "A structured AI interview that probes the skills you claim.",
@@ -387,7 +415,7 @@ export default async function CandidateDashboardPage() {
             <div className="current-step-actions">
               {englishLocked && currentNode.id === "english" && lockedUntil ? (
                 <span className="current-step-meta-chip">Retake locked until {lockedUntil.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              ) : interviewLocked && interviewFailed && currentNode.id === "interview1" ? (
+              ) : interviewLocked && card.href === "interview-app" ? (
                 <span className="current-step-meta-chip">
                   Retake opens {interviewRetakeAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {interviewRetakeAt!.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                 </span>
