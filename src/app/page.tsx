@@ -108,6 +108,22 @@ const CAT_ICONS: React.ReactNode[] = [
 ];
 
 
+
+// Real client quotes only. The section renders the moment this array has
+// entries — collect them from past engagement clients; never invent them.
+const TESTIMONIALS: { quote: string; name: string; title: string; initials: string; grad: string }[] = [];
+
+const FAQS: { q: string; a: string }[] = [
+  { q: "What's your actual fee?", a: "A flat 10% on top of the candidate's rate — they keep 100% of what they quote. No markup on their rate, no service-fee creep, no premium tier. It's shown on every offer and every contract before you commit." },
+  { q: "How rigorous is your vetting?", a: "Every candidate passes a camera-proctored English assessment and a proctored skills interview scored on demonstrated evidence — not confident talk. Identity is verified against a government ID through Stripe, and a person makes the final approval call. Most applicants don't make it." },
+  { q: "How fast can I hire?", a: "Browse without an account. When someone fits, book an interview directly on their published calendar — the call happens right here on StaffVA. Send an offer after the call; the contract generates itself and escrow opens when you fund it. Days, not weeks." },
+  { q: "What if the hire doesn't work out?", a: "You fund work in periods, and each period has a 48-hour dispute window after it ends. Funds sit in escrow until you release them or a dispute is resolved — by a person, not an algorithm." },
+  { q: "Where are candidates based?", a: "Mostly the Philippines, with strong benches in Egypt, India, Kenya and Nigeria. Every profile shows the candidate's timezone in plain words, and the booking calendar warns you when a slot lands outside their waking hours." },
+  { q: "Is my hiring activity public?", a: "No. Clients have no public profiles, contact details are masked on both sides until a contract exists, and interviews happen on-platform — recorded and reviewed to keep both sides protected." },
+  { q: "Is my money actually protected?", a: "Payments run through Stripe into escrow. Money releases to the candidate when you approve the work or a period completes without dispute — never before." },
+  { q: "Do I need to sign up to browse?", a: "No — the full pool is open. A free account unlocks voice intros, messaging, and booking interviews." },
+];
+
 export default async function LandingPage() {
   const data = await landingData();
 
@@ -447,7 +463,226 @@ export default async function LandingPage() {
   </div>
 </section>
 
+{TESTIMONIALS.length > 0 && (
+<section className="testimonials">
+  <div className="container">
+    <div className="section-head reveal">
+      <div>
+        <div className="eyebrow">{"// What clients say"}</div>
+        <h2 className="display">Hires who<br /><span className="serif-italic">stayed.</span></h2>
+      </div>
+      <p className="section-head-copy">We care less about first-month reviews than about the people still working together a year in.</p>
+    </div>
+    <div className="test-grid reveal-stagger">
+      {TESTIMONIALS.map((t) => (
+        <div key={t.name} className="test-card">
+          <div className="test-stars">★★★★★</div>
+          <div className="test-quote">&ldquo;{t.quote}&rdquo;</div>
+          <div className="test-author">
+            <div className="test-avatar" style={{background: t.grad}}>{t.initials}</div>
+            <div>
+              <div className="test-name">{t.name}</div>
+              <div className="test-company">{t.title}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+)}
+
+<section className="candidate-cta">
+  <div className="container">
+    <div className="cand-block reveal">
+      <div className="cand-content">
+        <div className="eyebrow cand-eyebrow">{"// For candidates"}</div>
+        <h2 className="display">Are you an<br /><span className="lime">A-player?</span><br />Apply to join.</h2>
+        <p>{data.rejectPct !== null ? "We\u2019re picky \u2014 we reject " + data.rejectPct + "% of applicants \u2014 " : "We\u2019re picky \u2014 most applicants don\u2019t make it \u2014 "}but once you&apos;re in, you work with US clients who pay full rate. No platform fees, ever.</p>
+        <a href="/signup/candidate" className="btn btn-lime btn-lg">
+          Apply to Join
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+        </a>
+      </div>
+
+      <div className="cand-benefits">
+        <div className="cand-benefit">
+          <div className="cand-benefit-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+          </div>
+          <div>
+            <div className="cand-benefit-title">0% fees, forever</div>
+            <div className="cand-benefit-sub">Keep 100% of your hourly rate. Clients pay the 10%.</div>
+          </div>
+        </div>
+        <div className="cand-benefit">
+          <div className="cand-benefit-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+          </div>
+          <div>
+            <div className="cand-benefit-title">US clients</div>
+            <div className="cand-benefit-sub">Serious companies with budgets who hire, not bargain.</div>
+          </div>
+        </div>
+        <div className="cand-benefit">
+          <div className="cand-benefit-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+          </div>
+          <div>
+            <div className="cand-benefit-title">Clients book you directly</div>
+            <div className="cand-benefit-sub">Publish your hours — interviews land on your calendar, offers on the platform.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section className="trust-strip">
+  <div className="container">
+    <div className="trust-grid">
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
+        </div>
+        <div className="trust-text"><strong>ID Verified</strong>Every candidate, liveness-checked.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        </div>
+        <div className="trust-text"><strong>Skills examined</strong>A proctored interview, scored on evidence.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>
+        </div>
+        <div className="trust-text"><strong>Interview integrity</strong>Recorded and human-reviewed.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+        </div>
+        <div className="trust-text"><strong>Auto contracts</strong>Generated the moment you hire.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+        </div>
+        <div className="trust-text"><strong>Escrow protected</strong>Funds held until work is confirmed.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+        </div>
+        <div className="trust-text"><strong>48h dispute window</strong>Funds stay in escrow until a person resolves it.</div>
+      </div>
+      <div className="trust-item">
+        <div className="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+        </div>
+        <div className="trust-text"><strong>Privacy by default</strong>Clients aren&apos;t publicly listed.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section className="hp-privacy-strip">
+  <div className="hp-privacy-strip-inner">
+    <div className="hp-privacy-mark">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+    </div>
+    <div className="hp-privacy-text">
+      <div className="hp-privacy-eyebrow"><span>&bull;</span> Privacy by default</div>
+      <div className="hp-privacy-headline">Clients aren&apos;t publicly listed. <span className="italic">Their hiring stays their own.</span></div>
+      <p className="hp-privacy-detail">StaffVA keeps client identities private until a hire is made. <strong>Candidates and clients only see each other once a real relationship begins</strong> &mdash; no off-platform poaching, no public hiring trail, no data harvesting. We built StaffVA this way on purpose.</p>
+    </div>
+    <a href="/privacy" className="hp-privacy-link">
+      How privacy works
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+    </a>
+  </div>
+</section>
+
+<section className="faq">
+  <div className="container">
+    <div className="faq-grid">
+      <div className="faq-head reveal">
+        <div className="eyebrow">{"// Common questions"}</div>
+        <h2 className="display">Things<br />people ask.</h2>
+        <p>Still have questions? Drop us a note and we&apos;ll answer within a day.</p>
+        <a href="mailto:hello@staffva.com" className="btn btn-outline">Contact us</a>
+      </div>
+
+      <div className="faq-list reveal" style={{transitionDelay:".1s"}}>
+        {FAQS.map((f) => (
+          <div key={f.q} className="faq-item">
+            <button className="faq-q">
+              <span>{f.q}</span>
+              <span className="faq-q-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </span>
+            </button>
+            <div className="faq-a">{f.a}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
 </main>
+
+<footer>
+  <div className="container">
+    <div className="footer-top">
+      <div className="footer-brand">
+        <Link href="/" className="logo"><span className="logo-mark"></span><span>StaffVA</span></Link>
+        <p className="footer-tagline">The global talent marketplace for companies who actually want A-players.</p>
+      </div>
+
+      <div className="footer-col">
+        <h4>Clients</h4>
+        <ul>
+          <li><a href="/browse">Browse Talent</a></li>
+          <li><a href="/post-a-job">Post a Job</a></li>
+          <li><a href="/signup/client">For Businesses</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+      </div>
+
+      <div className="footer-col">
+        <h4>Candidates</h4>
+        <ul>
+          <li><a href="/signup/candidate">Apply to Join</a></li>
+          <li><a href="#vetting">How Vetting Works</a></li>
+          <li><a href="/login">Sign In</a></li>
+        </ul>
+      </div>
+
+      <div className="footer-col">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="/terms">Trust &amp; Safety</a></li>
+          <li><a href="/privacy">Privacy</a></li>
+          <li><a href="/cookies">Cookie Policy</a></li>
+        </ul>
+      </div>
+
+      <div className="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="mailto:hello@staffva.com">Contact</a></li>
+          <li><a href="/terms">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div className="footer-bottom">
+      <div>© 2026 Stafva LLC · <a href="/terms" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Terms</a> · <a href="/privacy" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Privacy</a> · <a href="/cookies" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Cookies</a></div>
+    </div>
+  </div>
+</footer>
 
       <LandingInteractive />
     </div>
