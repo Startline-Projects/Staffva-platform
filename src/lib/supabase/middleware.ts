@@ -45,6 +45,28 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // ── Two-step verification enforcement ──
+  // A password sign-in yields a full aal1 session even when a TOTP factor is
+  // enrolled; without this check, refreshing past the OTP screen (or walking
+  // straight to a protected route) skipped 2FA entirely. A session that owes
+  // a second factor is treated as NOT signed in everywhere except the pages
+  // that let it finish (or leave) the challenge.
+  let mfaPending = false;
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    mfaPending = !!aal && aal.currentLevel === "aal1" && aal.nextLevel === "aal2";
+  }
+  const mfaExemptPaths = ["/login", "/reset-password", "/verify-email", "/auth", "/api"];
+  if (mfaPending && !mfaExemptPaths.some((p) => pathname.startsWith(p))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("mfa", "1");
+    if (protectedRoutes.some((route) => pathname.startsWith(route))) {
+      url.searchParams.set("next", pathname);
+    }
+    return NextResponse.redirect(url);
+  }
+
   // Redirect unauthenticated users away from protected routes
   if (!user && protectedRoutes.some((route) => pathname.startsWith(route))) {
     const url = request.nextUrl.clone();
@@ -53,8 +75,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages and the landing page
-  if (user && (authRoutes.some((route) => pathname.startsWith(route)) || pathname === "/")) {
+  // Redirect authenticated users away from auth pages and the landing page —
+  // except a half-authenticated (MFA-pending) session, which must be able to
+  // stay on /login to finish its code.
+  if (user && !mfaPending && (authRoutes.some((route) => pathname.startsWith(route)) || pathname === "/")) {
     const role = user.app_metadata?.role;
     const dest = dashboardForRole(role);
     if (dest) {

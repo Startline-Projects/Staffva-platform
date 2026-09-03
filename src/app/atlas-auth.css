@@ -1988,8 +1988,191 @@
   display: flex;
   flex-direction: column;
   flex: 1;
+}
+.lp-auth .signin-state form { display: flex; flex-direction: column; }
+.lp-auth .state-centered {
+  text-align: center;
+  padding: 4px 0 8px;
   align-items: center;
   justify-content: center;
   gap: 14px;
 }
-.lp-auth .state-centered { text-align: center; padding: 4px 0 8px; }
+
+
+/* ── Sign-in: OTP, lockout, suspended, alt actions ── */
+.lp-auth .signin-util-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -2px;
+  margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lp-auth .forgot-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
+  transition: border-color .15s ease;
+}
+.lp-auth .forgot-link:hover { border-bottom-color: var(--ink); }
+.lp-auth .signin-alt-actions {
+  margin-top: 22px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.lp-auth .alt-action {
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--ink);
+  transition: background .15s ease;
+  position: relative;
+}
+.lp-auth .alt-action:hover { background: var(--cream-deep); }
+.lp-auth .alt-action + .alt-action { border-top: 1px solid var(--line-soft); }
+.lp-auth .alt-action .alt-label {
+  font-size: 13px;
+  color: var(--ink-mute);
+}
+.lp-auth .alt-action .alt-link {
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.lp-auth .alt-action .alt-link::after {
+  content: "→";
+  font-family: var(--font-mono);
+  font-size: 14px;
+  transition: transform .18s ease;
+  display: inline-block;
+}
+.lp-auth .alt-action:hover .alt-link::after { transform: translateX(3px); }
+.lp-auth .state-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-mute);
+  padding: 4px 8px 4px 2px;
+  margin-bottom: 20px;
+  margin-left: -2px;
+  border-radius: var(--r-sm);
+  transition: color .15s ease, background .15s ease;
+  align-self: flex-start;
+}
+.lp-auth .state-back:hover { color: var(--ink); background: var(--cream-deep); }
+.lp-auth .state-back svg { transition: transform .15s ease; }
+.lp-auth .state-back:hover svg { transform: translateX(-2px); }
+.lp-auth .otp-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+@media (max-width: 420px) {
+.lp-auth .otp-group { gap: 5px; }
+}
+.lp-auth .otp-input {
+  width: 100%;
+  min-width: 0;
+  height: 64px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 72;
+  font-size: 30px;
+  font-weight: 500;
+  color: var(--ink);
+  background: #FFFDF7;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: all .15s ease;
+  padding: 0;
+  -moz-appearance: textfield;
+  caret-color: var(--ink);
+}
+.lp-auth .otp-input::-webkit-outer-spin-button, .lp-auth .otp-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.lp-auth .otp-input:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(14, 14, 12, 0.08);
+  transform: translateY(-1px);
+}
+.lp-auth .otp-input.filled {
+  border-color: var(--ink-soft);
+  background: #FFFDF7;
+}
+.lp-auth .otp-group.error .otp-input {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+  animation: shake .4s cubic-bezier(.36,.07,.19,.97);
+}
+.lp-auth .otp-error-text {
+  display: none;
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 14px;
+  margin-top: -2px;
+  align-items: flex-start;
+  gap: 6px;
+}
+.lp-auth .otp-error-text svg { margin-top: 2px; flex-shrink: 0; }
+.lp-auth .otp-resend-link {
+  text-align: center;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--ink-mute);
+}
+.lp-auth .otp-resend-link a {
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
+}
+.lp-auth .otp-resend-link a:hover { border-bottom-color: var(--ink); }
+.lp-auth .countdown-display {
+  margin: 22px auto;
+  padding: 22px 24px 18px;
+  background: var(--cream);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  max-width: 260px;
+  position: relative;
+}
+.lp-auth .countdown-time {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144;
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.lp-auth .countdown-label {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.lp-auth .wa-otp-wrap .otp-group {
+  margin-bottom: 12px;
+}

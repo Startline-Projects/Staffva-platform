@@ -37,14 +37,14 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       // A malformed request, not a verification result. Nothing to look up.
       console.warn("[check-verification] called without a userId; allowing through");
-      return NextResponse.json({ verified: true, reason: "no_user_id" });
+      return NextResponse.json({ verified: true, active: true, reason: "no_user_id" });
     }
 
     const admin = getAdminClient();
 
     const { data: profile, error } = await admin
       .from("profiles")
-      .select("email_verified")
+      .select("email_verified, suspended_at")
       .eq("id", userId)
       .single();
 
@@ -56,22 +56,28 @@ export async function POST(req: NextRequest) {
           "[check-verification] profile lookup failed, allowing through:",
           JSON.stringify({ userId, code: error.code, message: error.message })
         );
-        return NextResponse.json({ verified: true, reason: "lookup_failed" });
+        return NextResponse.json({ verified: true, active: true, reason: "lookup_failed" });
       }
     }
 
     if (!profile) {
       // The row is created by a trigger just after signup, so a brand-new user
       // can legitimately arrive here before it exists.
-      return NextResponse.json({ verified: true, reason: "no_profile_yet" });
+      return NextResponse.json({ verified: true, active: true, reason: "no_profile_yet" });
     }
 
-    return NextResponse.json({ verified: profile.email_verified !== false });
+    return NextResponse.json({
+      verified: profile.email_verified !== false,
+      // Suspension marker, same fail-open posture: only an explicit stamp
+      // suspends — a missing column or row never locks anyone out. NOT
+      // is_active: that is 00063's recruiter-rotation flag.
+      active: !profile.suspended_at,
+    });
   } catch (err) {
     console.error(
       "[check-verification] threw, allowing through:",
       err instanceof Error ? err.message : String(err)
     );
-    return NextResponse.json({ verified: true, reason: "error" });
+    return NextResponse.json({ verified: true, active: true, reason: "error" });
   }
 }
