@@ -290,6 +290,11 @@ export default async function CandidateDashboardPage() {
       tips: ["Re-read your own application first — the interviewer probes what you wrote.", "Quiet room, camera on, phone away."],
     };
   }
+  // The English-lockout copy may only override the step card's own body/CTA.
+  // Terminal and action-required cards outrank it: "This application is
+  // closed" must not be followed by "Your next attempt opens…".
+  const englishLockoutOverride =
+    englishLocked && currentNode.id === "english" && !!lockedUntil && !terminal && !actionRequired;
   const currentIndex = nodes.findIndex((n) => n.id === currentNode.id);
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming").slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
@@ -408,13 +413,13 @@ export default async function CandidateDashboardPage() {
               {card.minutes && <span className="current-step-meta-chip">{card.minutes}</span>}
             </div>
             <p className="current-step-body-text">
-              {englishLocked && currentNode.id === "english" && lockedUntil
-                ? `Your next attempt opens ${lockedUntil.toLocaleDateString("en-US", { month: "long", day: "numeric" })} at ${lockedUntil.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}. Take the break — the test isn't going anywhere.`
+              {englishLockoutOverride
+                ? `Your next attempt opens ${lockedUntil!.toLocaleDateString("en-US", { month: "long", day: "numeric" })} at ${lockedUntil!.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}. Take the break — the test isn't going anywhere.`
                 : card.body}
             </p>
             <div className="current-step-actions">
-              {englishLocked && currentNode.id === "english" && lockedUntil ? (
-                <span className="current-step-meta-chip">Retake locked until {lockedUntil.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              {englishLockoutOverride ? (
+                <span className="current-step-meta-chip">Retake locked until {lockedUntil!.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
               ) : interviewLocked && card.href === "interview-app" ? (
                 <span className="current-step-meta-chip">
                   Retake opens {interviewRetakeAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {interviewRetakeAt!.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
