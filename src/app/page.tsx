@@ -1,31 +1,10 @@
-import type { Metadata } from 'next';
-import { DM_Sans, DM_Serif_Display } from 'next/font/google';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import styles from './page.module.css';
-import FaqAccordion from './_landing/FaqAccordion';
-import VoiceMoment from './_landing/VoiceMoment';
-import HeroSearch from './_landing/HeroSearch';
-import CtaSearch from './_landing/CtaSearch';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
+import { BROWSE_PILLS } from "@/lib/roleTaxonomy";
+import LandingInteractive from "@/components/landing/LandingInteractive";
+import "./landing.css";
 
-export const revalidate = 300;
-
-// ── Fonts ──────────────────────────────────────────────────────────────────
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-});
-
-const dmSerifDisplay = DM_Serif_Display({
-  weight: ['400'],
-  style: ['normal', 'italic'],
-  subsets: ['latin'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-// ── Metadata ───────────────────────────────────────────────────────────────
 export const metadata: Metadata = {
   title: 'StaffVA — Vetted Virtual Assistants & Remote Talent',
   description:
@@ -40,672 +19,437 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-// ── Types ──────────────────────────────────────────────────────────────────
-interface LandingCandidate {
-  id: string;
-  display_name: string | null;
-  full_name: string | null;
-  country: string | null;
-  role_category: string | null;
-  hourly_rate: number | null;
-  committed_hours: number | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  skills: any;
-  voice_recording_1_url: string | null;
-  profile_photo_url: string | null;
+const PILLS = BROWSE_PILLS;
+const PILL_LABELS = BROWSE_PILLS.map((p) => p.label);
+
+const FLAGS: Record<string, string> = {
+  Philippines: "🇵🇭", India: "🇮🇳", Egypt: "🇪🇬", Kenya: "🇰🇪", Nigeria: "🇳🇬",
+  Pakistan: "🇵🇰", Colombia: "🇨🇴", Argentina: "🇦🇷", Mexico: "🇲🇽", Brazil: "🇧🇷",
+};
+function flagFor(country: string | null): string {
+  return (country && FLAGS[country]) || "🌍";
+}
+function initials(name: string | null): string {
+  return (name || "?").split(" ").map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  '#F4D9B0', '#C8E6C9', '#BBDEFB', '#FFE0B2',
-  '#E1BEE7', '#B2DFDB', '#FFCCBC', '#B3E5FC',
+interface FeaturedCandidate {
+  id: string;
+  display_name: string;
+  role_category: string;
+  hourly_rate: number;
+  country: string | null;
+  profile_photo_url: string | null;
+  skills: string[] | null;
+}
+
+interface LandingData {
+  applications: number | null;
+  liveCount: number;
+  featured: FeaturedCandidate[];
+  pillCounts: Record<string, number>;
+  approvalPct: number | null;
+  rejectPct: number | null;
+}
+
+// Every number on this page is live-rendered from the database — the
+// owner's call: real figures that grow, never invented ones. Percentages
+// hold back until at least 3 candidates are live so the re-verification
+// window can't render absurdities ("we reject 100%").
+async function landingData(): Promise<LandingData> {
+  const empty: LandingData = { applications: null, liveCount: 0, featured: [], pillCounts: {}, approvalPct: null, rejectPct: null };
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return empty; // local dev has no service key by design
+  try {
+    const db = createClient(url, key);
+    const [{ count: applications }, { data: liveRows }] = await Promise.all([
+      db.from("candidates").select("*", { count: "exact", head: true }),
+      db
+        .from("candidates")
+        .select("id, display_name, role_category, hourly_rate, country, profile_photo_url, skills")
+        .eq("admin_status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
+    const live = liveRows || [];
+    const pillCounts: Record<string, number> = {};
+    for (const p of PILLS) {
+      pillCounts[p.label] = live.filter((c) => p.roles.includes(c.role_category)).length;
+    }
+    const liveCount = live.length;
+    const showPcts = applications && liveCount >= 3;
+    return {
+      applications: applications ?? null,
+      liveCount,
+      featured: (live as FeaturedCandidate[]).filter((c) => c.profile_photo_url).slice(0, 8),
+      pillCounts,
+      approvalPct: showPcts ? Math.round((liveCount / applications) * 100) : null,
+      rejectPct: showPcts ? Math.round((1 - liveCount / applications) * 100) : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+const CAT_ICONS: React.ReactNode[] = [
+  (<svg key="cat-0" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>),
+  (<svg key="cat-1" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>),
+  (<svg key="cat-2" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>),
+  (<svg key="cat-3" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>),
+  (<svg key="cat-4" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>),
+  (<svg key="cat-5" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>),
+  (<svg key="cat-6" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>),
+  (<svg key="cat-7" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 11h-6M20 8v6" /></svg>),
+  (<svg key="cat-8" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>),
+  (<svg key="cat-9" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 5-5" /></svg>),
+  (<svg key="cat-10" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>),
+  (<svg key="cat-11" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>)
 ];
 
-function getAvatarColor(index: number): string {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length];
-}
 
-function getDisplayName(c: LandingCandidate): string {
-  if (c.display_name) return c.display_name;
-  if (c.full_name) {
-    const parts = c.full_name.trim().split(/\s+/);
-    if (parts.length >= 2) return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
-    return parts[0];
-  }
-  return 'Anonymous';
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
-function getAvailability(committedHours: number | null): {
-  color: string;
-  dotBg: string;
-  label: string;
-} {
-  const h = committedHours ?? 0;
-  if (h === 0) return { color: '#2e7d32', dotBg: '#4caf50', label: 'Available' };
-  if (h < 40)  return { color: '#e65100', dotBg: '#ff9800', label: 'Partially Available' };
-  return          { color: '#757575', dotBg: '#9e9e9e', label: 'Unavailable' };
-}
-
-function getSkills(skills: unknown): string[] {
-  if (!Array.isArray(skills)) return [];
-  return (skills as unknown[])
-    .filter((s): s is string => typeof s === 'string')
-    .slice(0, 3);
-}
-
-// ── Page ───────────────────────────────────────────────────────────────────
-export default async function Home() {
-  const supabase = await createClient();
-
-  const { data } = await supabase
-    .from('candidates')
-    .select(
-      'id, display_name, full_name, country, role_category, hourly_rate, committed_hours, skills, voice_recording_1_url, profile_photo_url'
-    )
-    .eq('admin_status', 'approved')
-    .order('created_at', { ascending: false })
-    .limit(6);
-
-  const candidates: LandingCandidate[] = data || [];
-
-  const { data: voiceData } = await supabase
-    .from('candidates')
-    .select('id, display_name, full_name, role_category, country, profile_photo_url, voice_recording_1_url')
-    .eq('admin_status', 'approved')
-    .not('voice_recording_1_url', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(4);
-
-  const voiceCandidates = voiceData || [];
+export default async function LandingPage() {
+  const data = await landingData();
 
   return (
-    <div className={`${styles.landingRoot} ${dmSans.variable} ${dmSerifDisplay.variable}`}>
+    <div className="lp">
+      {/* Fraunces is the landing's display face; the rest of the app keeps its own fonts. */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@300..900&family=Geist+Mono:wght@400..600&display=swap"
+        rel="stylesheet"
+      />
+<nav className="nav" id="nav">
+  <div className="nav-inner">
+    <Link href="/" className="logo">
+      <span className="logo-mark"></span>
+      <span>StaffVA</span>
+    </Link>
+    <div className="nav-links">
+      <a href="/browse" className="nav-link">Find Talent</a>
+      <a href="/signup/client" className="nav-link">For Businesses</a>
+      <a href="/signup/candidate" className="nav-link">For Candidates</a>
+      <a href="#vetting" className="nav-link">How It Works</a>
+      <a href="#pricing" className="nav-link">Pricing</a>
+    </div>
+    <div className="nav-actions">
+      <a href="/login" className="btn btn-ghost">Sign In</a>
+      <a href="/signup/client" className="btn btn-primary">Sign Up</a>
+      <button className="hamburger" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+<main>
 
-      {/* ── NAV ── */}
-      <nav className="nav">
-        <Link href="/" className="nav-logo">
-          <svg viewBox="0.00 0.00 300.00 108.00" xmlns="http://www.w3.org/2000/svg" style={{ width: 'auto', height: '32px' }}>
-            <path fill="#fe6e3e" d="M 98.04 53.38 A 45.81 45.81 0.0 0 1 52.23 99.19 A 45.81 45.81 0.0 0 1 6.42 53.38 A 45.81 45.81 0.0 0 1 52.23 7.57 A 45.81 45.81 0.0 0 1 98.04 53.38 Z M 52.25 74.60 C 56.26 74.59 58.93 73.05 62.38 70.60 A 2.82 2.67 -70.8 0 1 63.09 70.23 Q 67.42 68.68 71.11 71.37 Q 75.87 74.83 80.32 78.96 A 0.40 0.39 -47.5 0 0 80.88 78.93 C 99.16 58.00 91.03 27.49 65.52 17.43 Q 59.24 14.95 52.14 14.97 Q 45.04 14.98 38.76 17.48 C 13.29 27.63 5.27 58.17 23.63 79.03 A 0.40 0.39 47.3 0 0 24.19 79.06 Q 28.62 74.91 33.37 71.44 Q 37.05 68.73 41.39 70.27 A 2.82 2.67 70.6 0 1 42.10 70.63 C 45.56 73.07 48.23 74.61 52.25 74.60 Z"/>
-            <path fill="#fe6e3e" d="M 75.25 44.69 L 76.76 46.21 A 3.07 3.01 -77.6 0 1 77.48 47.36 Q 79.62 53.51 74.45 57.03 C 73.38 57.76 72.07 57.84 70.96 58.18 A 1.31 1.30 6.4 0 0 70.25 58.74 C 62.22 72.13 44.68 72.10 36.67 58.78 A 1.32 1.29 75.1 0 0 35.59 58.14 C 28.19 57.89 24.85 49.92 30.39 44.71 A 1.71 1.70 70.4 0 0 30.91 43.61 C 32.40 24.13 55.96 14.80 69.31 30.42 Q 74.32 36.28 74.84 43.80 A 1.42 1.41 20.4 0 0 75.25 44.69 Z M 52.78 29.17 C 61.38 29.14 67.77 35.88 68.91 44.33 A 0.73 0.72 76.0 0 0 69.87 44.91 L 70.32 44.75 A 1.09 1.09 0.0 0 0 71.03 43.61 C 70.00 34.20 62.21 26.57 52.77 26.60 C 43.33 26.64 35.59 34.33 34.64 43.75 A 1.09 1.09 0.0 0 0 35.36 44.89 L 35.81 45.04 A 0.73 0.72 -76.4 0 0 36.77 44.45 C 37.84 36.00 44.18 29.21 52.78 29.17 Z M 50.14 64.61 Q 59.50 66.20 65.60 58.97 A 0.56 0.56 0.0 0 0 65.25 58.06 Q 64.15 57.92 63.26 58.28 Q 57.42 60.63 51.85 60.31 A 0.48 0.48 0.0 0 0 51.36 60.62 L 49.98 64.34 A 0.21 0.21 0.0 0 0 50.14 64.61 Z"/>
-            <path fill="#1c1b1a" d="M 132.15 46.21 A 0.79 0.79 0.0 0 1 130.97 46.59 Q 126.26 43.46 121.11 43.86 C 116.21 44.25 115.14 49.76 119.89 51.35 Q 125.95 53.38 127.18 53.81 C 133.92 56.15 136.28 62.79 133.17 68.99 C 128.99 77.33 115.98 76.13 109.24 71.89 A 0.75 0.74 -63.9 0 1 108.94 71.00 L 110.92 65.66 A 0.65 0.65 0.0 0 1 111.90 65.35 Q 117.12 68.92 123.27 67.85 C 126.70 67.25 128.19 63.29 124.82 61.20 Q 123.12 60.15 116.21 58.08 C 111.13 56.56 108.61 51.69 109.49 46.31 C 111.29 35.29 125.92 35.35 133.33 39.81 A 1.36 1.36 0.0 0 1 133.91 41.46 L 132.15 46.21 Z"/>
-            <path fill="#1c1b1a" d="M 201.01 47.61 A 0.42 0.41 0.0 0 1 201.43 48.02 L 201.43 53.14 A 0.46 0.45 0.0 0 1 200.97 53.59 L 195.33 53.59 A 0.49 0.49 0.0 0 0 194.84 54.08 L 194.84 74.00 A 0.61 0.61 0.0 0 1 194.23 74.61 L 188.28 74.61 A 0.68 0.67 -90.0 0 1 187.61 73.93 L 187.61 54.20 A 0.65 0.64 0.0 0 0 186.96 53.56 L 184.48 53.56 A 0.74 0.74 0.0 0 1 183.74 52.82 L 183.74 48.36 A 0.77 0.77 0.0 0 1 184.51 47.59 L 186.63 47.59 A 0.76 0.76 0.0 0 0 187.39 46.77 C 186.63 37.95 193.86 35.89 201.01 37.80 A 0.87 0.87 0.0 0 1 201.66 38.64 L 201.66 43.51 A 0.71 0.70 11.0 0 1 200.69 44.16 Q 195.32 42.01 194.41 46.17 A 1.19 1.18 -83.9 0 0 195.56 47.61 L 201.01 47.61 Z"/>
-            <path fill="#1c1b1a" d="M 219.98 43.83 L 215.57 43.83 A 2.04 2.02 -82.0 0 0 213.62 45.31 L 213.41 46.04 A 1.23 1.22 -82.1 0 0 214.58 47.60 L 220.04 47.60 A 0.47 0.47 0.0 0 1 220.51 48.07 L 220.51 53.08 A 0.54 0.53 -0.0 0 1 219.97 53.61 L 214.08 53.61 A 0.49 0.49 0.0 0 0 213.59 54.10 L 213.59 74.03 A 0.59 0.59 0.0 0 1 213.00 74.62 L 206.98 74.62 A 0.59 0.59 0.0 0 1 206.39 74.03 L 206.39 54.19 A 0.62 0.62 0.0 0 0 205.77 53.57 L 203.79 53.57 A 0.70 0.70 0.0 0 1 203.09 52.87 L 203.09 48.19 A 0.61 0.61 0.0 0 1 203.70 47.58 L 205.58 47.58 A 0.57 0.57 0.0 0 0 206.15 46.98 C 205.65 38.05 212.29 36.03 219.69 37.80 A 1.04 1.02 6.8 0 1 220.49 38.80 L 220.49 43.32 A 0.51 0.51 0.0 0 1 219.98 43.83 Z"/>
-            <path fill="#1c1b1a" d="M 247.46 65.37 Q 247.69 65.37 247.83 64.93 Q 252.32 51.26 256.88 37.92 A 0.37 0.36 8.6 0 1 257.23 37.67 L 265.25 37.67 A 0.15 0.15 0.0 0 1 265.39 37.87 L 252.02 73.92 A 1.08 1.07 -87.6 0 1 251.30 74.59 Q 251.28 74.59 247.50 74.61 Q 243.72 74.62 243.69 74.61 A 1.08 1.07 87.2 0 1 242.97 73.95 L 229.34 38.00 A 0.15 0.15 0.0 0 1 229.48 37.80 L 237.50 37.74 A 0.37 0.36 -9.0 0 1 237.85 37.99 Q 242.51 51.29 247.09 64.93 Q 247.24 65.37 247.46 65.37 Z"/>
-            <path fill="#1c1b1a" d="M 277.01 37.72 Q 279.37 37.71 280.60 37.81 A 0.87 0.87 0.0 0 1 281.36 38.39 L 294.18 73.84 A 0.55 0.55 0.0 0 1 293.67 74.58 L 287.11 74.58 A 0.99 0.99 0.0 0 1 286.18 73.93 L 283.74 67.16 A 0.72 0.72 0.0 0 0 283.07 66.69 Q 282.36 66.68 277.08 66.69 Q 271.80 66.70 271.09 66.72 A 0.72 0.72 0.0 0 0 270.42 67.19 L 268.02 73.98 A 0.99 0.99 0.0 0 1 267.09 74.63 L 260.53 74.66 A 0.55 0.55 0.0 0 1 260.02 73.93 L 272.66 38.41 A 0.87 0.87 0.0 0 1 273.41 37.83 Q 274.65 37.72 277.01 37.72 Z M 272.68 60.03 A 0.31 0.31 0.0 0 0 272.97 60.44 L 281.13 60.45 A 0.31 0.31 0.0 0 0 281.43 60.05 L 277.37 47.28 A 0.31 0.31 0.0 0 0 276.78 47.28 L 272.68 60.03 Z"/>
-            <path fill="#1c1b1a" d="M 153.86 68.09 L 155.59 72.87 A 0.58 0.58 0.0 0 1 155.31 73.58 C 148.12 77.17 140.04 74.87 140.15 65.73 Q 140.26 56.43 140.19 54.11 A 0.56 0.56 0.0 0 0 139.63 53.57 L 136.97 53.57 A 0.84 0.83 90.0 0 1 136.14 52.73 L 136.14 48.31 A 0.73 0.73 0.0 0 1 136.87 47.58 L 139.26 47.58 A 0.59 0.58 -90.0 0 0 139.84 46.99 L 139.84 41.29 A 0.94 0.93 -0.0 0 1 140.78 40.36 L 146.46 40.36 A 0.95 0.95 0.0 0 1 147.41 41.31 L 147.41 46.67 A 0.92 0.92 0.0 0 0 148.33 47.59 L 153.53 47.59 A 0.86 0.86 0.0 0 1 154.39 48.45 L 154.39 52.78 A 0.82 0.81 -90.0 0 1 153.58 53.60 L 147.97 53.60 A 0.55 0.54 -0.5 0 0 147.42 54.15 Q 147.43 60.22 147.39 62.87 C 147.34 67.09 148.79 69.96 153.41 67.90 A 0.34 0.33 -21.5 0 1 153.86 68.09 Z"/>
-            <path fill="#1c1b1a" d="M 174.18 72.32 A 0.31 0.31 0.0 0 0 173.64 72.11 C 168.34 77.81 156.87 75.62 157.64 66.32 C 158.22 59.32 165.85 58.04 171.72 57.95 A 1.79 1.79 0.0 0 0 173.35 55.49 L 173.33 55.46 A 4.32 4.32 0.0 0 0 169.42 52.77 Q 164.75 52.67 161.14 54.93 A 0.85 0.84 63.8 0 1 159.90 54.50 L 158.64 51.00 A 1.21 1.20 64.3 0 1 159.13 49.57 Q 165.33 45.68 172.72 46.89 C 177.44 47.65 180.50 50.92 180.60 55.43 Q 180.73 61.75 180.66 73.99 A 0.63 0.62 -0.0 0 1 180.03 74.61 L 174.90 74.61 A 0.72 0.72 0.0 0 1 174.18 73.89 L 174.18 72.32 Z M 173.03 62.73 L 167.63 63.56 A 2.91 2.90 -9.8 0 0 165.22 66.98 L 165.27 67.22 A 2.91 2.90 -11.1 0 0 168.59 69.45 Q 174.13 68.50 173.39 63.00 A 0.31 0.31 0.0 0 0 173.03 62.73 Z"/>
-          </svg>
-        </Link>
-
-        <div className="nav-links">
-          <Link href="/browse">Hire Staff</Link>
-          <Link href="/services">Services</Link>
-          <Link href="/signup/candidate">Find Work</Link>
-          <Link href="#how-it-works">How It Works</Link>
+<section id="hero" className="hero">
+  <div className="container">
+    <div className="hero-grid">
+      <div className="hero-left reveal">
+        <div className="hero-badge">
+          <span className="hero-badge-dot">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          </span>
+          Pre-vetted. Human-reviewed. A-players only.
         </div>
+        <h1 className="display">
+          Hire <span className="serif-italic">pre-vetted</span><br />
+          global A-players.<br />
+          <span className="underline-accent">Browse</span> before<br />
+          signing up.
+        </h1>
+        <p className="hero-sub">
+          Every candidate passes a <strong>camera-proctored English assessment</strong>, a proctored skills interview, and a <strong>final review</strong> before going live. Explore the full pool. Sign up only when you&apos;re ready to act.
+        </p>
 
-        <div className="nav-actions">
-          <Link href="/login" className="btn-signin">Sign In</Link>
-          <Link href="/signup/client" className="btn-get-started">Get Started</Link>
-        </div>
-      </nav>
-
-      {/* ── HERO ── */}
-      <section className="hero">
-        <div className="hero-content">
-          <div className="hero-badge">
-            <span className="dot"></span>
-            English-tested · ID-verified · Interviewed
+        {/* Search */}
+        <form className="search" action="/browse" method="get">
+          <div className="search-field">
+            <label>Role category</label>
+            <select name="role" defaultValue="">
+              <option value="">Any role</option>
+              {PILL_LABELS.map((p) => (<option key={p} value={p}>{p}</option>))}
+            </select>
           </div>
+          <div className="search-field">
+            <label>Core skills</label>
+            <input type="text" name="skills" placeholder="Clio, QuickBooks, Figma…" />
+          </div>
+          <div className="search-field">
+            <label>Max rate / hr</label>
+            <input type="text" name="maxRate" placeholder="$12" />
+          </div>
+          <button type="submit" className="search-submit" aria-label="Search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+          </button>
+        </form>
 
-          <h1 className="hero-headline">
-            Only 1 in 10 applicants<br /><em>make it onto StaffVA.</em>
-          </h1>
+        <p className="hero-secondary">
+          Looking for work instead? <a href="/signup/candidate">Apply to join the pool →</a>
+        </p>
 
-          <p className="hero-sub">
-            Before a profile appears here, the person behind it passed a written English assessment,
-            government-ID verification, and a skills interview. Two voice samples sit on every profile,
-            so you can hear how they speak before you send a single message.
-          </p>
-
-          <HeroSearch />
-
-          <div className="trust-line">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            Free to browse · Escrow-protected payments · Only pre-vetted talent
+        {/* Live stats */}
+        <div className="live-stats">
+          <div className="live-stat">
+            <div className="live-stat-num">{data.applications === null ? "—" : data.applications.toLocaleString()}</div>
+            <div className="live-stat-label">Applications reviewed</div>
+          </div>
+          <div className="live-stat">
+            <div className="live-stat-num"><span className="live-dot"></span>{data.liveCount.toLocaleString()}</div>
+            <div className="live-stat-label">A-players live now</div>
+          </div>
+          <div className="live-stat">
+            <div className="live-stat-num">100%</div>
+            <div className="live-stat-label">Camera-proctored</div>
           </div>
         </div>
+      </div>
 
-        <div className="stats-bar">
-          <div className="stat"><div className="stat-number">1 in 10</div><div className="stat-label">Applicants Approved</div></div>
-          <div className="stat"><div className="stat-number">3</div><div className="stat-label">Vetting Stages</div></div>
-          <div className="stat"><div className="stat-number">2</div><div className="stat-label">Voice Samples / Profile</div></div>
-          <div className="stat"><div className="stat-number">10+</div><div className="stat-label">Countries</div></div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section id="how-it-works" className="how-it-works">
-        <div className="hiw-container">
-          <div className="hiw-header">
-            <span className="section-tag">How it works</span>
-            <h2 className="section-headline">From search to hire<br /><em>in minutes.</em></h2>
-            <p className="section-sub">No login required. No subscription. Browse talent the moment you arrive.</p>
-          </div>
-          <div className="hiw-steps">
-            <div className="hiw-step">
-              <div className="hiw-step-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20" cy="20" r="12" stroke="currentColor" strokeWidth={2.5}/>
-                  <line x1="28.5" y1="28.5" x2="38" y2="38" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"/>
-                  <circle cx="20" cy="20" r="5" stroke="currentColor" strokeWidth={1.5} strokeDasharray="3 2"/>
-                </svg>
+      {/* Hero visual: layered candidate cards */}
+      {data.featured.length >= 3 && (
+      <div className="hero-visual reveal" style={{transitionDelay:".15s"}}>
+        {data.featured.slice(0, 3).map((c, i) => (
+          <div key={c.id} className={"hero-card hero-card-" + (i + 1)}>
+            <div className="hc-top">
+              <div className="hc-avatar" style={c.profile_photo_url ? {backgroundImage:"url(" + c.profile_photo_url + ")",backgroundSize:"cover",backgroundPosition:"center",color:"transparent"} : {background:"linear-gradient(135deg, #FFD6A5, #FFA07A)"}}>{initials(c.display_name)}</div>
+              <div className="hc-info">
+                <div className="hc-name">{c.display_name} <span className="hc-verify"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span></div>
+                <div className="hc-role">{c.role_category} · {flagFor(c.country)} {c.country}</div>
               </div>
-              <h3 className="hiw-step-title">Browse instantly</h3>
-              <p className="hiw-step-desc">There is no login wall and no subscription. Profiles load the moment you arrive, with rates, skills and availability visible upfront.</p>
             </div>
-            <div className="hiw-step">
-              <div className="hiw-step-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="8" y="12" width="32" height="24" rx="4" stroke="currentColor" strokeWidth={2.5}/>
-                  <path d="M16 22 C16 22 20 26 24 26 C28 26 32 22 32 22" stroke="currentColor" strokeWidth={2} strokeLinecap="round"/>
-                  <circle cx="17" cy="28" r="2" fill="currentColor" opacity="0.3"/>
-                  <circle cx="22" cy="30" r="1.5" fill="currentColor" opacity="0.2"/>
-                  <circle cx="27" cy="29" r="2.5" fill="currentColor" opacity="0.25"/>
-                  <circle cx="32" cy="28" r="1.5" fill="currentColor" opacity="0.15"/>
-                </svg>
-              </div>
-              <h3 className="hiw-step-title">View, listen, then decide</h3>
-              <p className="hiw-step-desc">Every profile carries two voice samples and the candidate&apos;s assessment badges. Hear their English and check their work history before you reach out.</p>
+            <div className="hc-tags">
+              {(c.skills || []).slice(0, 3).map((s) => (<span key={s} className="hc-tag">{s}</span>))}
             </div>
-            <div className="hiw-step">
-              <div className="hiw-step-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="10" y="8" width="28" height="32" rx="3" stroke="currentColor" strokeWidth={2.5}/>
-                  <path d="M18 22 L22 26 L30 18" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
-                  <line x1="16" y1="32" x2="32" y2="32" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" opacity="0.4"/>
-                  <line x1="16" y1="36" x2="26" y2="36" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" opacity="0.25"/>
-                </svg>
-              </div>
-              <h3 className="hiw-step-title">Pay through escrow</h3>
-              <p className="hiw-step-desc">Funds are held in escrow until you approve the work, which protects both sides. Nobody chases invoices.</p>
+            <div className="hc-stats">
+              <div><div className="hc-stat-val">{"$" + Number(c.hourly_rate) + "/hr"}</div><div className="hc-stat-lbl">Rate</div></div>
+              <div><div className="hc-stat-val">ID ✓</div><div className="hc-stat-lbl">Verified</div></div>
+              <div><div className="hc-stat-val">Proctored</div><div className="hc-stat-lbl">Vetting</div></div>
             </div>
           </div>
+        ))}
+        <div className="hero-floating-tag">10% flat fee</div>
+      </div>
+      )}
+    </div>
+  </div>
+</section>
+
+<section id="pricing" className="fees">
+  <div className="container">
+    <div className="section-head reveal">
+      <div>
+        <div className="eyebrow">{"// Pricing that isn't a markup"}</div>
+        <h2 className="display">Half the fees.<br /><span className="serif-italic">None</span> of the guesswork.</h2>
+      </div>
+      <p className="section-head-copy">
+        Most marketplaces take 10–20% out of the worker&apos;s side and bury the rest in opaque bill-rates. We charge a flat 10% on top — disclosed upfront, visible in every contract, and your hire keeps 100% of their rate.
+      </p>
+    </div>
+
+    <div className="fees-compare">
+      <div className="fee-bars reveal-stagger">
+        <div className="fee-bar fee-bar-us">
+          <div className="fee-bar-label">StaffVA</div>
+          <div className="fee-bar-track"><div className="fee-bar-fill" style={{width:"25%"}}></div></div>
+          <div className="fee-bar-pct">10%</div>
         </div>
-      </section>
-
-      {/* ── LIVE TALENT GRID ── */}
-      <section className="talent-section">
-        <div className="talent-container">
-          <div className="talent-header">
-            <span className="section-tag">Available now</span>
-            <h2 className="section-headline">Who&apos;s available<br /><em>right now.</em></h2>
-            <p className="section-sub">Real professionals. Real rates. Ready to start today.</p>
-          </div>
-
-          <div className="talent-grid">
-            {candidates.length === 0 ? (
-              <div className="talent-empty" style={{ gridColumn: '1 / -1' }}>
-                New talent is being vetted right now. Check back soon.
-              </div>
-            ) : (
-              candidates.map((c, idx) => {
-                const name = getDisplayName(c);
-                const initials = getInitials(name);
-                const avail = getAvailability(c.committed_hours);
-                const skills = getSkills(c.skills);
-                const hasVoice = !!c.voice_recording_1_url;
-
-                return (
-                  <Link href={`/candidate/${c.id}`} className="talent-card" key={c.id} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                    <div className="talent-card-top">
-                      {c.profile_photo_url ? (
-                        <img
-                          src={c.profile_photo_url}
-                          alt={name}
-                          className="talent-avatar"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div className="talent-avatar" style={{ background: getAvatarColor(idx) }}>
-                          <span>{initials}</span>
-                        </div>
-                      )}
-                      <div className="talent-top-right">
-                        {c.hourly_rate != null && (
-                          <span className="talent-rate">
-                            ${c.hourly_rate.toLocaleString()}<small>/hr</small>
-                          </span>
-                        )}
-                        <div className="talent-availability" style={{ color: avail.color }}>
-                          <span className="avail-dot" style={{ background: avail.dotBg }}></span>
-                          {avail.label}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="talent-info">
-                      <h4 className="talent-name">{name}</h4>
-                      {c.role_category && <p className="talent-role">{c.role_category}</p>}
-                      {c.country && <p className="talent-location">{c.country}</p>}
-                      {skills.length > 0 && (
-                        <div className="talent-tags">
-                          {skills.map((s) => (
-                            <span className="talent-tag" key={s}>{s}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="talent-card-footer">
-                      {hasVoice ? (
-                        <span className="voice-chip">
-                          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 4.5v11l9-5.5-9-5.5z"/></svg>
-                          Voice sample
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-                      <span className="talent-view">View profile →</span>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-
-          <div className="talent-cta">
-            <a href="/browse" className="btn-see-all">
-              See all talent
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <line x1="4" y1="10" x2="16" y2="10"/><polyline points="11,5 16,10 11,15"/>
-              </svg>
-            </a>
-          </div>
+        <div className="fee-bar">
+          <div className="fee-bar-label">Typical marketplace</div>
+          <div className="fee-bar-track"><div className="fee-bar-fill" style={{width:"50%"}}></div></div>
+          <div className="fee-bar-pct">20%</div>
         </div>
-      </section>
+        <div className="fee-bar">
+          <div className="fee-bar-label">Freelance platforms</div>
+          <div className="fee-bar-track"><div className="fee-bar-fill" style={{width:"50%"}}></div></div>
+          <div className="fee-bar-pct">20%</div>
+        </div>
+        <div className="fee-bar">
+          <div className="fee-bar-label">Managed agencies</div>
+          <div className="fee-bar-track"><div className="fee-bar-fill" style={{width:"85%"}}></div></div>
+          <div className="fee-bar-pct">~50%</div>
+        </div>
+      </div>
 
-      {/* ── VETTING STORY ── */}
-      <section className="vetting-section">
-        <div className="vetting-container">
-          <div className="vetting-header">
-            <span className="section-tag">Why StaffVA</span>
-            <h2 className="section-headline">Trust is built in.<br /><em>Not bolted on.</em></h2>
-            <p className="section-sub">Every professional on this platform passed a vetting process most platforms don&apos;t even attempt.</p>
+      {/* Calculator */}
+      <div className="calc reveal" style={{transitionDelay:".1s"}}>
+        <div className="calc-title">See what you&apos;d save in a year.</div>
+
+        <div className="calc-field">
+          <div className="calc-label">
+            <span className="calc-label-name">Hire rate / hour</span>
+            <span className="calc-label-val" id="rateVal">$40</span>
           </div>
+          <input type="range" id="rateSlider" min="15" max="120" defaultValue="40" />
+        </div>
 
-          <div className="vetting-timeline">
-            <div className="vetting-stage">
-              <div className="vetting-stage-line">
-                <div className="vetting-stage-dot"></div>
-                <div className="vetting-stage-connector"></div>
-              </div>
-              <div className="vetting-stage-content">
-                <div className="vetting-stage-badge">Stage 1</div>
-                <h3 className="vetting-stage-title">Written English assessment</h3>
-                <p className="vetting-stage-desc">A timed test of grammar and reading comprehension, dealt from a rotating question bank so no two attempts look alike. A minimum score is required to continue, and retakes are limited.</p>
-                <div className="vetting-proof-points">
-                  {['Timed, with anti-cheat monitoring', 'Rotating question bank on every attempt', 'Minimum passing score of 70%'].map((pt) => (
-                    <div className="proof-point" key={pt}>
-                      <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      <span>{pt}</span>
-                    </div>
-                  ))}
+        <div className="calc-field">
+          <div className="calc-label">
+            <span className="calc-label-name">Hours per week</span>
+            <span className="calc-label-val" id="hoursVal">40</span>
+          </div>
+          <input type="range" id="hoursSlider" min="5" max="40" defaultValue="40" />
+        </div>
+
+        <div className="calc-output">
+          <div className="calc-saving" id="savingVal">$8,320</div>
+          <div className="calc-saving-sub">saved per year vs a typical 20% marketplace</div>
+        </div>
+
+        <a href="/browse" className="btn btn-lime btn-lg" style={{marginTop:"24px",width:"100%",justifyContent:"center"}}>
+          Browse Talent
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{data.featured.length >= 3 && (
+<section id="featured" className="featured">
+  <div className="container">
+    <div className="section-head reveal">
+      <div>
+        <div className="eyebrow">{"// Featured this week"}</div>
+        <h2 className="display">Meet a few of<br />our <span className="serif-italic">A-players</span>.</h2>
+      </div>
+      <p className="section-head-copy">
+        Click any card for the full profile. Video intros, messaging, proposals, and booking an interview require a free account — everything else stays open.
+      </p>
+    </div>
+
+    <div className="carousel-wrap">
+      <div className="carousel reveal-stagger" id="carousel">
+        {data.featured.map((c) => (
+          <a key={c.id} href={"/candidate/" + c.id} className="candidate-card">
+            <div className="video-thumb">
+              <div className="video-thumb-bg" style={c.profile_photo_url ? {backgroundImage:"url(" + c.profile_photo_url + ")",backgroundSize:"cover",backgroundPosition:"center"} : {background:"linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)"}}>
+                <div className="video-lock">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  SIGN UP
                 </div>
+                <div className="video-flag">{flagFor(c.country)}</div>
               </div>
             </div>
+            <div className="cc-name-row">
+              <div>
+                <div className="cc-name">{c.display_name}</div>
+                <div className="cc-role">{c.role_category}</div>
+              </div>
+            </div>
+            <div className="cc-meta">
+              {(c.skills || []).slice(0, 2).map((s) => (<span key={s} className="cc-tag">{s}</span>))}
+              {(c.skills || []).length > 2 && <span className="cc-tag">+{(c.skills || []).length - 2}</span>}
+            </div>
+            <div className="cc-bottom">
+              <div className="cc-rate">{"$" + Number(c.hourly_rate)}<span>/hr</span></div>
+            </div>
+          </a>
+        ))}
+      </div>
 
-            <div className="vetting-stage">
-              <div className="vetting-stage-line">
-                <div className="vetting-stage-dot"></div>
-                <div className="vetting-stage-connector"></div>
-              </div>
-              <div className="vetting-stage-content">
-                <div className="vetting-stage-badge">Stage 2</div>
-                <h3 className="vetting-stage-title">Identity &amp; voice</h3>
-                <p className="vetting-stage-desc">Government-ID verification through Stripe Identity, then two voice recordings made inside the vetting flow: a reading passage and a self-introduction. Both go on the profile, so clients judge the spoken English for themselves.</p>
-                <div className="vetting-proof-points">
-                  {['Government ID checked via Stripe Identity', 'Two voice samples recorded on the spot', 'Duplicate identities detected and flagged'].map((pt) => (
-                    <div className="proof-point" key={pt}>
-                      <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      <span>{pt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="vetting-stage">
-              <div className="vetting-stage-line">
-                <div className="vetting-stage-dot"></div>
-                <div className="vetting-stage-connector"></div>
-              </div>
-              <div className="vetting-stage-content">
-                <div className="vetting-stage-badge">Stage 3</div>
-                <h3 className="vetting-stage-title">Skills interview</h3>
-                <p className="vetting-stage-desc">A structured voice interview built around the candidate&apos;s role — ten to twelve questions, more for specialised roles. Vague answers get follow-ups, and experience claims are checked against the application. Five scored dimensions, with a minimum score to pass.</p>
-                <div className="vetting-proof-points">
-                  {['Role-specific questions, asked one at a time', 'Scored on five dimensions, communication included', 'Passing score required before approval'].map((pt) => (
-                    <div className="proof-point" key={pt}>
-                      <svg viewBox="0 0 20 20" fill="none"><path d="M5 10l3 3 7-7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      <span>{pt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="vetting-stage">
-              <div className="vetting-stage-line">
-                <div className="vetting-stage-dot dot-final"></div>
-              </div>
-              <div className="vetting-stage-content">
-                <div className="vetting-stage-badge badge-final">Approved</div>
-                <h3 className="vetting-stage-title">Profile goes live</h3>
-                <p className="vetting-stage-desc">About 1 in 10 applicants make it through. Approved profiles get a verified badge and go live to clients. The badges are locked, and candidates cannot edit them.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="vetting-stats">
-            <div className="vetting-stat">
-              <div className="vetting-stat-icon">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-              <h4 className="vetting-stat-title">Badges that can&apos;t be faked</h4>
-              <p className="vetting-stat-desc">English tier comes from the written assessment score, and voice samples are recorded inside the vetting flow rather than uploaded. Candidates cannot edit either one.</p>
-            </div>
-            <div className="vetting-stat">
-              <div className="vetting-stat-icon">
-                <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth={2}/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth={2}/><circle cx="7.5" cy="14.5" r="1.5" fill="currentColor"/></svg>
-              </div>
-              <h4 className="vetting-stat-title">One identity per person</h4>
-              <p className="vetting-stat-desc">Government ID verification through Stripe Identity. The same identity document cannot verify a second account without being flagged.</p>
-            </div>
-            <div className="vetting-stat">
-              <div className="vetting-stat-icon">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={2}/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth={2} strokeLinecap="round"/></svg>
-              </div>
-              <h4 className="vetting-stat-title">Candidates earn 100%</h4>
-              <p className="vetting-stat-desc">Our fee is added on top of the professional&apos;s rate, never taken out of it. They receive 100% of the rate they quote you, which is why good people stay.</p>
-            </div>
-          </div>
+      <div className="carousel-controls">
+        <a href="/browse" className="view-all">Browse all {data.liveCount.toLocaleString()} candidates →</a>
+        <div className="carousel-arrows">
+          <button className="carousel-arrow" aria-label="Previous">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+          </button>
+          <button className="carousel-arrow" aria-label="Next">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </button>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
+)}
 
-      {/* ── VOICE MOMENT (client component) ── */}
-      <VoiceMoment candidates={voiceCandidates} />
+<section id="vetting" className="vetting">
+  <div className="container vetting-inner">
+    <div className="vetting-head reveal">
+      <div className="eyebrow">{"// How vetting works"}</div>
+      <h2 className="display">We reject <span className="serif-italic">{data.rejectPct !== null ? data.rejectPct + "%" : "most"}</span><br />of applicants.</h2>
+      <p>Every name on the platform cleared three gates &mdash; a camera-proctored English assessment, a proctored skills interview, and a final review before going live. This is the filter we&apos;d want if we were hiring.</p>
+    </div>
 
-      {/* ── PAYMENT SECTION ── */}
-      <section className="payment-section">
-        <div className="payment-container">
-          <div className="payment-header">
-            <span className="section-tag">How payment works</span>
-            <h2 className="section-headline">Your money doesn&apos;t move<br /><em>until you say so.</em></h2>
-            <p className="section-sub">Funds wait in escrow while the work happens. You approve first; payment moves second.</p>
-          </div>
-
-          <div className="payment-snapshot">
-            <div className="payment-snapshot-header">
-              <span className="payment-snapshot-label">Payment preview</span>
-              <span className="payment-snapshot-status">
-                <svg className="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-                </svg>
-                Escrow protected
-              </span>
-            </div>
-            <div className="payment-snapshot-body">
-              <div className="payment-row"><span className="payment-row-label">Professional</span><span className="payment-row-value">Yasmin N. · Executive Assistant</span></div>
-              <div className="payment-row"><span className="payment-row-label">Weekly rate</span><span className="payment-row-value">$320.00</span></div>
-              <div className="payment-row"><span className="payment-row-label">Billing cycle</span><span className="payment-row-value">Weekly</span></div>
-              <div className="payment-total-row">
-                <span className="payment-total-label">Total due today</span>
-                <span className="payment-total-value">$352.00</span>
-              </div>
-            </div>
-            <div className="payment-snapshot-footer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              Your payment is held in escrow until you approve.
-            </div>
-          </div>
-
-          <div className="payment-flow">
-            {[
-              {
-                num: 'Step 1', title: 'Fund', desc: 'You fund the cycle before work begins. Payment is captured and held; nothing reaches the professional yet.', note: 'Secured by Stripe',
-                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
-              },
-              {
-                num: 'Step 2', title: 'Work happens', desc: 'Your professional delivers the work: answering emails, updating books, managing projects, whatever you hired them for.', note: 'Funds stay locked',
-                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
-              },
-              {
-                num: 'Step 3', title: 'Release', desc: 'When the cycle completes, funds auto-release to the professional. Not happy? A 48-hour dispute window is built in.', note: '48-hour dispute window',
-                icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4 4L19 6"/><circle cx="12" cy="12" r="10" opacity="0.4"/></svg>
-              },
-            ].map((step) => (
-              <div className="payment-step" key={step.num}>
-                <div className="payment-step-icon">{step.icon}</div>
-                <span className="payment-step-number">{step.num}</span>
-                <h3 className="payment-step-title">{step.title}</h3>
-                <p className="payment-step-desc">{step.desc}</p>
-                <div className="payment-step-footnote">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-                  {step.note}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="payment-trust">
-            {[
-              { icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>, text: 'Stripe escrow on every engagement' },
-              { icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>, text: 'Dispute team on standby' },
-              { icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>, text: 'Cancel anytime — no contracts' },
-            ].map((item) => (
-              <div className="payment-trust-item" key={item.text}>{item.icon}{item.text}</div>
-            ))}
-          </div>
+    <div className="vetting-steps reveal-stagger">
+      <div className="vstep">
+        <div className="vstep-num">01</div>
+        <h3>Proctored English assessment<br />+ skills interview.</h3>
+        <p>A written English assessment and a structured skills interview. Every session is camera-proctored, recorded, and integrity-checked &mdash; a proctored exam, end to end.</p>
+        <div className="vstep-meta">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+          ~90 MIN · INTEGRITY-CHECKED
         </div>
-      </section>
+      </div>
 
-      {/* ── TESTIMONIALS ── */}
-      <section className="testimonials">
-        <div className="testimonials-container">
-          <div className="testimonials-header">
-            <span className="section-tag">Real stories</span>
-            <h2 className="section-headline">The proof is in<br /><em>the people you hire.</em></h2>
-            <p className="section-sub">Every quote below is from a verified hire. No incentives, no curation — just what founders actually said after their first 30 days.</p>
-          </div>
-
-          <div className="testimonial-featured">
-            <div className="testimonial-featured-content">
-              <div className="testimonial-featured-quote-mark">&ldquo;</div>
-              <blockquote className="testimonial-featured-quote">
-                I&apos;d tried three other platforms. Spent weeks vetting. On StaffVA I listened to four voice
-                samples, hired one, and had my inbox cleared by <em>end of week one.</em>
-              </blockquote>
-              <div className="testimonial-featured-attribution">
-                <div className="testimonial-avatar"><span>DK</span></div>
-                <div className="testimonial-author">
-                  <div className="testimonial-author-name">Daniel K.</div>
-                  <div className="testimonial-author-title">Founder · E-commerce operator</div>
-                  <div className="testimonial-verified">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-                    Verified hire
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="testimonial-outcome">
-              <div className="testimonial-outcome-label">Outcome</div>
-              <div className="testimonial-outcome-metric">15 <em>hrs</em></div>
-              <p className="testimonial-outcome-desc">Saved per week on email, scheduling, and inbox triage within the first 30 days.</p>
-              <div className="testimonial-outcome-divider"></div>
-              <div className="testimonial-outcome-meta">
-                <span>Hired in <strong>3 days</strong></span>
-                <span>Role: <strong>Executive Assistant</strong></span>
-              </div>
-            </div>
-          </div>
-
-          <div className="testimonials-small-grid">
-            {[
-              { tag: 'Hired a bookkeeper', quote: 'The voice samples changed everything. I knew which three to interview before I\'d read a single résumé.', avatar: 'a-b', initials: 'RM', name: 'Rachel M.', role: 'Agency owner', outcome: 'Hired in 2 days' },
-              { tag: 'Hired a paralegal', quote: 'Escrow was the reason I tried it. The quality of the professional was the reason I stayed.', avatar: 'a-c', initials: 'TC', name: 'Tomás C.', role: 'Solo operator', outcome: '6 months in' },
-              { tag: 'Hired a social media manager', quote: 'Every other platform felt like a gamble. This one felt like hiring someone from a referral.', avatar: 'a-d', initials: 'JL', name: 'Jenna L.', role: 'Boutique consultancy', outcome: 'Rehired twice' },
-            ].map((t) => (
-              <div className="testimonial-small" key={t.name}>
-                <span className="testimonial-small-tag">{t.tag}</span>
-                <blockquote className="testimonial-small-quote">&ldquo;{t.quote}&rdquo;</blockquote>
-                <div className="testimonial-small-attribution">
-                  <div className={`testimonial-avatar ${t.avatar}`}><span>{t.initials}</span></div>
-                  <div className="testimonial-small-meta">
-                    <div className="testimonial-small-name">{t.name}</div>
-                    <div className="testimonial-small-role">{t.role}</div>
-                  </div>
-                  <span className="testimonial-small-outcome">{t.outcome}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="vstep">
+        <div className="vstep-num">02</div>
+        <h3>Profile and intro recorded.</h3>
+        <p>The candidate verifies their government ID, builds their profile, and records a voice intro. Nothing goes public yet.</p>
+        <div className="vstep-meta">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" /></svg>
+          ID-VERIFIED
         </div>
-      </section>
+      </div>
 
-      {/* ── FAQ ── */}
-      <section className="faq-section">
-        <div className="faq-container">
-          <aside className="faq-header">
-            <span className="section-tag">Common questions</span>
-            <h2 className="faq-headline">Questions business<br />owners ask<br /><em>before they hire.</em></h2>
-            <p className="faq-header-sub">If you&apos;re weighing StaffVA for the first time, this is probably what&apos;s on your mind.</p>
-            <div className="faq-support-card">
-              <div className="faq-support-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 6h16v12H4z"/><path d="M4 6l8 7 8-7"/>
-                </svg>
-              </div>
-              <div className="faq-support-title">Still have a question?</div>
-              <p className="faq-support-desc">Our team replies within one business day.</p>
-              <a href="mailto:hello@staffva.com" className="faq-support-link">
-                Email our team
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                </svg>
-              </a>
-            </div>
-          </aside>
-          {/* FAQ accordion — client component */}
-          <FaqAccordion />
+      <div className="vstep">
+        <div className="vstep-num">03</div>
+        <h3>Talent Specialist review.</h3>
+        <p>A person reviews the full scorecard &mdash; the assessment results, the interview, the profile and intro &mdash; then approves, requests revisions, or rejects. Only then does the profile go live.</p>
+        <div className="vstep-meta">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+          ONE COMPREHENSIVE REVIEW
         </div>
-      </section>
+      </div>
+    </div>
 
-      {/* ── FINAL CTA ── */}
-      <section className="final-cta">
-        <div className="final-cta-container">
-          <div className="final-cta-tag">
-            <span className="dot"></span>
-            Vetted talent, available today
-          </div>
-          <h2 className="final-cta-headline">
-            Your next hire<br /><em>is already waiting.</em>
-          </h2>
-          <p className="final-cta-sub">
-            Browsing needs no login and no subscription, and candidates never pay fees. Search a role, listen to a few voice samples, and message for free. Hire when you&apos;re ready.
-          </p>
-          <CtaSearch />
-          <div className="final-cta-trust-row">
-            <div className="final-cta-trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-              Tested, verified and interviewed candidates
-            </div>
-            <div className="final-cta-trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Escrow-protected payments
-            </div>
-            <div className="final-cta-trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg>
-              Talent from 10+ countries
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="vetting-stat reveal">
+      <div className="vetting-stat-num">{data.approvalPct !== null ? data.approvalPct + "%" : "…"}</div>
+      <div className="vetting-stat-label">
+        {data.applications === null
+          ? "Approval rate across all applications reviewed."
+          : data.liveCount >= 3
+            ? "Approval rate. " + data.applications.toLocaleString() + " applications reviewed — " + data.liveCount.toLocaleString() + " live on the platform."
+            : data.applications.toLocaleString() + " applications reviewed — the bench is re-verifying under our camera-proctored standard right now."}
+      </div>
+      <a href="/signup/candidate">See the full vetting process →</a>
+    </div>
+  </div>
+</section>
 
-      {/* ── FOOTER ── */}
-      <footer className="footer">
-        <div className="footer-container">
-          <div className="footer-grid">
-            <div className="footer-brand">
-              <Link href="/" className="footer-logo">
-                StaffVA<span className="footer-logo-dot"></span>
-              </Link>
-              <p className="footer-tagline">
-                The offshore talent marketplace where every candidate is tested, ID-verified and interviewed before you ever see their name.
-              </p>
-            </div>
+<section id="categories" className="categories">
+  <div className="container">
+    <div className="section-head reveal">
+      <div>
+        <div className="eyebrow">{"// Role categories"}</div>
+        <h2 className="display">Hire across<br /><span className="serif-italic">{PILLS.length} disciplines.</span></h2>
+      </div>
+      <p className="section-head-copy">From paralegals to specialist VAs. Book an interview straight from any live candidate&apos;s calendar.</p>
+    </div>
 
-            <div className="footer-col">
-              <div className="footer-col-title">Platform</div>
-              <ul className="footer-col-links">
-                <li><Link href="/browse">Browse talent</Link></li>
-                <li><a href="#how-it-works">How it works</a></li>
-                <li><Link href="/services">Services</Link></li>
-                <li><Link href="/terms">Dispute protection</Link></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <div className="footer-col-title">For Professionals</div>
-              <ul className="footer-col-links">
-                <li><Link href="/signup/candidate">Apply to join</Link></li>
-                <li><a href="#how-it-works">How vetting works</a></li>
-                <li><Link href="/login">Sign in</Link></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <div className="footer-col-title">Company</div>
-              <ul className="footer-col-links">
-                <li><a href="mailto:hello@staffva.com">Contact</a></li>
-                <li><Link href="/privacy">Privacy</Link></li>
-                <li><Link href="/terms">Terms</Link></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <div className="footer-col-title">Legal</div>
-              <ul className="footer-col-links">
-                <li><a href="/terms">Terms of service</a></li>
-                <li><a href="/privacy">Privacy policy</a></li>
-                <li><a href="/cookies">Cookie policy</a></li>
-                <li><a href="/terms">Acceptable use</a></li>
-              </ul>
+    <div className="cat-grid reveal-stagger">
+      {PILLS.map((p, i) => (
+        <a key={p.label} href={"/browse?role=" + encodeURIComponent(p.label)} className="cat-tile">
+          <div className="cat-icon">{CAT_ICONS[i % CAT_ICONS.length]}</div>
+          <div>
+            <div className="cat-name">{p.label}</div>
+            <div className="cat-count">
+              {(data.pillCounts[p.label] || 0) > 0
+                ? (<><span className="pulse-dot"></span>{data.pillCounts[p.label]} live</>)
+                : (<>re-verifying</>)}
             </div>
           </div>
+          <div className="cat-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17L17 7M7 7h10v10" /></svg></div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
 
-          <div className="footer-bottom">
-            <div className="footer-copyright">
-              &copy; 2026 <strong>Stafva LLC</strong> &middot; Dearborn, Michigan &middot; All rights reserved.
-            </div>
-            <div className="footer-meta">
-              <a href="/terms">Terms</a>
-              <a href="/privacy">Privacy</a>
-              <a href="/cookies">Cookies</a>
-              <a href="mailto:hello@staffva.com">hello@staffva.com</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+</main>
 
+      <LandingInteractive />
     </div>
   );
 }
