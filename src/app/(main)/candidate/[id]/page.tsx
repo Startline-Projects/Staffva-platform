@@ -577,10 +577,19 @@ export default async function CandidateProfilePage({
               <svg className="mx-auto w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              <p className="mt-2 text-sm text-text/60">Sign in to watch this professional&apos;s video introduction</p>
-              <Link href="/login" className="mt-2 inline-block text-sm text-primary hover:underline">
-                Create a free account
-              </Link>
+              {/* A signed-in candidate/recruiter also lands here (canViewGated
+                  is role-based) — telling THEM to sign in is a lie that dead-
+                  ends at a login page the middleware bounces them out of. */}
+              {isLoggedIn ? (
+                <p className="mt-2 text-sm text-text/60">Video introductions are visible to client accounts</p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-text/60">Sign in to watch this professional&apos;s video introduction</p>
+                  <Link href="/login" className="mt-2 inline-block text-sm text-primary hover:underline">
+                    Create a free account
+                  </Link>
+                </>
+              )}
             </div>
           )}
         </div>

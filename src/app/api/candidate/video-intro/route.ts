@@ -9,7 +9,7 @@ function getAdminClient() {
 
 /**
  * POST /api/candidate/video-intro
- * Body: { videoUrl, thumbnailUrl? }
+ * Body: { videoUrl }
  * Records the uploaded video URL and sets status to pending_review
  */
 export async function POST(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const { videoUrl, thumbnailUrl } = await req.json();
+    const { videoUrl } = await req.json();
     if (!videoUrl) return NextResponse.json({ error: "Missing videoUrl" }, { status: 400 });
 
     const admin = getAdminClient();
@@ -31,10 +31,16 @@ export async function POST(req: NextRequest) {
 
     if (!candidate) return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
 
-    // Update candidate with video URL
+    // The thumbnail column is NOT taken from the request. It renders on the
+    // public browse page as an unsigned image URL, and admin review only
+    // watches the video — a body-supplied value would put an arbitrary,
+    // never-reviewed URL in front of every visitor. No client ever sent one
+    // (the upload page posts { videoUrl } only); when thumbnails happen they
+    // must be derived server-side into a public bucket. Until then the browse
+    // card falls back to the profile photo.
     await admin.from("candidates").update({
       video_intro_url: videoUrl,
-      video_intro_thumbnail_url: thumbnailUrl || null,
+      video_intro_thumbnail_url: null,
       video_intro_status: "pending_review",
       video_intro_submitted_at: new Date().toISOString(),
       video_intro_admin_note: null,

@@ -51,6 +51,8 @@ interface CandidateResult {
   voice_recording_1_preview_url: string | null;
   tagline?: string | null;
   skills?: string[] | null;
+  video_intro_status?: string | null;
+  video_intro_thumbnail_url?: string | null;
 }
 
 function BrowseContent() {
@@ -474,15 +476,45 @@ function BrowseContent() {
                     const avail = !c.committed_hours || c.committed_hours === 0 ? "AVAILABLE NOW" : c.committed_hours < 40 ? "PARTIAL" : "BOOKED";
                     const tierLabel = c.english_written_tier ? c.english_written_tier.slice(0, 3).toUpperCase() : "—";
                     const hasUs = typeof c.us_client_experience === "string" && !["none", "international_only"].includes(c.us_client_experience);
+                    // Video intro is optional. When an approved one exists the
+                    // photo block becomes its doorway (thumbnail if we have
+                    // one, else the profile photo, plus a play affordance);
+                    // when it doesn't, the profile photo simply fills the
+                    // block and nothing hints at a video.
+                    const hasVideo = c.video_intro_status === "approved";
+                    const photoBg = (hasVideo && c.video_intro_thumbnail_url) || c.profile_photo_url;
                     return (
-                      <div key={c.id} className="result-card" onClick={() => setPreviewId(c.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") setPreviewId(c.id); }}>
+                      <div
+                        key={c.id}
+                        className="result-card"
+                        onClick={() => setPreviewId(c.id)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Preview ${c.display_name}`}
+                        // The target guard keeps Enter on the nested links
+                        // (play, View Profile) from ALSO opening the preview
+                        // — keydown bubbles even though their clicks stop
+                        // propagation. Space is required for role="button"
+                        // and must not scroll the page.
+                        onKeyDown={(e) => {
+                          if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+                            e.preventDefault();
+                            setPreviewId(c.id);
+                          }
+                        }}
+                      >
                         <div className="result-top">
-                          <div className="result-photo" style={c.profile_photo_url ? { backgroundImage: `url(${c.profile_photo_url})`, backgroundSize: "cover", backgroundPosition: "center" } : { background: "linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)" }}>
+                          <div className="result-photo" style={photoBg ? { backgroundImage: `url(${photoBg})`, backgroundSize: "cover", backgroundPosition: "center" } : { background: "linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)" }}>
                             <div className="result-avail"><span className={`avail-dot ${avail === "AVAILABLE NOW" ? "avail-now" : ""}`}></span>{avail}</div>
-                            {!isLoggedIn && (
+                            {hasVideo && !isLoggedIn && (
                               <div className="result-video-lock" aria-hidden>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                               </div>
+                            )}
+                            {hasVideo && (
+                              <a href={`/candidate/${c.id}`} className="result-play" aria-label={`Watch ${c.display_name}'s video intro`} onClick={(e) => e.stopPropagation()}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="8 5 19 12 8 19" /></svg>
+                              </a>
                             )}
                             <div className="result-flag">{FLAGS[c.country || ""] || "🌍"}</div>
                           </div>
