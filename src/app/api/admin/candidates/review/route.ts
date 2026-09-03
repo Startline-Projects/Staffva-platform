@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
+import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(
@@ -78,10 +79,12 @@ export async function POST(request: Request) {
 
   const supabase = getAdminClient();
 
-  // Get candidate info for emails
+  // Candidate info for emails, plus every field the approval gates read
   const { data: candidate } = await supabase
     .from("candidates")
-    .select("full_name, email, id")
+    .select(
+      "id, email, full_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
+    )
     .eq("id", candidateId)
     .single();
 
@@ -90,12 +93,52 @@ export async function POST(request: Request) {
   }
 
   if (action === "approve") {
-    await supabase
+    // Same checks as recruiter/approve and recruiting-manager/approve. This
+    // was the last route that could set admin_status='approved' with no checks
+    // at all — being admin-only is not a reason to skip them: an admin
+    // override should be explicit and recorded, not the silent default of the
+    // highest-privilege route. Two candidates went live through here without
+    // a passed AI interview.
+    const precondition = await checkApprovalPreconditions(supabase, candidate);
+    if (!precondition.ok) {
+      return NextResponse.json(
+        { error: precondition.error },
+        { status: precondition.status }
+      );
+    }
+
+    const { pass, failingConditions } = checkApprovalGates(candidate);
+    if (!pass) {
+      return NextResponse.json(
+        {
+          error: "Candidate does not meet all approval requirements",
+          failingConditions,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Compare-and-swap like the other approve routes: two clicks (or Approve
+    // All racing a single approve) produce one approval and one 409, not two
+    // approval emails. Also stamps profile_went_live_at, which this route
+    // alone omitted.
+    const { data: updated, error: updateError } = await supabase
       .from("candidates")
       .update({
         admin_status: "approved",
+        profile_went_live_at: new Date().toISOString(),
       })
-      .eq("id", candidateId);
+      .eq("id", candidateId)
+      .neq("admin_status", "approved")
+      .select("id")
+      .single();
+
+    if (updateError || !updated) {
+      return NextResponse.json(
+        { error: "Candidate already approved or update failed" },
+        { status: 409 }
+      );
+    }
 
     // Fire AI insights generation (fire-and-forget)
     generateInsights(candidateId).catch((err) =>

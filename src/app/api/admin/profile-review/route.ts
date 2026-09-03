@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
+import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -35,9 +36,12 @@ export async function POST(req: NextRequest) {
 
     const admin = getAdminClient();
 
+    // Identity fields for emails, plus every field the approval gates read
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, email, display_name, full_name, first_name, last_name")
+      .select(
+        "id, email, display_name, full_name, first_name, last_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
+      )
       .eq("id", candidateId)
       .single();
 
@@ -49,10 +53,48 @@ export async function POST(req: NextRequest) {
 
     // ═══ APPROVE AND PUSH LIVE ═══
     if (action === "approve") {
-      await admin.from("candidates").update({
-        admin_status: "approved",
-        profile_went_live_at: new Date().toISOString(),
-      }).eq("id", candidateId);
+      // Same checks as recruiter/approve and recruiting-manager/approve — this
+      // route and candidates/review were the two left that pushed a profile
+      // live without them, which is how two candidates with no passed AI
+      // interview went live.
+      const precondition = await checkApprovalPreconditions(admin, candidate);
+      if (!precondition.ok) {
+        return NextResponse.json(
+          { error: precondition.error },
+          { status: precondition.status }
+        );
+      }
+
+      const { pass, failingConditions } = checkApprovalGates(candidate);
+      if (!pass) {
+        return NextResponse.json(
+          {
+            error: "Candidate does not meet all approval requirements",
+            failingConditions,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Compare-and-swap like the other approve routes: a double approval
+      // produces one success and one 409, not two "you're live" emails.
+      const { data: updated, error: updateError } = await admin
+        .from("candidates")
+        .update({
+          admin_status: "approved",
+          profile_went_live_at: new Date().toISOString(),
+        })
+        .eq("id", candidateId)
+        .neq("admin_status", "approved")
+        .select("id")
+        .single();
+
+      if (updateError || !updated) {
+        return NextResponse.json(
+          { error: "Candidate already approved or update failed" },
+          { status: 409 }
+        );
+      }
 
       // Fire AI insights generation (fire-and-forget)
       generateInsights(candidateId).catch((err) =>

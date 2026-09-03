@@ -126,11 +126,20 @@ function ProfileReviewStep({ candidate, aiScoringDone }: { candidate: Candidate;
   async function handleApprove() {
     if (!confirm("Approve this candidate and push their profile live?")) return;
     setProcessing(true);
-    await fetch("/api/admin/profile-review", {
+    const res = await fetch("/api/admin/profile-review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ candidateId: candidate.id, action: "approve" }),
     });
+    if (!res.ok) {
+      // The route now refuses candidates who fail the approval gates — without
+      // this branch the refusal would be a reload that silently changed nothing.
+      const err = await res.json().catch(() => null);
+      const details = Array.isArray(err?.failingConditions) ? `\n\n• ${err.failingConditions.join("\n• ")}` : "";
+      alert(`Could not approve: ${err?.error || "request failed"}${details}`);
+      setProcessing(false);
+      return;
+    }
     window.location.reload();
   }
 
