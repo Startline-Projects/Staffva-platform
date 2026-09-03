@@ -92,6 +92,9 @@ async function landingData(): Promise<LandingData> {
   }
 }
 
+// Which prototype icon suits each pill (doc→Paralegal, check→Legal Asst, $→Bookkeeping…)
+const ICON_FOR: number[] = [8, 11, 6, 3, 7, 4, 2, 9, 10, 1, 5, 4, 3, 6];
+
 const CAT_ICONS: React.ReactNode[] = [
   (<svg key="cat-0" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>),
   (<svg key="cat-1" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>),
@@ -421,13 +424,13 @@ export default async function LandingPage() {
     </div>
 
     <div className="vetting-stat reveal">
-      <div className="vetting-stat-num">{data.approvalPct !== null ? data.approvalPct + "%" : "…"}</div>
+      <div className="vetting-stat-num">{data.approvalPct !== null ? data.approvalPct + "%" : data.applications !== null ? data.applications.toLocaleString() : "…"}</div>
       <div className="vetting-stat-label">
         {data.applications === null
           ? "Approval rate across all applications reviewed."
           : data.liveCount >= 3
             ? "Approval rate. " + data.applications.toLocaleString() + " applications reviewed — " + data.liveCount.toLocaleString() + " live on the platform."
-            : data.applications.toLocaleString() + " applications reviewed — the bench is re-verifying under our camera-proctored standard right now."}
+            : "applications reviewed — the bench is re-verifying under our camera-proctored standard right now."}
       </div>
       <a href="/signup/candidate">See the full vetting process →</a>
     </div>
@@ -447,7 +450,7 @@ export default async function LandingPage() {
     <div className="cat-grid reveal-stagger">
       {PILLS.map((p, i) => (
         <a key={p.label} href={"/browse?role=" + encodeURIComponent(p.label)} className="cat-tile">
-          <div className="cat-icon">{CAT_ICONS[i % CAT_ICONS.length]}</div>
+          <div className="cat-icon">{CAT_ICONS[ICON_FOR[i] ?? i % CAT_ICONS.length]}</div>
           <div>
             <div className="cat-name">{p.label}</div>
             <div className="cat-count">
