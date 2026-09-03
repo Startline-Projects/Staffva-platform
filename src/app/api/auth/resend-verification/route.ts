@@ -15,8 +15,8 @@ function getAdminClient() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-    if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    const { email, token: byToken } = await req.json();
+    if (!email && !byToken) return NextResponse.json({ error: "Missing email" }, { status: 400 });
 
     // A raw request ceiling only, set far above any real NAT cohort. This must
     // never be what stops a legitimate signup: the account is already created
@@ -34,11 +34,20 @@ export async function POST(req: NextRequest) {
     // such profile": previously both produced a cheerful "check your email"
     // with nothing sent, so a statement timeout was indistinguishable from a
     // stranger's address and left a real user permanently locked out.
-    const { data: profile, error: lookupError } = await admin
+    // Lookup by email, or — for the verify page's expired/invalid states —
+    // by the token itself, so the account email never has to cross the wire.
+    let lookup = admin
       .from("profiles")
-      .select("id, email, full_name, email_verified, email_verification_sent_at")
-      .eq("email", email)
-      .maybeSingle();
+      .select("id, email, full_name, email_verified, email_verification_sent_at");
+    if (email) {
+      lookup = lookup.eq("email", email);
+    } else {
+      if (typeof byToken !== "string" || !/^[a-f0-9]{64}$/.test(byToken)) {
+        return NextResponse.json({ success: true });
+      }
+      lookup = lookup.eq("email_verification_token", byToken);
+    }
+    const { data: profile, error: lookupError } = await lookup.maybeSingle();
 
     if (lookupError) {
       return NextResponse.json({ error: "Could not send verification email" }, { status: 500 });
@@ -73,9 +82,13 @@ export async function POST(req: NextRequest) {
     // The token update's error must not be discarded: supabase-js resolves
     // with errors rather than throwing, so a statement timeout here would
     // queue a real-looking email whose link can never work.
+    // sent_at rides in the same write as the token: the 24h expiry check
+    // reads it, and a silently-failed follow-up write left a FRESH link
+    // judged by a stale timestamp — expired on arrival, unrecoverable.
     const token = crypto.randomBytes(32).toString("hex");
     const { error: tokenError } = await admin.from("profiles").update({
       email_verification_token: token,
+      email_verification_sent_at: new Date().toISOString(),
     }).eq("id", profile.id);
 
     if (tokenError) {
@@ -83,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
-    const verifyUrl = `${siteUrl}/api/auth/verify-email?token=${token}`;
+    const verifyUrl = `${siteUrl}/verify-email?token=${token}`;
     const firstName = (profile.full_name || "").split(" ")[0] || "there";
 
     // Queued, not sent inline. This is the one email whose failure is
@@ -110,14 +123,6 @@ export async function POST(req: NextRequest) {
           <p style="color:#999;font-size:12px;">— The StaffVA Team</p>
         </div>`,
     });
-
-    // The cooldown starts once the message is durably queued. Delivery is now
-    // the drain's responsibility and it will retry, so a resend within the
-    // next minute would only duplicate work.
-    await admin
-      .from("profiles")
-      .update({ email_verification_sent_at: new Date().toISOString() })
-      .eq("id", profile.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

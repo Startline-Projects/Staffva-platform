@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/atlasCountries";
@@ -80,6 +81,7 @@ declare global {
 }
 
 export default function CandidateSignupPage() {
+  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -99,10 +101,6 @@ export default function CandidateSignupPage() {
   const [loading, setLoading] = useState(false);
   const [showBlocker, setShowBlocker] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState(false);
-  const [done, setDone] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
-  const [resendError, setResendError] = useState("");
 
   const countryWrapRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -325,11 +323,10 @@ export default function CandidateSignupPage() {
     }
 
     setSuccessOverlay(true);
+    const sentParam = verifyRes.ok ? "&sent=1" : "";
     setTimeout(() => {
-      setSuccessOverlay(false);
-      setDone(true);
-      window.scrollTo(0, 0);
-    }, 2800);
+      router.push(`/verify-email?email=${encodeURIComponent(email)}${sentParam}`);
+    }, 2400);
     } catch {
       setAlert({
         title: "Something went wrong on our side.",
@@ -340,31 +337,7 @@ export default function CandidateSignupPage() {
     }
   }
 
-  async function handleResend() {
-    setResending(true);
-    setResendError("");
-    try {
-      const res = await fetch("/api/auth/resend-verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        setResendError(
-          res.status === 429
-            ? "Too many requests from your network right now. Please wait a minute and try again."
-            : "We could not resend the email. Please contact support@staffva.com."
-        );
-        return;
-      }
-      setResent(true);
-      setTimeout(() => setResent(false), 5000);
-    } catch {
-      setResendError("We could not reach the server. Check your connection and try again.");
-    } finally {
-      setResending(false);
-    }
-  }
+
 
   const wrapClass = (name: string, extra = "") =>
     `field-wrap ${extra} ${states[name] === "valid" ? "is-valid" : states[name] === "invalid" ? "is-invalid" : ""}`;
@@ -393,37 +366,7 @@ export default function CandidateSignupPage() {
       </nav>
 
       <main className="page">
-        {done ? (
-          /* ── Check-your-email state (post-signup) ── */
-          <div className="layout" style={{ gridTemplateColumns: "1fr", maxWidth: "560px" }}>
-            <div className="form-card" style={{ textAlign: "center" }}>
-              <div className="success-check" aria-hidden style={{ margin: "0 auto 18px" }}>
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M9 18.5 15.5 25 27 12" stroke="#0E0E0C" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "28px", fontWeight: 500 }}>Check your email</h2>
-              <p style={{ marginTop: "10px", fontSize: "14.5px", color: "var(--ink-soft)", lineHeight: 1.6 }}>
-                We sent a verification link to <strong>{email}</strong>.<br />
-                Click it to continue your application.
-              </p>
-              <p style={{ marginTop: "14px", fontSize: "13px", color: "var(--ink-mute)" }}>
-                Nothing arriving? Check spam, or resend it.
-              </p>
-              {resendError && (
-                <p style={{ marginTop: "10px", fontSize: "13px", color: "var(--danger)" }}>{resendError}</p>
-              )}
-              <button
-                type="button"
-                className="btn-submit"
-                style={{ marginTop: "18px", width: "auto", padding: "12px 28px" }}
-                onClick={handleResend}
-                disabled={resending || resent}
-              >
-                <span className="submit-label">{resent ? "Sent!" : resending ? "Sending…" : "Resend email"}</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="layout">
+        <div className="layout">
             {/* ── Left: context ── */}
             <aside className="context">
               <span className="eyebrow">Join StaffVA · Candidate Application</span>
@@ -763,7 +706,7 @@ export default function CandidateSignupPage() {
               </div>
             </section>
           </div>
-        )}
+
       </main>
 
       {/* ── Success overlay ── */}
