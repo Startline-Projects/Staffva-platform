@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
       .select("id, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, reputation_score, reputation_tier, total_earnings_usd, committed_hours, availability_status")
       .eq("id", candidateId)
       .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
       .single();
 
     if (!candidate) return NextResponse.json({ error: "Not found" }, { status: 404 });

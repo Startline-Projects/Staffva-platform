@@ -137,6 +137,8 @@ export async function POST(req: NextRequest) {
           "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url, skills, tools"
         )
         .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
         .in("availability_status", availabilityFilter);
 
       const visible: typeof pool = [];
@@ -268,6 +270,8 @@ export async function POST(req: NextRequest) {
         "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url"
       )
       .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
       .in("availability_status", availabilityFilter);
 
     if (!candidates || candidates.length === 0) {

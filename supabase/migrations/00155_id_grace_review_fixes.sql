@@ -1,0 +1,15 @@
+-- Review fixes on 00154's grace rule (applied live same day):
+-- (a) manual_review counts as compliant — a candidate who SUBMITTED their
+--     ID and is waiting on review must not be hidden by OUR latency. The
+--     visibility predicate in candidate_hire_card and the browse RPC
+--     becomes: id_verification_status IN ('passed','manual_review')
+--     OR id_verification_due_at IS NULL OR id_verification_due_at > now().
+--     (The enum has no 'processing' value: pending/passed/failed/manual_review.)
+-- (b) promote_candidate_if_ready stamps id_verification_due_at
+--     (now()+14d, when unverified and unstamped) as it approves — a
+--     backstop for the trigger, which keys on candidates.ai_interview_passed,
+--     a flag whose writeback the interview app can swallow. Without this a
+--     candidate could go live permanently exempt from the ID rule.
+-- (c) count_ready_but_unapproved (00119) drops its ID condition so the
+--     stuck-promotion alert mirrors the promote gates again.
+-- Full bodies re-issued in the applied migration of the same name.

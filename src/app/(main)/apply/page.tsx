@@ -144,6 +144,17 @@ export default function ApplyPage() {
     }
 
     // Check if ALL completion requirements are met for "complete" status
+    // The dashboard sends candidates here for the deferred ID check — this
+    // must run BEFORE the fully-complete short-circuit: the exact cohort the
+    // ID window serves (assessments done) is also fully complete, and review
+    // caught them being bounced to the status screen instead.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("flow") === "id") {
+      if (candidate.id_verification_status !== "passed") {
+        setStep(candidate.id_verification_consent ? "id_verification" : "id_consent");
+        return;
+      }
+    }
+
     const isFullyComplete =
       candidate.english_mc_score !== null &&
       candidate.english_mc_score >= 70 &&
@@ -170,7 +181,10 @@ export default function ApplyPage() {
     }
 
     // --- SESSION RESTORE LOGIC ---
-    // New flow: form → device_check → test → post_test_verification → id_consent → id_verification → results → recordings → profile
+    // Flow (owner's call, 2026-09-03): form → device_check → test → results →
+    // recordings → profile. ID verification is NO LONGER mid-flow — it has a
+    // 14-day window after the assessments, entered via /apply?flow=id from
+    // the dashboard's identity card.
 
     // Step 1: Check if test was taken
     if (candidate.english_mc_score === null) {
@@ -179,34 +193,15 @@ export default function ApplyPage() {
       return;
     }
 
-    // Test taken — check if ID verification is done
     const testPassed = candidate.english_mc_score >= 70 && (candidate.english_comprehension_score ?? 0) >= 70;
     setTestPassed(testPassed);
 
-    if (!candidate.id_verification_consent) {
-      // Test done but no ID consent yet — show post-test verification transition
-      setStep("post_test_verification");
-      return;
-    }
-
-    if (candidate.id_verification_status !== "passed") {
-      if (candidate.id_verification_status === "manual_review") {
-        // Pending manual review — don't show results
-        setStep("id_verification");
-      } else {
-        // Not passed yet (pending or failed) — show ID verification
-        setStep("id_verification");
-      }
-      return;
-    }
-
-    // ID verified — results unlocked
     if (!testPassed) {
       setStep("test_result");
       return;
     }
 
-    // Test passed + ID verified → check recordings
+    // Test passed → check recordings
     if (candidate.voice_recording_1_url && candidate.voice_recording_2_url) {
       setStep("profile_builder");
       return;
@@ -245,11 +240,14 @@ export default function ApplyPage() {
     goToStep("english_test");
   }
 
-  function handleTestComplete(passed: boolean, updatedCandidate: CandidateData) {
+  async function handleTestComplete(passed: boolean, updatedCandidate: CandidateData) {
     setCandidateData(updatedCandidate);
     setTestPassed(passed);
-    // Don't show results yet — route to ID verification
-    goToStep("post_test_verification", updatedCandidate.id);
+    // Results show immediately — ID verification moved to its own 14-day
+    // window after the assessments.
+    const supabase = createClient();
+    await supabase.from("candidates").update({ results_display_unlocked: true }).eq("id", updatedCandidate.id);
+    goToStep(passed ? "voice_recording_1" : "test_result", updatedCandidate.id);
   }
 
   function handlePostTestVerify() {
@@ -266,16 +264,10 @@ export default function ApplyPage() {
   async function handleIDVerificationComplete() {
     if (candidateData) {
       setCandidateData({ ...candidateData, id_verification_status: "passed", results_display_unlocked: true });
-      // Unlock results display
-      const supabase = createClient();
-      await supabase.from("candidates").update({ results_display_unlocked: true }).eq("id", candidateData.id);
     }
-    // Now show results
-    if (testPassed) {
-      goToStep("voice_recording_1", candidateData?.id);
-    } else {
-      goToStep("test_result", candidateData?.id);
-    }
+    // The deferred ID flow ends back on the dashboard, where the identity
+    // node flips to complete.
+    router.push("/candidate/dashboard");
   }
 
   function handleRecording1Complete(url: string) {
@@ -362,8 +354,8 @@ export default function ApplyPage() {
       {step !== "complete" && step !== "test_result" && step !== "anticheat_lockout" && (
         <div className="mx-auto max-w-3xl px-6 pt-6">
           <div className="flex items-center gap-1">
-            {["application_form", "english_test", "id_verification", "voice_recording_1", "profile_builder"].map((s, i) => {
-              const stepOrder = ["application_form", "device_check", "test_instructions", "integrity_pledge", "english_test", "post_test_verification", "id_consent", "id_verification", "test_result", "voice_recording_1", "voice_recording_2", "profile_builder"];
+            {["application_form", "english_test", "voice_recording_1", "profile_builder"].map((s, i) => {
+              const stepOrder = ["application_form", "device_check", "test_instructions", "integrity_pledge", "english_test", "test_result", "voice_recording_1", "voice_recording_2", "profile_builder"];
               const currentIndex = stepOrder.indexOf(step);
               const thisIndex = stepOrder.indexOf(s);
               const isComplete = currentIndex > thisIndex;

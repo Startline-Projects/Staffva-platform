@@ -51,9 +51,10 @@ export function checkApprovalGates(candidate: GateCandidate): {
   if (!candidate.voice_recording_2_url) {
     failingConditions.push("Self-introduction recording missing");
   }
-  if (candidate.id_verification_status !== "passed") {
-    failingConditions.push("ID verification not passed");
-  }
+  // ID verification is deliberately NOT a gate (owner's call, 2026-09-03):
+  // candidates get a 14-day window AFTER assessments to verify, and an
+  // overdue unverified profile is hidden from clients by the read-side
+  // predicate (00154) rather than blocked from approval.
   if (!candidate.profile_photo_url) {
     failingConditions.push("Profile photo missing");
   }
@@ -99,8 +100,9 @@ export async function checkApprovalPreconditions(
   // and check what the candidate says against what they claimed on their
   // application. See staffva-interview-main, lib/interviewDepth.
   //
-  // The ten profile gates below are untouched, so approval still requires ID
-  // verification, both voice recordings, a photo, a resume and the rest.
+  // The profile gates are untouched, so approval still requires both voice
+  // recordings, a photo, a resume and the rest. (ID verification moved to a
+  // post-assessment 14-day window — see checkApprovalGates.)
   const { data: aiInterview, error } = await supabase
     .from("ai_interviews")
     .select("id")

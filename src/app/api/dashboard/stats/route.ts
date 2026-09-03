@@ -175,7 +175,9 @@ export async function GET() {
           .from("candidates")
           .select("id, display_name, role_category, profile_photo_url")
           .in("id", topCandidateIds)
-          .eq("admin_status", "approved");
+          .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154/00155).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
         const scoreMap: Record<string, number> = {};
         for (const ai of aiScores || []) {
@@ -199,7 +201,9 @@ export async function GET() {
           .from("candidates")
           .select("id, display_name, role_category, profile_photo_url")
           .in("id", poolIds.slice(0, 4))
-          .eq("admin_status", "approved");
+          .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154/00155).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
         topMatches = (fallback || []).map((c) => ({ ...c, overall_score: 0 }));
       }

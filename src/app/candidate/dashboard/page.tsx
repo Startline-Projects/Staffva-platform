@@ -49,7 +49,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -72,11 +72,31 @@ export default async function CandidateDashboardPage() {
   }
 
   // The live portal is step 13 — until then, approved candidates keep the
-  // dashboard they know.
+  // dashboard they know — plus the ID-window banner: they are exactly the
+  // cohort the 14-day rule can hide, so the countdown must reach them.
   if (candidate?.admin_status === "approved") {
+    const approvedIdDue = candidate.id_verification_due_at ? new Date(candidate.id_verification_due_at) : null;
+    const idPending = ["manual_review"].includes(candidate.id_verification_status || "");
+    const needsId = candidate.id_verification_status !== "passed" && !idPending && !!approvedIdDue;
+    // eslint-disable-next-line react-hooks/purity
+    const nowMs = Date.now();
+    const overdue = needsId && approvedIdDue!.getTime() < nowMs;
+    const daysLeft = needsId ? Math.max(0, Math.ceil((approvedIdDue!.getTime() - nowMs) / 86400000)) : 0;
     return (
       <>
         <Navbar />
+        {needsId && (
+          <div className={`${overdue ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"} border-b px-6 py-3 text-center`}>
+            <p className={`text-sm ${overdue ? "text-red-800" : "text-amber-800"}`}>
+              {overdue ? (
+                <><strong>Your profile is hidden from clients</strong> — the 14-day ID window has passed. Verify your ID and you&apos;re visible again immediately.{" "}</>
+              ) : (
+                <><strong>Verify your ID</strong> — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. After that, your profile hides from clients until you verify.{" "}</>
+              )}
+              <Link href="/apply?flow=id" className="underline font-semibold">Verify now</Link>
+            </p>
+          </div>
+        )}
         <LegacyDashboard />
       </>
     );
@@ -114,23 +134,35 @@ export default async function CandidateDashboardPage() {
   // Node order mirrors what the /apply machine ACTUALLY runs today
   // (form → English → identity → recordings → profile → interview). The
   // Atlas canonical order arrives as steps 7–11 rebuild those flows.
+  // ID verification sits AFTER the assessments (owner's rule, 2026-09-03):
+  // once English + interview are done, a 14-day window opens; overdue and
+  // unverified means hidden from clients until verified. It never blocks
+  // review or going live inside the window, so it's tracked as its own
+  // node but the "current step" pointer skips it (the grace card below the
+  // step card owns that conversation).
+  const assessmentsDone = englishDone && interview1Done;
+  const idDueAt = candidate?.id_verification_due_at ? new Date(candidate.id_verification_due_at) : null;
+  const idOverdue = !idDone && !!idDueAt && idDueAt.getTime() < now;
+  const idDaysLeft = idDueAt ? Math.max(0, Math.ceil((idDueAt.getTime() - now) / 86400000)) : null;
+
   const nodes: PipelineNode[] = [
     { id: "email", label: "Email", xp: 25, state: emailDone ? "completed" : "current" },
     { id: "whatsapp", label: "WhatsApp", xp: 25, state: phoneDone ? "completed" : "waived", detail: "Coming soon — not required yet" },
     { id: "english", label: "English", xp: 100, state: englishDone ? "completed" : "upcoming" },
-    { id: "id", label: "Identity", xp: 50, state: idDone ? "completed" : "upcoming" },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
     { id: "interview1", label: "Interview 1", xp: 100, state: interview1Done ? "completed" : "upcoming" },
     { id: "interview2", label: "Interview 2", xp: 100, state: "waived", detail: "Coming soon — not required yet" },
+    { id: "id", label: "Identity", xp: 50, state: idDone ? "completed" : "upcoming", detail: assessmentsDone ? "Verify within 14 days of finishing your assessments" : "Unlocks after your assessments" },
     { id: "review", label: "Review", xp: 50, state: underReview ? "current" : "upcoming" },
     { id: "live", label: "Live", xp: 0, state: "upcoming" },
   ];
 
   // First non-completed, non-waived node becomes current (unless review
-  // already owns it).
+  // already owns it). Identity is skipped here — it runs on its own window
+  // in parallel and gets its own card.
   if (!underReview) {
-    const firstOpen = nodes.find((n) => n.state !== "completed" && n.state !== "waived");
+    const firstOpen = nodes.find((n) => n.state !== "completed" && n.state !== "waived" && n.id !== "id");
     if (firstOpen) firstOpen.state = "current";
   }
   const currentNode = nodes.find((n) => n.state === "current") || nodes[nodes.length - 1];
@@ -149,18 +181,10 @@ export default async function CandidateDashboardPage() {
       minutes: "~1 min",
       tips: ["Check your spam folder if nothing arrives within 2 minutes.", "The link expires after 24 hours — you can always resend."],
     },
-    id: {
-      title: "Verify your identity",
-      body: "Upload a government ID and complete the check. This locks your identity as your StaffVA reference — clients hire the person they see.",
-      cta: candidate ? "Continue identity check" : "Start your application",
-      href: "/apply",
-      minutes: "~5 min",
-      tips: ["Use the exact legal name from your signup.", "Good lighting and a flat surface make the photo pass first try."],
-    },
     english: {
       title: "Take the proctored English assessment",
       body: "A camera-proctored test of grammar and comprehension. Find a quiet spot — the room scan and monitoring run for the whole session.",
-      cta: "Continue to the assessment",
+      cta: candidate ? "Continue to the assessment" : "Start your application",
       href: "/apply",
       minutes: "~25 min",
       tips: ["You need a working camera and a quiet room.", "Leaving fullscreen or switching tabs is flagged — close everything else first."],
@@ -242,7 +266,7 @@ export default async function CandidateDashboardPage() {
   const currentIndex = nodes.findIndex((n) => n.id === currentNode.id);
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming").slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
-    id: "Upload a government ID and complete the check. This locks your identity as your StaffVA reference.",
+    id: "Upload a government ID within 14 days of finishing your assessments — after that, unverified profiles hide from clients.",
     english: "A camera-proctored assessment of grammar and comprehension.",
     interview1: "A structured AI interview that probes the skills you claim.",
     interview2: "A role-specific second round — questions branch by your category.",
@@ -394,6 +418,36 @@ export default async function CandidateDashboardPage() {
             )}
           </div>
         </section>
+
+        {/* ── ID verification window ── */}
+        {assessmentsDone && !idDone && !terminal && candidate?.id_verification_status !== "manual_review" && (
+          <section className={`current-step-card active`} aria-label="Identity verification window">
+            <div className="current-step-body">
+              <div className="current-step-header">
+                <div className="current-step-icon" aria-hidden>
+                  <Asti variant={idOverdue ? "rest" : "idle"} size={40} animate={false} />
+                </div>
+                <div className="current-step-title-group">
+                  <span className="current-step-eyebrow" style={idOverdue ? { color: "var(--danger)" } : undefined}>
+                    {idOverdue ? "Overdue — profile hidden" : idDaysLeft !== null ? `Identity verification · ${idDaysLeft} day${idDaysLeft === 1 ? "" : "s"} left` : "Identity verification"}
+                  </span>
+                  <h2 className="current-step-title">{idOverdue ? "Verify your ID to get visible again" : "Verify your ID"}</h2>
+                </div>
+                <span className="current-step-meta-chip">~5 min</span>
+              </div>
+              <p className="current-step-body-text">
+                {idOverdue
+                  ? "Your 14-day window has passed, so your profile is hidden from clients right now. Verify your government ID and you're back on the marketplace immediately."
+                  : "You've finished your assessments — verify your government ID within 14 days. Inside the window you stay fully visible to clients; miss it and your profile hides until you verify."}
+              </p>
+              <div className="current-step-actions">
+                <Link href="/apply?flow=id" className="current-step-cta">
+                  <span>Verify my ID</span>
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── Coming up + help ── */}
         <div className="dash-bottom-grid">

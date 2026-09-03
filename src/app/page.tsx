@@ -71,6 +71,8 @@ async function landingData(): Promise<LandingData> {
         .from("candidates")
         .select("id, display_name, role_category, hourly_rate, country, profile_photo_url, skills")
         .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(200),
     ]);

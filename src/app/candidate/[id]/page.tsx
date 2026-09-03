@@ -119,6 +119,9 @@ export default async function CandidateProfilePage({
     .select("*")
     .eq("id", id)
     .eq("admin_status", "approved")
+    // Overdue-unverified profiles are hidden from clients (00154). Their
+    // owner and staff still reach them through the branches below.
+    .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
     .single();
 
   // If not found and user is the candidate themselves, show their own profile
@@ -301,6 +304,13 @@ export default async function CandidateProfilePage({
     : earningsAmt >= 5000 ? "$5K+ earned" : "$1K+ earned";
 
   const hasApprovedVideo = candidate.video_intro_status === "approved" && !!candidate.video_intro_url;
+  // Server component — one render per request, so the clock read is the
+  // correct per-request behavior.
+  // eslint-disable-next-line react-hooks/purity
+  const hiddenForId =
+    candidate.id_verification_status !== "passed" &&
+    !!candidate.id_verification_due_at &&
+    new Date(candidate.id_verification_due_at).getTime() < Date.now();
   const idVerified = candidate.id_verification_status === "passed";
   // Trust marks belong to LIVE listings only — a rejected or in-review
   // profile viewed by its owner or staff must not wear them.
@@ -373,11 +383,20 @@ export default async function CandidateProfilePage({
         </div>
       )}
       {isOwnProfile && candidate.admin_status === "approved" && (
-        <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
-          <p className="text-sm text-green-800">
-            <strong>Your profile is live</strong> — You are visible to clients. You will be notified when a client sends you a message.
-          </p>
-        </div>
+        hiddenForId ? (
+          <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
+            <p className="text-sm text-red-800">
+              <strong>Your profile is hidden from clients</strong> — your 14-day ID window has passed. Verify your ID and you&apos;re visible again immediately.{" "}
+              <Link href="/apply?flow=id" className="underline font-semibold">Verify now</Link>
+            </p>
+          </div>
+        ) : (
+          <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
+            <p className="text-sm text-green-800">
+              <strong>Your profile is live</strong> — You are visible to clients. You will be notified when a client sends you a message.
+            </p>
+          </div>
+        )
       )}
 
       {/* Own profile continue-application CTA */}

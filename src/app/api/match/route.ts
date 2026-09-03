@@ -189,7 +189,9 @@ export async function POST(req: NextRequest) {
     const { data: candidates } = await admin
       .from("candidates")
       .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status")
-      .eq("admin_status", "approved");
+      .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
     if (!candidates || candidates.length === 0) {
       return NextResponse.json({ results: [], extracted, message: "No candidates available" });

@@ -22,7 +22,9 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("candidates")
     .select("role_category, skills")
-    .eq("admin_status", "approved");
+    .eq("admin_status", "approved")
+      // Overdue-unverified profiles are hidden from clients (00154/00155).
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
   if (error) {
     return NextResponse.json([], { status: 500 });

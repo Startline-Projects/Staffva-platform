@@ -55,7 +55,7 @@ export async function POST(request: Request) {
           require_matching_selfie: true,
         },
       },
-      return_url: `${siteUrl}/apply?id_check=returning`,
+      return_url: `${siteUrl}/apply?flow=id&id_check=returning`,
     });
 
     // Update candidate status to pending and store the session id. The id is
