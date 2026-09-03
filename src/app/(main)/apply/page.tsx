@@ -12,22 +12,15 @@ import VoiceRecording1 from "@/components/apply/VoiceRecording1";
 import VoiceRecording2 from "@/components/apply/VoiceRecording2";
 import ProfileBuilder from "@/components/apply/ProfileBuilder";
 import CandidateStatusScreen from "@/components/apply/CandidateStatusScreen";
-import IDVerificationConsent from "@/components/apply/IDVerificationConsent";
-import IDVerification from "@/components/apply/IDVerification";
 import IntegrityPledge from "@/components/apply/IntegrityPledge";
 import ProctorGate from "@/components/proctor/ProctorGate";
-import PostTestVerification from "@/components/apply/PostTestVerification";
-
 export type ApplicationStep =
   | "loading"
   | "application_form"
-  | "id_consent"
-  | "id_verification"
   | "device_check"
   | "test_instructions"
   | "integrity_pledge"
   | "english_test"
-  | "post_test_verification"
   | "test_result"
   | "voice_recording_1"
   | "voice_recording_2"
@@ -149,10 +142,11 @@ export default function ApplyPage() {
     // ID window serves (assessments done) is also fully complete, and review
     // caught them being bounced to the status screen instead.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("flow") === "id") {
-      if (candidate.id_verification_status !== "passed") {
-        setStep(candidate.id_verification_consent ? "id_verification" : "id_consent");
-        return;
-      }
+      // The ID flow lives on its own Atlas page now (step 7). Old links and
+      // emails still land here — forward them; /verify-id renders the right
+      // state for every status, verified included.
+      router.replace("/verify-id");
+      return;
     }
 
     const isFullyComplete =
@@ -215,7 +209,8 @@ export default function ApplyPage() {
     setStep("voice_recording_1");
   }
 
-  // New flow: form → device_check → test → post_test_verification → id_consent → id_verification → results
+  // Flow: form → device_check → test → results → recordings → profile.
+  // The ID check lives on /verify-id (step 7), in its own 14-day window.
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
     goToStep("device_check", data.id);
@@ -248,26 +243,6 @@ export default function ApplyPage() {
     const supabase = createClient();
     await supabase.from("candidates").update({ results_display_unlocked: true }).eq("id", updatedCandidate.id);
     goToStep(passed ? "voice_recording_1" : "test_result", updatedCandidate.id);
-  }
-
-  function handlePostTestVerify() {
-    goToStep("id_consent");
-  }
-
-  function handleIDConsentComplete() {
-    if (candidateData) {
-      setCandidateData({ ...candidateData, id_verification_consent: true });
-    }
-    goToStep("id_verification", candidateData?.id);
-  }
-
-  async function handleIDVerificationComplete() {
-    if (candidateData) {
-      setCandidateData({ ...candidateData, id_verification_status: "passed", results_display_unlocked: true });
-    }
-    // The deferred ID flow ends back on the dashboard, where the identity
-    // node flips to complete.
-    router.push("/candidate/dashboard");
   }
 
   function handleRecording1Complete(url: string) {
@@ -360,13 +335,12 @@ export default function ApplyPage() {
               const thisIndex = stepOrder.indexOf(s);
               const isComplete = currentIndex > thisIndex;
               const isCurrent = step === s
-                || (s === "english_test" && ["device_check", "test_instructions", "integrity_pledge", "english_test"].includes(step))
-                || (s === "id_verification" && ["post_test_verification", "id_consent", "id_verification"].includes(step));
+                || (s === "english_test" && ["device_check", "test_instructions", "integrity_pledge", "english_test"].includes(step));
               return (
                 <div key={s} className="flex-1">
                   <div className={`h-1.5 rounded-full ${isComplete ? "bg-primary" : isCurrent ? "bg-primary/50" : "bg-gray-200"}`} />
                   <p className="mt-1 text-[10px] text-text/40 text-center">
-                    {["Application", "English Test", "Identity", "Recordings", "Profile"][i]}
+                    {["Application", "English Test", "Recordings", "Profile"][i]}
                   </p>
                 </div>
               );
@@ -406,22 +380,6 @@ export default function ApplyPage() {
             onComplete={handleTestComplete}
           />
         </ProctorGate>
-      )}
-      {step === "post_test_verification" && (
-        <PostTestVerification onVerify={handlePostTestVerify} />
-      )}
-      {step === "id_consent" && candidateData && (
-        <IDVerificationConsent
-          candidateId={candidateData.id}
-          onConsented={handleIDConsentComplete}
-        />
-      )}
-      {step === "id_verification" && candidateData && (
-        <IDVerification
-          candidateId={candidateData.id}
-          verificationStatus={candidateData.id_verification_status || "pending"}
-          onComplete={handleIDVerificationComplete}
-        />
       )}
       {step === "test_result" && candidateData && (
         <TestResult candidate={candidateData} passed={testPassed} />

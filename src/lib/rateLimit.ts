@@ -93,6 +93,11 @@ export const LIMITS = {
   // already caps 5 checks per verification, this caps verifications.
   phoneCheckAccount: { limit: 30, windowSeconds: 3600 },
   phoneCheckNumber: { limit: 20, windowSeconds: 3600 },
+
+  // Stripe Identity session minting, keyed on user id. A legit candidate
+  // starts a handful of sessions ever; a document-iterating forger would
+  // mint dozens. This also bounds the check-status fallback's exposure.
+  identitySession: { limit: 6, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

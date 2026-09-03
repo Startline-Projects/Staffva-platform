@@ -2506,3 +2506,232 @@
   flex-wrap: wrap;
 }
 .lp-auth .state-back:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── ID verification (step 7) — consent card, processing stages and the
+   reference-locked success illo from the Atlas prototype. The simulated
+   camera/liveness stages are NOT ported: Stripe Identity's hosted flow
+   does the real capture. ── */
+.lp-auth .feedback-block {
+  padding: 18px 20px;
+  background: var(--cream);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  margin-bottom: 22px;
+}
+.lp-auth .feedback-block-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 10px;
+  display: block;
+}
+.lp-auth .feedback-block h4 {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 48;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.lp-auth .feedback-block p {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.lp-auth .feedback-block p:last-child { margin-bottom: 0; }
+.lp-auth .consent-card-body {
+  text-align: left;
+  padding: 4px 0 8px;
+}
+.lp-auth .consent-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.lp-auth .consent-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(214, 242, 77, 0.2), rgba(214, 242, 77, 0.05));
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+}
+.lp-auth .consent-title {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 72;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.lp-auth .consent-lead {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin-bottom: 22px;
+  text-align: center;
+}
+.lp-auth .consent-block {
+  padding: 18px 20px;
+  background: var(--cream);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  margin-bottom: 18px;
+}
+.lp-auth .consent-block dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.lp-auth .consent-block dd {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.lp-auth .consent-block dd:last-child { margin-bottom: 0; }
+.lp-auth .consent-block dd strong { color: var(--ink); font-weight: 500; }
+.lp-auth .consent-check-row {
+  padding: 14px 0 6px;
+  border-top: 1px dashed var(--line-soft);
+  margin-top: 16px;
+}
+.lp-auth .consent-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.lp-auth .consent-decline {
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+  background: transparent;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color .15s ease, border-color .15s ease;
+  font-family: inherit;
+  cursor: pointer;
+}
+.lp-auth .consent-decline:hover { color: var(--ink); border-color: var(--ink); }
+.lp-auth .processing-card {
+  padding: 12px 0 20px;
+  text-align: center;
+}
+.lp-auth .processing-ring {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 22px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--ink);
+  animation: spin 1s linear infinite;
+}
+.lp-auth .processing-stages {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 0;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.lp-auth .processing-stage {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--cream);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  transition: all .3s ease;
+}
+.lp-auth .processing-stage-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+  transition: all .3s ease;
+}
+.lp-auth .reference-locked-card {
+  text-align: center;
+  padding: 8px 0;
+}
+.lp-auth .reference-lock-illo {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 24px;
+}
+.lp-auth .reference-lock-face {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 35%, rgba(217, 167, 127, 0.9), rgba(139, 90, 60, 0.85));
+  display: grid;
+  place-items: center;
+  color: rgba(251, 248, 242, 0.9);
+}
+.lp-auth .reference-lock-face svg { opacity: 0.7; }
+.lp-auth .reference-lock-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid var(--ink);
+  animation: lockRing 1.2s cubic-bezier(.2,.8,.2,1);
+}
+.lp-auth .reference-lock-ring.secondary {
+  inset: -12px;
+  border: 1.5px solid var(--lime);
+  opacity: 0.5;
+  animation: lockRingOuter 2s ease-out 0.6s both;
+}
+.lp-auth .reference-lock-ticks span {
+  position: absolute;
+  width: 2px;
+  height: 8px;
+  background: var(--ink);
+  top: -6px;
+  left: 50%;
+  transform-origin: 50% 76px;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: tickIn 0.4s ease-out forwards;
+}
+.lp-auth .reference-lock-ticks span:nth-child(1) { transform: translateX(-50%) rotate(0deg); animation-delay: 0.9s; }
+.lp-auth .reference-lock-ticks span:nth-child(2) { transform: translateX(-50%) rotate(90deg); animation-delay: 1.0s; }
+.lp-auth .reference-lock-ticks span:nth-child(3) { transform: translateX(-50%) rotate(180deg); animation-delay: 1.1s; }
+.lp-auth .reference-lock-ticks span:nth-child(4) { transform: translateX(-50%) rotate(270deg); animation-delay: 1.2s; }
+.lp-auth .reference-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  background: var(--ink);
+  color: var(--lime);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.lp-auth .reference-lock-badge svg { color: var(--lime); }

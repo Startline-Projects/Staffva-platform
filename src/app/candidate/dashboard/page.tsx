@@ -93,7 +93,7 @@ export default async function CandidateDashboardPage() {
               ) : (
                 <><strong>Verify your ID</strong> — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. After that, your profile hides from clients until you verify.{" "}</>
               )}
-              <Link href="/apply?flow=id" className="underline font-semibold">Verify now</Link>
+              <Link href="/verify-id" className="underline font-semibold">Verify now</Link>
             </p>
           </div>
         )}
@@ -474,7 +474,7 @@ export default async function CandidateDashboardPage() {
                   : "You've finished your assessments — verify your government ID within 14 days. Inside the window you stay fully visible to clients; miss it and your profile hides until you verify."}
               </p>
               <div className="current-step-actions">
-                <Link href="/apply?flow=id" className="current-step-cta">
+                <Link href="/verify-id" className="current-step-cta">
                   <span>Verify my ID</span>
                 </Link>
               </div>

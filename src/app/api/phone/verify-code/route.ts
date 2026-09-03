@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Same rule as send-code: an aal1 session still owing its TOTP step must
   // not modify account state through the middleware's /api exemption.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal && aal.currentLevel !== aal.nextLevel) {
+  if (!aal || aal.currentLevel !== aal.nextLevel) { // fail CLOSED: an unreadable AAL is not a satisfied one
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

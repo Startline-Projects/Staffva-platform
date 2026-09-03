@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that require authentication
-const protectedRoutes = ["/apply", "/inbox", "/admin", "/team", "/hire", "/candidate/dashboard"];
+const protectedRoutes = ["/apply", "/inbox", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify-id", "/verify-phone"];
 
 // Routes only for unauthenticated users
 const authRoutes = ["/login", "/signup"];
@@ -62,7 +62,9 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("mfa", "1");
     if (protectedRoutes.some((route) => pathname.startsWith(route))) {
-      url.searchParams.set("next", pathname);
+      // Carry the query too — /verify-id?id_check=returning must survive
+      // the OTP detour or the Stripe return lands on a page that never polls.
+      url.searchParams.set("next", pathname + request.nextUrl.search);
     }
     return NextResponse.redirect(url);
   }
@@ -71,7 +73,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && protectedRoutes.some((route) => pathname.startsWith(route))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
 

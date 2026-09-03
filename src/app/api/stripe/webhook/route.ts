@@ -200,7 +200,18 @@ export async function POST(request: Request) {
       break;
     }
 
-    // Stripe Identity — manual review (processing)
+    // Stripe Identity — the session was SUBMITTED and Stripe is deciding.
+    //
+    // This used to write id_verification_status='manual_review' and email the
+    // candidate a "48-hour manual review" notice. But Stripe fires
+    // `processing` on EVERY submission, seconds before the verdict — it is
+    // not a human-review queue. The old mapping put every happy-path
+    // candidate through the review screen (and briefly into the admin
+    // manual-review queue) on their way to "passed". Now: stamp the
+    // submission time, change nothing else, send nothing. The verified /
+    // requires_input events that follow carry the real outcome; genuine
+    // manual review is entered only by an admin or the duplicate-document
+    // flag.
     case "identity.verification_session.processing": {
       const session = event.data.object as {
         id: string;
@@ -211,38 +222,8 @@ export async function POST(request: Request) {
       if (candidateId) {
         await supabase
           .from("candidates")
-          .update({
-            id_verification_status: "manual_review",
-            id_verification_submitted_at: new Date().toISOString(),
-          })
+          .update({ id_verification_submitted_at: new Date().toISOString() })
           .eq("id", candidateId);
-
-        // Send manual review email to candidate
-        if (process.env.RESEND_API_KEY) {
-          const { data: candidate } = await supabase
-            .from("candidates")
-            .select("email, display_name, full_name")
-            .eq("id", candidateId)
-            .single();
-
-          if (candidate) {
-            try {
-              await sendEmail({
-                  from: "StaffVA <notifications@staffva.com>",
-                  to: candidate.email,
-                  subject: "Your ID Verification Is Under Review",
-                  html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#1C1B1A;">ID Verification Under Review</h2>
-                    <p style="color:#444;font-size:14px;">Hi ${candidate.display_name || candidate.full_name},</p>
-                    <p style="color:#444;font-size:14px;line-height:1.6;">Your identity verification has been submitted and is currently under manual review. This typically takes up to <strong>48 hours</strong>.</p>
-                    <p style="color:#444;font-size:14px;line-height:1.6;">You can continue viewing your application progress in your dashboard while we process your verification. We will notify you by email once it is resolved.</p>
-                    <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View My Dashboard</a>
-                    <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
-                  </div>`,
-                });
-            } catch { /* silent */ }
-          }
-        }
       }
       break;
     }

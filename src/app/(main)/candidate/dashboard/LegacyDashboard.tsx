@@ -973,14 +973,16 @@ export default function CandidateDashboardPage() {
           nextBody = "Your English assessment is ready when you are.";
           nextHref = "/apply"; nextLabel = "Start Assessment";
         } else if (testSubmitted && !idConsentGiven && !idVerified) {
-          // Stage 2: Test submitted, awaiting ID verification
+          // Stage 2: Test submitted, ID still open. Results are NOT gated on
+          // ID any more — it has its own 14-day window on /verify-id.
           nextHeading = "Your assessment has been submitted";
-          nextBody = "Complete your identity verification to see your results.";
-          nextHref = "/apply"; nextLabel = "Verify My Identity";
+          nextBody = "Verify your government ID within your 14-day window to stay visible to clients.";
+          nextHref = "/verify-id"; nextLabel = "Verify My Identity";
         } else if (idManualReview && !idVerified) {
-          // Stage 3: ID verification pending manual review
+          // Stage 3: ID verification pending manual review. No email goes
+          // out on resolution — the dashboard is where the result lands.
           nextHeading = "Your identity is being reviewed by our team";
-          nextBody = "You will receive your results by email within 48 hours.";
+          nextBody = "Reviews typically finish within 48 hours — this page shows the result as soon as it's in.";
         } else if (idVerified && !aiDone) {
           // Stage 4: ID verified, AI interview not started / failed / retake ready
           const aiInProgress = !!aiInterview && aiInterview.status === "in_progress";

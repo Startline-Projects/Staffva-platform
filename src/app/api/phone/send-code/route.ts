@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   // that still owes its TOTP step reaches here as aal1. A half-signed-in
   // session must not modify account state.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal && aal.currentLevel !== aal.nextLevel) {
+  if (!aal || aal.currentLevel !== aal.nextLevel) { // fail CLOSED: an unreadable AAL is not a satisfied one
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -226,22 +226,27 @@ async function reprocessStripeWebhook(
     case "identity.verification_session.requires_input": {
       const candidateId = (payload.metadata as Record<string, string>)?.candidate_id;
       if (!candidateId) return false;
+      // Reconcile replays STALE events by definition — only move a row that
+      // is still waiting. Without the guard, a late requires_input replay
+      // would regress an already-landed 'passed' (or dissolve a review hold).
       await supabase
         .from("candidates")
         .update({ id_verification_status: "failed" })
-        .eq("id", candidateId);
+        .eq("id", candidateId)
+        .eq("id_verification_status", "pending");
       return true;
     }
 
     case "identity.verification_session.processing": {
       const candidateId = (payload.metadata as Record<string, string>)?.candidate_id;
       if (!candidateId) return false;
+      // Mirrors the live webhook (see stripe/webhook route): 'processing'
+      // means SUBMITTED, not manual review — stamp the time, change nothing
+      // else. The old copy here wrote manual_review and could overwrite a
+      // landed 'passed' with reconcile-time data.
       await supabase
         .from("candidates")
-        .update({
-          id_verification_status: "manual_review",
-          id_verification_submitted_at: new Date().toISOString(),
-        })
+        .update({ id_verification_submitted_at: new Date().toISOString() })
         .eq("id", candidateId);
       return true;
     }

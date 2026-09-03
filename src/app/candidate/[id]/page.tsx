@@ -387,7 +387,7 @@ export default async function CandidateProfilePage({
           <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
             <p className="text-sm text-red-800">
               <strong>Your profile is hidden from clients</strong> — your 14-day ID window has passed. Verify your ID and you&apos;re visible again immediately.{" "}
-              <Link href="/apply?flow=id" className="underline font-semibold">Verify now</Link>
+              <Link href="/verify-id" className="underline font-semibold">Verify now</Link>
             </p>
           </div>
         ) : (
