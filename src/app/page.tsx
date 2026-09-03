@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { BROWSE_PILLS } from "@/lib/roleTaxonomy";
 import LandingInteractive from "@/components/landing/LandingInteractive";
+import AtlasNav from "@/components/landing/AtlasNav";
+import AtlasFooter from "@/components/landing/AtlasFooter";
 import "./landing.css";
 
 export const metadata: Metadata = {
@@ -138,28 +140,7 @@ export default async function LandingPage() {
         href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@300..900&family=Geist+Mono:wght@400..600&display=swap"
         rel="stylesheet"
       />
-<nav className="nav" id="nav">
-  <div className="nav-inner">
-    <Link href="/" className="logo">
-      <span className="logo-mark"></span>
-      <span>StaffVA</span>
-    </Link>
-    <div className="nav-links">
-      <a href="/browse" className="nav-link">Find Talent</a>
-      <a href="/signup/client" className="nav-link">For Businesses</a>
-      <a href="/signup/candidate" className="nav-link">For Candidates</a>
-      <a href="#vetting" className="nav-link">How It Works</a>
-      <a href="#pricing" className="nav-link">Pricing</a>
-    </div>
-    <div className="nav-actions">
-      <a href="/login" className="btn btn-ghost">Sign In</a>
-      <a href="/signup/client" className="btn btn-primary">Sign Up</a>
-      <button className="hamburger" aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
-      </button>
-    </div>
-  </div>
-</nav>
+<AtlasNav />
 <main>
 
 <section id="hero" className="hero">
@@ -636,56 +617,7 @@ export default async function LandingPage() {
 
 </main>
 
-<footer>
-  <div className="container">
-    <div className="footer-top">
-      <div className="footer-brand">
-        <Link href="/" className="logo"><span className="logo-mark"></span><span>StaffVA</span></Link>
-        <p className="footer-tagline">The global talent marketplace for companies who actually want A-players.</p>
-      </div>
-
-      <div className="footer-col">
-        <h4>Clients</h4>
-        <ul>
-          <li><a href="/browse">Browse Talent</a></li>
-          <li><a href="/post-a-job">Post a Job</a></li>
-          <li><a href="/signup/client">For Businesses</a></li>
-          <li><a href="#pricing">Pricing</a></li>
-        </ul>
-      </div>
-
-      <div className="footer-col">
-        <h4>Candidates</h4>
-        <ul>
-          <li><a href="/signup/candidate">Apply to Join</a></li>
-          <li><a href="#vetting">How Vetting Works</a></li>
-          <li><a href="/login">Sign In</a></li>
-        </ul>
-      </div>
-
-      <div className="footer-col">
-        <h4>Resources</h4>
-        <ul>
-          <li><a href="/terms">Trust &amp; Safety</a></li>
-          <li><a href="/privacy">Privacy</a></li>
-          <li><a href="/cookies">Cookie Policy</a></li>
-        </ul>
-      </div>
-
-      <div className="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="mailto:hello@staffva.com">Contact</a></li>
-          <li><a href="/terms">Terms of Service</a></li>
-        </ul>
-      </div>
-    </div>
-
-    <div className="footer-bottom">
-      <div>© 2026 Stafva LLC · <a href="/terms" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Terms</a> · <a href="/privacy" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Privacy</a> · <a href="/cookies" style={{color:"#ddd",borderBottom:"1px solid #333",paddingBottom:"1px"}}>Cookies</a></div>
-    </div>
-  </div>
-</footer>
+<AtlasFooter />
 
       <LandingInteractive />
     </div>
