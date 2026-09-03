@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
 
-type SigninState = "default" | "2fa" | "lockout" | "suspended" | "routing" | "forgot";
+type SigninState = "default" | "2fa" | "lockout" | "suspended" | "routing";
 
 /** Client-side attempt throttle: after this many failed passwords we show the
  * lockout screen with a cooldown. Supabase's own server-side rate limiting
@@ -62,12 +62,6 @@ function LoginContent() {
   const [otpBusy, setOtpBusy] = useState(false);
   const factorIdRef = useRef<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Forgot (inline card state — the full Atlas forgot view is step 4)
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetBusy, setResetBusy] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-  const [resetError, setResetError] = useState("");
 
   const verified = searchParams.get("verified");
   const authError = searchParams.get("error");
@@ -157,7 +151,7 @@ function LoginContent() {
         if (nextAttempts >= MAX_ATTEMPTS) { enterLockout("attempts"); return; }
         setAlert(
           /invalid login credentials/i.test(signInError.message)
-            ? { title: "Incorrect email or password.", body: <>Check your info and try again. <button type="button" onClick={() => { setResetEmail(email); setState("forgot"); }} style={{ textDecoration: "underline" }}>Forgot your password?</button></> }
+            ? { title: "Incorrect email or password.", body: <>Check your info and try again. <Link href="/forgot-password" style={{ textDecoration: "underline" }}>Forgot your password?</Link></> }
             : { title: "We couldn't sign you in.", body: signInError.message }
         );
         return;
@@ -281,24 +275,7 @@ function LoginContent() {
     }
   }
 
-  async function handleForgot(e: React.FormEvent) {
-    e.preventDefault();
-    if (!resetEmail || resetBusy) return;
-    setResetError("");
-    setResetBusy(true);
-    const supabase = createClient();
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin) + "/reset-password",
-      });
-      if (error) setResetError(error.message);
-      else setResetSent(true);
-    } catch {
-      setResetError("We couldn't reach the server. Try again.");
-    } finally {
-      setResetBusy(false);
-    }
-  }
+
 
   const lockoutLabel = `${Math.floor(lockoutLeft / 60)}:${String(lockoutLeft % 60).padStart(2, "0")}`;
   const canSubmit = !!email && !!password && !loading;
@@ -399,9 +376,9 @@ function LoginContent() {
 
                 <div className="signin-util-row">
                   <span />
-                  <button type="button" className="forgot-link" onClick={() => { setResetEmail(email); setResetSent(false); setResetError(""); setState("forgot"); }}>
+                  <Link href="/forgot-password" className="forgot-link">
                     Forgot password?
-                  </button>
+                  </Link>
                 </div>
 
                 <button type="submit" className={`btn-submit ${loading ? "loading" : ""}`} disabled={!canSubmit}>
@@ -478,7 +455,7 @@ function LoginContent() {
               </div>
               <a href="mailto:support@staffva.com" className="state-action-btn">Contact support</a>
               <p className="state-fine-print">
-                Forgot your password? You can still <button type="button" onClick={() => { setResetSent(false); setResetError(""); setState("forgot"); }} style={{ textDecoration: "underline" }}>reset it</button> — this won&apos;t affect the cooldown.
+                Forgot your password? You can still <Link href="/forgot-password">reset it</Link> — this won&apos;t affect the cooldown.
               </p>
             </div>
           )}
@@ -509,47 +486,6 @@ function LoginContent() {
             </div>
           )}
 
-          {state === "forgot" && (
-            <div className="signin-state">
-              <button className="state-back" type="button" onClick={() => setState(lockoutLeft > 0 ? "lockout" : "default")}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M11 7H3M7 3 3 7l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                Back to sign in
-              </button>
-              <h2 className="state-title">Reset your password</h2>
-              {resetSent ? (
-                <>
-                  <p className="state-subtitle">
-                    If an account exists for <strong className="email-display">{resetEmail}</strong>, a reset link is on its way. Check spam too.
-                  </p>
-                </>
-              ) : (
-                <form onSubmit={handleForgot} noValidate>
-                  <p className="state-subtitle">
-                    Enter your email and we&apos;ll send you a link to set a new password.
-                  </p>
-                  <div className="form-row">
-                    <div className="field-wrap">
-                      <input
-                        type="email"
-                        className="input"
-                        placeholder="you@example.com"
-                        autoComplete="email"
-                        required
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  {resetError && <p className="state-fine-print" style={{ color: "var(--danger)" }}>{resetError}</p>}
-                  <button type="submit" className={`btn-submit ${resetBusy ? "loading" : ""}`} disabled={!resetEmail || resetBusy}>
-                    <span className="submit-label">Send reset link</span>
-                    {ARROW}
-                    <span className="spinner" aria-hidden></span>
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="signin-alt-actions" aria-label="Other ways to access StaffVA">

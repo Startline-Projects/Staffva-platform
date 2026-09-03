@@ -2176,3 +2176,51 @@
 .lp-auth .wa-otp-wrap .otp-group {
   margin-bottom: 12px;
 }
+
+/* pwd match hint */
+.lp-auth .pwd-match-hint {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--ink-mute);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: color .15s ease;
+  min-height: 18px;
+}
+.lp-auth .pwd-match-hint::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  flex-shrink: 0;
+  transition: all .15s ease;
+}
+.lp-auth .pwd-match-hint.match {
+  color: var(--success);
+}
+.lp-auth .pwd-match-hint.match::before {
+  background: var(--success);
+  border-color: var(--success);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8' fill='none'><path d='M1.5 4.2 3 5.7 6.5 2.2' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.lp-auth .pwd-match-hint.mismatch {
+  color: var(--danger);
+}
+.lp-auth .pwd-match-hint.mismatch::before {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* fine-print buttons read like their sibling links */
+.lp-auth .state-fine-print button {
+  font-size: 12.5px;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
+  text-decoration: none;
+}

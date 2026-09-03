@@ -56,7 +56,7 @@ export async function updateSession(request: NextRequest) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     mfaPending = !!aal && aal.currentLevel === "aal1" && aal.nextLevel === "aal2";
   }
-  const mfaExemptPaths = ["/login", "/reset-password", "/verify-email", "/auth", "/api"];
+  const mfaExemptPaths = ["/login", "/forgot-password", "/reset-password", "/verify-email", "/auth", "/api"];
   if (mfaPending && !mfaExemptPaths.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
