@@ -1,7 +1,11 @@
 import Link from "next/link";
 
-/** The Atlas-design site nav — shared by the homepage and browse. */
-export default function AtlasNav() {
+/**
+ * The Atlas-design site nav — shared by the homepage, browse, and candidate
+ * profiles. `signedIn` swaps the Sign In / Sign Up pair for a Dashboard
+ * link so a logged-in client isn't told to create an account.
+ */
+export default function AtlasNav({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <>
 <nav className="nav" id="nav">
@@ -18,8 +22,14 @@ export default function AtlasNav() {
       <Link href="/#pricing" className="nav-link">Pricing</Link>
     </div>
     <div className="nav-actions">
-      <a href="/login" className="btn btn-ghost">Sign In</a>
-      <a href="/signup/client" className="btn btn-primary">Sign Up</a>
+      {signedIn ? (
+        <Link href="/dashboard" className="btn btn-primary">Dashboard</Link>
+      ) : (
+        <>
+          <a href="/login" className="btn btn-ghost">Sign In</a>
+          <a href="/signup/client" className="btn btn-primary">Sign Up</a>
+        </>
+      )}
       <button className="hamburger" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
       </button>

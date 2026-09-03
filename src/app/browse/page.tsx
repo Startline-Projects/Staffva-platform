@@ -283,7 +283,7 @@ function BrowseContent() {
         href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@300..900&family=Geist+Mono:wght@400..600&display=swap"
         rel="stylesheet"
       />
-      <AtlasNav />
+      <AtlasNav signedIn={isLoggedIn} />
       <div className={previewId ? "md:mr-[480px]" : ""} style={{ transition: "margin .25s" }}>
         <section className="browse-top">
           <div className="container">
