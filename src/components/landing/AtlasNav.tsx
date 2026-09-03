@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
 
 /**
  * The Atlas-design site nav — shared by the homepage, browse, and candidate
@@ -11,8 +12,7 @@ export default function AtlasNav({ signedIn = false }: { signedIn?: boolean }) {
 <nav className="nav" id="nav">
   <div className="nav-inner">
     <Link href="/" className="logo">
-      <span className="logo-mark"></span>
-      <span>StaffVA</span>
+      <StaffvaLogo />
     </Link>
     <div className="nav-links">
       <a href="/browse" className="nav-link">Find Talent</a>

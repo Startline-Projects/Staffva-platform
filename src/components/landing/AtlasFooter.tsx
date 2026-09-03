@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
 
 /** The Atlas-design footer — shared by the homepage and browse. */
 export default function AtlasFooter() {
@@ -8,7 +9,7 @@ export default function AtlasFooter() {
   <div className="container">
     <div className="footer-top">
       <div className="footer-brand">
-        <Link href="/" className="logo"><span className="logo-mark"></span><span>StaffVA</span></Link>
+        <Link href="/" className="logo"><StaffvaLogo /></Link>
         <p className="footer-tagline">The global talent marketplace for companies who actually want A-players.</p>
       </div>
 

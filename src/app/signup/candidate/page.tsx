@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
+import Asti, { AstiPointChip } from "@/components/landing/Asti";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/atlasCountries";
 import "@/app/landing.css";
@@ -355,8 +357,7 @@ export default function CandidateSignupPage() {
       <nav className="nav" id="nav">
         <div className="nav-inner">
           <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <span className="logo-mark" aria-hidden></span>
-            <span>StaffVA</span>
+            <StaffvaLogo />
           </Link>
           <div className="nav-right">
             <span className="existing-q">Already have an account?</span>
@@ -378,6 +379,9 @@ export default function CandidateSignupPage() {
                 StaffVA is a curated marketplace for vetted global talent. Starting your application takes about <strong>two minutes</strong>. Getting fully approved takes a few days — and every step is on your time.
               </p>
 
+              <div style={{ display: "flex", justifyContent: "center", margin: "8px 0 -6px" }}>
+                <Asti variant="idle" size={92} />
+              </div>
               <div className="ahead-card" aria-label="What's ahead">
                 <div className="label">What&apos;s ahead</div>
                 <ol className="ahead-list">
@@ -713,10 +717,13 @@ export default function CandidateSignupPage() {
       {successOverlay && (
         <div className="success-overlay visible" role="dialog" aria-modal="true" aria-labelledby="successTitle">
           <div className="success-card">
-            <div className="success-check" aria-hidden>
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M9 18.5 15.5 25 27 12" stroke="#0E0E0C" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
+              <Asti variant="spin" size={96} />
             </div>
             <h2 id="successTitle">Account created.</h2>
+            <div style={{ display: "flex", justifyContent: "center", margin: "10px 0 2px" }}>
+              <AstiPointChip label="+25 · account created" />
+            </div>
             <p>
               We sent a verification link to <strong>{email}</strong>.
               Click it to continue your application.

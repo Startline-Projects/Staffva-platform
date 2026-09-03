@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -531,8 +532,7 @@ export default function LoginPage() {
       <nav className="nav" id="nav">
         <div className="nav-inner">
           <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <span className="logo-mark" aria-hidden></span>
-            <span>StaffVA</span>
+            <StaffvaLogo />
           </Link>
           <div className="nav-right">
             <span className="existing-q">New to StaffVA?</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -68,8 +69,7 @@ export default function ForgotPasswordPage() {
       <nav className="nav" id="nav">
         <div className="nav-inner">
           <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <span className="logo-mark" aria-hidden></span>
-            <span>StaffVA</span>
+            <StaffvaLogo />
           </Link>
           <div className="nav-right">
             <span className="existing-q">Remembered it?</span>

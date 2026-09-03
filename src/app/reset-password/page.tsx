@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import "@/app/landing.css";
@@ -170,8 +171,7 @@ export default function ResetPasswordPage() {
       <nav className="nav" id="nav">
         <div className="nav-inner">
           <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <span className="logo-mark" aria-hidden></span>
-            <span>StaffVA</span>
+            <StaffvaLogo />
           </Link>
           <div className="nav-right">
             <span className="existing-q">Remembered it?</span>

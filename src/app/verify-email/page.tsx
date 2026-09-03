@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import StaffvaLogo from "@/components/landing/StaffvaLogo";
+import Asti, { AstiPointChip } from "@/components/landing/Asti";
 import { useRouter, useSearchParams } from "next/navigation";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -148,6 +150,7 @@ function VerifyEmailContent() {
         <div className="form-card signin-card">
           {state === "pending" && (
             <div className="signin-state state-centered">
+              <Asti variant="idle" size={84} />
               <div className="state-icon-xl envelope" aria-hidden>
                 <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
                   <rect x="4" y="8" width="22" height="14" rx="1.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
@@ -197,10 +200,9 @@ function VerifyEmailContent() {
 
           {state === "verified" && (
             <div className="signin-state state-centered">
-              <div className="success-check" aria-hidden>
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M9 18.5 15.5 25 27 12" stroke="#0E0E0C" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </div>
+              <Asti variant="celebrate" size={96} />
               <h2 className="state-title">Email verified.</h2>
+              <AstiPointChip label="+25 · email verified" />
               <p className="state-subtitle">Welcome aboard. Taking you to sign in…</p>
               <div className="routing-pulse" aria-hidden><span></span><span></span><span></span></div>
             </div>
@@ -312,8 +314,7 @@ export default function VerifyEmailPage() {
       <nav className="nav" id="nav">
         <div className="nav-inner">
           <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <span className="logo-mark" aria-hidden></span>
-            <span>StaffVA</span>
+            <StaffvaLogo />
           </Link>
           <div className="nav-right">
             <span className="existing-q">Already have an account?</span>
