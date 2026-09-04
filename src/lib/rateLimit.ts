@@ -98,6 +98,15 @@ export const LIMITS = {
   // starts a handful of sessions ever; a document-iterating forger would
   // mint dozens. This also bounds the check-status fallback's exposure.
   identitySession: { limit: 6, windowSeconds: 3600 },
+
+  // Assessment answer-recording uploads, keyed on candidate id. One test
+  // uploads at most 3 recordings (with client retries) — 30/hr covers every
+  // legitimate pattern while capping storage abuse.
+  assessmentUpload: { limit: 30, windowSeconds: 3600 },
+  // Grading retries, keyed on candidate id. Each retry that reaches vendors
+  // is Deepgram + Claude spend, and each failure writes a vendor_failures
+  // row — a stuck candidate mashing Retry needs a handful, not a firehose.
+  gradeRetry: { limit: 10, windowSeconds: 3600 },
 } satisfies Record<string, RateLimit>;
 
 function getAdminClient() {

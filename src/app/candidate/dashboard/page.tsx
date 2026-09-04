@@ -58,6 +58,21 @@ export default async function CandidateDashboardPage() {
     throw new Error(`candidate lookup failed: ${candidateError.message}`);
   }
 
+  // Latest graded assessment attempt — the per-part breakdown the Atlas
+  // result cards show. Only exists for attempts graded by the step-8 engine.
+  let englishParts: Record<string, number | null> | null = null;
+  if (candidate && candidate.english_mc_score !== null) {
+    const { data: lastAttempt } = await admin
+      .from("test_attempts")
+      .select("part_scores")
+      .eq("candidate_id", candidate.id)
+      .eq("status", "graded")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    englishParts = (lastAttempt?.part_scores as Record<string, number | null>) || null;
+  }
+
   // Interview retake window (only meaningful after a failed interview).
   let interviewRetakeAt: Date | null = null;
   if (candidate?.admin_status === "ai_interview_failed") {
@@ -115,6 +130,9 @@ export default async function CandidateDashboardPage() {
     process.env.TWILIO_VERIFY_SERVICE_SID
   );
   const phoneDone = !!profile?.phone_verified_at;
+  // Whether the assessment runs its full 5-part form or MC-only — the card
+  // must describe the test the candidate will actually get.
+  const assessmentFull = !!process.env.ANTHROPIC_API_KEY;
   const idDone = candidate?.id_verification_status === "passed";
   const englishDone = (candidate?.english_mc_score ?? 0) >= 70 && (candidate?.english_comprehension_score ?? 0) >= 70;
   const interview1Done = candidate?.ai_interview_passed === true;
@@ -203,12 +221,14 @@ export default async function CandidateDashboardPage() {
       tips: ["Use a number with WhatsApp active — the code arrives there.", "No WhatsApp on that number? You can get the code by SMS instead."],
     },
     english: {
-      title: "Take the proctored English assessment",
-      body: "A camera-proctored test of grammar and comprehension. Find a quiet spot — the room scan and monitoring run for the whole session.",
-      cta: candidate ? "Continue to the assessment" : "Start your application",
-      href: "/apply",
-      minutes: "~25 min",
-      tips: ["You need a working camera and a quiet room.", "Leaving fullscreen or switching tabs is flagged — close everything else first."],
+      title: "Take the Proctored English Assessment",
+      body: assessmentFull
+        ? "Grammar, reading, speaking and writing on one 24:30 clock, camera-proctored throughout — the room scan and monitoring run for the whole session."
+        : "Grammar and reading comprehension on a 15-minute clock, camera-proctored throughout — the room scan and monitoring run for the whole session.",
+      cta: candidate ? "Start the assessment" : "Start your application",
+      href: candidate ? "/assessment" : "/apply",
+      minutes: assessmentFull ? "~25 min" : "~15 min",
+      tips: ["You need a working camera, a microphone and a quiet room.", "Leaving fullscreen or switching tabs is flagged — close everything else first."],
     },
     interview1: {
       title: "Complete your AI interview",
@@ -414,9 +434,67 @@ export default async function CandidateDashboardPage() {
             </div>
             <p className="current-step-body-text">
               {englishLockoutOverride
-                ? `Your next attempt opens ${lockedUntil!.toLocaleDateString("en-US", { month: "long", day: "numeric" })} at ${lockedUntil!.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}. Take the break — the test isn't going anywhere.`
+                ? `Your next attempt opens ${lockedUntil!.toLocaleDateString("en-US", { month: "long", day: "numeric" })} at ${lockedUntil!.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}. Use the wait — the practice resources below can help you prepare.`
                 : card.body}
             </p>
+            {englishLockoutOverride && (
+              <>
+                <div className="retake-countdown">
+                  <span className="count-val">
+                    {Math.max(1, Math.ceil((lockedUntil!.getTime() - now) / 86400000))}
+                  </span>
+                  <span className="count-meta">
+                    <strong>Days until you can retake</strong>
+                    <span className="retake-date">
+                      Available {lockedUntil!.toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                    </span>
+                  </span>
+                </div>
+                {englishParts && (
+                  <div className="feedback-block">
+                    <span className="feedback-block-label">Your last attempt</span>
+                    <h4>Where you landed</h4>
+                    <div className="score-row">
+                      {(
+                        [
+                          ["grammar", "Grammar"],
+                          ["comprehension", "Comprehension"],
+                          ["read_aloud", "Read-aloud"],
+                          ["listening", "Listening"],
+                          ["speaking", "Speaking"],
+                          ["writing", "Writing"],
+                        ] as const
+                      )
+                        .filter(([key]) => typeof englishParts![key] === "number")
+                        .map(([key, label]) => {
+                          const v = englishParts![key] as number;
+                          return (
+                            <span className="score-item" key={key}>
+                              <span className={`score-n${v >= 75 ? " strong" : v < 60 ? " weak" : ""}`}>{v}</span>
+                              <span className="score-lbl">{label}</span>
+                            </span>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+                <div className="resource-links">
+                  {[
+                    { title: "BBC Learning English", meta: "Lessons · Free", href: "https://www.bbc.co.uk/learningenglish" },
+                    { title: "Duolingo", meta: "App · Free", href: "https://www.duolingo.com" },
+                    { title: "ELSA Speak", meta: "Pronunciation · Freemium", href: "https://elsaspeak.com" },
+                  ].map((r) => (
+                    <a key={r.title} className="resource-link" href={r.href} target="_blank" rel="noopener noreferrer">
+                      <span className="resource-link-icon" aria-hidden>
+                        ↗
+                      </span>
+                      <span className="resource-link-title">{r.title}</span>
+                      <span className="resource-link-meta">{r.meta}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="current-step-actions">
               {englishLockoutOverride ? (
                 <span className="current-step-meta-chip">Retake locked until {lockedUntil!.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>

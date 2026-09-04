@@ -35,6 +35,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid bucket" }, { status: 400 });
   }
 
+  // voice-recordings is public ONLY for profile audio. The assessment's
+  // answer recordings and the unheard listening prompts live in the same
+  // bucket under excluded prefixes (migration 00163) — this route must not
+  // become the bypass that signs them for anyone holding a path.
+  if (
+    typeof path !== "string" ||
+    path.includes("..") ||
+    path.includes("/assessment/") ||
+    path.startsWith("assessment-prompts/")
+  ) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+  }
+
   const supabase = getAdminClient();
 
   // Generate a signed URL valid for 1 hour

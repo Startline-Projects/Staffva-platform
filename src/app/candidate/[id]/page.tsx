@@ -320,7 +320,7 @@ export default async function CandidateProfilePage({
   // stores each dimension /20; everything renders /100 here.
   const englishRows = candidate.english_mc_score > 0 && candidate.english_comprehension_score > 0
     ? [
-        { label: "Reading comprehension", score: Math.round(candidate.english_comprehension_score) },
+        { label: "English communication", score: Math.round(candidate.english_comprehension_score) },
         { label: "Grammar & language", score: Math.round(candidate.english_mc_score) },
       ]
     : [];

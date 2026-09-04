@@ -175,15 +175,15 @@ export default function ApplyPage() {
     }
 
     // --- SESSION RESTORE LOGIC ---
-    // Flow (owner's call, 2026-09-03): form → device_check → test → results →
-    // recordings → profile. ID verification is NO LONGER mid-flow — it has a
-    // 14-day window after the assessments, entered via /apply?flow=id from
-    // the dashboard's identity card.
+    // Flow: form here, then the Proctored English Assessment on its own
+    // Atlas page (/assessment, step 8), then back here for recordings and
+    // the profile. ID verification lives on /verify-id (step 7).
 
-    // Step 1: Check if test was taken
+    // No test score yet → the assessment page owns everything from consent
+    // to grading. Failed → the dashboard owns the cooldown card, breakdown
+    // and retake date.
     if (candidate.english_mc_score === null) {
-      // No test score — go to device check (pre-test flow)
-      setStep("device_check");
+      router.replace("/assessment");
       return;
     }
 
@@ -191,7 +191,7 @@ export default function ApplyPage() {
     setTestPassed(testPassed);
 
     if (!testPassed) {
-      setStep("test_result");
+      router.replace("/candidate/dashboard");
       return;
     }
 
@@ -209,11 +209,14 @@ export default function ApplyPage() {
     setStep("voice_recording_1");
   }
 
-  // Flow: form → device_check → test → results → recordings → profile.
-  // The ID check lives on /verify-id (step 7), in its own 14-day window.
+  // Flow: form here → the assessment on /assessment (step 8) → back here
+  // for recordings and profile. /verify-id (step 7) owns the ID window.
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
+    // Persist the step for the restore logic, then hand off to the
+    // assessment page — the whole proctored flow lives there now.
     goToStep("device_check", data.id);
+    router.replace("/assessment");
   }
 
   function handleDeviceCheckPass() {

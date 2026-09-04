@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 import { ownsCandidate } from "@/lib/auth";
+import { assessmentCapabilities } from "@/lib/assessment";
 
 // Use service role to bypass RLS on questions table
 function getAdminClient() {
@@ -11,10 +13,17 @@ function getAdminClient() {
   );
 }
 
-// Matches the client's timer (15 min) plus grace for network and load time.
-// The attempt's expires_at is what the SERVER enforces at grading; the client
-// timer is UX.
-const ATTEMPT_LIFETIME_MS = (15 * 60 + 120) * 1000;
+// The attempt's expires_at is what the SERVER enforces at grading; the
+// client's global countdown derives from it. The full Atlas assessment runs
+// on a 24:30 clock; an MC-only deal (open parts vendor-gated off) keeps the
+// old 15 minutes. Both get 120s grace for network and load time.
+const FULL_LIFETIME_MS = (24 * 60 + 30 + 120) * 1000;
+const MC_ONLY_LIFETIME_MS = (15 * 60 + 120) * 1000;
+
+/** Listening prompt audio lives in the private recordings bucket; the
+ * client gets a short-lived signed URL. */
+const RECORDINGS_BUCKET = "voice-recordings";
+const AUDIO_URL_TTL_SECONDS = 40 * 60;
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -35,7 +44,39 @@ interface QuestionRow {
   id: string;
   section: string;
   question_text: string;
-  options: string[];
+  options: string[] | null;
+  seconds?: number | null;
+  min_words?: number | null;
+  max_words?: number | null;
+  audio_url?: string | null;
+}
+
+const OPEN_COLUMNS = "id, section, question_text, options, seconds, min_words, max_words, audio_url";
+
+/** Shape one question row for the client — open items carry timing and (for
+ * listening) a signed audio URL; MC items carry permuted options. The
+ * correct answer, real id and listen_script never leave the server. */
+async function toClientQuestion(
+  supabase: ReturnType<typeof getAdminClient>,
+  q: QuestionRow,
+  s: ServedQuestion
+) {
+  const base: Record<string, unknown> = {
+    id: s.eph,
+    section: q.section,
+    question_text: q.question_text,
+    options: s.map.length > 0 ? s.map.map((origIdx) => (q.options as string[])[origIdx]) : [],
+    seconds: q.seconds ?? null,
+    min_words: q.min_words ?? null,
+    max_words: q.max_words ?? null,
+  };
+  if (q.section === "listening" && q.audio_url) {
+    const { data: signed } = await supabase.storage
+      .from(RECORDINGS_BUCKET)
+      .createSignedUrl(q.audio_url, AUDIO_URL_TTL_SECONDS);
+    base.audio = signed?.signedUrl ?? null;
+  }
+  return base;
 }
 
 /**
@@ -62,6 +103,12 @@ export async function POST(request: Request) {
   }
 
   if (!(await ownsCandidate(candidateId))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  // Same MFA rule as the identity/phone routes — /api is middleware-exempt.
+  const authClient = await createServerClient();
+  const { data: aal } = await authClient.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (!aal || aal.currentLevel !== aal.nextLevel) { // fail CLOSED: an unreadable AAL is not a satisfied one
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -93,10 +140,14 @@ export async function POST(request: Request) {
     }
   }
 
-  // Also check candidate-level permanent block
+  // Candidate-level gates: permanent block, an already-passed test (the
+  // page renders "already passed", but the API is the enforcement — a
+  // passed candidate re-dealing attempts would farm the bank), and the
+  // retake cooldown (previously only display + identity-hash enforced;
+  // candidates without a verified identity had NO cooldown enforcement).
   const { data: candidateCheck } = await supabase
     .from("candidates")
-    .select("permanently_blocked")
+    .select("permanently_blocked, english_mc_score, english_comprehension_score, retake_available_at")
     .eq("id", candidateId)
     .single();
 
@@ -106,6 +157,26 @@ export async function POST(request: Request) {
       locked: true,
       permanent: true,
       message: "After multiple attempts, your English assessment access has been permanently suspended.",
+    }, { status: 403 });
+  }
+  if (
+    (candidateCheck?.english_mc_score ?? 0) >= 70 &&
+    (candidateCheck?.english_comprehension_score ?? 0) >= 70
+  ) {
+    return NextResponse.json(
+      { error: "Already passed", message: "This assessment is already passed — there is nothing to retake." },
+      { status: 409 }
+    );
+  }
+  if (
+    candidateCheck?.retake_available_at &&
+    new Date(candidateCheck.retake_available_at).getTime() > Date.now()
+  ) {
+    return NextResponse.json({
+      error: "English assessment locked",
+      locked: true,
+      lockout_expires_at: candidateCheck.retake_available_at,
+      message: "Your retake isn't open yet.",
     }, { status: 403 });
   }
 
@@ -127,20 +198,14 @@ export async function POST(request: Request) {
     const realIds = served.map((s) => s.qid);
     const { data: rows } = await supabase
       .from("english_test_questions")
-      .select("id, section, question_text, options")
+      .select(OPEN_COLUMNS)
       .in("id", realIds);
 
     if (rows && rows.length === served.length) {
       const byId = new Map((rows as QuestionRow[]).map((r) => [r.id, r]));
-      const questions = served.map((s) => {
-        const q = byId.get(s.qid)!;
-        return {
-          id: s.eph,
-          section: q.section,
-          question_text: q.question_text,
-          options: s.map.map((origIdx) => (q.options as string[])[origIdx]),
-        };
-      });
+      const questions = await Promise.all(
+        served.map((s) => toClientQuestion(supabase, byId.get(s.qid)!, s))
+      );
 
       let passageText: string | null = null;
       if (openAttempt.passage_id) {
@@ -210,36 +275,67 @@ export async function POST(request: Request) {
   }
 
   const selectedGrammar = shuffleArray(grammarQuestions as QuestionRow[]).slice(0, 20);
-  const orderedRows = [...selectedGrammar, ...(compQuestions as QuestionRow[])];
 
-  // Build the server-held record and the client payload together.
+  // ── Open parts (step 8, Atlas 5-part spec) — vendor-gated honestly ──
+  // read_aloud/listening/speaking need Deepgram + Anthropic; writing needs
+  // Anthropic; listening additionally needs its generated prompt audio.
+  // Whatever can't run simply isn't dealt, and the composite renormalizes
+  // at grading — the candidate is only scored on what they were asked.
+  const caps = assessmentCapabilities();
+  const openRows: QuestionRow[] = [];
+  const pickRandom = (rows: QuestionRow[] | null) =>
+    rows && rows.length > 0 ? rows[Math.floor(Math.random() * rows.length)] : null;
+
+  if (caps.spoken) {
+    const [{ data: readRows }, { data: listenRows }, { data: speakRows }] = await Promise.all([
+      supabase.from("english_test_questions").select(OPEN_COLUMNS).eq("section", "read_aloud").eq("active", true),
+      supabase.from("english_test_questions").select(OPEN_COLUMNS).eq("section", "listening").eq("active", true).not("audio_url", "is", null),
+      supabase.from("english_test_questions").select(OPEN_COLUMNS).eq("section", "speaking").eq("active", true),
+    ]);
+    for (const picked of [pickRandom(readRows as QuestionRow[]), pickRandom(listenRows as QuestionRow[]), pickRandom(speakRows as QuestionRow[])]) {
+      if (picked) openRows.push(picked);
+    }
+  }
+  if (caps.writing) {
+    const { data: writeRows } = await supabase
+      .from("english_test_questions")
+      .select(OPEN_COLUMNS)
+      .eq("section", "writing")
+      .eq("active", true);
+    const picked = pickRandom(writeRows as QuestionRow[]);
+    if (picked) openRows.push(picked);
+  }
+
+  const orderedRows = [...selectedGrammar, ...(compQuestions as QuestionRow[]), ...openRows];
+
+  // Build the server-held record and the client payload together. Open
+  // items have no options — their map is empty and their answer arrives as
+  // text or a recording, not an index.
   const served: ServedQuestion[] = [];
-  const clientQuestions = orderedRows.map((q) => {
-    const options = q.options as string[];
-    const map = shuffleArray(options.map((_, i) => i));
+  const pairRows = orderedRows.map((q) => {
+    const options = (q.options as string[] | null) || [];
+    const map = options.length > 0 ? shuffleArray(options.map((_, i) => i)) : [];
     const eph = randomUUID();
-    served.push({ qid: q.id, eph, map });
-    return {
-      id: eph,
-      section: q.section,
-      question_text: q.question_text,
-      options: map.map((origIdx) => options[origIdx]),
-    };
+    const sv = { qid: q.id, eph, map };
+    served.push(sv);
+    return { q, sv };
   });
 
-  // Grammar order is shuffled for display; comprehension stays last and in
-  // display order. Shuffle the paired arrays together so the server record
-  // matches what the client sees.
-  const grammarPairs = clientQuestions
-    .map((cq, i) => ({ cq, sv: served[i] }))
-    .filter((p) => p.cq.section === "grammar");
-  const compPairs = clientQuestions
-    .map((cq, i) => ({ cq, sv: served[i] }))
-    .filter((p) => p.cq.section === "comprehension");
-  const shuffledGrammar = shuffleArray(grammarPairs);
-  const finalPairs = [...shuffledGrammar, ...compPairs];
+  // Grammar order is shuffled for display; comprehension stays after it in
+  // display order; open parts run last in the fixed Atlas order
+  // (read → listen → speak → write). Shuffle the pairs together so the
+  // server record matches what the client sees.
+  const OPEN_ORDER = ["read_aloud", "listening", "speaking", "writing"];
+  const grammarPairs = shuffleArray(pairRows.filter((p) => p.q.section === "grammar"));
+  const compPairs = pairRows.filter((p) => p.q.section === "comprehension");
+  const openPairs = pairRows
+    .filter((p) => OPEN_ORDER.includes(p.q.section))
+    .sort((a, b) => OPEN_ORDER.indexOf(a.q.section) - OPEN_ORDER.indexOf(b.q.section));
+  const finalPairs = [...grammarPairs, ...compPairs, ...openPairs];
 
-  const expiresAt = new Date(Date.now() + ATTEMPT_LIFETIME_MS).toISOString();
+  const expiresAt = new Date(
+    Date.now() + (openPairs.length > 0 ? FULL_LIFETIME_MS : MC_ONLY_LIFETIME_MS)
+  ).toISOString();
 
   const { data: attempt, error: attemptError } = await supabase
     .from("test_attempts")
@@ -257,10 +353,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to start test" }, { status: 500 });
   }
 
+  const clientQuestions = await Promise.all(
+    finalPairs.map((p) => toClientQuestion(supabase, p.q, p.sv))
+  );
+
   return NextResponse.json({
     attemptId: attempt.id,
     expiresAt,
     passage: passageRow.passage_text,
-    questions: finalPairs.map((p) => p.cq),
+    questions: clientQuestions,
   });
 }
