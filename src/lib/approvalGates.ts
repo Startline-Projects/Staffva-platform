@@ -103,10 +103,17 @@ export async function checkApprovalPreconditions(
   // The profile gates are untouched, so approval still requires both voice
   // recordings, a photo, a resume and the rest. (ID verification moved to a
   // post-assessment 14-day window — see checkApprovalGates.)
+  // THE KIND FILTER MATTERS (step 9). The interview split gave
+  // ai_interviews a `kind`: 'behavioral' (Interview 1) and 'skills'
+  // (Interview 2, the exam this gate has always meant). Without the filter,
+  // passing the short behavioral round would satisfy the gate that exists
+  // to prove someone can do the work — approval on half the vetting.
+  // Pre-split rows default to 'skills', so history reads correctly.
   const { data: aiInterview, error } = await supabase
     .from("ai_interviews")
     .select("id")
     .eq("candidate_id", candidate.id)
+    .eq("kind", "skills")
     .eq("status", "completed")
     .eq("passed", true)
     .limit(1)
@@ -123,7 +130,7 @@ export async function checkApprovalPreconditions(
   }
 
   if (!aiInterview) {
-    return { ok: false, status: 400, error: "AI interview not passed" };
+    return { ok: false, status: 400, error: "Skills interview not passed" };
   }
 
   return { ok: true };

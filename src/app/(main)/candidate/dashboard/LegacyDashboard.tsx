@@ -329,6 +329,7 @@ function AIInterviewDimensions({ candidateId }: { candidateId: string }) {
       const { data } = await supabase
         .from("ai_interviews")
         .select("technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score")
+        .eq("kind", "skills")
         .eq("candidate_id", candidateId)
         .eq("status", "completed")
         .order("created_at", { ascending: false })
@@ -634,6 +635,7 @@ export default function CandidateDashboardPage() {
         const { data: aiData } = await supabase
           .from("ai_interviews")
           .select("id, status, overall_score, badge_level, passed, created_at, completed_at")
+          .eq("kind", "skills")
           .eq("candidate_id", c.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -641,6 +643,9 @@ export default function CandidateDashboardPage() {
         if (aiData) setAiInterview(aiData as AIInterviewData);
 
         // Load retake data
+        // Deliberately NOT filtered by kind: a candidate serves one
+        // cooldown at a time, and the newest attempt is it — behavioral or
+        // skills. Pinning to one track would miss the other's lockout.
         const { data: retake } = await supabase
           .from("interview_attempts")
           .select("next_retake_available_at, attempt_number")
@@ -746,6 +751,7 @@ export default function CandidateDashboardPage() {
         const { data: aiData } = await supabase
           .from("ai_interviews")
           .select("id, status, overall_score, badge_level, passed, created_at, completed_at")
+          .eq("kind", "skills")
           .eq("candidate_id", candidate.id)
           .eq("status", "completed")
           .eq("passed", true)

@@ -142,6 +142,7 @@ export default async function RecruiterCandidateProfilePage({
   const { data: aiInterview } = await supabase
     .from("ai_interviews")
     .select("overall_score, badge_level, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score")
+    .eq("kind", "skills")
     .eq("candidate_id", id)
     .eq("status", "completed")
     .order("created_at", { ascending: false })

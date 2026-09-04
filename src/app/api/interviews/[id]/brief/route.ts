@@ -89,6 +89,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .select(
         "overall_score, passed, communication_score, communication_feedback, experience_depth_score, experience_depth_feedback, problem_solving_score, problem_solving_feedback, professionalism_score, professionalism_feedback, technical_knowledge_score, technical_knowledge_feedback, strengths, weaknesses, ai_notes"
       )
+      .eq("kind", "skills")
       .eq("candidate_id", b.candidate_id)
       .eq("status", "completed")
       .order("completed_at", { ascending: false })

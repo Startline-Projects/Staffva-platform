@@ -143,6 +143,7 @@ export async function GET() {
         admin
           .from("ai_interviews")
           .select("candidate_id, overall_score")
+          .eq("kind", "skills")
           .in("candidate_id", chunk)
           .eq("status", "completed")
           .eq("passed", true)

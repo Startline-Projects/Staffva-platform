@@ -232,6 +232,7 @@ export default async function CandidateProfilePage({
   const { data: aiInterview } = await supabase
     .from("ai_interviews")
     .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed, badge_level, technical_knowledge_feedback, problem_solving_feedback, communication_feedback, experience_depth_feedback, professionalism_feedback, strengths, weaknesses, ai_notes")
+    .eq("kind", "skills")
     .eq("candidate_id", id)
     .eq("status", "completed")
     .order("created_at", { ascending: false })

@@ -66,6 +66,7 @@ export async function GET(request: Request) {
     const { data: aiInterviews } = await supabase
       .from("ai_interviews")
       .select("candidate_id, overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed")
+      .eq("kind", "skills")
       .in("candidate_id", candidateIds)
       .eq("status", "completed")
       .eq("passed", true);

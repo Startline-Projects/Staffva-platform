@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     const { data: aiInterview } = await admin
       .from("ai_interviews")
       .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, passed")
+      .eq("kind", "skills")
       .eq("candidate_id", candidateId)
       .eq("status", "completed")
       .eq("passed", true)

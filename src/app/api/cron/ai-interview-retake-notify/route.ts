@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
 
   for (const candidate of candidates) {
     // Latest interview_attempts row is the one that gates the current fail cycle.
+    // Deliberately NOT filtered by kind: a candidate serves one cooldown at
+    // a time, and the newest attempt is it — Interview 1 or Interview 2.
     const { data: attempt } = await supabase
       .from("interview_attempts")
       .select("next_retake_available_at")

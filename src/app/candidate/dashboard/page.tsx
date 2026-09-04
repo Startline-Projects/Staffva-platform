@@ -33,9 +33,9 @@ interface PipelineNode {
  * with Asti riding it. Node states derive from the candidate record; the
  * primary CTA hands off to the step's surface (/verify-email now, /apply for
  * everything the step machine still runs — steps 6–11 give nodes their own
- * pages progressively). WhatsApp and Interview 2 render as "waived" until
- * their steps ship: showing them as required before they exist would be a
- * lie, and hiding them would misnumber the pipeline everyone signed up to.
+ * pages progressively). WhatsApp renders as "waived" until Twilio is
+ * configured: showing a step as required before it exists would be a lie,
+ * and hiding it would misnumber the pipeline everyone signed up to.
  *
  * XP is DERIVED from completed steps, never stored — no ledger to drift.
  * Approved candidates keep the existing dashboard until the live portal
@@ -49,7 +49,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -73,13 +73,34 @@ export default async function CandidateDashboardPage() {
     englishParts = (lastAttempt?.part_scores as Record<string, number | null>) || null;
   }
 
+  // Pre-split skills history — the grandfather signal, read exactly as the
+  // interview app reads it (api/auth/verify).
+  let hasSkillsHistory = false;
+  if (candidate) {
+    const { count } = await admin
+      .from("ai_interviews")
+      .select("*", { count: "exact", head: true })
+      .eq("candidate_id", candidate.id)
+      .eq("kind", "skills");
+    hasSkillsHistory = (count || 0) > 0;
+  }
+
   // Interview retake window (only meaningful after a failed interview).
   let interviewRetakeAt: Date | null = null;
   if (candidate?.admin_status === "ai_interview_failed") {
+    // Read the track that actually failed: a candidate who has not passed
+    // Interview 1 is waiting on the behavioral cooldown, not the skills one.
+    const failedKind =
+      candidate.interview1_passed === true ||
+      candidate.ai_interview_passed === true ||
+      hasSkillsHistory
+        ? "skills"
+        : "behavioral";
     const { data: attempt } = await admin
       .from("interview_attempts")
       .select("next_retake_available_at")
       .eq("candidate_id", candidate.id)
+      .eq("kind", failedKind)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -135,7 +156,22 @@ export default async function CandidateDashboardPage() {
   const assessmentFull = !!process.env.ANTHROPIC_API_KEY;
   const idDone = candidate?.id_verification_status === "passed";
   const englishDone = (candidate?.english_mc_score ?? 0) >= 70 && (candidate?.english_comprehension_score ?? 0) >= 70;
-  const interview1Done = candidate?.ai_interview_passed === true;
+  // The two interviews are separate now (step 9). Interview 1 is
+  // behavioral, Interview 2 is the skills exam whose verdict every
+  // downstream gate still reads as ai_interview_passed.
+  //
+  // GRANDFATHERING, and it must match the interview app's rule byte for
+  // byte (api/interview/session order gate + api/auth/verify skillsHistory):
+  // ANY pre-split skills history counts, not just a pass. A candidate
+  // mid-retake on the old single interview never took Interview 1 and never
+  // will — telling them to "Start Interview 1" while the interview app
+  // routes them into the skills exam is two surfaces disagreeing about
+  // which interview the candidate is even sitting.
+  const interview1Done =
+    candidate?.interview1_passed === true ||
+    candidate?.ai_interview_passed === true ||
+    hasSkillsHistory;
+  const interview2Done = candidate?.ai_interview_passed === true;
   const recordingsDone = !!candidate?.voice_recording_1_url && !!candidate?.voice_recording_2_url;
   const profileDone = !!candidate?.profile_photo_url && !!candidate?.resume_url && !!candidate?.tagline && !!candidate?.bio && !!candidate?.payout_method;
   const status = candidate?.admin_status || "";
@@ -165,7 +201,7 @@ export default async function CandidateDashboardPage() {
   // review or going live inside the window, so it's tracked as its own
   // node but the "current step" pointer skips it (the grace card below the
   // step card owns that conversation).
-  const assessmentsDone = englishDone && interview1Done;
+  const assessmentsDone = englishDone && interview2Done;
   const idDueAt = candidate?.id_verification_due_at ? new Date(candidate.id_verification_due_at) : null;
   const idOverdue = !idDone && !!idDueAt && idDueAt.getTime() < now;
   const idDaysLeft = idDueAt ? Math.max(0, Math.ceil((idDueAt.getTime() - now) / 86400000)) : null;
@@ -183,7 +219,7 @@ export default async function CandidateDashboardPage() {
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
     { id: "interview1", label: "Interview 1", xp: 100, state: interview1Done ? "completed" : "upcoming" },
-    { id: "interview2", label: "Interview 2", xp: 100, state: "waived", detail: "Coming soon — not required yet" },
+    { id: "interview2", label: "Interview 2", xp: 100, state: interview2Done ? "completed" : "upcoming" },
     { id: "id", label: "Identity", xp: 50, state: idDone ? "completed" : "upcoming", detail: assessmentsDone ? "Verify within 14 days of finishing your assessments" : "Unlocks after your assessments" },
     { id: "review", label: "Review", xp: 50, state: underReview ? "current" : "upcoming" },
     { id: "live", label: "Live", xp: 0, state: "upcoming" },
@@ -231,10 +267,18 @@ export default async function CandidateDashboardPage() {
       tips: ["You need a working camera, a microphone and a quiet room.", "Leaving fullscreen or switching tabs is flagged — close everything else first."],
     },
     interview1: {
-      title: "Complete your AI interview",
-      body: "A structured, camera-proctored interview with our AI interviewer. It probes the skills you claimed — be ready to talk specifics.",
-      cta: "Continue to the interview",
-      href: "/apply",
+      title: "Interview 1 — the behavioral round",
+      body: "A short, camera-proctored interview: five questions about communication, problem-solving and judgment. Each one gives you prep time before you answer.",
+      cta: "Start Interview 1",
+      href: "interview-app",
+      minutes: "~20 min",
+      tips: ["Use the prep time — a pause before answering is expected.", "Have one or two real examples in mind. Specifics beat polish."],
+    },
+    interview2: {
+      title: "Interview 2 — the skills round",
+      body: "A camera-proctored conversation that probes the skills and tools you claimed. Be ready to walk through how you actually do the work.",
+      cta: "Start Interview 2",
+      href: "interview-app",
       minutes: "~25 min",
       tips: ["Answer with real examples — the interviewer follows up on claims.", "Quiet room, camera on, phone away."],
     },
@@ -299,15 +343,22 @@ export default async function CandidateDashboardPage() {
     // "interview didn't pass" — the card under it must answer THAT, retake
     // date included, not change the subject. The skipped node's card comes
     // back as soon as the retake is passed.
+    // Which interview failed? interview1Done is false only when Interview 1
+    // is still outstanding — so the retake copy names the right round.
+    const failedRound = interview1Done ? "Interview 2" : "Interview 1";
     card = {
-      title: interviewLocked ? "Interview retake on cooldown" : "Retake your AI interview",
+      title: interviewLocked ? `${failedRound} retake on cooldown` : `Retake ${failedRound}`,
       body: interviewLocked
-        ? "The interview didn't go your way last time — it happens. Your retake is on a short cooldown; use it to prep the specifics of your claimed skills."
-        : "Your retake is ready. Same format as before: a structured, camera-proctored interview probing the skills you claimed — go in with real examples.",
+        ? "The interview didn't go your way last time — it happens. Your retake is on a short cooldown; use it to prepare."
+        : interview1Done
+          ? "Your retake is ready. Same format as before: a camera-proctored conversation probing the skills you claimed — go in with real examples."
+          : "Your retake is ready. Same format as before: five behavioral questions, each with prep time before you answer.",
       cta: "Start the retake",
       href: "interview-app",
-      minutes: "~25 min",
-      tips: ["Re-read your own application first — the interviewer probes what you wrote.", "Quiet room, camera on, phone away."],
+      minutes: interview1Done ? "~25 min" : "~20 min",
+      tips: interview1Done
+        ? ["Re-read your own application first — the interviewer probes what you wrote.", "Quiet room, camera on, phone away."]
+        : ["Use the prep time — a pause before answering is expected.", "Have one or two real examples in mind. Specifics beat polish."],
     };
   }
   // The English-lockout copy may only override the step card's own body/CTA.
@@ -321,8 +372,8 @@ export default async function CandidateDashboardPage() {
     whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",
     id: "Upload a government ID within 14 days of finishing your assessments — after that, unverified profiles hide from clients.",
     english: "A camera-proctored assessment of grammar and comprehension.",
-    interview1: "A structured AI interview that probes the skills you claim.",
-    interview2: "A role-specific second round — questions branch by your category.",
+    interview1: "A short behavioral interview — communication, problem-solving, judgment.",
+    interview2: "A skills interview that probes what you claimed you can do.",
     recordings: "Two short voice recordings clients hear on your profile.",
     profile: "Photo, tagline, bio, resume and payout — your storefront.",
     review: "A human reviewer signs off before anything goes live.",

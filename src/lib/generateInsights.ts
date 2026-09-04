@@ -38,6 +38,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
     const { data: aiInterview } = await supabase
       .from("ai_interviews")
       .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, passed, badge_level")
+      .eq("kind", "skills")
       .eq("candidate_id", candidateId)
       .eq("status", "completed")
       .eq("passed", true)

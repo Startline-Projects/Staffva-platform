@@ -43,6 +43,7 @@ export async function calculateReputationForCandidate(
   const { data: aiInterview } = await admin
     .from("ai_interviews")
     .select("overall_score")
+    .eq("kind", "skills")
     .eq("candidate_id", candidateId)
     .eq("status", "completed")
     .eq("passed", true)

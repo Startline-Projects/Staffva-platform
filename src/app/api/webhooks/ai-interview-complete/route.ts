@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     const { data: aiInterview } = await supabase
       .from("ai_interviews")
       .select("id, passed, status, overall_score")
+      .eq("kind", "skills")
       .eq("candidate_id", candidateId)
       .eq("status", "completed")
       .order("created_at", { ascending: false })
@@ -88,7 +89,10 @@ export async function POST(req: NextRequest) {
       const { count: priorAttempts } = await supabase
         .from("interview_attempts")
         .select("*", { count: "exact", head: true })
-        .eq("candidate_id", candidateId);
+        .eq("candidate_id", candidateId)
+        // Skills track only — an Interview 1 attempt is not a skills
+        // attempt, and counting it inflates this ladder.
+        .eq("kind", "skills");
 
       const nextRetakeAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -96,6 +100,7 @@ export async function POST(req: NextRequest) {
         candidate_id: candidateId,
         attempt_number: (priorAttempts ?? 0) + 1,
         ai_interview_id: aiInterview?.id ?? null,
+        kind: "skills",
         next_retake_available_at: nextRetakeAt,
       });
 
