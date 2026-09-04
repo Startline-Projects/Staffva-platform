@@ -417,6 +417,20 @@ export default function ApplyPage() {
             skills: candidateData.skills || [],
             tools: candidateData.tools || [],
             work_experience: (candidateData.work_experience as never) ?? null,
+            // Read by the review step's checklist and used to seed the new
+            // Atlas fields, so a returning candidate keeps what they typed.
+            profile_photo_url: candidateData.profile_photo_url ?? null,
+            profile_completed_at: candidateData.profile_completed_at ?? null,
+            country: candidateData.country ?? null,
+            city: (candidateData as { city?: string | null }).city ?? null,
+            role_title: (candidateData as { role_title?: string | null }).role_title ?? null,
+            resume_url: candidateData.resume_url ?? null,
+            video_intro_url: (candidateData as { video_intro_url?: string | null }).video_intro_url ?? null,
+            voice_recording_2_url: candidateData.voice_recording_2_url ?? null,
+            hours_per_week: (candidateData as { hours_per_week?: number | null }).hours_per_week ?? null,
+            working_hours: (candidateData as { working_hours?: string | null }).working_hours ?? null,
+            education: (candidateData as { education?: unknown }).education ?? null,
+            certifications: (candidateData as { certifications?: unknown }).certifications ?? null,
           }}
           onComplete={handleProfileComplete}
         />

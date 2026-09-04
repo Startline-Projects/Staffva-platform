@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import ReferenceFields, { useSavedReferences, saveReference, type ReferenceValue } from "@/components/apply/ReferenceFields";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
 import { createClient } from "@/lib/supabase/client";
+import { profileCompleteness } from "@/lib/profileCompleteness";
 
 interface ProfileBuilderProps {
   candidateId: string;
@@ -21,11 +22,46 @@ interface ProfileBuilderProps {
      *  candidate does not get a blank step 4 — and so their stored references,
      *  which hang off each entry's ref_key, stay matched. */
     work_experience?: WorkEntry[] | null;
+    /** Used to decide whether an autosaved draft is newer than the last save. */
+    profile_completed_at?: string | null;
+    // Read by the review step's checklist. All optional: a candidate part-way
+    // through has none of them.
+    profile_photo_url?: string | null;
+    country?: string | null;
+    city?: string | null;
+    role_title?: string | null;
+    resume_url?: string | null;
+    video_intro_url?: string | null;
+    voice_recording_2_url?: string | null;
+    hours_per_week?: number | null;
+    working_hours?: string | null;
+    education?: unknown;
+    certifications?: unknown;
   };
   onComplete: () => void;
 }
 
-type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
+/**
+ * Eight steps, matching the Atlas builder's A-G plus Review.
+ *
+ * The mapping is deliberate about one thing: the OLD six steps are all still
+ * here, in the same order, doing the same work. Atlas's structure is layered
+ * over them rather than replacing them, because every approval gate in the
+ * product enumerates resume_url, payout_method and interview_consent_at, and
+ * a step set that stopped collecting one of those would silently stop making
+ * candidates promotable.
+ *
+ *   1 (A)  Photo, name, location, title, headline
+ *   2 (B)  About you
+ *   3 (D)  Skills and tools          <- skills are now WRITTEN, see below
+ *   4 (E)  Work history + references
+ *   5 (F)  Portfolio and resume
+ *   6 (C)  Rate, availability and payout
+ *   7 (G)  Education and certifications   <- new, optional
+ *   8 (R)  Review and submit              <- new
+ */
+type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+const LAST_STEP: BuilderStep = 8;
 
 
 /** A fresh employer identity. */
@@ -68,6 +104,13 @@ interface WorkEntry {
   end_date: string;
   tools_used: string[];
   skills_gained: string[];
+}
+
+interface EducationEntry {
+  school: string;
+  qualification: string;
+  field: string;
+  year: string;
 }
 
 interface PortfolioItem {
@@ -392,7 +435,12 @@ export default function ProfileBuilder({
 
   // Step 1 — Photo and Basic Info
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // Seeded from the saved photo. It was not, so a candidate returning to the
+  // builder with a photo already on their profile was told "Profile photo is
+  // required" and had to find and re-upload the same file to get past step 1.
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    candidateData.profile_photo_url || null
+  );
   // Seeded, like bio and hourly_rate. Candidates who entered a tagline under
   // the older application flow should not have to retype it here.
   const [tagline, setTagline] = useState(candidateData.tagline || "");
@@ -407,6 +455,10 @@ export default function ProfileBuilder({
   const roleTools = TOOLS_BY_ROLE[candidateData.role_category] || TOOLS_BY_ROLE["Admin"];
   const roleSkills = SKILLS_BY_ROLE[candidateData.role_category] ?? [];
   const [selectedTools, setSelectedTools] = useState<string[]>(candidateData.tools || []);
+  // candidates.skills drives a browse facet and was NEVER written by this
+  // builder — SKILLS_BY_ROLE was imported, a roleSkills array computed, and
+  // then nothing rendered it. Step 3 now collects them.
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(candidateData.skills || []);
 
   // Step 4 — Work Experience
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>(() => {
@@ -432,9 +484,45 @@ export default function ProfileBuilder({
   const [payoutMethod, setPayoutMethod] = useState("");
 
   // Step 6 — Availability + Consent
+  // Step 7 — Education and certifications, both optional.
+  const [educationEntries, setEducationEntries] = useState<EducationEntry[]>(
+    (candidateData.education as EducationEntry[] | null) || []
+  );
+  const [certifications, setCertifications] = useState<string[]>(
+    (candidateData.certifications as string[] | null) || []
+  );
+
+  // Step 1 additions, to match Atlas's basic-info step.
+  const [city, setCity] = useState(candidateData.city || "");
+  const [roleTitle, setRoleTitle] = useState(candidateData.role_title || "");
+  // Capacity OFFERED. Deliberately not committed_hours, which means hours
+  // already booked — match/route.ts computes `available = 50 - committed`.
+  const [hoursPerWeek, setHoursPerWeek] = useState<number>(candidateData.hours_per_week || 40);
+  const [workingHours, setWorkingHours] = useState(candidateData.working_hours || "");
+
   const [availability, setAvailability] = useState<string>("");
   const [availabilityDate, setAvailabilityDate] = useState("");
   const [interviewConsent, setInterviewConsent] = useState(false);
+
+  // Derived, never stored. See lib/profileCompleteness.
+  const completeness = profileCompleteness({
+    profile_photo_url: photoPreview || candidateData.profile_photo_url || null,
+    display_name: candidateData.display_name || candidateData.full_name,
+    city,
+    country: candidateData.country || null,
+    role_title: roleTitle,
+    tagline,
+    bio,
+    hourly_rate: hourlyRate,
+    hours_per_week: hoursPerWeek,
+    payout_method: payoutMethod,
+    skills: selectedSkills,
+    tools: selectedTools,
+    work_experience: workEntries.filter((e) => e.role_title.trim()),
+    resume_url: resumeFile ? "pending" : candidateData.resume_url || null,
+    video_intro_url: candidateData.video_intro_url || null,
+    voice_recording_2_url: candidateData.voice_recording_2_url || null,
+  });
 
   const firstName = candidateData.full_name?.split(" ")[0] || "";
   const lastInitial = candidateData.full_name?.split(" ")[1]?.[0] || "";
@@ -679,6 +767,10 @@ export default function ProfileBuilder({
           setError("Profile photo is required");
           return false;
         }
+        if (!roleTitle.trim()) {
+          setError("Add the job title you'd want a client to see.");
+          return false;
+        }
         if (!tagline.trim()) {
           setError("Tagline is required");
           return false;
@@ -695,6 +787,10 @@ export default function ProfileBuilder({
         }
         return true;
       case 3:
+        if (selectedSkills.length === 0) {
+          setError("Select at least one skill");
+          return false;
+        }
         if (selectedTools.length === 0) {
           setError("Select at least one tool");
           return false;
@@ -729,7 +825,11 @@ export default function ProfileBuilder({
         return true;
       }
       case 5:
-        if (!resumeFile) {
+        // An already-uploaded résumé counts. Checking only resumeFile meant a
+        // returning candidate whose CV was already on their profile was told
+        // "Resume is required" and had to re-upload the same PDF — the same
+        // defect the photo check had.
+        if (!resumeFile && !candidateData.resume_url) {
           setError("Resume is required");
           return false;
         }
@@ -738,9 +838,24 @@ export default function ProfileBuilder({
           return false;
         }
         return true;
+      case 7:
+        // Education and certifications are optional. Atlas says so, and a
+        // Virtual Assistant with fifteen years of experience and no degree is
+        // not a worse candidate for leaving it blank.
+        return true;
+      case 8:
+        if (!interviewConsent) {
+          setError("Please agree to the interview consent to submit.");
+          return false;
+        }
+        return true;
       case 6:
         if (!availability) {
           setError("Select your availability");
+          return false;
+        }
+        if (!hoursPerWeek || hoursPerWeek < 1 || hoursPerWeek > 60) {
+          setError("Enter how many hours a week you want to work (1-60).");
           return false;
         }
         if (availability === "available_by_date" && !availabilityDate) {
@@ -753,9 +868,112 @@ export default function ProfileBuilder({
     }
   }
 
+  // Was the form repopulated from an autosaved draft? Shown once, so the
+  // candidate knows why fields they do not remember filling are filled.
+  const [draftRestored, setDraftRestored] = useState(false);
+  // Set by the first real interaction. Guards the draft loader against
+  // clobbering keystrokes that beat a slow fetch.
+  const touchedRef = useRef(false);
+
+  /**
+   * Load the autosaved draft on mount.
+   *
+   * Without this the autosave was write-only — it saved on every step and
+   * nothing ever read it back, which is worse than not saving at all: it looks
+   * like recovery exists and it does not.
+   *
+   * Applying it wholesale is correct because submit DELETEs the draft, so a
+   * draft that exists is by definition newer than the last save. Fields the
+   * draft does not carry (the photo and resume Files, and the references)
+   * keep their seeded values.
+   */
+  useEffect(() => {
+    let alive = true;
+    // If the candidate has already started typing by the time this resolves,
+    // do NOT apply it. On a slow connection the fetch can land seconds in, and
+    // overwriting live keystrokes with a stale draft is worse than losing the
+    // draft — they can see what they typed; they cannot see what we replaced.
+    const startedTyping = () =>
+      touchedRef.current;
+
+    fetch("/api/candidate/profile-draft")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d?.draft || startedTyping()) return;
+        // Ignore a draft older than the last real save. The DELETE after
+        // submit is fire-and-forget, so a failed one leaves a stale draft
+        // behind — and applying it on the next visit would quietly revert a
+        // profile the candidate had already completed.
+        const savedAt = candidateData.profile_completed_at
+          ? Date.parse(candidateData.profile_completed_at)
+          : 0;
+        const draftAt = d.savedAt ? Date.parse(d.savedAt) : 0;
+        if (savedAt && draftAt && draftAt <= savedAt) return;
+        const v = d.draft as Record<string, unknown>;
+        const str = (k: string, fallback: string) =>
+          typeof v[k] === "string" ? (v[k] as string) : fallback;
+        const arr = <T,>(k: string, fallback: T[]): T[] =>
+          Array.isArray(v[k]) ? (v[k] as T[]) : fallback;
+
+        setCity((c) => str("city", c));
+        setRoleTitle((c) => str("roleTitle", c));
+        setTagline((c) => str("tagline", c));
+        setBio((c) => str("bio", c));
+        setWorkingHours((c) => str("workingHours", c));
+        setPayoutMethod((c) => str("payoutMethod", c));
+        setAvailability((c) => str("availability", c));
+        setAvailabilityDate((c) => str("availabilityDate", c));
+        if (typeof v.hourlyRate === "number") setHourlyRate(v.hourlyRate);
+        if (typeof v.hoursPerWeek === "number") setHoursPerWeek(v.hoursPerWeek);
+        setSelectedSkills((c) => arr<string>("selectedSkills", c));
+        setSelectedTools((c) => arr<string>("selectedTools", c));
+        setCertifications((c) => arr<string>("certifications", c));
+        setEducationEntries((c) => arr<EducationEntry>("educationEntries", c));
+        // Only replace work history when the draft actually has some — an
+        // empty array would wipe entries seeded from the saved profile.
+        const drafted = arr<WorkEntry>("workEntries", []);
+        if (drafted.length) {
+          setWorkEntries(drafted.map((e) => ({ ...e, ref_key: e.ref_key || newEmployerKey() })));
+        }
+        setDraftRestored(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * Autosave the form on every step change.
+   *
+   * All of this state lived in useState and nowhere else, so a refresh, a
+   * closed tab or a dead battery erased it — and eight steps is roughly three
+   * times as much to lose as six was. Fire-and-forget: a failed autosave must
+   * never interrupt someone mid-form, because their work is still on screen.
+   */
+  const saveDraft = useCallback(() => {
+    const draft = {
+      city, roleTitle, tagline, bio, hourlyRate, hoursPerWeek, workingHours,
+      selectedSkills, selectedTools, workEntries, educationEntries,
+      certifications, payoutMethod, availability, availabilityDate,
+      // Deliberately NOT saved: photoFile and resumeFile are File objects and
+      // do not serialise, and savedReferences holds a third party's contact
+      // details, which belong in candidate_references and nowhere else.
+    };
+    fetch("/api/candidate/profile-draft", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draft }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [city, roleTitle, tagline, bio, hourlyRate, hoursPerWeek, workingHours,
+      selectedSkills, selectedTools, workEntries, educationEntries,
+      certifications, payoutMethod, availability, availabilityDate]);
+
   function nextStep() {
     if (!validateStep()) return;
-    setCurrentStep((prev) => Math.min(prev + 1, 6) as BuilderStep);
+    saveDraft();
+    setCurrentStep((prev) => Math.min(prev + 1, LAST_STEP) as BuilderStep);
     setError("");
   }
 
@@ -848,32 +1066,24 @@ export default function ProfileBuilder({
       // Filter valid work entries
       const validWorkEntries = sortWorkEntries(workEntries.filter((e) => e.role_title.trim()));
 
-      // References are saved to their own table, never into work_experience.
-      // That jsonb is served key-for-key to unauthenticated callers by
-      // /api/candidates/preview, so a reference's email placed there would be
-      // public the moment this runs.
-      for (const entry of validWorkEntries) {
-        const key = employerKeyFor(entry);
-        const ref = savedReferences[key];
-        if (!ref) continue;
-        // A part-filled reference is not an error — it is simply not saved.
-        // Blocking submit on somebody else's contact details would make an
-        // optional field mandatory by accident.
-        if (!ref.email?.trim() || !ref.consent) continue;
-        const refError = await saveReference(key, ref);
-        if (refError) {
-          setError(refError);
-          setSaving(false);
-          return;
-        }
-      }
 
       // Update candidate record
       const updateData: Record<string, unknown> = {
         tagline,
+        role_title: roleTitle || null,
+        city: city || null,
         hourly_rate: hourlyRate,
+        // Capacity offered. NOT committed_hours — see the column comment on
+        // hours_per_week in migration 00182.
+        hours_per_week: hoursPerWeek || null,
+        working_hours: workingHours || null,
         bio,
         tools: selectedTools,
+        // candidates.skills drives a browse facet and this builder never
+        // wrote it before step 11.
+        skills: selectedSkills,
+        education: educationEntries.filter((e) => e.school.trim() || e.qualification.trim()),
+        certifications,
         work_experience: validWorkEntries,
         payout_method: payoutMethod,
         availability_status: availability,
@@ -912,6 +1122,39 @@ export default function ProfileBuilder({
         // Non-critical
       }
 
+      // References go LAST, and a failure here no longer aborts the submit.
+      //
+      // The loop used to run before the candidate update and return early on
+      // the first rejected reference — after the portfolio rows had already
+      // been inserted. A bad reference email therefore meant the profile did
+      // not save while the portfolio rows did, and pressing Submit again
+      // inserted them a second time (portfolio_items has no unique
+      // constraint). The profile is what the candidate came to save; an
+      // optional contact our validator disliked must not hold it hostage.
+      const referenceErrors: string[] = [];
+      for (const entry of validWorkEntries) {
+        const key = employerKeyFor(entry);
+        const ref = savedReferences[key];
+        if (!ref) continue;
+        // A part-filled reference is not an error — it is simply not saved.
+        if (!ref.email?.trim() || !ref.consent) continue;
+        const refError = await saveReference(key, ref);
+        if (refError) referenceErrors.push(`${entry.company_name || "that role"}: ${refError}`);
+      }
+      if (referenceErrors.length) {
+        // Said out loud, but after the fact: the profile IS saved.
+        setError(
+          `Your profile is saved. We couldn't store ${referenceErrors.length === 1 ? "one reference" : "some references"} — ${referenceErrors[0]}. You can fix that from your profile.`
+        );
+      }
+
+      // The draft is scratch space and the real thing is now saved. Leaving it
+
+      // behind would repopulate a stale form the next time they open the builder.
+
+      fetch("/api/candidate/profile-draft", { method: "DELETE" }).catch(() => {});
+
+
       onComplete();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -919,21 +1162,44 @@ export default function ProfileBuilder({
     }
   }
 
+  // Each label names what is actually ON that step. "Rate" sat over the
+  // availability step while the rate field lives on step 1, and "Portfolio"
+  // over a step whose only required field is the résumé.
   const stepLabels = [
-    "Photo & Info",
+    "Basics",
     "About",
-    "Tools",
+    "Skills",
     "Experience",
-    "Resume",
+    "Résumé",
     "Availability",
+    "Education",
+    "Review",
   ];
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
+    <div
+      className="mx-auto max-w-2xl px-6 py-12"
+      onInput={() => {
+        touchedRef.current = true;
+      }}
+      onPointerDown={() => {
+        touchedRef.current = true;
+      }}
+    >
       <h1 className="text-2xl font-bold text-text">Build Your Profile</h1>
       <p className="mt-1 text-sm text-text/60">
         Complete your profile so clients can find and hire you.
       </p>
+
+      {/* Say so. Fields filling themselves with no explanation reads as a bug,
+          and a candidate who does not know their work was kept will redo it. */}
+      {draftRestored && (
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <p className="text-sm text-text/70">
+            We picked up where you left off. Everything you had filled in is still here.
+          </p>
+        </div>
+      )}
 
       {/* Step indicators */}
       <div className="mt-8 flex items-center gap-1">
@@ -1097,6 +1363,50 @@ export default function ProfileBuilder({
               </p>
             </div>
 
+            {/* Atlas's basic-info step also carries a location and a job
+                title. role_category stays the taxonomy value that drives
+                routing and the Interview 2 task; this is what the candidate
+                calls themselves, shown on the profile. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="roleTitle" className="block text-sm font-medium text-text">
+                  Your job title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="roleTitle"
+                  type="text"
+                  value={roleTitle}
+                  onChange={(e) => setRoleTitle(e.target.value)}
+                  placeholder="e.g. Executive Assistant"
+                  maxLength={80}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-text/40">
+                  How you&apos;d describe yourself. We match you to work as{" "}
+                  {/^[AEIOU]/i.test(candidateData.role_category || "") ? "an" : "a"}{" "}
+                  {candidateData.role_category}.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="city" className="block text-sm font-medium text-text">
+                  City
+                </label>
+                <input
+                  id="city"
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Cebu City"
+                  maxLength={80}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-text/40">
+                  Optional. Clients see {candidateData.country || "your country"}; your city
+                  helps us match you on time-zone overlap.
+                </p>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="tagline" className="block text-sm font-medium text-text">
                 Tagline <span className="text-red-500">*</span>
@@ -1153,7 +1463,82 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 3: Tools & Software ───────── */}
         {currentStep === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Skills, from the role taxonomy. This block is new: the browse
+                facet reads candidates.skills and this builder never wrote it —
+                roleSkills was computed and then never rendered. */}
+            <div>
+              <h3 className="text-sm font-medium text-text">
+                Skills <span className="text-red-500">*</span>
+              </h3>
+              <p className="text-xs text-text/50">
+                Pick the ones you&apos;d be comfortable being hired for. Clients filter on these.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {roleSkills.map((skill) => {
+                  const on = selectedSkills.includes(skill);
+                  return (
+                    <button
+                      key={skill}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() =>
+                        setSelectedSkills(
+                          on
+                            ? selectedSkills.filter((x) => x !== skill)
+                            : [...selectedSkills, skill]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        on
+                          ? "border-primary bg-primary text-white"
+                          : "border-gray-300 bg-white text-text/70 hover:border-primary"
+                      }`}
+                    >
+                      {skill}
+                    </button>
+                  );
+                })}
+              </div>
+              {roleSkills.length === 0 && (
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedSkills.map((sk) => (
+                      <span
+                        key={sk}
+                        className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
+                      >
+                        {sk}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSkills(selectedSkills.filter((x) => x !== sk))}
+                          className="text-green-500 hover:text-green-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Roles outside the taxonomy — "STR Property Manager",
+                      "Qualitative Researcher" — get a free-text field rather
+                      than an empty list. */}
+                  <WorkEntryTagInput
+                    placeholder="Type a skill, then tap Add"
+                    disabled={selectedSkills.length >= 12}
+                    onAdd={(v) => {
+                      if (!selectedSkills.includes(v) && selectedSkills.length < 12) {
+                        setSelectedSkills([...selectedSkills, v]);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              <p className="mt-2 text-xs text-text/40">
+                {selectedSkills.length} selected. Clients filter by individual skills, so
+                each one you add is another search you can turn up in.
+              </p>
+            </div>
+
             <div>
               <h3 className="text-sm font-medium text-text">
                 Tools & Software <span className="text-red-500">*</span>
@@ -1535,7 +1920,48 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 6: Availability ───────── */}
         {currentStep === 6 && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Capacity OFFERED. Stored in hours_per_week, never in
+                committed_hours — that column means hours already booked, and
+                matching computes spare capacity as 50 minus it, so writing
+                "I want 40 hours" there would read as "40 already gone". */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="hoursPerWeek" className="block text-sm font-medium text-text">
+                  Hours a week you want <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="hoursPerWeek"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={hoursPerWeek}
+                  onChange={(e) => setHoursPerWeek(Number(e.target.value))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-text/40">
+                  What you&apos;re looking for, not what you&apos;re already booked for.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="workingHours" className="block text-sm font-medium text-text">
+                  Hours you prefer to work
+                </label>
+                <input
+                  id="workingHours"
+                  type="text"
+                  value={workingHours}
+                  onChange={(e) => setWorkingHours(e.target.value)}
+                  placeholder="e.g. 8am-1pm PHT, flexible for US mornings"
+                  maxLength={120}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-text/40">
+                  Most clients are in US time zones. Say what overlap you can offer.
+                </p>
+              </div>
+            </div>
+
             <h3 className="text-sm font-medium text-text">
               When can you start? <span className="text-red-500">*</span>
             </h3>
@@ -1614,6 +2040,206 @@ export default function ProfileBuilder({
               </button>
             </div>
 
+          </div>
+        )}
+
+        {/* ───────── STEP 7: Education & Certifications (optional) ───────── */}
+        {currentStep === 7 && (
+          <div className="mt-8 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-text">
+                Education &amp; certifications{" "}
+                <span className="font-normal text-text/50">— optional</span>
+              </h3>
+              <p className="mt-1 text-xs text-text/50">
+                Skip this if it isn&apos;t relevant to your work. It appears on your profile
+                for a client reading it; none of it is required to be approved.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {educationEntries.map((e, i) => (
+                <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-text">Education {i + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEducationEntries(educationEntries.filter((_, x) => x !== i))}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="School or university"
+                      aria-label={`School or university, education ${i + 1}`}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      value={e.school}
+                      onChange={(ev) => {
+                        const u = [...educationEntries];
+                        u[i] = { ...u[i], school: ev.target.value };
+                        setEducationEntries(u);
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Qualification"
+                      aria-label={`Qualification, education ${i + 1}`}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      value={e.qualification}
+                      onChange={(ev) => {
+                        const u = [...educationEntries];
+                        u[i] = { ...u[i], qualification: ev.target.value };
+                        setEducationEntries(u);
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Field of study"
+                      aria-label={`Field of study, education ${i + 1}`}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      value={e.field}
+                      onChange={(ev) => {
+                        const u = [...educationEntries];
+                        u[i] = { ...u[i], field: ev.target.value };
+                        setEducationEntries(u);
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Year finished"
+                      aria-label={`Year finished, education ${i + 1}`}
+                      inputMode="numeric"
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      value={e.year}
+                      onChange={(ev) => {
+                        const u = [...educationEntries];
+                        u[i] = { ...u[i], year: ev.target.value };
+                        setEducationEntries(u);
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {educationEntries.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEducationEntries([
+                      ...educationEntries,
+                      { school: "", qualification: "", field: "", year: "" },
+                    ])
+                  }
+                  className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-primary hover:text-primary transition-colors"
+                >
+                  + Add education
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-text mb-2">Certifications</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {certifications.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
+                  >
+                    {c}
+                    <button
+                      type="button"
+                      onClick={() => setCertifications(certifications.filter((x) => x !== c))}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <WorkEntryTagInput
+                placeholder={
+                  certifications.length >= 8 ? "Max 8 reached" : "e.g. QuickBooks ProAdvisor, then tap Add"
+                }
+                disabled={certifications.length >= 8}
+                onAdd={(v) => {
+                  if (certifications.length < 8 && !certifications.includes(v)) {
+                    setCertifications([...certifications, v]);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ───────── STEP 8: Review & submit ───────── */}
+        {currentStep === 8 && (
+          <div className="mt-8 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-text">Here&apos;s how clients will see you</h3>
+              <p className="mt-1 text-xs text-text/50">
+                Anything still missing is listed below.
+              </p>
+            </div>
+
+            {/* A checklist, not a score. See lib/profileCompleteness for why
+                Atlas's weighted 0-100 "Profile Strength" is deliberately not
+                here: nothing ranks on it, reputation_score already exists and
+                would disagree with it, and a hidden rubric that decides
+                nothing should not be shown as a number. */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                <p className="text-sm font-semibold text-text">
+                  {completeness.done} of {completeness.total} sections done
+                </p>
+                <p className="text-xs text-text/50">
+                  {/* Counts only what this form can actually capture. Saying
+                      "3 still needed to submit" while Submit works, and while
+                      two of the three are recorded on a different page, is a
+                      false statement in both directions. */}
+                  {completeness.blockingHere > 0
+                    ? `${completeness.blockingHere} still to fill in above`
+                    : completeness.done === completeness.total
+                      ? "Everything's in."
+                      : "Nothing left on this form — the rest is recorded separately."}
+                </p>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${completeness.percent}%` }}
+                />
+              </div>
+
+              <ul className="mt-4 space-y-2">
+                {completeness.sections.map((sec) => (
+                  <li key={sec.key} className="flex items-start gap-2.5 text-sm">
+                    <span
+                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                        sec.done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"
+                      }`}
+                      aria-hidden
+                    >
+                      {sec.done ? "✓" : "·"}
+                    </span>
+                    <span className="flex-1">
+                      <span className={sec.done ? "text-text/70" : "text-text"}>{sec.label}</span>
+                      {!sec.required && (
+                        <span className="ml-1.5 text-xs text-text/40">optional</span>
+                      )}
+                      {sec.elsewhere && !sec.done && (
+                        <span className="ml-1.5 text-xs text-text/40">recorded separately</span>
+                      )}
+                      {!sec.done && sec.missing && (
+                        <span className="block text-xs text-text/50">{sec.missing}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Voice recording consent */}
             <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -1651,7 +2277,7 @@ export default function ProfileBuilder({
           <div />
         )}
 
-        {currentStep < 6 ? (
+        {currentStep < LAST_STEP ? (
           <button
             type="button"
             onClick={nextStep}
@@ -1663,11 +2289,19 @@ export default function ProfileBuilder({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving || (currentStep === 6 && !interviewConsent)}
+            disabled={saving || (currentStep === LAST_STEP && !interviewConsent)}
+            aria-describedby={
+              currentStep === LAST_STEP && !interviewConsent ? "submit-blocked" : undefined
+            }
             className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
           >
             {saving ? "Submitting..." : "Submit Profile"}
           </button>
+        )}
+        {currentStep === LAST_STEP && !interviewConsent && (
+          <p id="submit-blocked" className="mt-3 w-full text-right text-xs text-text/50">
+            Tick the recording consent above to submit.
+          </p>
         )}
       </div>
     </div>
