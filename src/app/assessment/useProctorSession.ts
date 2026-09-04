@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PROCTOR_CONSENT_VERSION } from "@/lib/proctorConsent";
 
 /**
  * The proctor-session protocol, ported from components/proctor/ProctorGate
@@ -161,7 +162,7 @@ export function useProctorSession() {
     const res = await fetch("/api/proctor/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: "2.0" }),
+      body: JSON.stringify({ version: PROCTOR_CONSENT_VERSION }),
     });
     return res.ok;
   }, []);

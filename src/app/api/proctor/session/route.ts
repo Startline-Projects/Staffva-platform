@@ -6,7 +6,8 @@ function admin() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
-export const PROCTOR_CONSENT_VERSION = "2.0";
+// Re-exported for existing importers; the value lives in lib/proctorConsent.
+export { PROCTOR_CONSENT_VERSION } from "@/lib/proctorConsent";
 
 /**
  * POST /api/proctor/session — start (or resume) a proctored capture session.

@@ -323,17 +323,24 @@ export async function GET(request: NextRequest) {
   // no email and no sweep, so without this it is invisible and the candidate
   // waits forever. Refusing to auto-reject is only an improvement if somebody
   // then looks.
-  // Only the parks that need a human. 'failed_technical' is also written
-  // when a stale abandoned session is retired so the candidate can start
-  // fresh — counting those would drown this warning in tab-closes (00173).
+  // Only the parks that need a human. 'failed_technical' now carries three
+  // populations and two of them need nobody: a stale abandoned session retired
+  // so the candidate can start fresh (00173), and the 52 valid interviews that
+  // 00143 invalidated on purpose when the marketplace chose to re-qualify
+  // everyone (00176). Counting either drowns this warning in rows where nobody
+  // is waiting.
+  //
+  // Stated as what we WANT rather than what we exclude. The subtractive form
+  // was one `or` clause away from silently re-counting a whole population every
+  // time somebody added a fourth reason — which is exactly how the 52 reset
+  // rows came to look like an audio backlog in the first place. NULL is still
+  // counted: it means a park nobody classified, and the honest response to
+  // "we don't know why this candidate is stuck" is to look.
   const { count: parked } = await supabase
     .from("ai_interviews")
     .select("*", head)
     .eq("status", "failed_technical")
-    // NOT .neq(): in SQL, NULL != 'x' is NULL, not true, so a bare neq
-    // would silently drop every historical row (parked before 00173 added
-    // the column) — hiding exactly the backlog this alert exists to find.
-    .or("parked_reason.is.null,parked_reason.neq.stale_abandoned")
+    .or("parked_reason.is.null,parked_reason.eq.silent_answers")
     .gte("created_at", since(7 * 24 * 60 * 60 * 1000));
 
   if (parked) {

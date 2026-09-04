@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { registerProctorListener } from "@/lib/proctorBridge";
+import { PROCTOR_CONSENT_VERSION } from "@/lib/proctorConsent";
 
 /**
  * The proctored-session gate. Wraps an assessment and enforces, in order:
@@ -190,7 +191,7 @@ export default function ProctorGate({ sessionKind, children }: Props) {
     const res = await fetch("/api/proctor/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: "2.0" }),
+      body: JSON.stringify({ version: PROCTOR_CONSENT_VERSION }),
     });
     if (!res.ok) {
       setBusy(false);
@@ -261,9 +262,17 @@ export default function ProctorGate({ sessionKind, children }: Props) {
             To keep StaffVA fair for everyone, assessments are proctored:
           </p>
           <ul className="mt-4 space-y-3 text-sm leading-relaxed text-text-secondary">
+            {/* One consent version covers both apps, so it has to describe
+                what BOTH of them capture. This assessment records video only;
+                the interviews also record the room through your microphone.
+                Stamping the same 2.1 here while describing less would mean a
+                candidate who consented at this gate was counted as having
+                agreed to audio nobody mentioned. */}
             <li>
               <strong className="text-text">Your camera records the whole session.</strong> A
-              visible indicator stays on screen while it&apos;s recording.
+              visible indicator stays on screen while it&apos;s recording. In your interviews,
+              your microphone is recorded continuously too — that captures the room, not only
+              your answers.
             </li>
             <li>
               <strong className="text-text">A person makes any decision.</strong> Automated checks

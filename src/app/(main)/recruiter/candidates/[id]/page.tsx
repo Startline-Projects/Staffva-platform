@@ -6,6 +6,21 @@ import { assertRecruiterScope } from "@/lib/recruiterScope";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+/**
+ * Display names for the Interview 2 role task.
+ *
+ * The router itself lives in the interview app (src/lib/roleTask.ts) and stays
+ * there — it is the thing that decides which exam somebody sits, and two copies
+ * of a decision like that drift. These are labels only: if a fourth task key
+ * ever appears, this map falls back rather than crashing a recruiter's page.
+ */
+type TaskKey = "triage" | "reconcile" | "review";
+const TASK_LABELS: Record<TaskKey, string> = {
+  triage: "Client request handling",
+  reconcile: "Records accuracy check",
+  review: "Document review",
+};
+
 async function AudioPlayerServer({ bucket, path, label }: { bucket: string; path: string; label: string }) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -148,6 +163,35 @@ export default async function RecruiterCandidateProfilePage({
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // The role task from their most recent skills interview.
+  //
+  // Deliberately NOT filtered on status='completed' or passed=true, unlike the
+  // scorecard read above. The task is measured, not judged: it is exactly as
+  // informative on an interview somebody abandoned, and 30 of the 31 approved
+  // candidates have no completed+passed row at all after the 00143
+  // re-verification reset, so a filtered read would show this to almost nobody.
+  const { data: taskInterview } = await supabase
+    .from("ai_interviews")
+    .select("id, task_key, task_status, task_score_pct, task_mapping_confident, task_role_category")
+    .eq("kind", "skills")
+    .eq("candidate_id", id)
+    .not("task_status", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: taskResult } = taskInterview?.id
+    ? await supabase
+        .from("interview_task_results")
+        .select("detail, elapsed_ms, score_pct")
+        .eq("interview_id", taskInterview.id)
+        .maybeSingle()
+    : { data: null };
+
+  const taskVerdicts =
+    ((taskResult?.detail as { verdicts?: { id: string; correct: boolean; why: string; got: string; expected: string }[] } | null)
+      ?.verdicts) || [];
 
   // Compute availability
   const committedHours = candidate.committed_hours || 0;
@@ -314,6 +358,81 @@ export default async function RecruiterCandidateProfilePage({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Skills task — measured, not judged. Shown whenever a task ran, in
+            whatever state, because "they missed three of the four planted
+            errors" is exactly as useful on an abandoned interview. */}
+        {taskInterview?.task_status && (
+          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
+            <div className="flex items-baseline justify-between gap-4 flex-wrap mb-4">
+              <h2 className="text-lg font-bold text-text">Skills task</h2>
+              <span className="text-xs font-semibold text-text/50 uppercase tracking-wide">
+                {TASK_LABELS[taskInterview.task_key as TaskKey] ?? "Role task"}
+                {taskInterview.task_role_category ? ` · ${taskInterview.task_role_category}` : ""}
+              </span>
+            </div>
+
+            {taskInterview.task_status === "scored" && taskInterview.task_score_pct !== null ? (
+              <>
+                <div className="flex items-end gap-8 mb-5">
+                  <div>
+                    <p className="text-xs font-semibold text-text/60 uppercase tracking-wide mb-1">Score</p>
+                    <p className="text-4xl font-bold text-primary">
+                      {Math.round(Number(taskInterview.task_score_pct))}%
+                    </p>
+                  </div>
+                  {taskResult?.elapsed_ms ? (
+                    <div>
+                      <p className="text-xs font-semibold text-text/60 uppercase tracking-wide mb-1">Time taken</p>
+                      <p className="text-lg font-semibold text-text">
+                        {Math.round(taskResult.elapsed_ms / 60000)} min
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+                {taskInterview.task_mapping_confident === false && (
+                  <p className="mb-4 text-sm text-text/60">
+                    We could not confidently match this candidate&apos;s role, so they were given
+                    the general assistant task. Weigh this result accordingly.
+                  </p>
+                )}
+                {taskVerdicts.length > 0 && (
+                  <div className="space-y-2">
+                    {taskVerdicts.map((v) => (
+                      <div
+                        key={v.id}
+                        className={`rounded-lg border p-3 text-sm ${
+                          v.correct ? "border-gray-200 bg-gray-50" : "border-amber-200 bg-amber-50"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-text/50 shrink-0">
+                            {v.correct ? "OK" : "Missed"}
+                          </span>
+                          <div>
+                            <p className="text-text">{v.why}</p>
+                            {!v.correct && (
+                              <p className="mt-1 text-text/60">
+                                They put <span className="font-medium">{v.got}</span>; expected{" "}
+                                <span className="font-medium">{v.expected}</span>.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-text/60">
+                {taskInterview.task_status === "abandoned"
+                  ? "The candidate started this task and could not finish it. That is not a score, and it may well be ours — a stalled connection looks exactly like this."
+                  : "A task was served but no result was scored. Do not read anything into that."}
+              </p>
+            )}
           </div>
         )}
 
