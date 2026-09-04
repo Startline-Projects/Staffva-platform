@@ -398,7 +398,7 @@ export async function gradeAttempt(
                 to: "sam@glostaffing.com",
                 subject: `Candidate permanently blocked after ${attemptNumber} test failures`,
                 html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">Permanent Block Notification</h2><p style="color:#444;font-size:14px;">Candidate <strong>${currentCandidate?.display_name || currentCandidate?.full_name}</strong> (${currentCandidate?.email}) has been permanently blocked after ${attemptNumber} failed English test attempts.</p><p style="color:#444;font-size:14px;">Identity hash: ${identityRecord.identity_hash.slice(0, 16)}...</p></div>`,
-              });
+              }, { recipientKind: "staff", emailType: "candidate_blocked_alert" });
             } catch {
               /* silent */
             }

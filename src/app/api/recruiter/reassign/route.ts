@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
               <a href="${siteUrl}/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "recruiter_assigned" });
       } catch { /* silent */ }
     }
   }

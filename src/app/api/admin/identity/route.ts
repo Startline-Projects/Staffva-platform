@@ -28,7 +28,7 @@ async function notifyAdmin(action: string, detail: string, adminName: string) {
         <p style="color:#444;font-size:14px;">${detail}</p>
         <p style="color:#999;font-size:12px;">By: ${adminName} at ${new Date().toLocaleString()}</p>
       </div>`,
-    });
+    }, { recipientKind: "staff", emailType: "admin_action_alert" });
   } catch { /* silent */ }
 }
 

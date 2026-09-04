@@ -54,17 +54,27 @@ export type SendEmailOptions = {
    * Who this is going to, and what it is. Together they decide whether the
    * candidate-email freeze permits the send.
    *
-   * Optional rather than required, deliberately. Making it required would put
-   * a mechanical edit through all 43 call sites at once, and a client invoice
-   * or a staff alert mislabelled as candidate mail would be silently dropped —
-   * trading a freeze leak for a worse, quieter failure. Unmarked sends behave
-   * exactly as they always have; the paths that matter declare themselves.
+   * REQUIRED. It was optional, on the reasoning that a mass edit risked
+   * mislabelling a staff alert as candidate mail and silently dropping it.
+   * That trade was wrong: the freeze only ran `if (options.recipientKind)`, so
+   * an unmarked send skipped it entirely, and an audit found TWENTY senders
+   * mailing candidates without the guard — contract signature requests, offers,
+   * interview scheduling and reminders, Stripe payout and ID-verification
+   * notices, recruiter revision requests, profile-view alerts, and the two in
+   * the jobs machinery. The owner's instruction is that no candidate is emailed
+   * until they have tested and approved the platform, and an opt-in guard does
+   * not hold that instruction.
+   *
+   * Required means the compiler enumerates the call sites instead of a grep,
+   * and a new sender cannot be added without saying who it is for. The
+   * mislabelling risk is answered by labelling each site from the recipient it
+   * actually reads, not by leaving the guard optional.
    *
    * The one kind that can never send at all — `reference` — has no caller to
    * mislabel, because step 11 ships no code that mails a reference.
    */
-  recipientKind?: RecipientKind;
-  emailType?: string;
+  recipientKind: RecipientKind;
+  emailType: string;
 };
 
 /** What a suppressed send returns. Suppression is not a failure: the caller
@@ -108,10 +118,11 @@ function classify(error: unknown): { message: string; status?: number; retryable
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendEmail(payload: any, options: SendEmailOptions = {}) {
-  // The freeze, at the one place every send passes through.
-  if (options.recipientKind) {
-    const type = options.emailType ?? "unspecified";
+export async function sendEmail(payload: any, options: SendEmailOptions) {
+  // The freeze, at the one place every send passes through. No longer
+  // conditional on the caller having opted in — that was the leak.
+  {
+    const type = options.emailType;
     if (!emailAllowed(options.recipientKind, type)) {
       const reason = freezeReason(options.recipientKind, type);
       // Logged, not thrown. A frozen email is a policy outcome, not an error:

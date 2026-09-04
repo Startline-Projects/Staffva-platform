@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
             <p style="color:#444;font-size:14px;">Check the <code>application_queue</code> table in Supabase for full details.</p>
           </div>
         `,
-      });
+      }, { recipientKind: "staff", emailType: "application_queue_failures" });
 
       // Mark as alerted
       for (const f of permanentFailures) {

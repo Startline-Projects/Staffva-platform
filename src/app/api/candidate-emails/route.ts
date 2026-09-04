@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     // Send email. sendEmail() throws on Resend's returned {error}, so the
     // catch below correctly records 'failed' instead of the previous behaviour:
-    // sendEmail() resolves with {error} rather than throwing, so an
+    // sendEmail(, { recipientKind: "candidate", emailType: "staff_composed" }) resolves with {error} rather than throwing, so an
     // invalid key / unverified domain / rate limit fell through to "Log
     // success", wrote status 'sent', and the idempotency guard then blocked the
     // message from ever being retried.
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
           ${template.body(firstName, data)}
           <p style="color:#999;margin-top:32px;font-size:12px;border-top:1px solid #e0e0e0;padding-top:16px;">— The StaffVA Team</p>
         </div>`,
-      });
+      }, { recipientKind: "candidate", emailType });
 
       // Log success
       await supabase.from("candidate_emails").insert({

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
             <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Update Your Profile</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
-        });
+        }, { recipientKind: "candidate", emailType: "profile_revisions_requested" });
     } catch { /* non-fatal */ }
   }
 

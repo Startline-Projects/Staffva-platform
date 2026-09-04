@@ -102,7 +102,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         to: candidate.email,
         subject: "Your profile change needs another look",
         html: `<p>Hi ${firstName},</p><p>Your request to update your <strong>${labelFor(fieldName)}</strong> was declined.</p><p><strong>Reason:</strong> ${reason}</p><p>You can submit a new request from your profile.</p><p>— The StaffVA Team</p>`,
-      });
+      }, { recipientKind: "candidate", emailType: "edit_request_declined" });
     }
   } catch (e) {
     console.error("[decline] email send failed", e);

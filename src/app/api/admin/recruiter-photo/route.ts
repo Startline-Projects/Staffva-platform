@@ -210,5 +210,5 @@ async function sendPhotoDecisionEmail(
       to: email,
       subject,
       html,
-    }).catch(() => {});
+    }, { recipientKind: "staff", emailType: "recruiter_photo_decision" }).catch(() => {});
 }

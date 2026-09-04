@@ -325,7 +325,7 @@ async function alertPermanentFailures(supabase: ReturnType<typeof getAdminClient
           <p style="color:#444;font-size:14px;">These candidates need manual screening tag assignment in the admin panel.</p>
         </div>
       `,
-    });
+    }, { recipientKind: "staff", emailType: "screening_queue_failures" });
 
     // Mark as alerted
     for (const f of failures) {

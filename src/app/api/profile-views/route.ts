@@ -129,7 +129,7 @@ async function sendProfileViewNotification(
           <a href="${siteUrl}/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Review My Profile</a>
           <p style="color:#999;margin-top:24px;font-size:12px;">Keep up the great work. — The StaffVA Team</p>
         </div>`,
-      });
+      }, { recipientKind: "candidate", emailType: "profile_viewed" });
 
       // Log in candidate_emails
       await supabase.from("candidate_emails").insert({

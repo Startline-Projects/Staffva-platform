@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { RecipientKind } from "@/lib/emailFreeze";
 import { sendEmail as sendEmailViaResend } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
@@ -94,9 +95,22 @@ export async function POST(req: NextRequest) {
   const RESEND = process.env.RESEND_API_KEY;
   const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
 
-  async function sendEmail(to: string, subject: string, html: string) {
+  // Takes the recipient kind because this one wrapper mails three different
+  // sorts of person — the candidate, the outgoing recruiter and the incoming
+  // one. Labelling it once would mislabel two of the three, and mislabelling
+  // recruiter mail as candidate mail would silently drop it under the freeze.
+  async function sendEmail(
+    kind: RecipientKind,
+    emailType: string,
+    to: string,
+    subject: string,
+    html: string
+  ) {
     if (!RESEND) return;
-    await sendEmailViaResend({ from: "StaffVA <notifications@staffva.com>", to, subject, html }).catch(() => {});
+    await sendEmailViaResend(
+      { from: "StaffVA <notifications@staffva.com>", to, subject, html },
+      { recipientKind: kind, emailType }
+    ).catch(() => {});
   }
 
   const wrap = (body: string) =>
@@ -110,6 +124,8 @@ export async function POST(req: NextRequest) {
     // to schedule and nothing to re-book -- the specialist is simply the
     // candidate's point of contact.
     await sendEmail(
+      "candidate",
+      "recruiter_reassigned",
       candidate.email,
       "Your StaffVA talent specialist has been updated.",
       wrap(`<p style="color:#444;font-size:14px;">${firstName}, your talent specialist on StaffVA has been updated. <strong>${newRecruiter.full_name}</strong> is now your assigned specialist and your point of contact.</p>`)
@@ -120,6 +136,8 @@ export async function POST(req: NextRequest) {
   if (fromRecruiter?.email) {
     const fromFirst = (fromRecruiter.full_name || "").split(" ")[0];
     await sendEmail(
+      "staff",
+      "candidate_reassigned_away",
       fromRecruiter.email,
       "Candidate reassigned — action required.",
       wrap(`<p style="color:#444;font-size:14px;">${fromFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been reassigned to <strong>${newRecruiter.full_name}</strong>. No further action is needed on their application — it is now being managed by ${newRecruiter.full_name}.</p>`)
@@ -130,6 +148,8 @@ export async function POST(req: NextRequest) {
   if (newRecruiter.email) {
     const toFirst = (newRecruiter.full_name || "").split(" ")[0];
     await sendEmail(
+      "staff",
+      "candidate_assigned_to_you",
       newRecruiter.email,
       "New candidate assigned to you.",
       wrap(`<p style="color:#444;font-size:14px;">${toFirst}, <strong>${candidateName}</strong> (${candidate.role_category}) has been assigned to you. Review their profile.</p><a href="${SITE}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Candidate Profile</a>`)

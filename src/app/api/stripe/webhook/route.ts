@@ -150,7 +150,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Continue Application</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              });
+              }, { recipientKind: "candidate", emailType: "id_verification_passed" });
           } catch { /* silent */ }
         }
       }
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
                     <a href="mailto:support@staffva.com" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Contact Support</a>
                     <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                   </div>`,
-                });
+                }, { recipientKind: "candidate", emailType: "id_verification_failed" });
             } catch { /* silent */ }
           }
         }
@@ -276,7 +276,7 @@ export async function POST(request: Request) {
                   <p><strong>Expected Delivery:</strong> Within 48 hours</p>
                   <a href="https://staffva.com/admin/candidates" style="display:inline-block;background:#fe6e3e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Admin Panel</a>
                 </div>`,
-              });
+              }, { recipientKind: "staff", emailType: "interview_request" });
           } catch (err) {
             console.error("Failed to notify admin:", err);
           }
@@ -294,7 +294,7 @@ export async function POST(request: Request) {
                   <p>Our team will conduct the interview${Number(interviewCount) > 1 ? "s" : ""} and deliver notes within <strong>48 hours</strong>. You will receive an email with the scores and PDF notes when ready.</p>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              });
+              }, { recipientKind: "client", emailType: "interview_request_confirmed" });
           } catch (err) {
             console.error("Failed to confirm to client:", err);
           }
@@ -594,7 +594,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              });
+              }, { recipientKind: "candidate", emailType: "payout_account_active" });
           } catch { /* silent */ }
         }
       } else if (disabledReason) {
@@ -617,7 +617,7 @@ export async function POST(request: Request) {
                   <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Dashboard</a>
                   <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                 </div>`,
-              });
+              }, { recipientKind: "candidate", emailType: "payout_account_attention" });
           } catch { /* silent */ }
         }
       }

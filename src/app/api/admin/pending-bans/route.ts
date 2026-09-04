@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
                 <a href="${siteUrl}/candidate/${candidateId}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Candidate</a>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            });
+            }, { recipientKind: "staff", emailType: "ban_confirmed" });
         } catch { /* silent */ }
       }
     }
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
               <p style="color:#444;font-size:14px;">Ahmed has reviewed your ban request for <strong>${candidateName}</strong> (${candidate.role_category}) and decided not to proceed. The candidate remains active.</p>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "staff", emailType: "ban_dismissed" });
       } catch { /* silent */ }
     }
   }

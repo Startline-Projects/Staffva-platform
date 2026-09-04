@@ -174,7 +174,7 @@ ${contract.contract_html}
             subject: `Executed Contract — ${candidateInfo?.display_name || "Contractor"}`,
             html: emailHtml,
             attachments: [attachment],
-          });
+          }, { recipientKind: "client", emailType: "contract_executed" });
         } catch { /* silent */ }
       }
 
@@ -187,7 +187,7 @@ ${contract.contract_html}
             subject: `Executed Contract — ${clientInfo?.company_name || clientInfo?.full_name || "Client"}`,
             html: emailHtml,
             attachments: [attachment],
-          });
+          }, { recipientKind: "candidate", emailType: "contract_executed" });
         } catch { /* silent */ }
       }
     }

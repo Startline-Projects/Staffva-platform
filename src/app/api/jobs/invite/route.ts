@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
                 <p style="color: #999; font-size: 12px; margin-top: 32px;">You received this because you have an active profile on StaffVA.</p>
               </div>
             `,
-          });
+          }, { recipientKind: "candidate", emailType: "job_invite" });
       } catch {
         // Email send failed — don't block the invite
         console.error("Failed to send invite email");

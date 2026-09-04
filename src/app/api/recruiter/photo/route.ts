@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
                   `<p style="color:#444;font-size:14px;"><strong>${recruiterName}</strong> has submitted a new profile photo for their recruiter card. Review and approve or reject it in the admin panel.</p>` +
                   `<a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com"}${approvalLink}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review Photo</a>`
                 ),
-              }).catch(() => {})
+              }, { recipientKind: "staff", emailType: "recruiter_photo_pending" }).catch(() => {})
           )
         );
       }

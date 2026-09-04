@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
             <p style="color:#444;font-size:14px;">Your offer to ${candInfo?.display_name || "a candidate"} expired after 5 days with no response. You can send a new offer or browse other candidates.</p>
             <a href="https://staffva.com/browse" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Browse Talent</a>
           </div>`,
-        });
+        }, { recipientKind: "client", emailType: "offer_expired" });
       } catch { /* silent */ }
     }
   }

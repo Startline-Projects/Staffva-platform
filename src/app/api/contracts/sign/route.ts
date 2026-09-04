@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
               <a href="${signingUrl}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review & Sign Contract</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">This link expires in 7 days. — The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "contract_ready_to_sign" });
         } catch { /* silent */ }
       }
 

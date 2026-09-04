@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
               <a href="${confirmationLink}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Review in Admin Panel</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">The candidate remains active until you confirm or dismiss this request.</p>
             </div>`,
-          });
+          }, { recipientKind: "staff", emailType: "ban_requested" });
       } catch { /* silent */ }
     }
 

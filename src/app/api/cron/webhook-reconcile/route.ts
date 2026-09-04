@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
             <a href="https://staffva.com/admin" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Go to Admin Panel</a>
           </div>
         `,
-      });
+      }, { recipientKind: "staff", emailType: "webhook_failures" });
 
       // Mark as alerted using processed_at as the alert timestamp
       for (const wh of permanentFailures) {
@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
           <h2 style="color:#1C1B1A;">Trolley Payout Failure Alert</h2>
           <p style="color:#444;font-size:14px;">${trolleyPermanent.length} Trolley payout callback(s) failed after 3 retries. Check the <code>trolley_log</code> table in Supabase.</p>
         </div>`,
-      });
+      }, { recipientKind: "staff", emailType: "trolley_callback_failures" });
 
       for (const tl of trolleyPermanent) {
         await supabase

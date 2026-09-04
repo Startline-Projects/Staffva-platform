@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
             <a href="${siteUrl}/offers/${offer.id}" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">View Offer</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
-        });
+        }, { recipientKind: "candidate", emailType: "offer_received" });
       } catch { /* silent */ }
     }
 
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
                     <a href="${siteUrl}/team" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review & Sign Contract</a>
                     <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
                   </div>`,
-                });
+                }, { recipientKind: "client", emailType: "offer_response" });
               } catch { /* silent */ }
             }
           }
@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
               <p style="color:#444;font-size:14px;">${cand?.display_name || "The candidate"} has declined your offer. You may send a revised offer or browse other candidates.</p>
               <a href="https://staffva.com/browse" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Browse Talent</a>
             </div>`,
-          });
+          }, { recipientKind: "client", emailType: "offer_response" });
         } catch { /* silent */ }
       }
 

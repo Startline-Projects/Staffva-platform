@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import type { RecipientKind } from "@/lib/emailFreeze";
 import { sendEmail, EmailSendError } from "@/lib/email";
 import { nextAttemptAt } from "@/lib/emailOutbox";
 import { hasCronSecret } from "@/lib/auth";
@@ -130,6 +131,10 @@ export async function GET(request: NextRequest) {
           // A send that succeeded just before the invocation was killed must
           // not be delivered twice when the row is reclaimed.
           idempotencyKey: row.id,
+          // Re-checked at SEND time, not only at enqueue time. A message queued
+          // before a freeze began would otherwise drain straight through it.
+          recipientKind: (row.recipient_kind ?? "candidate") as RecipientKind,
+          emailType: row.email_type ?? "unspecified",
         }
       );
 

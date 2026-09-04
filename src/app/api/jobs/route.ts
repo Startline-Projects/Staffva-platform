@@ -397,7 +397,7 @@ export async function POST(req: NextRequest) {
                     </p>
                   </div>
                 `,
-              });
+              }, { recipientKind: "candidate", emailType: "role_match_alert" });
           } catch {
             // Silent — don't block the response
           }

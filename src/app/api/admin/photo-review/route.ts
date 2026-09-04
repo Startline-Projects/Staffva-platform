@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
               <a href="https://staffva.com/candidate/me" style="display: inline-block; background: #fe6e3e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">Update Your Photo</a>
               <p style="color: #999; margin-top: 24px; font-size: 12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "photo_rejected" });
       } catch (err) {
         console.error("Failed to send photo rejection email:", err);
       }

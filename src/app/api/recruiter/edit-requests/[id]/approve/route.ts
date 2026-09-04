@@ -152,7 +152,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         to: candidate.email,
         subject: "Your profile change has been approved",
         html: `<p>Hi ${firstName},</p><p>Your request to update your <strong>${labelFor(fieldName)}</strong> has been approved. The change is now live on your profile.</p><p>— The StaffVA Team</p>`,
-      });
+      }, { recipientKind: "candidate", emailType: "edit_request_approved" });
     }
   } catch (e) {
     console.error("[approve] email send failed", e);

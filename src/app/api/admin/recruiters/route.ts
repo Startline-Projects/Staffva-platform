@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
           </p>
         </div>
       `,
-    });
+    }, { recipientKind: "staff", emailType: "recruiter_password_reset" });
   } catch (err) {
     deliveryFailed = err instanceof Error ? err.message : String(err);
   }
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
           </div>
         </div>
       `,
-    });
+    }, { recipientKind: "staff", emailType: "recruiter_password_reset_copy" });
   } catch { /* notification only — non-fatal */ }
 
   if (deliveryFailed) {

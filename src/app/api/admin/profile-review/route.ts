@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
               <p style="color:#444;font-size:14px;"><strong>${fullName}</strong> has updated their profile and resubmitted for your review.</p>
               <a href="${siteUrl}/admin/candidates" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review in Admin</a>
             </div>`,
-          });
+          }, { recipientKind: "staff", emailType: "resubmitted_for_review" });
         } catch { /* silent */ }
       }
 

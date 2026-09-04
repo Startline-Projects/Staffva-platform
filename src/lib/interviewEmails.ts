@@ -87,7 +87,7 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
         ),
       ],
     },
-    { idempotencyKey: `iv-booked-client-${b.bookingId}` }
+    { idempotencyKey: `iv-booked-client-${b.bookingId}`, recipientKind: "client", emailType: "interview_booked" }
   );
 
   const toCandidate = sendEmail(
@@ -119,7 +119,7 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
         ),
       ],
     },
-    { idempotencyKey: `iv-booked-cand-${b.bookingId}` }
+    { idempotencyKey: `iv-booked-cand-${b.bookingId}`, recipientKind: "candidate", emailType: "interview_booked" }
   );
 
   await Promise.allSettled([toClient, toCandidate]).then((results) => {
@@ -173,7 +173,7 @@ export async function sendCancellationEmails(
         ),
         attachments: [cancelIcs(b.client.email, `Interview: ${b.candidate.name} (StaffVA)`)],
       },
-      { idempotencyKey: `iv-cancel-client-${b.bookingId}` }
+      { idempotencyKey: `iv-cancel-client-${b.bookingId}`, recipientKind: "client", emailType: "interview_cancelled" }
     )
   );
 
@@ -192,7 +192,7 @@ export async function sendCancellationEmails(
         ),
         attachments: [cancelIcs(b.candidate.email, `Interview: ${clientWho} (StaffVA)`)],
       },
-      { idempotencyKey: `iv-cancel-cand-${b.bookingId}` }
+      { idempotencyKey: `iv-cancel-cand-${b.bookingId}`, recipientKind: "candidate", emailType: "interview_cancelled" }
     )
   );
 
@@ -228,7 +228,7 @@ export async function sendReminderEmails(b: BookingEmailData, which: "24h" | "1h
           { href: manage, label: "Open the interview page" }
         ),
       },
-      { idempotencyKey: `iv-rem-${which}-client-${b.bookingId}` }
+      { idempotencyKey: `iv-rem-${which}-client-${b.bookingId}`, recipientKind: "client", emailType: "interview_reminder" }
     ),
     sendEmail(
       {
@@ -247,7 +247,7 @@ export async function sendReminderEmails(b: BookingEmailData, which: "24h" | "1h
           { href: manage, label: "Open the interview page" }
         ),
       },
-      { idempotencyKey: `iv-rem-${which}-cand-${b.bookingId}` }
+      { idempotencyKey: `iv-rem-${which}-cand-${b.bookingId}`, recipientKind: "candidate", emailType: "interview_reminder" }
     ),
   ];
 
