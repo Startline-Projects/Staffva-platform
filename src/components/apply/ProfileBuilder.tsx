@@ -17,6 +17,10 @@ interface ProfileBuilderProps {
     english_written_tier?: string;
     skills?: string[];
     tools?: string[];
+    /** Previously saved employers. Seeded into the form so a returning
+     *  candidate does not get a blank step 4 — and so their stored references,
+     *  which hang off each entry's ref_key, stay matched. */
+    work_experience?: WorkEntry[] | null;
   };
   onComplete: () => void;
 }
@@ -24,24 +28,36 @@ interface ProfileBuilderProps {
 type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 
+/** A fresh employer identity. */
+function newEmployerKey(): string {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `emp-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+}
+
 /**
- * A stable identity for one employer entry.
+ * The stable identity of one employer entry, which references hang off.
  *
- * References are keyed by this rather than by array position: a candidate who
- * deletes their second job would otherwise re-point that employer's reference
- * at a different company — attaching a former manager's name and email to a
- * role they never supervised.
+ * This used to be DERIVED from company_name + start_date + role_title, and that
+ * was wrong in a way that quietly destroyed data. The key was recomputed on
+ * every render, so changing one character of the company name produced a new
+ * key, `savedReferences[key]` became undefined, and the fully controlled
+ * reference block blanked — name, email, consent, all of it — with no message.
+ * The typed contact was then stranded under the old key and never submitted,
+ * while the card said "We store this contact."
+ *
+ * It is also stored in work_experience, which is safe now and would not have
+ * been a week ago: contactMask.ts emits an explicit allowlist, and ref_key is
+ * not on it, so this never reaches the public profile endpoint.
  */
-function employerKeyFor(entry: { company_name?: string; start_date?: string; role_title?: string }): string {
-  const parts = [entry.company_name || "", entry.start_date || "", entry.role_title || ""];
-  return parts
-    .join("|")
-    .toLowerCase()
-    .replace(/[^a-z0-9|]+/g, "-")
-    .slice(0, 180) || "employer";
+function employerKeyFor(entry: WorkEntry): string {
+  return entry.ref_key || "";
 }
 
 interface WorkEntry {
+  /** Stable identity for this entry, generated once when it is created.
+   *  References hang off this. See employerKeyFor. */
+  ref_key?: string;
   company_name: string;
   role_title: string;
   industry: string;
@@ -393,9 +409,18 @@ export default function ProfileBuilder({
   const [selectedTools, setSelectedTools] = useState<string[]>(candidateData.tools || []);
 
   // Step 4 — Work Experience
-  const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
-    { company_name: "", role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
-  ]);
+  const [workEntries, setWorkEntries] = useState<WorkEntry[]>(() => {
+    // Seed from what the candidate already saved. Without this, a returning
+    // candidate got a blank form and their stored references — keyed to
+    // entries that no longer existed in state — could never be matched again.
+    const saved = (candidateData.work_experience as WorkEntry[] | null) || [];
+    if (saved.length) {
+      return saved.map((e) => ({ ...e, ref_key: e.ref_key || newEmployerKey() }));
+    }
+    return [
+      { ref_key: newEmployerKey(), company_name: "", role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
+    ];
+  });
 
   // Step 5 — Portfolio and Resume
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -587,7 +612,7 @@ export default function ProfileBuilder({
     if (workEntries.length >= 3) return;
     // Insert new entry at top (most recent position)
     setWorkEntries([
-      { company_name: "", role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
+      { ref_key: newEmployerKey(), company_name: "", role_title: "", industry: "", industry_other: "", duration: "", description: "", start_date: "", end_date: "", tools_used: [], skills_gained: [] },
       ...workEntries,
     ]);
   }

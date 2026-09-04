@@ -40,8 +40,21 @@ comment on function public.current_candidate_id() is
 -- ── profile-photos ────────────────────────────────────────────────────────
 -- Public bucket, so SELECT stays open — a profile photo is meant to be seen.
 -- Writes become the owner's only.
-drop policy if exists "Anyone can upload to profile-photos" on storage.objects;
-drop policy if exists "Anyone can update profile-photos"    on storage.objects;
+-- BOTH name sets, and the reason is worth recording. The live database had
+-- these policies under dashboard-renamed titles ("Anyone can upload to
+-- profile-photos"); the migration tree creates them in 00006 as "Candidates
+-- can upload profile photos" and "Candidates can update own profile photos" —
+-- the latter having no ownership check at all despite the word "own".
+--
+-- Dropping only the live names fixed only the live database. Replayed into a
+-- fresh one, 00006's unscoped pair would survive alongside the owner-scoped
+-- pair below, and because storage policies are permissive and OR together, the
+-- unscoped ones win: any authenticated candidate could overwrite any other
+-- candidate's photo. The vulnerability would come back on the next rebuild.
+drop policy if exists "Anyone can upload to profile-photos"       on storage.objects;
+drop policy if exists "Anyone can update profile-photos"          on storage.objects;
+drop policy if exists "Candidates can upload profile photos"      on storage.objects;
+drop policy if exists "Candidates can update own profile photos"  on storage.objects;
 
 create policy "Owners write their own profile photo"
   on storage.objects for insert to authenticated

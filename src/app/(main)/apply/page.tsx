@@ -30,6 +30,10 @@ export type ApplicationStep =
 
 export interface CandidateData {
   id: string;
+  // Loaded by the select("*") below; typed so the builder can seed step 4 from
+  // it. A returning candidate previously got a blank work-history form, which
+  // also orphaned any reference keyed to an entry that no longer existed.
+  work_experience?: unknown;
   full_name: string;
   first_name: string | null;
   last_name: string | null;
@@ -412,6 +416,7 @@ export default function ApplyPage() {
             english_written_tier: candidateData.english_written_tier ?? undefined,
             skills: candidateData.skills || [],
             tools: candidateData.tools || [],
+            work_experience: (candidateData.work_experience as never) ?? null,
           }}
           onComplete={handleProfileComplete}
         />
