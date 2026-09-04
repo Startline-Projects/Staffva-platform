@@ -20,6 +20,7 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
   const [phase, setPhase] = useState<"ready" | "recording">("ready");
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -85,38 +86,64 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
       return;
     }
 
-    // Advance immediately — upload in background
+    // Upload FIRST, advance second.
+    //
+    // This used to call onComplete() and then start a background upload. Three
+    // things went wrong together when that upload failed: the candidate record
+    // already pointed at a file that did not exist; the parent had unmounted
+    // this component, so the terminal setError was a no-op nobody ever saw; and
+    // the recording is one of the ten approval gates, so the candidate walked
+    // on with a gate satisfied by a URL resolving to nothing.
+    //
+    // All 109 stored recordings currently have their file, so it has not bitten
+    // at n=56 on good connections. It would at the agreed 2,200.
     const timestamp = Date.now();
     const fullFileName = `${candidateId}/oral-reading-${timestamp}.webm`;
-    onComplete(fullFileName);
 
-    // Background upload with retries
-    backgroundUpload(blob, fullFileName, 3);
+    setUploading(true);
+    const uploadError = await uploadWithRetries(blob, fullFileName, 3);
+    setUploading(false);
+
+    if (uploadError) {
+      setError("We couldn't save your recording. Check your connection and record it again.");
+      setPhase("ready");
+      return;
+    }
+
+    onComplete(fullFileName);
   }
 
-  async function backgroundUpload(blob: Blob, fileName: string, retriesLeft: number) {
-    try {
-      const supabase = createClient();
+  /** Returns an error message, or null on success. Never advances anything. */
+  async function uploadWithRetries(
+    blob: Blob,
+    fileName: string,
+    attempts: number
+  ): Promise<string | null> {
+    const supabase = createClient();
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from("voice-recordings")
+          // upsert so a retry after a partial write cannot collide with itself.
+          .upload(fileName, blob, { upsert: true });
+        if (uploadError) throw uploadError;
 
-      const { error: uploadError } = await supabase.storage
-        .from("voice-recordings")
-        .upload(fileName, blob);
+        const { error: updateError } = await supabase
+          .from("candidates")
+          .update({ voice_recording_1_url: fileName })
+          .eq("id", candidateId);
+        if (updateError) throw updateError;
 
-      if (uploadError) throw uploadError;
-
-      await supabase
-        .from("candidates")
-        .update({ voice_recording_1_url: fileName })
-        .eq("id", candidateId);
-    } catch (err) {
-      if (retriesLeft > 1) {
-        // Retry after 2 seconds
-        setTimeout(() => backgroundUpload(blob, fileName, retriesLeft - 1), 2000);
-      } else {
-        console.error("Background upload failed after retries:", err);
-        setError("We had trouble saving your recording. Please re-record this section.");
+        return null;
+      } catch (err) {
+        if (i === attempts - 1) {
+          console.error("Voice upload failed after retries:", err);
+          return err instanceof Error ? err.message : "upload failed";
+        }
+        await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
       }
     }
+    return "upload failed";
   }
 
   function stopRecording() {
@@ -150,6 +177,16 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
             Minimum 15 seconds, maximum 90 seconds. Read clearly at a natural pace.
           </p>
         </div>
+      )}
+
+      {/* The upload blocks the advance, so the candidate has to be told it is
+          happening — but only once recording has actually stopped. Rendered
+          unconditionally it sat next to a live "Recording…" and a working Stop
+          button, which reads as two contradictory things at once. */}
+      {uploading && phase !== "recording" && (
+        <p className="mt-4 text-center text-sm text-text/60">
+          Saving your recording…
+        </p>
       )}
 
       {phase === "recording" && (

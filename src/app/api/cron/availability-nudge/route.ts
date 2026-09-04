@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
                   </p>
                 </div>
               `,
-            });
+            }, { recipientKind: "candidate", emailType: "availability_nudge" });
 
           // Mark as nudged
           await supabase

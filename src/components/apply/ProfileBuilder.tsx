@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import ReferenceFields, { useSavedReferences, saveReference, type ReferenceValue } from "@/components/apply/ReferenceFields";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,6 +22,24 @@ interface ProfileBuilderProps {
 }
 
 type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6;
+
+
+/**
+ * A stable identity for one employer entry.
+ *
+ * References are keyed by this rather than by array position: a candidate who
+ * deletes their second job would otherwise re-point that employer's reference
+ * at a different company — attaching a former manager's name and email to a
+ * role they never supervised.
+ */
+function employerKeyFor(entry: { company_name?: string; start_date?: string; role_title?: string }): string {
+  const parts = [entry.company_name || "", entry.start_date || "", entry.role_title || ""];
+  return parts
+    .join("|")
+    .toLowerCase()
+    .replace(/[^a-z0-9|]+/g, "-")
+    .slice(0, 180) || "employer";
+}
 
 interface WorkEntry {
   company_name: string;
@@ -380,6 +399,10 @@ export default function ProfileBuilder({
 
   // Step 5 — Portfolio and Resume
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  // References are keyed by employer, not by array index: reordering or
+  // deleting an entry must not silently re-point somebody's reference at a
+  // different job. The key is derived from the company name and start date.
+  const { byEmployer: savedReferences, setByEmployer: setSavedReferences } = useSavedReferences();
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [payoutMethod, setPayoutMethod] = useState("");
 
@@ -799,6 +822,26 @@ export default function ProfileBuilder({
 
       // Filter valid work entries
       const validWorkEntries = sortWorkEntries(workEntries.filter((e) => e.role_title.trim()));
+
+      // References are saved to their own table, never into work_experience.
+      // That jsonb is served key-for-key to unauthenticated callers by
+      // /api/candidates/preview, so a reference's email placed there would be
+      // public the moment this runs.
+      for (const entry of validWorkEntries) {
+        const key = employerKeyFor(entry);
+        const ref = savedReferences[key];
+        if (!ref) continue;
+        // A part-filled reference is not an error — it is simply not saved.
+        // Blocking submit on somebody else's contact details would make an
+        // optional field mandatory by accident.
+        if (!ref.email?.trim() || !ref.consent) continue;
+        const refError = await saveReference(key, ref);
+        if (refError) {
+          setError(refError);
+          setSaving(false);
+          return;
+        }
+      }
 
       // Update candidate record
       const updateData: Record<string, unknown> = {
@@ -1323,6 +1366,15 @@ export default function ProfileBuilder({
                     onAdd={(v) => addWorkEntryTag(i, "skills_gained", v)}
                   />
                 </div>
+
+                <ReferenceFields
+                  employerKey={employerKeyFor(entry)}
+                  employerName={entry.company_name}
+                  value={savedReferences[employerKeyFor(entry)]}
+                  onChange={(v: ReferenceValue) =>
+                    setSavedReferences((prev) => ({ ...prev, [employerKeyFor(entry)]: v }))
+                  }
+                />
               </div>
             ))}
             {workEntries.length < 3 && (

@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
               <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Retake My AI Interview</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "interview_retake" });
 
       } catch (err) {
         console.error("[retake-notify] Resend threw for", candidate.id, err);

@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
                 </div>
               </div>
             `,
-          });
+          }, { recipientKind: "candidate", emailType: "weekly_digest" });
         sentCount++;
       } catch (err) {
         errors.push(`Failed to send to ${candidate.email}: ${err}`);

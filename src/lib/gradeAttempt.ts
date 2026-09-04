@@ -384,7 +384,7 @@ export async function gradeAttempt(
                 to: currentCandidate.email,
                 subject: "StaffVA Application Update",
                 html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">Application Update</h2><p style="color:#444;font-size:14px;">Hi ${firstName},</p><p style="color:#444;font-size:14px;line-height:1.6;">After multiple attempts, we are unable to advance your application at this time.</p><p style="color:#444;font-size:14px;line-height:1.6;">You may reapply in <strong>90 days</strong>. We encourage you to continue developing your English language skills during this time.</p><p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p></div>`,
-              });
+              }, { recipientKind: "candidate", emailType: "assessment_result" });
             } catch {
               /* silent */
             }

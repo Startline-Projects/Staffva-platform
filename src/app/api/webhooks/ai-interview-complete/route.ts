@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
                 <p style="color:#444;font-size:14px;">Your retake will unlock in 3 days. We will send you another email the moment it becomes available — no action needed on your side until then.</p>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            });
+            }, { recipientKind: "candidate", emailType: "interview_retake" });
         } catch (err) {
           console.error("[AI Interview Webhook] Fail email send error:", err);
         }
@@ -194,10 +194,10 @@ export async function POST(req: NextRequest) {
               html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
                 <h2 style="color:#1C1B1A;">You're in the Queue</h2>
                 <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-                <p style="color:#444;font-size:14px;">We have reviewed your AI interview. You will be assigned a Talent Specialist within 24 hours. You will receive a notification when your Talent Specialist is assigned.</p>
+                <p style="color:#444;font-size:14px;">We have reviewed your AI interview. A Talent Specialist will be assigned to you shortly — your dashboard shows it as soon as they are.</p>
                 <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
               </div>`,
-            });
+            }, { recipientKind: "candidate", emailType: "queue_placement" });
         } catch { /* silent */ }
       }
 

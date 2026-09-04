@@ -84,6 +84,11 @@ export async function POST(req: NextRequest) {
   };
   if (hasVideoItem) {
     updateFields.video_intro_revision_requested = true;
+    // Give the takes back. Both takes are normally spent by the time anyone
+    // reviews, so without this "please re-record your video" is an instruction
+    // the candidate has no takes left to follow — and the recorder would
+    // refuse them at the chunk route with "No takes remaining".
+    updateFields.video_intro_takes_used = 0;
   }
 
   await supabase

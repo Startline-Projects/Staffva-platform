@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { emailAllowed, freezeReason, type RecipientKind } from "@/lib/emailFreeze";
 
 /**
  * Send an email, throwing on failure.
@@ -49,7 +50,26 @@ export type SendEmailOptions = {
    * delivered a second time when the row is reclaimed.
    */
   idempotencyKey?: string;
+  /**
+   * Who this is going to, and what it is. Together they decide whether the
+   * candidate-email freeze permits the send.
+   *
+   * Optional rather than required, deliberately. Making it required would put
+   * a mechanical edit through all 43 call sites at once, and a client invoice
+   * or a staff alert mislabelled as candidate mail would be silently dropped —
+   * trading a freeze leak for a worse, quieter failure. Unmarked sends behave
+   * exactly as they always have; the paths that matter declare themselves.
+   *
+   * The one kind that can never send at all — `reference` — has no caller to
+   * mislabel, because step 11 ships no code that mails a reference.
+   */
+  recipientKind?: RecipientKind;
+  emailType?: string;
 };
+
+/** What a suppressed send returns. Suppression is not a failure: the caller
+ *  did its job, and the message was withheld by policy. */
+export type SuppressedResult = { suppressed: true; reason: string };
 
 // A hung upstream must not outlive the caller's function budget. The outbox
 // drain runs with maxDuration 60 and paces sends inside a 45s deadline.
@@ -89,6 +109,20 @@ function classify(error: unknown): { message: string; status?: number; retryable
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendEmail(payload: any, options: SendEmailOptions = {}) {
+  // The freeze, at the one place every send passes through.
+  if (options.recipientKind) {
+    const type = options.emailType ?? "unspecified";
+    if (!emailAllowed(options.recipientKind, type)) {
+      const reason = freezeReason(options.recipientKind, type);
+      // Logged, not thrown. A frozen email is a policy outcome, not an error:
+      // throwing here would make every caller's try/catch report the ACTION
+      // as failed, and a video intro that saved fine would tell the candidate
+      // it did not.
+      console.warn(`[email] ${reason} to=${typeof payload?.to === "string" ? payload.to : "?"}`);
+      return { suppressed: true, reason } as SuppressedResult;
+    }
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     // Not retryable: no amount of waiting configures an environment variable.

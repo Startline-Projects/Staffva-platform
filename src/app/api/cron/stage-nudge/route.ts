@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
             <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Complete My Profile</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
-        });
+        }, { recipientKind: "candidate", emailType: "stage_nudge" });
 
         await admin.from("candidate_emails").insert({
           candidate_id: c.id,
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
             <a href="https://staffva.com/apply" style="display:inline-block;background:#FE6E3E;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Set My Rate</a>
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>`,
-        });
+        }, { recipientKind: "candidate", emailType: "stage_nudge" });
 
         await admin.from("candidate_emails").insert({
           candidate_id: c.id,

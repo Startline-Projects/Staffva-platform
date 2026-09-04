@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -12,69 +11,31 @@ function getAdminClient() {
  * Body: { videoUrl }
  * Records the uploaded video URL and sets status to pending_review
  */
-export async function POST(req: NextRequest) {
-  try {
-    const supabase = await createServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const { videoUrl } = await req.json();
-    if (!videoUrl) return NextResponse.json({ error: "Missing videoUrl" }, { status: 400 });
-
-    const admin = getAdminClient();
-
-    const { data: candidate } = await admin
-      .from("candidates")
-      .select("id, email, display_name, full_name")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!candidate) return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
-
-    // The thumbnail column is NOT taken from the request. It renders on the
-    // public browse page as an unsigned image URL, and admin review only
-    // watches the video — a body-supplied value would put an arbitrary,
-    // never-reviewed URL in front of every visitor. No client ever sent one
-    // (the upload page posts { videoUrl } only); when thumbnails happen they
-    // must be derived server-side into a public bucket. Until then the browse
-    // card falls back to the profile photo.
-    await admin.from("candidates").update({
-      video_intro_url: videoUrl,
-      video_intro_thumbnail_url: null,
-      video_intro_status: "pending_review",
-      video_intro_submitted_at: new Date().toISOString(),
-      video_intro_admin_note: null,
-    }).eq("id", candidate.id);
-
-    // Send confirmation email
-    if (process.env.RESEND_API_KEY && candidate.email) {
-      const firstName = (candidate.display_name || candidate.full_name || "").split(" ")[0] || "there";
-      try {
-        await sendEmail({
-          from: "StaffVA <notifications@staffva.com>",
-          to: candidate.email,
-          subject: "Your video introduction is under review",
-          html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-            <h2 style="color:#1C1B1A;">Video Introduction Received</h2>
-            <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-            <p style="color:#444;font-size:14px;">We received your video introduction and our team will review it within 24 hours. You will receive an email as soon as it is approved.</p>
-            <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
-          </div>`,
-        });
-      } catch { /* silent */ }
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Video intro upload error:", error);
-    return NextResponse.json({ error: "Failed to save video" }, { status: 500 });
-  }
+/**
+ * POST is CLOSED.
+ *
+ * It published any client-supplied URL as the candidate's video intro: it never
+ * spent a take, never enforced the minimum length, never checked the prompts
+ * were followed, and never verified the file was one we had actually received.
+ * With the prompted recorder live, it is a bypass of every rule that recorder
+ * exists to apply.
+ *
+ * Recording now goes through /api/candidate/video-intro/chunk and .../finalize,
+ * which counts the take against a file already durably stored.
+ *
+ * A 410 rather than a deletion so a cached client that still posts here gets a
+ * clear answer instead of a 404 that reads like an outage.
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        "Video introductions are now recorded in the browser. Reload the page to record yours.",
+    },
+    { status: 410 }
+  );
 }
 
-/**
- * GET /api/candidate/video-intro
- * Returns current video intro status for authenticated candidate
- */
 export async function GET() {
   try {
     const supabase = await createServerClient();
@@ -85,13 +46,21 @@ export async function GET() {
 
     const { data: candidate } = await admin
       .from("candidates")
-      .select("video_intro_url, video_intro_status, video_intro_admin_note, video_intro_submitted_at, video_intro_reviewed_at")
+      .select("video_intro_url, video_intro_status, video_intro_admin_note, video_intro_submitted_at, video_intro_reviewed_at, video_intro_takes_used, video_intro_takes_allowed, video_intro_duration_ms")
       .eq("user_id", user.id)
       .single();
 
     if (!candidate) return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
 
-    return NextResponse.json(candidate);
+    return NextResponse.json({
+      ...candidate,
+      // Derived server-side so the recorder cannot be told it has takes it
+      // does not. An admin asking for a re-record resets takes_used to 0.
+      takes_remaining: Math.max(
+        0,
+        (candidate.video_intro_takes_allowed ?? 2) - (candidate.video_intro_takes_used ?? 0)
+      ),
+    });
   } catch (error) {
     console.error("Video intro get error:", error);
     return NextResponse.json({ error: "Failed to load" }, { status: 500 });

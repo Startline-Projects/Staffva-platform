@@ -255,7 +255,7 @@ async function processApplication(
             <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
           </div>
         `,
-      });
+      }, { recipientKind: "candidate", emailType: "application_outcome" });
     } catch {
       // Non-fatal — email can be resent
     }

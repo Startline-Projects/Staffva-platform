@@ -52,6 +52,36 @@ interface WorkExperienceEntry {
   [key: string]: unknown;
 }
 
+/** The only work-history fields a client-facing view may see. */
+const WORK_ENTRY_PUBLIC_FIELDS = [
+  "role_title",
+  "company_name",
+  "industry",
+  "industry_other",
+  "start_date",
+  "end_date",
+  "duration",
+  "description",
+  "skills_gained",
+  "tools_used",
+] as const;
+
+/** Free-text fields that can carry a smuggled email or phone number. */
+const WORK_ENTRY_MASKED_FIELDS = new Set<string>(["company_name", "description"]);
+
+function maskWorkEntry(w: WorkExperienceEntry): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of WORK_ENTRY_PUBLIC_FIELDS) {
+    if (!(field in w)) continue;
+    const value = w[field];
+    out[field] =
+      WORK_ENTRY_MASKED_FIELDS.has(field) && typeof value === "string"
+        ? maskContact(value)
+        : value;
+  }
+  return out;
+}
+
 /**
  * Masks the free-text fields of a candidate row for a client-facing view.
  * Returns the same object shape; untouched fields pass through.
@@ -74,17 +104,21 @@ export function maskCandidateText<
       typeof candidate.ai_insight_1 === "string" ? maskContact(candidate.ai_insight_1) : candidate.ai_insight_1,
     ai_insight_2:
       typeof candidate.ai_insight_2 === "string" ? maskContact(candidate.ai_insight_2) : candidate.ai_insight_2,
+    // ALLOWLIST, not spread-and-patch.
+    //
+    // This was `{...w, company_name: mask(...), description: mask(...)}`, which
+    // emits every key the jsonb happens to contain and masks two of them. That
+    // is fail-OPEN: work_experience is returned key-for-key to unauthenticated
+    // callers by /api/candidates/preview, so any key added to the blob later —
+    // a reference's email, a phone number, a salary — is public the moment a
+    // candidate saves it, and nobody editing the builder would think to come
+    // here first.
+    //
+    // Naming the emitted fields makes the default "not shown". Adding a field
+    // to the public profile is now a deliberate edit in this file.
     work_experience: Array.isArray(candidate.work_experience)
       ? (candidate.work_experience as WorkExperienceEntry[]).map((w) =>
-          w && typeof w === "object"
-            ? {
-                ...w,
-                company_name:
-                  typeof w.company_name === "string" ? maskContact(w.company_name) : w.company_name,
-                description:
-                  typeof w.description === "string" ? maskContact(w.description) : w.description,
-              }
-            : w
+          w && typeof w === "object" ? maskWorkEntry(w) : w
         )
       : candidate.work_experience,
   };

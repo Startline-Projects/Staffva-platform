@@ -1118,7 +1118,7 @@ export default function CandidateDashboardPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {candidate.role_category === "Other" && !candidate.assigned_recruiter ? (
                           <div className="w-full rounded-lg bg-amber-50 border border-amber-200 p-3">
-                            <p className="text-xs text-amber-800 font-medium">Your Talent Specialist will be assigned within 24 hours. You will be notified when this happens.</p>
+                            <p className="text-xs text-amber-800 font-medium">Your Talent Specialist will be assigned shortly. Your dashboard shows it here once they are.</p>
                           </div>
                         ) : (
                           <>
@@ -1397,7 +1397,7 @@ export default function CandidateDashboardPage() {
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
             <h3 className="text-sm font-semibold text-amber-800">Your video introduction is under review</h3>
           </div>
-          <p className="mt-1 text-xs text-amber-700">We will notify you within 24 hours.</p>
+          <p className="mt-1 text-xs text-amber-700">Your dashboard shows the result once it's reviewed.</p>
         </div>
       ) : candidate.video_intro_status === "revision_required" ? (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5">

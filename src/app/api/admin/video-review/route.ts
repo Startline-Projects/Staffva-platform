@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
               <a href="https://staffva.com/candidate/dashboard" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">View Dashboard</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "video_intro_reviewed" });
         } catch { /* silent */ }
       }
 
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
               <a href="https://staffva.com/profile/video-intro" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Re-record Video</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "video_intro_reviewed" });
         } catch { /* silent */ }
       }
 
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
               <a href="https://staffva.com/profile/video-intro" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">Record New Video</a>
               <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
             </div>`,
-          });
+          }, { recipientKind: "candidate", emailType: "video_intro_reviewed" });
         } catch { /* silent */ }
       }
 
