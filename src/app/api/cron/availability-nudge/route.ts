@@ -24,14 +24,30 @@ export async function GET(req: NextRequest) {
 
     let nudgesSent = 0;
     let flagsSet = 0;
+    let suppressed = 0;
+
+    // Step 0: roll any "available from <date>" whose date has passed to
+    // "available now". Every reader matches the raw enum, so without this a
+    // candidate stays excluded from immediate-start work forever while their
+    // card advertises a start date in the past. Runs before the nudge so the
+    // freshness queries below see the corrected rows.
+    const { data: rolled } = await supabase.rpc("roll_lapsed_availability");
 
     // Step 1: Find candidates who haven't updated availability in 30+ days
-    // and haven't been nudged yet (or nudged more than 30 days ago)
+    // and haven't been nudged yet (or nudged more than 30 days ago).
+    //
+    // The `needs_availability_update = false` filter used to be here and was
+    // the trap that produced today's state: step 2 sets the flag, this filter
+    // then excludes exactly the people it was set on, and the only code that
+    // could clear it was a route with no callers. 26 of the 31 live candidates
+    // are stuck in it — flagged as needing to update, never asked again, and
+    // with no control on the dashboard to do it. The flag describes someone;
+    // it is not a reason to stop talking to them.
     const { data: needsNudge } = await supabase
       .from("candidates")
       .select("id, email, display_name, availability_last_updated_at, availability_nudge_sent_at")
       .eq("admin_status", "approved")
-      .eq("needs_availability_update", false)
+      .eq("permanently_blocked", false)
       .lt("availability_last_updated_at", thirtyDaysAgo)
       .or(`availability_nudge_sent_at.is.null,availability_nudge_sent_at.lt.${thirtyDaysAgo}`);
 
@@ -39,7 +55,7 @@ export async function GET(req: NextRequest) {
     if (needsNudge && needsNudge.length > 0 && process.env.RESEND_API_KEY) {
       for (const candidate of needsNudge) {
         try {
-          await sendEmail({
+          const result = await sendEmail({
               from: "StaffVA <notifications@staffva.com>",
               to: candidate.email,
               subject: "Are you still available on StaffVA?",
@@ -66,6 +82,15 @@ export async function GET(req: NextRequest) {
               `,
             }, { recipientKind: "candidate", emailType: "availability_nudge" });
 
+          // Only a delivered nudge counts as a nudge. Under the email freeze
+          // sendEmail returns { suppressed: true } instead of sending, and
+          // stamping anyway started a 7-day clock that ends in the candidate
+          // being flagged for ignoring a message nobody sent them.
+          if ((result as { suppressed?: boolean })?.suppressed) {
+            suppressed++;
+            continue;
+          }
+
           // Mark as nudged
           await supabase
             .from("candidates")
@@ -82,6 +107,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 2: Flag candidates who were nudged 7+ days ago and still haven't updated
+    // Only flag people who were actually emailed and still did not answer —
+    // availability_nudge_sent_at is now only ever set on a real send, so this
+    // can no longer punish someone for silence they were never asked to break.
     const { data: needsFlag } = await supabase
       .from("candidates")
       .select("id")
@@ -101,9 +129,11 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      message: `Nudges sent: ${nudgesSent}, Flags set: ${flagsSet}`,
+      message: `Nudges sent: ${nudgesSent}, suppressed by freeze: ${suppressed}, Flags set: ${flagsSet}, lapsed dates rolled: ${rolled ?? 0}`,
       nudgesSent,
+      suppressed,
       flagsSet,
+      lapsedRolled: rolled ?? 0,
     });
   } catch (err) {
     console.error("Availability nudge cron error:", err);

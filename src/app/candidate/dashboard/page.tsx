@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import Asti, { AstiPointChip, AstiProgressRing } from "@/components/landing/Asti";
 import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
+import LivePortal from "@/components/candidate/LivePortal";
 import StartInterviewButton from "@/app/candidate/dashboard/StartInterviewButton";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -107,33 +108,36 @@ export default async function CandidateDashboardPage() {
     if (attempt?.next_retake_available_at) interviewRetakeAt = new Date(attempt.next_retake_available_at);
   }
 
-  // The live portal is step 13 — until then, approved candidates keep the
-  // dashboard they know — plus the ID-window banner: they are exactly the
-  // cohort the 14-day rule can hide, so the countdown must reach them.
+  // Approved candidates get the live portal, not the application pipeline.
+  // This branch returns before any pipeline state is derived — deliberately:
+  // the derivation reads english_mc_score, and the reverification reset left
+  // 30 of the 31 live candidates on 0, which made the pipeline tell people
+  // already working through StaffVA that their application was still being
+  // received. LegacyDashboard still renders beneath for the things that ARE
+  // live work — contracts, payouts, reputation, profile views — with its own
+  // pipeline suppressed for the same reason.
+  //
+  // The ID banner is gone from here: it is one of the reasons LivePortal
+  // derives from computeVisibility(), so it can no longer disagree with the
+  // rest of the page about whether someone is actually hidden.
   if (candidate?.admin_status === "approved") {
-    const approvedIdDue = candidate.id_verification_due_at ? new Date(candidate.id_verification_due_at) : null;
-    const idPending = ["manual_review"].includes(candidate.id_verification_status || "");
-    const needsId = candidate.id_verification_status !== "passed" && !idPending && !!approvedIdDue;
-    // eslint-disable-next-line react-hooks/purity
-    const nowMs = Date.now();
-    const overdue = needsId && approvedIdDue!.getTime() < nowMs;
-    const daysLeft = needsId ? Math.max(0, Math.ceil((approvedIdDue!.getTime() - nowMs) / 86400000)) : 0;
+    const { data: live, error: liveError } = await admin
+      .from("candidates")
+      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, role_category")
+      .eq("id", candidate.id)
+      .single();
+    // Dropping the portal on a failed read would leave a live candidate on a
+    // dashboard with no status and no availability control — the exact screen
+    // this step exists to remove — and they would have no way to tell that
+    // from "everything is fine". Fail loudly instead.
+    if (liveError || !live) {
+      throw new Error(`live candidate lookup failed: ${liveError?.message ?? "no row"}`);
+    }
     return (
       <>
         <Navbar />
-        {needsId && (
-          <div className={`${overdue ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"} border-b px-6 py-3 text-center`}>
-            <p className={`text-sm ${overdue ? "text-red-800" : "text-amber-800"}`}>
-              {overdue ? (
-                <><strong>Your profile is hidden from clients</strong> — the 14-day ID window has passed. Verify your ID and you&apos;re visible again immediately.{" "}</>
-              ) : (
-                <><strong>Verify your ID</strong> — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. After that, your profile hides from clients until you verify.{" "}</>
-              )}
-              <Link href="/verify-id" className="underline font-semibold">Verify now</Link>
-            </p>
-          </div>
-        )}
-        <LegacyDashboard />
+        <LivePortal candidate={live} />
+        <LegacyDashboard variant="live" />
       </>
     );
   }

@@ -12,6 +12,7 @@ import AtlasFooter from "@/components/landing/AtlasFooter";
 import ProfileInteractive from "@/components/landing/ProfileInteractive";
 import { hasUsExperience } from "@/lib/usExperienceLabels";
 import { maskCandidateText, maskContact } from "@/lib/contactMask";
+import { marketAvailability } from "@/lib/candidateVisibility";
 import "@/app/landing.css";
 
 function getAdminClient() {
@@ -219,14 +220,24 @@ export default async function CandidateProfilePage({
     candidate = maskCandidateText(candidate);
   }
 
-  // Compute availability from committed_hours
-  const committedHours = candidate.committed_hours || 0;
-  const availabilityComputed = committedHours === 0
-    ? "available"
-    : committedHours < 40
-    ? "partial"
-    : "unavailable";
-  const remainingHours = Math.max(0, 40 - committedHours);
+  // Availability comes from what the candidate told us, not from
+  // committed_hours — which is 0 on every row in the table and written by no
+  // code, so this page showed "Available now · 40 hrs/wk" for all 31 live
+  // candidates, including the three who said they were not available and
+  // everyone who never stated a capacity at all.
+  const availKind = marketAvailability(candidate).kind;
+  const availabilityComputed =
+    availKind === "now" ? "available" : availKind === "by_date" ? "partial" : "unavailable";
+  const availableFrom =
+    availKind === "by_date" && candidate.availability_date
+      ? new Date(candidate.availability_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })
+      : null;
+  // Their stated weekly capacity. Null means they have not said — which is
+  // shown as nothing, never as a number we made up.
+  const capacityHours: number | null =
+    typeof candidate.hours_per_week === "number" && candidate.hours_per_week > 0
+      ? candidate.hours_per_week
+      : null;
 
   // Latest completed AI interview with scorecard fields
   const { data: aiInterview } = await supabase
@@ -305,13 +316,21 @@ export default async function CandidateProfilePage({
     : earningsAmt >= 5000 ? "$5K+ earned" : "$1K+ earned";
 
   const hasApprovedVideo = candidate.video_intro_status === "approved" && !!candidate.video_intro_url;
+  // manual_review counts as verified here, matching the visibility query above
+  // (line 125), computeVisibility() and get_candidates_with_skills(). Omitting
+  // it made this the only reader that called a waiting-on-us candidate hidden
+  // while every query still listed them.
+  //
   // Server component — one render per request, so the clock read is the
   // correct per-request behavior.
-  // eslint-disable-next-line react-hooks/purity
+  const idWindowClosed = candidate.id_verification_due_at
+    // eslint-disable-next-line react-hooks/purity
+    ? new Date(candidate.id_verification_due_at).getTime() < Date.now()
+    : false;
   const hiddenForId =
     candidate.id_verification_status !== "passed" &&
-    !!candidate.id_verification_due_at &&
-    new Date(candidate.id_verification_due_at).getTime() < Date.now();
+    candidate.id_verification_status !== "manual_review" &&
+    idWindowClosed;
   const idVerified = candidate.id_verification_status === "passed";
   // Trust marks belong to LIVE listings only — a rejected or in-review
   // profile viewed by its owner or staff must not wear them.
@@ -400,8 +419,15 @@ export default async function CandidateProfilePage({
         )
       )}
 
-      {/* Own profile continue-application CTA */}
-      {isOwnProfile && (() => {
+      {/* Own profile continue-application CTA.
+          Never for an approved candidate. This derives its state from
+          english_mc_score and ai_interview_completed_at, and the reverification
+          reset left 30 of the 31 live candidates with english_mc_score = 0 and
+          no ai_interview_completed_at — so every one of them was shown an
+          orange "Continue Application" / "Start AI Interview" banner across the
+          top of their own live profile. Same defect the dashboard had, on a
+          second page. An approved candidate has no application to continue. */}
+      {isOwnProfile && candidate.admin_status !== "approved" && (() => {
         const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70;
         const hasRecordings = !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
         const profileDone = !!candidate.profile_photo_url && !!candidate.resume_url;
@@ -590,7 +616,11 @@ export default async function CandidateProfilePage({
             </div>
             <div className="profile-stat">
               <div className="profile-stat-val">
-                {availabilityComputed === "unavailable" ? "Booked" : <>{remainingHours}<span> hrs/wk</span></>}
+                {availabilityComputed === "unavailable"
+                  ? "Not now"
+                  : capacityHours
+                    ? <>{capacityHours}<span> hrs/wk</span></>
+                    : availabilityComputed === "partial" ? "Soon" : "Now"}
               </div>
               <div className="profile-stat-lbl">Available</div>
             </div>
@@ -615,7 +645,7 @@ export default async function CandidateProfilePage({
           {/* Primary actions */}
           {isOwnProfile ? (
             <div className="profile-actions">
-              <Link href="/apply" className="btn btn-primary">Edit Profile</Link>
+              <Link href={isLive ? "/candidate/profile/edit" : "/apply"} className="btn btn-primary">Edit Profile</Link>
             </div>
           ) : !isCandidate ? (
             <div className="profile-actions">
@@ -903,8 +933,8 @@ export default async function CandidateProfilePage({
                     {availabilityComputed === "available"
                       ? "Available now"
                       : availabilityComputed === "partial"
-                      ? `Partially available — ${remainingHours} hrs/week remaining`
-                      : "Fully booked"}
+                      ? availableFrom ? `Available from ${availableFrom}` : "Available soon"
+                      : "Not available right now"}
                   </div>
                   <div className="availability-sub">
                     {humanizeTimeZone(candidate.time_zone)}
@@ -940,7 +970,7 @@ export default async function CandidateProfilePage({
                 )}
               </div>
               <div className="sidebar-actions">
-                <Link href="/apply" className="btn btn-primary">Edit Profile</Link>
+                <Link href={isLive ? "/candidate/profile/edit" : "/apply"} className="btn btn-primary">Edit Profile</Link>
               </div>
             </>
           ) : (
@@ -954,7 +984,7 @@ export default async function CandidateProfilePage({
                   <span className="sidebar-quick-lbl">Availability</span>
                   <span className="sidebar-quick-val">
                     <span className={`avail-dot ${availabilityComputed === "available" ? "avail-now" : ""}`}></span>
-                    {availabilityComputed === "available" ? "Now" : availabilityComputed === "partial" ? `${remainingHours} hrs/wk` : "Booked"}
+                    {availabilityComputed === "available" ? "Now" : availabilityComputed === "partial" ? (availableFrom || "Soon") : "Not now"}
                   </span>
                 </div>
                 <div className="sidebar-quick-row">

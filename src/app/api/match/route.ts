@@ -76,12 +76,20 @@ function calculateScore(
   }
 
   // Availability match (15 points)
+  //
+  // This read `committed_hours` — 0 on every row in the table, written by no
+  // code — so `available` was always 50 and every candidate scored the full 15
+  // regardless of what they could actually take on. The candidate's own stated
+  // capacity is hours_per_week; when they have not given one we award partial
+  // credit rather than inventing a number, which is the same treatment a job
+  // with no stated hours gets.
   if (extracted.hours_per_week) {
-    const committed = (candidate.committed_hours as number) || 0;
-    const available = 50 - committed;
-    if (available >= extracted.hours_per_week * 0.8) {
+    const capacity = candidate.hours_per_week as number | null;
+    if (capacity == null) {
+      score += 7;
+    } else if (capacity >= extracted.hours_per_week * 0.8) {
       score += 15;
-    } else if (available > 0) {
+    } else if (capacity > 0) {
       score += 7;
     }
   } else {
@@ -188,10 +196,15 @@ export async function POST(req: NextRequest) {
     // Query candidates
     const { data: candidates } = await admin
       .from("candidates")
-      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, us_client_experience, bio, total_earnings_usd, committed_hours, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status")
+      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status")
       .eq("admin_status", "approved")
+      .eq("permanently_blocked", false)
       // Overdue-unverified profiles are hidden from clients (00154).
-      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
+      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
+      // Someone who said they are not available should not be matched to work.
+      // /api/jobs has always applied this; this route never did, so the same
+      // person was excluded from one shortlist and returned by the other.
+      .in("availability_status", ["available_now", "available_by_date"]);
 
     if (!candidates || candidates.length === 0) {
       return NextResponse.json({ results: [], extracted, message: "No candidates available" });

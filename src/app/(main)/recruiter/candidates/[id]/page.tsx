@@ -5,6 +5,7 @@ import { getUser } from "@/lib/auth";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { marketAvailability } from "@/lib/candidateVisibility";
 
 /**
  * Display names for the Interview 2 role task.
@@ -193,14 +194,18 @@ export default async function RecruiterCandidateProfilePage({
     ((taskResult?.detail as { verdicts?: { id: string; correct: boolean; why: string; got: string; expected: string }[] } | null)
       ?.verdicts) || [];
 
-  // Compute availability
-  const committedHours = candidate.committed_hours || 0;
-  const availabilityComputed = committedHours === 0
-    ? "available"
-    : committedHours < 40
-    ? "partial"
-    : "unavailable";
-  const remainingHours = 50 - committedHours;
+  // Availability from the candidate's own answer. This read committed_hours —
+  // 0 on every row, written by nothing — so every candidate showed "Available"
+  // to recruiters, and the "hrs/week remaining" figure was 50 minus zero. The
+  // public profile page made the same mistake with a different constant (40),
+  // so the two screens quoted different fabricated capacities for one person.
+  const availKind = marketAvailability(candidate).kind;
+  const availabilityComputed =
+    availKind === "now" ? "available" : availKind === "by_date" ? "partial" : "unavailable";
+  const availableFrom =
+    availKind === "by_date" && candidate.availability_date
+      ? new Date(candidate.availability_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : null;
 
   const tier = candidate.english_written_tier ? TIER_CONFIG[candidate.english_written_tier] : null;
   const displayedName = candidate.display_name || candidate.full_name;
@@ -293,8 +298,8 @@ export default async function RecruiterCandidateProfilePage({
                   {availabilityComputed === "available"
                     ? "Available"
                     : availabilityComputed === "partial"
-                    ? `Available — ${remainingHours} hrs/week remaining`
-                    : "Not Available — Currently Engaged"}
+                    ? (availableFrom ? `Available from ${availableFrom}` : "Available soon")
+                    : "Not available"}
                 </span>
               </div>
             </div>

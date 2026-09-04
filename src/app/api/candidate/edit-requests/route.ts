@@ -18,7 +18,12 @@ const EDITABLE_FIELDS = new Set([
   "tools",
   "role_category",
   "country",
-  "hourly_rate",
+  // hourly_rate is deliberately NOT here. Routing it through this queue
+  // promised a review that never existed — `authenticated` has held a direct
+  // UPDATE grant on the column throughout, so the candidate could always
+  // change it without asking. It is now honest self-service on the live
+  // portal, bounded by a CHECK constraint (00186) and recorded as a status
+  // event, instead of a queue that only pretended to gate it.
   "years_experience",
   "us_client_experience",
   "profile_photo_url",

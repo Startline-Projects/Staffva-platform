@@ -10,6 +10,7 @@ import LandingInteractive from "@/components/landing/LandingInteractive";
 import "@/app/landing.css";
 
 import { createClient } from "@/lib/supabase/client";
+import { marketAvailability } from "@/lib/candidateVisibility";
 
 const FLAGS: Record<string, string> = {
   Philippines: "🇵🇭", India: "🇮🇳", Egypt: "🇪🇬", Kenya: "🇰🇪", Nigeria: "🇳🇬",
@@ -45,6 +46,7 @@ interface CandidateResult {
   hourly_rate: number;
   english_written_tier: string | null;
   availability_status: string;
+  availability_date?: string | null;
   us_client_experience: string | null;
   bio: string | null;
   total_earnings_usd: number;
@@ -82,7 +84,7 @@ function BrowseContent() {
   );
   const [tier, setTier] = useState("any");
   const [usExperience, setUsExperience] = useState("");
-  // lockStatus removed — availability computed from committed_hours
+  // lockStatus removed — availability comes from the candidate's own answer
   const [sort, setSort] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
   const [aiQuery, setAiQuery] = useState("");
@@ -476,7 +478,10 @@ function BrowseContent() {
               <>
                 <div className="results-grid reveal-stagger in">
                   {candidates.map((c) => {
-                    const avail = !c.committed_hours || c.committed_hours === 0 ? "AVAILABLE NOW" : c.committed_hours < 40 ? "PARTIAL" : "BOOKED";
+                    // Was derived from committed_hours, which is 0 for every
+                    // row and written by nothing — so every card read
+                    // "AVAILABLE NOW", including candidates who said otherwise.
+                    const avail = marketAvailability(c).label;
                     const tierLabel = c.english_written_tier ? c.english_written_tier.slice(0, 3).toUpperCase() : "—";
                     const hasUs = typeof c.us_client_experience === "string" && !["none", "international_only"].includes(c.us_client_experience);
                     // Video intro is optional. When an approved one exists the

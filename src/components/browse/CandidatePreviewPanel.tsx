@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { getEarningsBucketLabel } from "./CandidateCard";
+import { marketAvailability } from "@/lib/candidateVisibility";
 
 interface PanelProps {
   candidateId: string | null;
@@ -29,6 +30,8 @@ interface PanelData {
     reputation_tier: string | null;
     total_earnings_usd: number;
     committed_hours: number;
+    availability_status: string | null;
+    availability_date: string | null;
   };
   aiInterview: { overall_score: number; technical_knowledge_score: number; problem_solving_score: number; communication_score: number; experience_depth_score: number; professionalism_score: number; passed: boolean } | null;
   review: { rating: number; body: string | null; submitted_at: string; clientName: string | null } | null;
@@ -118,7 +121,9 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
   const localTime = (() => {
     try { return new Date().toLocaleTimeString("en-US", { timeZone: c?.time_zone || "UTC", hour: "numeric", minute: "2-digit" }); } catch { return ""; }
   })();
-  const availColor = !c?.committed_hours || c.committed_hours === 0 ? "#27a35f" : c.committed_hours < 40 ? "var(--amber)" : "#9a9689";
+  // committed_hours has no writer, so this was green for everyone.
+  const availKind = marketAvailability(c || {}).kind;
+  const availColor = availKind === "now" ? "#27a35f" : availKind === "by_date" ? "var(--amber)" : "#9a9689";
   const earningsLabel = getEarningsBucketLabel(c?.total_earnings_usd);
   const skills = [...(c?.skills || []), ...(c?.tools || [])];
   const workExp = (c?.work_experience || []).slice(0, 2);

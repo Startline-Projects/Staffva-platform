@@ -779,6 +779,15 @@ export default function ProfileBuilder({
           setError("Hourly rate must be at least $3/hr");
           return false;
         }
+        // The $3 floor is deliberately stricter than the database's $1 — that
+        // is a product minimum, and a stricter app rule is fine. The CEILING
+        // was missing entirely: 00186 added a CHECK at $500, so without this
+        // an out-of-range rate passed every step and then failed the whole
+        // submit with a raw constraint error, after the uploads.
+        if (hourlyRate > 500) {
+          setError("Hourly rate must be $500/hr or less");
+          return false;
+        }
         return true;
       case 2:
         if (!bio.trim()) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import InlineAudioPreview from "./InlineAudioPreview";
+import { marketAvailability } from "@/lib/candidateVisibility";
 
 export interface CandidateCardData {
   id: string;
@@ -9,6 +10,7 @@ export interface CandidateCardData {
   hourly_rate: number;
   english_written_tier: string | null;
   availability_status: string;
+  availability_date?: string | null;
   us_client_experience: string | null;
   bio: string | null;
   tagline?: string | null;
@@ -35,17 +37,19 @@ export interface CandidateCardData {
   } | null;
 }
 
-function getAvailability(hours: number) {
-  if (!hours || hours === 0) return "bg-green-500";
-  if (hours < 40) return "bg-amber-500";
-  return "bg-gray-300";
-}
-
-function getAvailabilityLabel(hours: number) {
-  if (!hours || hours === 0) return "Available now";
-  if (hours < 40) return "Partially available";
-  return "Fully booked";
-}
+// Availability comes from the candidate's own answer, not from
+// committed_hours — a column with no writer that made every profile read
+// "Available now". See marketAvailability() for the full story.
+const AVAIL_DOT: Record<string, string> = {
+  now: "bg-green-500",
+  by_date: "bg-amber-500",
+  unavailable: "bg-gray-300",
+};
+const AVAIL_LABEL: Record<string, string> = {
+  now: "Available now",
+  by_date: "Available from a date",
+  unavailable: "Not available",
+};
 
 // The card body opens the preview panel. A div with onClick is mouse-only;
 // these make the same regions keyboard- and screen-reader-operable without
@@ -85,8 +89,12 @@ interface Props {
 }
 
 export default function CandidateCard({ candidate, isLoggedIn = false, onSkillClick, activeSkills = [], onCardClick }: Props) {
-  const availDot = getAvailability(candidate.committed_hours || 0);
-  const availLabel = getAvailabilityLabel(candidate.committed_hours || 0);
+  const avail = marketAvailability(candidate);
+  const availDot = AVAIL_DOT[avail.kind];
+  const availLabel =
+    avail.kind === "by_date" && candidate.availability_date
+      ? `Available ${new Date(candidate.availability_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+      : AVAIL_LABEL[avail.kind];
   const skills = candidate.skills || [];
   const maxSkills = 6;
   const visibleSkills = skills.slice(0, maxSkills);

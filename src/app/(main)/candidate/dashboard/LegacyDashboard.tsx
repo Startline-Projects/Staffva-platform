@@ -554,7 +554,19 @@ function PayoutSetupCard({ payoutStatus }: { payoutStatus: string | null }) {
   );
 }
 
-export default function CandidateDashboardPage() {
+/**
+ * `variant="live"` is passed by the approved-candidate dashboard, which renders
+ * LivePortal above this and needs the application pipeline out of the way. The
+ * pipeline derives its stage from english_mc_score and ai_interview_* — fields
+ * the reverification reset zeroed for 30 of the 31 live candidates — so left
+ * running it greets people who are already working on the platform with "Your
+ * application is received" and a button into the English exam. Everything below
+ * the pipeline (contracts, payouts, reputation, profile views, video intro) is
+ * real live-candidate work and stays.
+ */
+export default function CandidateDashboardPage({
+  variant = "application",
+}: { variant?: "application" | "live" } = {}) {
   const [candidate, setCandidate] = useState<CandidateData | null>(null);
   const [viewStats, setViewStats] = useState<ViewStats | null>(null);
   const [aiInterview, setAiInterview] = useState<AIInterviewData | null>(null);
@@ -857,9 +869,11 @@ export default function CandidateDashboardPage() {
   const nextTip = completenessItems.find((item) => !item.complete);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-4">
+    <div className={`mx-auto max-w-4xl px-4 pb-8 ${variant === "live" ? "pt-0" : "pt-8"}`}>
+      {/* Header — LivePortal renders the greeting and the live/hidden status
+          for approved candidates, so repeating "Welcome back" and a "Live"
+          badge directly underneath it would say the same thing twice. */}
+      <div className={`mb-8 flex items-center gap-4 ${variant === "live" ? "hidden" : ""}`}>
         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100">
           {candidate.profile_photo_url ? (
             <img src={candidate.profile_photo_url} alt="" className="h-full w-full object-cover" />
@@ -882,6 +896,12 @@ export default function CandidateDashboardPage() {
         </div>
       </div>
 
+      {/* Interview hours — a different question from the availability card in
+          LivePortal ("are you taking work?" vs "when can a client book a call
+          with you?"), which the product unhelpfully gives one word to. Both
+          states live here so the two surfaces cannot each own half of it.
+          availabilityCount is null while loading: no card rather than a wrong
+          one. */}
       {candidate.admin_status === "approved" && availabilityCount === 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div>
@@ -898,6 +918,62 @@ export default function CandidateDashboardPage() {
           </Link>
         </div>
       )}
+      {candidate.admin_status === "approved" && !!availabilityCount && availabilityCount > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5">
+          <div>
+            <p className="text-sm font-semibold text-[#1C1B1A]">Interview hours</p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Clients book you directly from the weekly hours you&apos;ve published — no confirmation step.
+            </p>
+          </div>
+          <Link
+            href="/candidate/availability"
+            className="rounded-full border border-gray-300 px-5 py-2 text-xs font-semibold text-[#1C1B1A] hover:border-[#1C1B1A]"
+          >
+            Change my hours
+          </Link>
+        </div>
+      )}
+
+      {/* Talent specialist — restored for the live variant.
+          The only link to recruiter chat in the entire codebase sits inside the
+          pipeline block, which variant="live" suppresses. Losing it would leave
+          a live candidate with a messages page they can reach by typing the URL
+          and no other way. recruiterProfile/recruiterUnread are already loaded
+          above for any candidate with an assigned_recruiter, live included. */}
+      {variant === "live" && recruiterProfile && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5">
+          <div className="flex items-center gap-3">
+            {recruiterProfile.recruiter_photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={recruiterProfile.recruiter_photo_url}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-400">
+                {recruiterProfile.full_name?.charAt(0) || "?"}
+              </div>
+            )}
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Your talent specialist</p>
+              <p className="mt-0.5 text-sm font-semibold text-[#1C1B1A]">{recruiterProfile.full_name}</p>
+            </div>
+          </div>
+          <Link
+            href="/candidate/dashboard/recruiter-chat"
+            className="relative rounded-full border border-gray-300 px-5 py-2 text-xs font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+          >
+            Message {recruiterProfile.full_name?.split(" ")[0] || "them"}
+            {recruiterUnread > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#FE6E3E] text-[10px] font-bold text-white">
+                {recruiterUnread}
+              </span>
+            )}
+          </Link>
+        </div>
+      )}
 
       {candidate.admin_status === "approved" && (
         <div className="mb-6 empty:mb-0">
@@ -906,7 +982,7 @@ export default function CandidateDashboardPage() {
       )}
 
       {/* ═══ PROGRESS TRACKER + NEXT STEP (9-stage pipeline) ═══ */}
-      {(() => {
+      {variant !== "live" && (() => {
         // Derive stage from actual DB fields — each step reads directly from its completion field
         const step1Done = true; // Candidate record exists
         const step2Done = (candidate.english_mc_score ?? 0) >= 70 && (candidate.english_comprehension_score ?? 0) >= 70 && !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
@@ -1463,7 +1539,10 @@ export default function CandidateDashboardPage() {
               <p className="text-xs text-gray-500">See how clients see you</p>
             </div>
           </Link>
-          <Link href="/apply" className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
+          {/* /apply is the application machine; an approved candidate has no
+              application to continue. /candidate/profile/edit is a complete
+              edit surface that already exists and was simply never linked. */}
+          <Link href={variant === "live" ? "/candidate/profile/edit" : "/apply"} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-lg">✏️</span>
             <div>
               <p className="text-sm font-semibold text-[#1C1B1A]">Edit Profile</p>
@@ -1481,14 +1560,32 @@ export default function CandidateDashboardPage() {
             <p className="text-gray-500">Role</p>
             <p className="font-medium text-[#1C1B1A]">{candidate.role_category}</p>
           </div>
-          <div>
-            <p className="text-gray-500">Monthly Rate</p>
-            <p className="font-medium text-[#FE6E3E]">${candidate.hourly_rate?.toLocaleString()}/hr</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Availability</p>
-            <p className="font-medium text-[#1C1B1A] capitalize">{candidate.availability_status?.replace(/_/g, " ") || "Not set"}</p>
-          </div>
+          {/* Rate and availability are LivePortal's card in the live variant.
+              This component fetches once on mount and never refetches, so
+              after a save the card above would show the new values and these
+              two cells the old ones — the same screen contradicting itself. */}
+          {variant !== "live" && (
+            <div>
+              {/* Labelled "Monthly Rate" while printing an hourly figure. It is
+                  an hourly rate everywhere else in the product. */}
+              <p className="text-gray-500">Rate</p>
+              <p className="font-medium text-[#FE6E3E]">${candidate.hourly_rate?.toLocaleString()}/hr</p>
+            </div>
+          )}
+          {variant !== "live" && (
+            <div>
+              <p className="text-gray-500">Availability</p>
+              <p className="font-medium text-[#1C1B1A]">
+                {candidate.availability_status === "available_now"
+                  ? "Available now"
+                  : candidate.availability_status === "available_by_date"
+                    ? "Available from a date"
+                    : candidate.availability_status === "not_available"
+                      ? "Not available"
+                      : "Not set"}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-gray-500">English Level</p>
             <p className="font-medium text-[#1C1B1A] capitalize">{candidate.english_written_tier || "Pending"}</p>

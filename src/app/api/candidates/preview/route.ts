@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     // Fetch candidate
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, reputation_score, reputation_tier, total_earnings_usd, committed_hours, availability_status")
+      .select("id, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, reputation_score, reputation_tier, total_earnings_usd, committed_hours, availability_status, availability_date")
       .eq("id", candidateId)
       .eq("admin_status", "approved")
       // Overdue-unverified profiles are hidden from clients (00154).

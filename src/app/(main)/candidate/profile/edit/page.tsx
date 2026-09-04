@@ -13,7 +13,8 @@ const EDITABLE_FIELDS: string[] = [
   "bio",
   "role_category",
   "country",
-  "hourly_rate",
+  // Rate moved to the live portal as direct self-service. Leaving it here
+  // would open a request the API now rejects as an invalid field.
   "years_experience",
   "us_client_experience",
   "skills",

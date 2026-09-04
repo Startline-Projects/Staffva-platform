@@ -183,6 +183,23 @@ export default function ApplyPage() {
     // Atlas page (/assessment, step 8), then back here for recordings and
     // the profile. ID verification lives on /verify-id (step 7).
 
+    // An approved candidate has no application to continue, and must never be
+    // routed onward from here.
+    //
+    // This is a guard, not tidiness. The reverification reset left
+    // english_mc_score NULL for 30 of the 31 live candidates, so a stray
+    // "Edit Profile" link into /apply fell through to the NULL branch below
+    // and dealt them a real camera-proctored English exam. A failing grade
+    // writes back through gradeAttempt, which can set permanently_blocked —
+    // the exact column 00186 uses to delist people from the marketplace. A
+    // working, listed candidate could remove themselves from it by clicking
+    // "Edit Profile", and the notification email is suppressed by the freeze,
+    // so it would happen silently.
+    if (candidate.admin_status === "approved") {
+      router.replace("/candidate/dashboard");
+      return;
+    }
+
     // No test score yet → the assessment page owns everything from consent
     // to grading. Failed → the dashboard owns the cooldown card, breakdown
     // and retake date.
