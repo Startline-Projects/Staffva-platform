@@ -1111,9 +1111,25 @@ export default function CandidateDashboardPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-[#1C1B1A]">{recruiterProfile.full_name}</p>
+                      {/* Says who they are. Does NOT speak as them.
+                          This read: "Hi <name>, I reviewed your application and
+                          I am excited to connect. Message me any time..." — a
+                          first-person sentence under a real employee's real
+                          name, asserting a review that may never have happened
+                          and a responsiveness nobody promised. Putting invented
+                          words in an identifiable person's mouth is the worst
+                          version of the false-claim defect this codebase keeps
+                          finding, because the person carrying it is real. */}
+                      <p className="text-xs uppercase tracking-wide text-gray-400">
+                        Your talent specialist
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold text-[#1C1B1A]">
+                        {recruiterProfile.full_name}
+                      </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        Hi {candidate.display_name?.split(" ")[0] || "there"}, I reviewed your application and I am excited to connect. Message me any time if you have questions.
+                        {recruiterProfile.full_name?.split(" ")[0] || "They"} handles candidates
+                        in {candidate.role_category || "your area"}. Send them a message if
+                        something about your application needs a person.
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {candidate.role_category === "Other" && !candidate.assigned_recruiter ? (

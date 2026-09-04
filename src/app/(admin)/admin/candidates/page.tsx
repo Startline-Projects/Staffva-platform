@@ -420,6 +420,27 @@ export default function CandidateReviewPage() {
       return;
     }
 
+    // A rejection needs a reason the candidate will read, and a confirmation.
+    // It was a single unguarded click with nothing recorded — the most
+    // consequential action in the product, and the easiest one to fire by
+    // accident. The API and the database both refuse it without a reason now;
+    // asking here gives the reviewer a usable prompt rather than a 400.
+    let rejectionReason: string | null = null;
+    if (action === "reject") {
+      const entered = window.prompt(
+        "Why is this application declined?\n\nThe candidate reads this word for word, and it is stored with the decision. At least 20 characters.\n\nThey will also be told they can apply again in 6 months."
+      );
+      if (entered === null) return;
+      rejectionReason = entered.trim();
+      if (rejectionReason.length < 20) {
+        alert("Please give a reason of at least 20 characters. The candidate sees it.");
+        return;
+      }
+      if (!window.confirm(`Decline this application?\n\nThey will be able to apply again in 6 months, and they can ask for it to be looked at again.`)) {
+        return;
+      }
+    }
+
     setActionLoading(candidateId);
 
     if (action === "deactivate") {
@@ -432,15 +453,27 @@ export default function CandidateReviewPage() {
         }),
       });
     } else {
-      await fetch("/api/admin/candidates/review", {
+      const res = await fetch("/api/admin/candidates/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           candidateId,
           action,
           revisionNote: revisionNotes[candidateId] || null,
+          reason: rejectionReason,
         }),
       });
+      // Say what actually happened. The route reports whether the notice
+      // reached the candidate, and under the email freeze it often will not —
+      // a flat "done" would leave the reviewer believing they were told.
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(body.error || "That didn't go through.");
+      } else if (action === "reject" && body.emailed === false) {
+        alert(
+          "Decision saved. The candidate was NOT emailed — it shows on their dashboard instead."
+        );
+      }
     }
 
     await loadCandidates();
@@ -845,12 +878,16 @@ export default function CandidateReviewPage() {
                     <div>
                       <p className="font-semibold text-text">
                         {c.full_name}
-                        {c.screening_tag && SCREENING_BADGE[c.screening_tag] && (
-                          <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${SCREENING_BADGE[c.screening_tag].color}`}>
-                            {SCREENING_BADGE[c.screening_tag].label}
-                            {c.screening_score && <span className="ml-1 opacity-70">{c.screening_score}/10</span>}
-                          </span>
-                        )}
+                        {/* The AI screening verdict is deliberately NOT
+                            shown. 248 of 256 candidates carry "Hold — 1/10"
+                            produced by the bug where the screener graded an
+                            empty form, and that badge sat beside every name on
+                            the screen a reviewer rejects from — so rejecting on
+                            it would mean rejecting on our own defect. The code
+                            fix cannot re-run (every screening_queue row is
+                            'complete', and Anthropic is out of credit), so it
+                            stays off until a real re-screen has happened. */}
+
                       </p>
                       <p className="text-xs text-text/60">
                         {c.country} &middot; {c.role_category}
@@ -902,12 +939,7 @@ export default function CandidateReviewPage() {
                     <div className="px-6 py-5">
                       {tab === "overview" && (
                         <div className="space-y-5">
-                          {c.screening_tag && (
-                            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                              <p className="text-xs font-semibold text-text/40 uppercase tracking-wider">AI Screening</p>
-                              <p className="mt-1 text-sm text-text/80">{c.screening_reason}</p>
-                            </div>
-                          )}
+
                           <div className="grid grid-cols-4 gap-3">
                             <div className="rounded-lg bg-gray-50 p-3 text-center">
                               <p className="text-xs text-text/40">Grammar</p>

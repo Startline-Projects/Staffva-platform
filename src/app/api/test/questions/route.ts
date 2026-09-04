@@ -4,6 +4,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 import { ownsCandidate } from "@/lib/auth";
 import { assessmentCapabilities } from "@/lib/assessment";
+import { applicationClosed } from "@/lib/reviewOutcome";
 
 // Use service role to bypass RLS on questions table
 function getAdminClient() {
@@ -147,10 +148,20 @@ export async function POST(request: Request) {
   // candidates without a verified identity had NO cooldown enforcement).
   const { data: candidateCheck } = await supabase
     .from("candidates")
-    .select("permanently_blocked, english_mc_score, english_comprehension_score, retake_available_at")
+    .select("permanently_blocked, english_mc_score, english_comprehension_score, retake_available_at, admin_status, reapply_eligible_at")
     .eq("id", candidateId)
     .single();
 
+  // A declined application does not get another assessment. Same gate as the
+  // interview mint, same shape, one definition in lib/reviewOutcome.
+  if (candidateCheck && applicationClosed(candidateCheck) && !candidateCheck.permanently_blocked) {
+    return NextResponse.json({
+      error: "This application is closed.",
+      locked: true,
+      applicationClosed: true,
+      reapplyEligibleAt: candidateCheck.reapply_eligible_at ?? null,
+    }, { status: 403 });
+  }
   if (candidateCheck?.permanently_blocked) {
     return NextResponse.json({
       error: "Permanently blocked",

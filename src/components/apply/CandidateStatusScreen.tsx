@@ -34,28 +34,36 @@ const STATUS_CONFIG: Record<string, {
     iconBg: "bg-yellow-100",
     iconColor: "text-yellow-600",
     title: "Profile Under Review",
-    message: "Our team is doing a final review of your profile — we'll email you within 2 business days.",
+    // No turnaround promised: nothing measures review latency and no stated
+    // SLA has ever been met here.
+    message: "Someone is doing a final review of your profile. The outcome appears on your dashboard.",
   },
   pending_review: {
     icon: "check",
     iconBg: "bg-yellow-100",
     iconColor: "text-yellow-600",
     title: "Profile Under Review",
-    message: "Our team is doing a final review of your profile — we'll email you within 2 business days.",
+    // No turnaround promised: nothing measures review latency and no stated
+    // SLA has ever been met here.
+    message: "Someone is doing a final review of your profile. The outcome appears on your dashboard.",
   },
+  // A decline, not a revision request. This read "Profile Needs Updates —
+  // check your email for instructions": a recoverable-sounding prompt for a
+  // final decision, pointing at an email the freeze withholds. Someone could
+  // have sat waiting for instructions that were never coming.
   rejected: {
     icon: "x",
     iconBg: "bg-red-100",
     iconColor: "text-red-600",
-    title: "Profile Needs Updates",
-    message: "Your profile needs updates before going live. Check your email for instructions from our team.",
+    title: "We're not taking your application forward",
+    message: "Your dashboard has the reason and the date you can apply again.",
   },
   revision_required: {
     icon: "alert",
     iconBg: "bg-amber-100",
     iconColor: "text-amber-600",
     title: "Action Required",
-    message: "Our team has reviewed your profile and left feedback. Check your email for details on what to update.",
+    message: "Someone reviewed your profile and left feedback. Your dashboard shows what to change.",
   },
   ai_interview_failed: {
     icon: "x",

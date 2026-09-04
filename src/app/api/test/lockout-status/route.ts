@@ -35,7 +35,7 @@ export async function GET() {
       locked: true,
       permanent: true,
       attempt_number: candidate.retake_count,
-      message: "After multiple attempts, your English assessment access has been permanently suspended. You may reapply in 90 days.",
+      message: "After multiple attempts, your English assessment access has been suspended. Contact support@staffva.com if you think this is wrong.",
     });
   }
 

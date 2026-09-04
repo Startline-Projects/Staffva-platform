@@ -49,7 +49,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -300,11 +300,14 @@ export default async function CandidateDashboardPage() {
     },
     review: {
       title: "You're under review",
-      body: "A human reviewer is going over your application. Most reviews finish within 2 business days — we'll email you the moment there's news.",
+      // No turnaround is promised. Nothing measures review latency, no stated
+      // SLA has ever been met, and the email this used to promise is the exact
+      // kind the freeze withholds. The dashboard is the channel.
+      body: "A person is going over your application. We'll show the outcome here as soon as it's decided.",
       cta: "View my application",
       href: "/apply",
       minutes: "no action needed",
-      tips: ["No need to do anything — but keep an eye on your inbox.", "You can still polish your profile while you wait."],
+      tips: ["Nothing to do — the result appears on this page.", "You can still polish your profile while you wait."],
     },
     live: {
       title: "Going live",
@@ -315,26 +318,56 @@ export default async function CandidateDashboardPage() {
       tips: [],
     },
   };
+  // The reviewer's note, shown in the card rather than pointed at in an email
+  // the freeze may never send.
+  const revisionNote =
+    typeof candidate?.admin_revision_note === "string" && candidate.admin_revision_note.trim()
+      ? candidate.admin_revision_note.trim()
+      : null;
+
   let card = STEP_CARDS[currentNode.id] || STEP_CARDS.review;
   if (terminal) {
-    card = {
-      title: "This application is closed",
-      body: candidate?.permanently_blocked
-        ? "This application can't continue. If you believe that's a mistake, our support team will take a look."
-        : "Our team reviewed your application and it can't move forward right now. If you believe that's a mistake, support can walk you through it.",
-      cta: "Contact support",
-      href: "mailto:support@staffva.com",
-      minutes: "",
-      tips: [],
-    };
+    // A fraud ban and a declined application are different outcomes and get
+    // different screens: disputes/resolve sets admin_status='rejected'
+    // alongside permanently_blocked, so one shared branch would offer a banned
+    // account the friendly "apply again on <date>" card.
+    card = candidate?.permanently_blocked
+      ? {
+          title: "This account is closed",
+          body: "This application can't continue. If you believe that's a mistake, our support team will take a look.",
+          cta: "Contact support",
+          href: "mailto:support@staffva.com",
+          minutes: "",
+          tips: [],
+        }
+      : {
+          title: "We're not taking your application forward",
+          body: candidate?.rejection_reason
+            ? candidate.rejection_reason
+            : "Our team reviewed your application and it can't move forward right now.",
+          cta: candidate?.reapply_eligible_at ? "See what happens next" : "Contact support",
+          href: candidate?.reapply_eligible_at ? "/apply" : "mailto:support@staffva.com",
+          minutes: "",
+          tips: candidate?.reapply_eligible_at
+            ? [
+                `You can apply again from ${new Date(candidate.reapply_eligible_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}.`,
+                "Your assessments and interviews stay on file — you won't repeat them.",
+              ]
+            : [],
+        };
   } else if (actionRequired) {
     card = {
       title: "Your reviewer left feedback",
-      body: "Something in your application needs an update before review can continue — the details are in your email. Make the changes and it goes straight back to the reviewer.",
+      body: revisionNote
+        ? `Your reviewer asked for a change before this can continue: ${revisionNote}`
+        : "Something in your application needs an update before review can continue. Make the change and it goes back to the reviewer.",
       cta: "Update my application",
       href: "/apply",
       minutes: "~10 min",
-      tips: ["The email lists exactly what to change — fix only that.", "Resubmitting puts you back at the front of the reviewer's queue."],
+      // The note itself is shown above rather than pointing at an email that
+      // may never arrive, and no queue-position claim: the admin queue sorts
+      // newest-first and resubmitting changes neither sort key.
+      tips: ["Change what the note asks for, then resubmit."],
     };
   } else if (interviewFailed) {
     // The retake owns the card whenever the interview is failed, even when the

@@ -76,7 +76,7 @@ export default function LockoutCard() {
             <h3 className="text-sm font-semibold text-red-800">English Assessment Permanently Locked</h3>
             <p className="mt-1 text-sm text-red-700">
               After {data.attempt_number} attempts, your English assessment access has been suspended.
-              You may reapply in 90 days. Contact <a href="mailto:support@staffva.com" className="underline">support@staffva.com</a> if you believe this is an error.
+              Contact <a href="mailto:support@staffva.com" className="underline">support@staffva.com</a> if you believe this is an error.
             </p>
           </div>
         </div>
