@@ -8,6 +8,8 @@ import { loadCandidateWork } from "@/lib/candidateWork";
 import WorkOffers from "@/components/candidate/WorkOffers";
 import OpenRoles from "@/components/candidate/OpenRoles";
 import WorkEmpty from "@/components/candidate/WorkEmpty";
+import WorkReviews from "@/components/candidate/WorkReviews";
+import { loadMyReviewState } from "@/lib/reviewState";
 
 /**
  * Work available to this candidate: offers sent to them, and roles they match.
@@ -54,6 +56,7 @@ export default async function CandidateWorkPage() {
 
   const vis = computeVisibility(candidate);
   const { offers, roles, engagementCount } = await loadCandidateWork(candidate.id);
+  const reviewStates = await loadMyReviewState();
 
   const firstName =
     candidate.first_name ||
@@ -85,6 +88,8 @@ export default async function CandidateWorkPage() {
             computeVisibility() — so a candidate who is out of matching is never
             told that roles will start appearing for them. */}
         {roles.length === 0 && <WorkEmpty matchable={vis.matchable} reason={blockReason} />}
+
+        <WorkReviews states={reviewStates} />
 
         {/* Contracts already have a home on the dashboard. Two homes for one
             thing is the drift this codebase keeps paying for, so this is a

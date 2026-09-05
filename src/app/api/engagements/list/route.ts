@@ -54,7 +54,12 @@ export async function GET() {
     const candidateIds = [...new Set(engagements.map((e) => e.candidate_id))];
     const { data: candidates } = await admin
       .from("candidates")
-      .select("id, full_name, display_name, role_category, lock_status")
+      // display_name only. This payload renders on the client's dashboard, and
+      // the legal surname has no job there — every other client-facing surface
+      // in the product says "First L.", and no candidate is ever asked whether
+      // their full name may be shown to a company. Not sending it is stronger
+      // than remembering not to render it.
+      .select("id, display_name, role_category, lock_status")
       .in("id", candidateIds);
 
     const candidateMap = Object.fromEntries(

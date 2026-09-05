@@ -25,6 +25,8 @@ interface Props {
   signableContractCount?: number;
   /** Agreements stopped because the document contradicts the engagement. */
   flaggedContractCount?: number;
+  /** Finished work this candidate can review right now. */
+  openReviewCount?: number;
   candidate: VisibilityInput & {
     id: string;
     first_name?: string | null;
@@ -43,6 +45,7 @@ export default function LivePortal({
   pendingOfferCount = 0,
   signableContractCount = 0,
   flaggedContractCount = 0,
+  openReviewCount = 0,
 }: Props) {
   const vis = computeVisibility(candidate);
   const stale = availabilityIsStale(candidate);
@@ -102,6 +105,30 @@ export default function LivePortal({
             className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#E55A2B]"
           >
             Review it
+          </Link>
+        </section>
+      )}
+
+      {/* Quieter than the offer and contract cards, and that is the right
+          weight: a review is something the candidate may do, not something
+          waiting on them. It sits below both because neither of those should
+          ever be pushed down the page by it. */}
+      {openReviewCount > 0 && (
+        <section className="mb-6 rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="text-base font-bold text-[#1C1B1A]">
+            {openReviewCount === 1
+              ? "You can review a client you've worked with."
+              : `You can review ${openReviewCount} clients you've worked with.`}
+          </h2>
+          <p className="mt-1 text-sm text-gray-700">
+            Neither review is visible until you&apos;ve both submitted, or 30 days
+            pass — so what you write can&apos;t affect what they write.
+          </p>
+          <Link
+            href="/candidate/work"
+            className="mt-3 inline-block rounded-full border border-gray-300 px-6 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+          >
+            Write it
           </Link>
         </section>
       )}

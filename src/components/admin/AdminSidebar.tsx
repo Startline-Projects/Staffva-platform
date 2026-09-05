@@ -58,6 +58,7 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
         <NavItem href="/admin/candidates" active={isActive("/admin/candidates")} icon="◷">Review Queue</NavItem>
         <NavItem href="/admin/candidates?status=pending_review" active={isActive("/admin/candidates?status=pending_review")} icon="◉" badge={badges.pendingProfileReview} badgeType="orange">Profile Reviews</NavItem>
         <NavItem href="/admin/disputes" active={isActive("/admin/disputes")} icon="⚑">Disputes</NavItem>
+        <NavItem href="/admin/reviews" active={isActive("/admin/reviews")} icon="★">Reviews</NavItem>
 
         <SectionLabel>People</SectionLabel>
         {!isRecruitingManager && (

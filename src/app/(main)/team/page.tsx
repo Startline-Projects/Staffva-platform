@@ -7,6 +7,8 @@ import EscrowStatusPanel from "@/components/EscrowStatusPanel";
 import ContractReviewModal from "@/components/ContractReviewModal";
 import EscrowPaymentModal from "@/components/escrow/EscrowPaymentModal";
 import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
+import ReviewExchange from "@/components/reviews/ReviewExchange";
+import type { ReviewState } from "@/lib/reviewEligibility";
 import {
   ResponsiveContainer,
   LineChart,
@@ -64,7 +66,6 @@ interface Engagement {
   status: string;
   created_at: string;
   candidate: {
-    full_name: string;
     display_name: string;
     role_category: string;
     lock_status: string;
@@ -100,7 +101,6 @@ interface OfferRow {
   responded_at: string | null;
   candidates: {
     display_name: string | null;
-    full_name: string | null;
     role_category: string | null;
     profile_photo_url: string | null;
   } | null;
@@ -147,6 +147,7 @@ export default function TeamPortalPage() {
   const router = useRouter();
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [clientId, setClientId] = useState("");
+  const [reviewState, setReviewState] = useState<ReviewState[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [payModal, setPayModal] = useState<{
@@ -182,7 +183,18 @@ export default function TeamPortalPage() {
     loadEngagements();
     loadDashboard();
     loadOffers();
+    loadReviews();
   }, []);
+
+  async function loadReviews() {
+    try {
+      const res = await fetch("/api/reviews/mine");
+      const data = await res.json();
+      if (res.ok) setReviewState(data.engagements || []);
+    } catch {
+      /* the review block simply doesn't render */
+    }
+  }
 
   async function loadOffers() {
     try {
@@ -537,7 +549,7 @@ export default function TeamPortalPage() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text">
-                    {o.candidates?.display_name || o.candidates?.full_name || "Candidate"}
+                    {o.candidates?.display_name || "Candidate"}
                     <span className="ml-2 font-normal text-text/50">
                       {o.candidates?.role_category}
                     </span>
@@ -576,7 +588,7 @@ export default function TeamPortalPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-lg font-semibold text-text">
-                      {eng.candidate?.full_name || eng.candidate?.display_name || "Unknown"}
+                      {eng.candidate?.display_name || "Unknown"}
                     </p>
                     <p className="text-sm text-text/60">
                       {eng.candidate?.role_category} &middot;{" "}
@@ -731,6 +743,19 @@ export default function TeamPortalPage() {
                   </div>
                 )}
 
+                {/* Review — only once money has actually moved. The block
+                    renders its own "not yet" state rather than being hidden,
+                    so the rule is visible before it applies rather than
+                    appearing out of nowhere the day it does. */}
+                {reviewState.some((r) => r.engagement_id === eng.id) && (
+                  <div className="mt-4">
+                    <ReviewExchange
+                      state={reviewState.find((r) => r.engagement_id === eng.id)!}
+                      onChange={loadReviews}
+                    />
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
                   <button
@@ -781,8 +806,9 @@ export default function TeamPortalPage() {
               {pastEngagements.map((eng) => (
                 <div
                   key={eng.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-card px-6 py-4"
+                  className="rounded-xl border border-gray-200 bg-card px-6 py-4"
                 >
+                  <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-text">
                       {eng.candidate?.display_name || "Unknown"}
@@ -806,6 +832,16 @@ export default function TeamPortalPage() {
                       {ENG_STATUS[eng.status]?.label || eng.status}
                     </span>
                   </div>
+                  </div>
+
+                  {reviewState.some((r) => r.engagement_id === eng.id) && (
+                    <div className="mt-3">
+                      <ReviewExchange
+                        state={reviewState.find((r) => r.engagement_id === eng.id)!}
+                        onChange={loadReviews}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

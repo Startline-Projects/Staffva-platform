@@ -9,6 +9,7 @@ import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
 import LivePortal from "@/components/candidate/LivePortal";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
+import { loadMyReviewState, openReviews } from "@/lib/reviewState";
 import StartInterviewButton from "@/app/candidate/dashboard/StartInterviewButton";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -144,6 +145,10 @@ export default async function CandidateDashboardPage() {
     // Same fail-loud contract as the offers read: a throw takes the page down
     // rather than rendering a confident zero over a contract someone is owed.
     const contracts = await loadCandidateContracts(live.id);
+    // Soft by design, unlike the two reads above: loadMyReviewState() returns
+    // [] on failure rather than throwing, so a review prompt can go missing but
+    // the dashboard carrying this person's offers and contracts cannot.
+    const reviewStates = await loadMyReviewState();
 
     return (
       <>
@@ -153,6 +158,7 @@ export default async function CandidateDashboardPage() {
           pendingOfferCount={waiting}
           signableContractCount={signableContracts(contracts).length}
           flaggedContractCount={flaggedContracts(contracts).length}
+          openReviewCount={openReviews(reviewStates).length}
         />
         <LegacyDashboard variant="live" />
       </>

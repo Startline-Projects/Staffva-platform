@@ -32,7 +32,11 @@ export type RecipientKind = "candidate" | "reference" | "client" | "staff";
  *  - email_verification: profiles.email_verified is written ONLY by the link
  *    inside this message, and sign-in is gated on that column. Freezing it
  *    would mean nobody could complete a signup at all.
- *  - password_reset: the only route back into a locked-out account.
+ *  - password_reset: the only route back into a locked-out account. Kept for
+ *    completeness, though it is currently inert — /forgot-password goes
+ *    through supabase.auth.resetPasswordForEmail(), which mails from Supabase
+ *    Auth and never passes through this file. Worth knowing before treating
+ *    this allowlist as a complete picture of what candidates receive.
  *
  * `reference` keeps none, and that is the point of the file.
  */

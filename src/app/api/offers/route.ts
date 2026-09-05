@@ -35,7 +35,7 @@ export async function GET() {
 
     const { data } = await supabase
       .from("engagement_offers")
-      .select("*, candidates(display_name, full_name, country, role_category, profile_photo_url)")
+      .select("*, candidates(display_name, country, role_category, profile_photo_url)")
       .eq("client_id", client.id)
       .order("created_at", { ascending: false });
 

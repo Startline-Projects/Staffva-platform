@@ -24,11 +24,15 @@ export async function GET(request: Request) {
 
   const admin = getAdminClient();
 
+  // Reads candidate_reviews_public, never `reviews`. That view applies the
+  // reveal rule AND the direction filter — filtering the base table on
+  // candidate_id would return the candidate's own outbound review of their
+  // client and render it as a review OF them, since both halves of a pair carry
+  // the same candidate_id.
   const { data: reviews } = await admin
-    .from("reviews")
+    .from("candidate_reviews_public")
     .select("id, rating, body, submitted_at")
     .eq("candidate_id", candidateId)
-    .eq("published", true)
     .order("submitted_at", { ascending: false });
 
   return NextResponse.json({ reviews: reviews || [] });
@@ -37,151 +41,105 @@ export async function GET(request: Request) {
 /**
  * POST /api/reviews
  *
- * Client submits a review for a candidate.
- * Gated: review button only available after 30 days of verified payments.
- *
- * Body: { engagementId, rating (1-5), body? }
+ * Either side of an engagement submits their half of the pair.
  */
 export async function POST(request: Request) {
   try {
     const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user || user.app_metadata?.role !== "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const { engagementId, rating, body } = await request.json();
 
-    // rating must be an INTEGER 1-5. The previous check omitted the type test,
-    // so a string like "abc" passed (NaN comparisons are always false) and hit
-    // the database CHECK constraint as a 500 rather than a clean 400.
-    if (
-      !engagementId ||
-      typeof rating !== "number" ||
-      !Number.isInteger(rating) ||
-      rating < 1 ||
-      rating > 5
-    ) {
-      return NextResponse.json(
-        { error: "engagementId and rating (1-5) required" },
-        { status: 400 }
-      );
+    // rating must be an INTEGER 1-5. Without the type test a string like "abc"
+    // passes (NaN comparisons are always false) and hits the database CHECK as
+    // a 500 rather than a clean 400. The RPC checks it too; this is the cheap
+    // early exit with a readable message.
+    if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return NextResponse.json({ error: "Rating must be a whole number from 1 to 5." }, { status: 400 });
+    }
+    if (typeof engagementId !== "string" || !engagementId) {
+      return NextResponse.json({ error: "engagementId required" }, { status: 400 });
+    }
+    if (body != null && (typeof body !== "string" || body.length > 2000)) {
+      return NextResponse.json({ error: "Keep your review under 2000 characters." }, { status: 400 });
     }
 
-    const admin = getAdminClient();
+    // Everything else is the RPC's job, deliberately.
+    //
+    // This route used to check ownership, a 30-day window, and a duplicate
+    // count before inserting directly — four rules in TypeScript, on a table the
+    // browser could also write. submit_review() now derives the DIRECTION from
+    // who is calling (so nothing in the body can name the subject), enforces
+    // eligibility from released money, and anchors both halves of a pair to one
+    // shared reveal instant. The role check is gone from here too: candidates
+    // call the same route now, and the RPC decides which side they are.
+    const { data: reviewId, error } = await supabase.rpc("submit_review", {
+      p_engagement_id: engagementId,
+      p_rating: rating,
+      p_body: typeof body === "string" ? body : null,
+    });
 
-    // Get client record
-    const { data: client } = await admin
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
-    }
-
-    // Get engagement and verify ownership
-    const { data: engagement } = await admin
-      .from("engagements")
-      .select("id, client_id, candidate_id, created_at")
-      .eq("id", engagementId)
-      .eq("client_id", client.id)
-      .single();
-
-    if (!engagement) {
-      return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
-    }
-
-    // Check 30-day eligibility — first released payment must be 30+ days ago
-    const { data: releasedPayments } = await admin
-      .from("payment_periods")
-      .select("released_at")
-      .eq("engagement_id", engagementId)
-      .eq("status", "released")
-      .order("released_at", { ascending: true })
-      .limit(1);
-
-    let firstReleaseDate: Date | null = null;
-
-    if (releasedPayments && releasedPayments.length > 0 && releasedPayments[0].released_at) {
-      firstReleaseDate = new Date(releasedPayments[0].released_at);
-    } else {
-      // Check milestones too
-      const { data: releasedMilestones } = await admin
-        .from("milestones")
-        .select("released_at")
-        .eq("engagement_id", engagementId)
-        .eq("status", "released")
-        .order("released_at", { ascending: true })
-        .limit(1);
-
-      if (releasedMilestones && releasedMilestones.length > 0 && releasedMilestones[0].released_at) {
-        firstReleaseDate = new Date(releasedMilestones[0].released_at);
+    if (error) {
+      // 23505 = the one-per-side unique index. 42501 = every authorization and
+      // eligibility refusal the RPC raises.
+      if (error.code === "23505") {
+        return NextResponse.json({ error: "You've already reviewed this engagement." }, { status: 409 });
       }
+      if (error.code === "42501") {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      console.error("[reviews] submit failed:", error.message);
+      return NextResponse.json({ error: "We couldn't save your review." }, { status: 500 });
     }
 
-    if (!firstReleaseDate) {
+    return NextResponse.json({ reviewId });
+  } catch (err) {
+    console.error("Review submit error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/reviews — withdraw your own review, only before it is revealed.
+ *
+ * review_is_revealed() turns true the instant the other side submits, so once a
+ * pair is complete neither party can pull theirs after reading the other's.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { engagementId } = await request.json();
+    if (typeof engagementId !== "string" || !engagementId) {
+      return NextResponse.json({ error: "engagementId required" }, { status: 400 });
+    }
+
+    const { data: withdrawn, error } = await supabase.rpc("withdraw_review", {
+      p_engagement_id: engagementId,
+    });
+    if (error) {
+      if (error.code === "42501") {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      console.error("[reviews] withdraw failed:", error.message);
+      return NextResponse.json({ error: "We couldn't withdraw your review." }, { status: 500 });
+    }
+    if (!withdrawn) {
       return NextResponse.json(
-        { error: "No released payments yet — cannot review" },
-        { status: 400 }
+        { error: "Both reviews are in, so this can no longer be withdrawn." },
+        { status: 409 }
       );
     }
-
-    const daysSinceFirstRelease = Math.floor(
-      (Date.now() - firstReleaseDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (daysSinceFirstRelease < 30) {
-      return NextResponse.json(
-        {
-          error: `Review available in ${30 - daysSinceFirstRelease} days (30 days after first payment)`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if already reviewed this engagement
-    const { count } = await admin
-      .from("reviews")
-      .select("*", { count: "exact", head: true })
-      .eq("engagement_id", engagementId)
-      .eq("client_id", client.id);
-
-    if (count && count > 0) {
-      return NextResponse.json(
-        { error: "You have already reviewed this engagement" },
-        { status: 400 }
-      );
-    }
-
-    // Create review
-    const eligibleAt = new Date(firstReleaseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const { data: review, error: insertError } = await admin
-      .from("reviews")
-      .insert({
-        engagement_id: engagementId,
-        client_id: client.id,
-        candidate_id: engagement.candidate_id,
-        rating,
-        body: body || null,
-        eligible_at: eligibleAt.toISOString(),
-        published: true,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ review });
-  } catch (error) {
-    console.error("Submit review error:", error);
-    return NextResponse.json({ error: "Failed to submit review" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Review withdraw error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

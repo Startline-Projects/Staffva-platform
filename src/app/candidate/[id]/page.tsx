@@ -252,7 +252,12 @@ export default async function CandidateProfilePage({
 
   const tierLabel = candidate.english_written_tier ? TIER_LABELS[candidate.english_written_tier] : null;
   const hasUSExperience = hasUsExperience(candidate.us_client_experience);
-  const displayedName = candidate.display_name || candidate.full_name;
+  // No fallback to full_name: this is the public profile, and the fallback
+  // could only ever fire by substituting the legal surname for the
+  // pseudonym — the one case where being helpful is the wrong answer. All
+  // 256 candidates have a display_name; the placeholder is for the row that
+  // somehow doesn't.
+  const displayedName = candidate.display_name || "This candidate";
   const firstName = (displayedName || "them").split(" ")[0];
   const canViewGated = isLoggedIn && (isClient || isOwnProfile || isAdmin || isRecruitingManager);
 
@@ -298,11 +303,16 @@ export default async function CandidateProfilePage({
     .select("badge_type, awarded_at")
     .eq("candidate_id", id);
 
+  // candidate_reviews_public, not `reviews`. This page runs on the SERVICE
+  // ROLE, so RLS is not protecting it — the view's own WHERE clause is the only
+  // thing applying the reveal rule and the direction filter here. Reading the
+  // base table on candidate_id alone would publish unrevealed reviews to the
+  // open web AND fold the candidate's own outbound review of their client into
+  // the average, since both halves of a pair carry the same candidate_id.
   const { data: reviews } = await supabase
-    .from("reviews")
+    .from("candidate_reviews_public")
     .select("rating, body, submitted_at")
     .eq("candidate_id", id)
-    .eq("published", true)
     .order("submitted_at", { ascending: false });
 
   const avgRating = reviews && reviews.length > 0

@@ -38,22 +38,25 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    // Most recent review
+    // Most recent review — from the view, on the service role, so the view's
+    // own WHERE clause is what enforces the reveal and the direction. The
+    // byline is the reviewer's first name, which the view computes; the base
+    // table's clients(full_name) embed is gone, and the panel only ever
+    // rendered the first name anyway.
     const { data: review } = await admin
-      .from("reviews")
-      .select("rating, body, submitted_at, clients(full_name)")
+      .from("candidate_reviews_public")
+      .select("rating, body, submitted_at, client_first_name")
       .eq("candidate_id", candidateId)
-      .eq("published", true)
       .order("submitted_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Review count
+    // Counted through the same view, so the count and the card agree about
+    // which reviews exist.
     const { count: reviewCount } = await admin
-      .from("reviews")
+      .from("candidate_reviews_public")
       .select("*", { count: "exact", head: true })
-      .eq("candidate_id", candidateId)
-      .eq("published", true);
+      .eq("candidate_id", candidateId);
 
     // Check relationship with authenticated client
     let relationship = "none"; // none | messaged | engaged
@@ -95,7 +98,7 @@ export async function GET(req: NextRequest) {
       // numbers, matching what the profile page now shows them.
       aiInterview: signedIn ? aiInterview || null : null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      review: review ? { ...review, clientName: (review.clients as any)?.full_name || null } : null,
+      review: review ? { ...review, clientName: review.client_first_name ?? null } : null,
       reviewCount: reviewCount || 0,
       relationship,
       voicePreviewSignedUrl,
