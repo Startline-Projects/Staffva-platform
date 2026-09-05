@@ -79,13 +79,37 @@ export async function POST(request: Request) {
       });
     }
 
+    // Refuse to generate a document we cannot make true.
+    //
+    // candidate_rate_usd does not always hold an hourly rate: it holds a weekly
+    // amount when payment_cycle is weekly, a monthly amount when monthly, and a
+    // project total for project work. The template renders it as "$X USD per
+    // hour" regardless, alongside `weekly_hours || 40`. Seven of the eight
+    // contracts already in this database therefore misstate compensation — one
+    // by roughly 173x, promising "$3 per hour for 40 hours" to someone whose
+    // engagement records $3.00 per month.
+    //
+    // Generating a legal document with invented terms is worse than generating
+    // none, so this refuses rather than guessing. The fix for the engagement
+    // shape itself is the owner's call, not this route's.
+    if (engagement.weekly_hours == null || engagement.payment_cycle != null) {
+      return NextResponse.json(
+        {
+          error:
+            "This engagement doesn't record an hourly rate and weekly hours, so a contract can't be generated from it without inventing the terms.",
+          code: "terms_not_reproducible",
+        },
+        { status: 409 }
+      );
+    }
+
     // Generate contract HTML via Claude API
     const contractHtml = await generateContractHtml({
       clientLegalName: client.company_name || client.full_name,
       candidateDisplayName: candidate.display_name || candidate.full_name,
       roleCategory: candidate.role_category || "Professional Services",
       hourlyRate: Number(engagement.candidate_rate_usd) || candidate.hourly_rate,
-      hoursPerWeek: engagement.weekly_hours || 40,
+      hoursPerWeek: engagement.weekly_hours,
       paymentCycle: engagement.payment_cycle || "monthly",
       contractType: engagement.contract_type || "ongoing",
       startDate: new Date(engagement.created_at).toLocaleDateString("en-US", {

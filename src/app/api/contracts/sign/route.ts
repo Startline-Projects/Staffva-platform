@@ -17,6 +17,41 @@ function getAdminClient() {
  * Signs a contract as either client or candidate.
  * Body: { contractId, role: "client" | "candidate", token?: string }
  */
+
+/**
+ * Can this agreement be signed at all, or does the document contradict the deal?
+ *
+ * The generator writes `candidate_rate_usd` into the document as "$X USD per
+ * hour" and `weekly_hours || 40` as the hours. But candidate_rate_usd does NOT
+ * always hold an hourly rate — it holds a weekly amount when payment_cycle is
+ * weekly, a monthly amount when monthly, and a project total for project work.
+ * And weekly_hours is NULL on seven of the eight contracts, so the "40 hours per
+ * week" is invented.
+ *
+ * Live consequence, measured: a candidate whose engagement records $3.00 per
+ * MONTH has a document promising "$3 USD per hour" for "40 hours per week" —
+ * roughly 173 times the recorded amount. Signing it would execute an agreement
+ * neither party meant.
+ *
+ * So an agreement is signable only when the engagement records enough to
+ * reproduce what the document claims: explicit weekly_hours, and an hourly
+ * basis. Everything else is refused until a human restates the terms. On today's
+ * data that admits exactly one contract and refuses seven, which is the correct
+ * outcome rather than a shortfall.
+ */
+function termsAreReproducible(engagement: {
+  weekly_hours: number | null;
+  payment_cycle: string | null;
+  contract_type: string | null;
+}): boolean {
+  // No stated hours means the document's hours figure was the hardcoded 40.
+  if (engagement.weekly_hours == null) return false;
+  // A cycle amount or a project total is not an hourly rate, however the
+  // document renders it.
+  if (engagement.payment_cycle != null) return false;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -63,6 +98,33 @@ export async function POST(req: NextRequest) {
 
       if (contract.status !== "pending_client") {
         return NextResponse.json({ error: `Contract is in ${contract.status} state` }, { status: 400 });
+      }
+
+      // Same gate as the candidate branch: the engagement must still be live.
+      // Two pending_client contracts belong to engagements released in April,
+      // so this side could execute a dead agreement too.
+      const { data: clientEng } = await admin
+        .from("engagements")
+        .select("status, weekly_hours, payment_cycle, contract_type")
+        .eq("id", contract.engagement_id)
+        .maybeSingle();
+
+      if (clientEng && clientEng.status === "active" && !termsAreReproducible(clientEng)) {
+        return NextResponse.json(
+          {
+            error:
+              "The pay terms in this agreement don't match the engagement record, so it can't be countersigned. Please re-issue it with the correct terms.",
+            code: "terms_conflict",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (!clientEng || clientEng.status !== "active") {
+        return NextResponse.json(
+          { error: "This engagement has ended, so its agreement can no longer be signed." },
+          { status: 409 }
+        );
       }
 
       // Record client signature
@@ -172,16 +234,62 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `Contract is in ${contract.status} state` }, { status: 400 });
       }
 
-      // Record candidate signature
+      // The ENGAGEMENT must still be live.
+      //
+      // This checked contract.status alone, and nothing else in the pipeline
+      // checked either — so a candidate whose engagement was released in April
+      // could log in today and legally execute the agreement for it. That is
+      // not hypothetical: two such contracts are live right now, on engagements
+      // released on 15 and 17 April, and the dashboard renders a "Review & Sign"
+      // control for both.
+      const { data: eng } = await admin
+        .from("engagements")
+        .select("status, weekly_hours, payment_cycle, contract_type")
+        .eq("id", contract.engagement_id)
+        .maybeSingle();
+
+      if (eng && eng.status === "active" && !termsAreReproducible(eng)) {
+        return NextResponse.json(
+          {
+            error:
+              "The pay terms in this agreement don't match your engagement, so it can't be signed yet. We've flagged it for review — nothing you need to do.",
+            code: "terms_conflict",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (!eng || eng.status !== "active") {
+        return NextResponse.json(
+          {
+            error:
+              "This engagement has ended, so its agreement can no longer be signed. Contact support if you think that's wrong.",
+          },
+          { status: 409 }
+        );
+      }
+
+      // Record candidate signature. Compare-and-swap on the status we checked,
+      // so two tabs cannot both execute it.
       const now = new Date().toISOString();
-      await admin
+      const { data: signed } = await admin
         .from("engagement_contracts")
         .update({
           candidate_signed_at: now,
           candidate_signature_ip: ip,
           status: "fully_executed",
         })
-        .eq("id", contractId);
+        .eq("id", contractId)
+        .eq("status", "pending_candidate")
+        .select("id")
+        .maybeSingle();
+
+      if (!signed) {
+        return NextResponse.json(
+          { error: "This agreement was already signed." },
+          { status: 409 }
+        );
+      }
 
       // Trigger PDF generation asynchronously
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
