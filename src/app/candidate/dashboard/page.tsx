@@ -8,6 +8,7 @@ import Asti, { AstiPointChip, AstiProgressRing } from "@/components/landing/Asti
 import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
 import LivePortal from "@/components/candidate/LivePortal";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
+import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import StartInterviewButton from "@/app/candidate/dashboard/StartInterviewButton";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -140,11 +141,19 @@ export default async function CandidateDashboardPage() {
     // so loadCandidateWork throws and this page fails loudly.
     const { offers } = await loadCandidateWork(live.id);
     const waiting = pendingOffers(offers).length;
+    // Same fail-loud contract as the offers read: a throw takes the page down
+    // rather than rendering a confident zero over a contract someone is owed.
+    const contracts = await loadCandidateContracts(live.id);
 
     return (
       <>
         <Navbar />
-        <LivePortal candidate={live} pendingOfferCount={waiting} />
+        <LivePortal
+          candidate={live}
+          pendingOfferCount={waiting}
+          signableContractCount={signableContracts(contracts).length}
+          flaggedContractCount={flaggedContracts(contracts).length}
+        />
         <LegacyDashboard variant="live" />
       </>
     );

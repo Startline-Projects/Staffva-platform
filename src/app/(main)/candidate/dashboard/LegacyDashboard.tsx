@@ -215,7 +215,7 @@ function ContractsSection() {
                 </span>
                 {c.status === "pending_candidate" && (
                   <a
-                    href={`/contracts/sign/${c.id}`}
+                    href={`/candidate/contracts/${c.id}`}
                     className="rounded-lg bg-[#FE6E3E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#e55a2b] transition-colors"
                   >
                     Review & Sign

@@ -21,6 +21,10 @@ import GoingLiveWelcome from "./GoingLiveWelcome";
 interface Props {
   /** Offers still awaiting an answer, from the same loader /candidate/work uses. */
   pendingOfferCount?: number;
+  /** Agreements this candidate can sign right now. */
+  signableContractCount?: number;
+  /** Agreements stopped because the document contradicts the engagement. */
+  flaggedContractCount?: number;
   candidate: VisibilityInput & {
     id: string;
     first_name?: string | null;
@@ -34,7 +38,12 @@ interface Props {
   };
 }
 
-export default function LivePortal({ candidate, pendingOfferCount = 0 }: Props) {
+export default function LivePortal({
+  candidate,
+  pendingOfferCount = 0,
+  signableContractCount = 0,
+  flaggedContractCount = 0,
+}: Props) {
   const vis = computeVisibility(candidate);
   const stale = availabilityIsStale(candidate);
   const firstName =
@@ -74,6 +83,46 @@ export default function LivePortal({ candidate, pendingOfferCount = 0 }: Props) 
             className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#E55A2B]"
           >
             Review it
+          </Link>
+        </section>
+      )}
+
+      {signableContractCount > 0 && (
+        <section className="mb-6 rounded-lg border border-[#FE6E3E] bg-orange-50 p-5">
+          <h2 className="text-base font-bold text-[#1C1B1A]">
+            {signableContractCount === 1
+              ? "A contract is waiting for your signature."
+              : `${signableContractCount} contracts are waiting for your signature.`}
+          </h2>
+          <p className="mt-1 text-sm text-gray-700">
+            Read it through and sign when you&apos;re happy with the terms.
+          </p>
+          <Link
+            href="/candidate/contracts"
+            className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#E55A2B]"
+          >
+            Review it
+          </Link>
+        </section>
+      )}
+
+      {/* Separate from the card above, deliberately. "There's a problem" and
+          "please sign" are different messages and must never be merged: a
+          flagged contract is one nobody should sign yet. */}
+      {flaggedContractCount > 0 && (
+        <section className="mb-6 rounded-lg border border-red-200 bg-red-50 p-5">
+          <h2 className="text-base font-bold text-red-900">
+            There&apos;s a problem with a contract you were sent.
+          </h2>
+          <p className="mt-1 text-sm text-red-800">
+            The pay terms in it don&apos;t match your engagement, so it can&apos;t
+            be signed. Our team has been alerted. Nothing for you to do.
+          </p>
+          <Link
+            href="/candidate/contracts"
+            className="mt-3 inline-block text-sm font-semibold text-red-900 underline"
+          >
+            See the details
           </Link>
         </section>
       )}
@@ -127,6 +176,12 @@ export default function LivePortal({ candidate, pendingOfferCount = 0 }: Props) 
               className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
             >
               Messages
+            </Link>
+            <Link
+              href="/candidate/contracts"
+              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+            >
+              Contracts
             </Link>
             <Link
               href={`/candidate/${candidate.id}`}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { verifySigningToken, generateSigningToken } from "@/lib/contracts";
+import { termsAreReproducible } from "@/lib/contractTerms";
 
 function getAdminClient() {
   return createClient(
@@ -18,44 +18,10 @@ function getAdminClient() {
  * Body: { contractId, role: "client" | "candidate", token?: string }
  */
 
-/**
- * Can this agreement be signed at all, or does the document contradict the deal?
- *
- * The generator writes `candidate_rate_usd` into the document as "$X USD per
- * hour" and `weekly_hours || 40` as the hours. But candidate_rate_usd does NOT
- * always hold an hourly rate — it holds a weekly amount when payment_cycle is
- * weekly, a monthly amount when monthly, and a project total for project work.
- * And weekly_hours is NULL on seven of the eight contracts, so the "40 hours per
- * week" is invented.
- *
- * Live consequence, measured: a candidate whose engagement records $3.00 per
- * MONTH has a document promising "$3 USD per hour" for "40 hours per week" —
- * roughly 173 times the recorded amount. Signing it would execute an agreement
- * neither party meant.
- *
- * So an agreement is signable only when the engagement records enough to
- * reproduce what the document claims: explicit weekly_hours, and an hourly
- * basis. Everything else is refused until a human restates the terms. On today's
- * data that admits exactly one contract and refuses seven, which is the correct
- * outcome rather than a shortfall.
- */
-function termsAreReproducible(engagement: {
-  weekly_hours: number | null;
-  payment_cycle: string | null;
-  contract_type: string | null;
-}): boolean {
-  // No stated hours means the document's hours figure was the hardcoded 40.
-  if (engagement.weekly_hours == null) return false;
-  // A cycle amount or a project total is not an hourly rate, however the
-  // document renders it.
-  if (engagement.payment_cycle != null) return false;
-  return true;
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { contractId, role, token } = body;
+    const { contractId, role } = body;
 
     if (!contractId || !role) {
       return NextResponse.json({ error: "Missing contractId or role" }, { status: 400 });
@@ -109,7 +75,7 @@ export async function POST(req: NextRequest) {
         .eq("id", contract.engagement_id)
         .maybeSingle();
 
-      if (clientEng && clientEng.status === "active" && !termsAreReproducible(clientEng)) {
+      if (clientEng && clientEng.status === "active" && !termsAreReproducible({ weeklyHours: clientEng.weekly_hours, paymentCycle: clientEng.payment_cycle })) {
         return NextResponse.json(
           {
             error:
@@ -129,17 +95,27 @@ export async function POST(req: NextRequest) {
 
       // Record client signature
       const now = new Date().toISOString();
-      const signingToken = generateSigningToken(contractId);
 
-      await admin
+      // Compare-and-swap, mirroring the candidate branch: two tabs must not
+      // both countersign.
+      const { data: countersigned } = await admin
         .from("engagement_contracts")
         .update({
           client_signed_at: now,
           client_signature_ip: ip,
           status: "pending_candidate",
-          signing_token: signingToken,
         })
-        .eq("id", contractId);
+        .eq("id", contractId)
+        .eq("status", "pending_client")
+        .select("id")
+        .maybeSingle();
+
+      if (!countersigned) {
+        return NextResponse.json(
+          { error: "This agreement was already countersigned." },
+          { status: 409 }
+        );
+      }
 
       // Fetch candidate for email
       const { data: candidate } = await admin
@@ -151,7 +127,12 @@ export async function POST(req: NextRequest) {
       // Send signing email to candidate
       if (process.env.RESEND_API_KEY && candidate?.email) {
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
-        const signingUrl = `${siteUrl}/contracts/sign/${contractId}?token=${signingToken}`;
+        // Points at the authenticated record page. The ?token URL it used to
+        // carry authenticated by a forgeable HMAC; the page is now a redirect
+        // that drops the query string anyway. (This send is suppressed by the
+        // candidate email freeze regardless — it is fixed so it is not waiting
+        // to be wrong when the freeze lifts.)
+        const signingUrl = `${siteUrl}/candidate/contracts/${contractId}`;
 
         try {
           await sendEmail({
@@ -176,47 +157,56 @@ export async function POST(req: NextRequest) {
 
     // ═══ CANDIDATE SIGNING ═══
     if (role === "candidate") {
-      // Candidate can sign via token (from email) or via authenticated session
-      let candidateId: string | null = null;
+      // Signing is authenticated, full stop.
+      //
+      // The token alternative is deleted. verifySigningToken checked an HMAC
+      // whose key falls back to a literal committed to this repo when
+      // CONTRACT_SIGNING_SECRET is unset — and it is absent from .env.local —
+      // and the "7-day expiry" read the timestamp out of the token itself, which
+      // the caller supplies. Anyone with a contract UUID could therefore have
+      // executed a legally binding agreement as the contractor, with no session.
+      //
+      // It also never consulted engagement_contracts.signing_token, so that
+      // column revokes nothing. No caller has ever sent a token: ContractRecord
+      // and ContractReviewModal both send none, and the only URL that carried
+      // one went by candidate email, which is frozen.
+      //
+      // Sequencing matters here. Unauthenticated execution was, until this
+      // change, held back only by the terms-conflict gate — so restating the
+      // pay terms (the intended next step) would have re-armed it. This closes
+      // that before the terms are fixed, not after.
+      const supabase = await createServerClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (token) {
-        // Token-based signing (from email link)
-        const { data: contract } = await admin
-          .from("engagement_contracts")
-          .select("*")
-          .eq("id", contractId)
-          .single();
-
-        if (!contract) {
-          return NextResponse.json({ error: "Contract not found" }, { status: 404 });
-        }
-
-        if (!verifySigningToken(contractId, token)) {
-          return NextResponse.json({ error: "Invalid or expired signing link" }, { status: 403 });
-        }
-
-        candidateId = contract.candidate_id;
-      } else {
-        // Authenticated signing
-        const supabase = await createServerClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-          return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-        }
-
-        const { data: candidate } = await admin
-          .from("candidates")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
-
-        if (!candidate) {
-          return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
-        }
-
-        candidateId = candidate.id;
+      if (!user) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       }
+
+      // Signed in is not the same as being the contractor.
+      //
+      // The client branch checks app_metadata.role; this one checked only that
+      // somebody was logged in and then resolved identity through
+      // candidates.user_id with the service role, so RLS could not backstop it.
+      // That matters because /api/engagements/direct-invite writes the INVITING
+      // CLIENT's auth id onto a placeholder candidates row — commented
+      // "Temporary — will be reassigned when candidate claims", and nothing
+      // anywhere ever reassigns it. Without this check that client satisfies
+      // both branches and can execute both halves of their own agreement.
+      if (user.app_metadata?.role !== "candidate") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
+      const { data: signer } = await admin
+        .from("candidates")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!signer) {
+        return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
+      }
+
+      const candidateId: string = signer.id;
 
       // Fetch contract and verify candidate
       const { data: contract } = await admin
@@ -248,7 +238,7 @@ export async function POST(req: NextRequest) {
         .eq("id", contract.engagement_id)
         .maybeSingle();
 
-      if (eng && eng.status === "active" && !termsAreReproducible(eng)) {
+      if (eng && eng.status === "active" && !termsAreReproducible({ weeklyHours: eng.weekly_hours, paymentCycle: eng.payment_cycle })) {
         return NextResponse.json(
           {
             error:

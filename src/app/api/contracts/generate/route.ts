@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { generateContractHtml, generateSigningToken } from "@/lib/contracts";
+import {generateContractHtml} from "@/lib/contracts";
 
 function getAdminClient() {
   return createClient(
@@ -139,12 +139,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate signing token for later candidate use
-    const signingToken = generateSigningToken(contract.id);
-    await admin
-      .from("engagement_contracts")
-      .update({ signing_token: signingToken })
-      .eq("id", contract.id);
 
     return NextResponse.json({
       contractId: contract.id,

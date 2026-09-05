@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { verifySigningToken } from "@/lib/contracts";
 
 function getAdminClient() {
   return createClient(
@@ -19,7 +18,6 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const contractId = searchParams.get("contractId");
-    const token = searchParams.get("token");
 
     if (!contractId) {
       return NextResponse.json({ error: "Missing contractId" }, { status: 400 });
@@ -38,30 +36,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Contract not found" }, { status: 404 });
     }
 
-    // Authorize: via token OR authenticated session
-    if (token) {
-      if (!verifySigningToken(contractId, token)) {
-        return NextResponse.json({ error: "Invalid or expired link" }, { status: 403 });
-      }
-    } else {
-      // Must be authenticated and be the client or candidate
-      const supabase = await createServerClient();
-      const { data: { user } } = await supabase.auth.getUser();
+    // Authorize: authenticated, and a party to this contract.
+    //
+    // The ?token alternative is gone. verifySigningToken checked an HMAC whose
+    // key falls back to a literal committed to this repo when
+    // CONTRACT_SIGNING_SECRET is unset — and it is not set in .env.local — while
+    // the "7-day expiry" was computed from the timestamp inside the token, which
+    // the caller chooses. So anyone holding a contract UUID could mint a valid
+    // token and read the full agreement, both parties' legal names, the
+    // signature timestamps and a year-long signed PDF URL, with no session.
+    //
+    // It also never consulted engagement_contracts.signing_token, so that column
+    // is decorative: overwriting it revokes nothing. No caller has ever passed a
+    // token — team/page.tsx sends none, and the only URL that carried one was in
+    // an email to candidates, which is frozen and now points at a redirect that
+    // drops the query string. Deleting beats hardening a dead path.
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-      }
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
 
-      // Check if user is client or candidate on this contract
-      const { data: client } = await admin.from("clients").select("id").eq("user_id", user.id).single();
-      const { data: candidate } = await admin.from("candidates").select("id").eq("user_id", user.id).single();
+    const { data: client } = await admin.from("clients").select("id").eq("user_id", user.id).single();
+    const { data: candidate } = await admin.from("candidates").select("id").eq("user_id", user.id).single();
 
-      const isClient = client?.id === contract.client_id;
-      const isCandidate = candidate?.id === contract.candidate_id;
-
-      if (!isClient && !isCandidate) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
+    if (client?.id !== contract.client_id && candidate?.id !== contract.candidate_id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const clientInfo = contract.clients as { full_name: string; company_name: string | null } | null;

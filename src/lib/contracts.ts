@@ -1,32 +1,17 @@
-import crypto from "crypto";
 import { extractText } from "@/lib/anthropic";
 
-const CONTRACT_SIGNING_SECRET = process.env.CONTRACT_SIGNING_SECRET || "staffva-contract-signing-secret-default";
-
-// ─── HMAC Signing Token ───
-
-export function generateSigningToken(contractId: string): string {
-  const timestamp = Date.now().toString();
-  const payload = `${contractId}:${timestamp}`;
-  const hmac = crypto.createHmac("sha256", CONTRACT_SIGNING_SECRET).update(payload).digest("hex");
-  return `${timestamp}.${hmac}`;
-}
-
-export function verifySigningToken(contractId: string, token: string): boolean {
-  try {
-    const [timestamp, hmac] = token.split(".");
-    if (!timestamp || !hmac) return false;
-
-    // Token expires after 7 days
-    const tokenAge = Date.now() - Number(timestamp);
-    if (tokenAge > 7 * 24 * 60 * 60 * 1000) return false;
-
-    const expected = crypto.createHmac("sha256", CONTRACT_SIGNING_SECRET).update(`${contractId}:${timestamp}`).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
-  } catch {
-    return false;
-  }
-}
+// The HMAC signing-token machinery used to live here and is gone.
+//
+// generateSigningToken/verifySigningToken keyed on
+//   process.env.CONTRACT_SIGNING_SECRET || "staffva-contract-signing-secret-default"
+// — a literal committed to this repo, and the variable is not set in .env.local.
+// verify read the token's own timestamp for the "7-day expiry", so a forger
+// chose it, and it never consulted engagement_contracts.signing_token, so the
+// stored value revoked nothing. Anyone holding a contract UUID could read the
+// full agreement and execute it as the contractor with no session.
+//
+// Every caller now authenticates by session and party membership instead. The
+// signing_token column is left in place but is no longer written or read.
 
 // ─── Claude API Contract Generation ───
 

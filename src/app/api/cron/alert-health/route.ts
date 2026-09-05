@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { termsAreReproducible } from "@/lib/contractTerms";
 import { hasCronSecret } from "@/lib/auth";
 import { dailyHealthProbe } from "@/lib/daily";
 
@@ -87,6 +88,44 @@ export async function GET(request: NextRequest) {
       count: fatalVendor,
       message: `${fatalVendor} fatal vendor failure(s) in the last hour — a key or model id is wrong, and every request is hitting it.`,
     });
+  }
+
+  // A contract whose document contradicts the engagement it belongs to.
+  //
+  // This makes the candidate-facing sentence true. /candidate/contracts tells
+  // someone "we've flagged it for a person to check", and without this nothing
+  // would be flagged to anyone — the exact shape of unbacked claim this
+  // codebase keeps producing. The generator renders candidate_rate_usd as an
+  // hourly rate and weekly_hours||40 as the hours, but that column holds a
+  // weekly, monthly or project amount depending on the engagement, so seven of
+  // the eight existing documents misstate pay, one by about 173x.
+  const { data: liveContracts } = await supabase
+    .from("engagement_contracts")
+    .select("id, status, engagement_id")
+    .in("status", ["pending_client", "pending_candidate"]);
+
+  if (liveContracts && liveContracts.length > 0) {
+    const { data: engs } = await supabase
+      .from("engagements")
+      .select("id, status, weekly_hours, payment_cycle")
+      .in("id", liveContracts.map((c) => c.engagement_id));
+    const engMap = new Map((engs ?? []).map((e) => [e.id, e]));
+    const conflicted = liveContracts.filter((c) => {
+      const e = engMap.get(c.engagement_id);
+      if (!e || e.status !== "active") return false;
+      return !termsAreReproducible({
+        weeklyHours: e.weekly_hours as number | null,
+        paymentCycle: e.payment_cycle as string | null,
+      });
+    });
+    if (conflicted.length > 0) {
+      checks.push({
+        key: "contract_terms_conflict",
+        severity: "critical",
+        count: conflicted.length,
+        message: `${conflicted.length} live contract(s) state pay terms the engagement cannot reproduce. Signing is blocked on them; the terms need restating before anyone can agree to them.`,
+      });
+    }
   }
 
   // The video vendor, probed directly rather than waiting for an interview

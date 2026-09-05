@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { generateContractHtml, generateSigningToken } from "@/lib/contracts";
+import {generateContractHtml} from "@/lib/contracts";
 import { extractText } from "@/lib/anthropic";
 import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
@@ -268,8 +268,6 @@ export async function POST(req: NextRequest) {
           }).select().single();
 
           if (contract) {
-            const signingToken = generateSigningToken(contract.id);
-            await supabase.from("engagement_contracts").update({ signing_token: signingToken }).eq("id", contract.id);
 
             // Email client to review and sign contract
             if (process.env.RESEND_API_KEY && clientInfo?.email) {
