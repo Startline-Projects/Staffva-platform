@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
     await enqueueEmail({
       to: profile.email,
       subject: "Verify your StaffVA account",
+      recipientKind: "candidate",
       emailType: "email_verification",
       dedupeKey: `verification:${token}`,
       html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">

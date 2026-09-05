@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/proctor-review",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/unanswered-messages",
+      "schedule": "0 13 * * *"
     }
   ],
   "functions": {

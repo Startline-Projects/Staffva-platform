@@ -123,6 +123,12 @@ export default function LivePortal({ candidate, pendingOfferCount = 0 }: Props) 
               See what&apos;s open
             </Link>
             <Link
+              href="/candidate/messages"
+              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+            >
+              Messages
+            </Link>
+            <Link
               href={`/candidate/${candidate.id}`}
               className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
             >

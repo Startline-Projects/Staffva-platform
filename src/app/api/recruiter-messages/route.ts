@@ -24,7 +24,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   let candidateId = searchParams.get("candidateId");
-  let recruiterId: string | null = null;
 
   if (role === "candidate") {
     // Candidate: resolve their own candidate record and assigned recruiter
@@ -39,22 +38,44 @@ export async function GET(req: NextRequest) {
     }
 
     candidateId = candidate.id;
-    recruiterId = candidate.assigned_recruiter;
   } else if (role === "recruiter" || role === "admin" || role === "recruiting_manager") {
     // Recruiter: candidateId required in query params
     if (!candidateId) {
       return NextResponse.json({ error: "candidateId required" }, { status: 400 });
     }
-    recruiterId = user.id;
+    // Authorization is explicit now. It used to fall out of the query filter
+    // (.eq("recruiter_id", user.id) returned nothing for someone else's
+    // candidate) — but that filter had to go, because it also erased a
+    // candidate's history whenever they were reassigned. A staff member reads a
+    // thread if they are the candidate's CURRENT assignee, or if they are an
+    // admin or manager, who triage across everyone by design.
+    if (role === "recruiter") {
+      const { data: owned } = await admin
+        .from("candidates")
+        .select("id")
+        .eq("id", candidateId)
+        .eq("assigned_recruiter", user.id)
+        .maybeSingle();
+      if (!owned) {
+        return NextResponse.json({ error: "Candidate not assigned to you" }, { status: 403 });
+      }
+    }
   } else {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Fetch messages
+  // Fetch messages.
+  //
+  // Keyed on candidate_id ALONE, not on recruiter_id. recruiter_messages.recruiter_id
+  // is frozen at insert and /api/recruiter/reassign updates only
+  // candidates.assigned_recruiter, so filtering on it would erase a candidate's
+  // whole history the moment they were reassigned — and it disagreed with the
+  // server-rendered page, which reads the thread by candidate. No thread is
+  // split today, but the reassign route is live and 39 of the notifications in
+  // this system are routing notices.
   const { data: messages, error } = await admin
     .from("recruiter_messages")
-    .select("id, recruiter_id, candidate_id, sender_role, body, created_at, read_at, message_type, edit_request_id")
-    .eq("recruiter_id", recruiterId!)
+    .select("id, recruiter_id, candidate_id, sender_role, body, created_at, read_at, message_type, edit_request_id, sender_profile_id")
     .eq("candidate_id", candidateId!)
     .order("created_at", { ascending: true });
 
@@ -67,12 +88,33 @@ export async function GET(req: NextRequest) {
   await admin
     .from("recruiter_messages")
     .update({ read_at: new Date().toISOString() })
-    .eq("recruiter_id", recruiterId!)
     .eq("candidate_id", candidateId!)
     .eq("sender_role", readRole)
     .is("read_at", null);
 
-  return NextResponse.json({ messages: messages || [] });
+  // Resolve who actually wrote each staff message. Without this the client
+  // poll has no name to render and falls back to "StaffVA" — which would undo
+  // 00195 sixty seconds after the page loads, since the server-rendered names
+  // are replaced by the poll's payload.
+  const rows = messages || [];
+  const authorIds = [
+    ...new Set(rows.map((m) => m.sender_profile_id).filter(Boolean)),
+  ] as string[];
+  const authors = new Map<string, string | null>();
+  if (authorIds.length > 0) {
+    const { data: profs } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", authorIds);
+    for (const pr of profs || []) authors.set(pr.id, pr.full_name);
+  }
+
+  return NextResponse.json({
+    messages: rows.map((m) => ({
+      ...m,
+      author_name: m.sender_profile_id ? authors.get(m.sender_profile_id) ?? null : null,
+    })),
+  });
 }
 
 // POST — send a message
@@ -96,6 +138,7 @@ export async function POST(req: NextRequest) {
   let candidateId: string | null = null;
   let recruiterId: string | null = null;
   let senderRole: string;
+  let senderProfileId: string | null = null;
 
   if (role === "candidate") {
     // Candidate sending to their assigned recruiter
@@ -134,8 +177,15 @@ export async function POST(req: NextRequest) {
     }
 
     candidateId = candidate.id;
+    // recruiter_id is the THREAD owner — the specialist assigned to this
+    // candidate. It stays as it was.
     recruiterId = role === "recruiter" ? user.id : candidate.assigned_recruiter;
     senderRole = "recruiter";
+    // ...but the AUTHOR is whoever is actually typing. Without this an admin or
+    // manager answering renders under the assigned recruiter's name and photo:
+    // answer a 141-day-old message as the owner and the candidate reads a reply
+    // signed by a colleague who never wrote it. 00195 enforces it.
+    senderProfileId = user.id;
   } else {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -146,6 +196,7 @@ export async function POST(req: NextRequest) {
       recruiter_id: recruiterId,
       candidate_id: candidateId,
       sender_role: senderRole,
+      sender_profile_id: senderProfileId,
       body: messageBody.trim(),
     })
     .select()

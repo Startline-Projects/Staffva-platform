@@ -695,7 +695,15 @@ export default function CandidateDashboardPage({
           }
         } catch { /* silent — recruiter card just won't show */ }
 
-        // Count unread recruiter messages
+        // Unread staff messages in this candidate's thread, keyed on
+        // candidate_id — the same key /api/recruiter-messages and
+        // loadCandidateThread now use.
+        //
+        // I briefly scoped this to the current assignee instead, to match the
+        // thread route as it then was. Then the thread moved to candidate_id
+        // (recruiter_id is frozen at insert, so filtering on it erases a
+        // candidate's history the moment they are reassigned) and the badge was
+        // left disagreeing in the opposite direction. One key, everywhere.
         const { count: unread } = await supabase
           .from("recruiter_messages")
           .select("*", { count: "exact", head: true })
@@ -962,7 +970,7 @@ export default function CandidateDashboardPage({
             </div>
           </div>
           <Link
-            href="/candidate/dashboard/recruiter-chat"
+            href="/candidate/messages"
             className="relative rounded-full border border-gray-300 px-5 py-2 text-xs font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
           >
             Message {recruiterProfile.full_name?.split(" ")[0] || "them"}
@@ -1203,9 +1211,14 @@ export default function CandidateDashboardPage({
                         {recruiterProfile.full_name}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
+                        {/* Was: "Send them a message if something about your
+                            application needs a person." Nine of the ten
+                            candidates who did exactly that are still waiting,
+                            on average 124 days. Inviting someone into a channel
+                            with that record is a claim the code cannot keep, so
+                            the invitation is gone and the fact stays. */}
                         {recruiterProfile.full_name?.split(" ")[0] || "They"} handles candidates
-                        in {candidate.role_category || "your area"}. Send them a message if
-                        something about your application needs a person.
+                        in {candidate.role_category || "your area"}.
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {candidate.role_category === "Other" && !candidate.assigned_recruiter ? (
@@ -1215,7 +1228,7 @@ export default function CandidateDashboardPage({
                         ) : (
                           <>
                             <Link
-                              href={`/candidate/dashboard/recruiter-chat`}
+                              href="/candidate/messages"
                               className="relative inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-[#1C1B1A] hover:bg-gray-50 transition-colors"
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

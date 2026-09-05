@@ -65,6 +65,7 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
         )}
         <NavItem href="/talent-pool" active={isActive("/talent-pool")} icon="◉" badge={badges.talentPool} badgeType="gray">Talent Pool</NavItem>
         <NavItem href="/admin/recruiters" active={isActive("/admin/recruiters")} icon="◎">Talent Specialists</NavItem>
+        <NavItem href="/admin/messages" active={isActive("/admin/messages")} icon="✉">Unanswered Messages</NavItem>
         <NavItem href="/admin/triage" active={isActive("/admin/triage")} icon="⚡" badge={badges.triage} badgeType="red">Triage Queue</NavItem>
         <NavItem href="/admin/duplicates" active={isActive("/admin/duplicates")} icon="⊘">Duplicates</NavItem>
 

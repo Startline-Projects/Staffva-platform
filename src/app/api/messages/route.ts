@@ -149,7 +149,18 @@ export async function POST(request: Request) {
 
   const admin = getAdminClient();
 
-  // Validate sender
+  // Validate sender AND bind the thread ids to them.
+  //
+  // Both ids came straight from the request body and were only checked for UUID
+  // shape. The insert then used them verbatim while sender_id came from the
+  // session, so an authenticated candidate could pass ANOTHER candidate's id and
+  // write into a stranger's thread, or pass any client id and open a thread with
+  // someone who had never contacted them. The RLS policies spell out the
+  // intended rules exactly — "Candidates can reply to messages" requires the
+  // candidate row to be yours AND a prior message from the client, so a
+  // candidate may reply and never initiate — but this route writes through the
+  // service role, so none of it ran. messages has 0 rows, so nothing was
+  // exploited; the route was live.
   let senderId: string;
   if (role === "client") {
     const { data: client } = await admin
@@ -168,6 +179,10 @@ export async function POST(request: Request) {
     // sent. MessageButton also advertises "Free to join. Free to message. No
     // subscription required." If messaging is meant to be paid, the paywall
     // needs building first; until then the gate only blocks the product.
+    // The client may only write to their OWN thread.
+    if (client.id !== clientId) {
+      return NextResponse.json({ error: "Not your conversation" }, { status: 403 });
+    }
     senderId = client.id;
   } else if (role === "candidate") {
     const { data: candidate } = await admin
@@ -178,6 +193,26 @@ export async function POST(request: Request) {
 
     if (!candidate) {
       return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
+    }
+    if (candidate.id !== candidateId) {
+      return NextResponse.json({ error: "Not your conversation" }, { status: 403 });
+    }
+    // A candidate may REPLY, never initiate — the rule the
+    // "Candidates can reply to messages" policy states and this route bypassed.
+    // Enforced here because that policy is also unusable: it self-references
+    // messages and raises 42P17 (infinite recursion) even for a legitimate
+    // own-id insert, so RLS cannot be the enforcement point.
+    const { count: clientMsgs } = await admin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .eq("candidate_id", candidateId)
+      .eq("sender_type", "client");
+    if (!clientMsgs) {
+      return NextResponse.json(
+        { error: "You can reply once a client has messaged you." },
+        { status: 403 }
+      );
     }
     senderId = candidate.id;
   } else {

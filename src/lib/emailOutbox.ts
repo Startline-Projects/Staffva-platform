@@ -1,3 +1,4 @@
+import type { RecipientKind } from "@/lib/emailFreeze";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -30,6 +31,14 @@ export type OutboxEmail = {
   html: string;
   from?: string;
   emailType: string;
+  /**
+   * Who this is for. REQUIRED, because the drain re-checks the candidate email
+   * freeze at send time and the column defaults to 'candidate' — so a staff
+   * alert queued without it is silently suppressed by the freeze it was never
+   * subject to. That is not hypothetical: it is exactly what would have
+   * happened to step 15's unanswered-message digest.
+   */
+  recipientKind: RecipientKind;
   candidateId?: string | null;
   /**
    * Natural key for "this exact message". Backed by a unique index, so an
@@ -56,6 +65,7 @@ export async function enqueueEmail(email: OutboxEmail): Promise<void> {
     subject: email.subject,
     html: email.html,
     email_type: email.emailType,
+    recipient_kind: email.recipientKind,
     candidate_id: email.candidateId ?? null,
     dedupe_key: email.dedupeKey ?? null,
   });

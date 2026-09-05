@@ -15,6 +15,9 @@ interface MessageThread {
 interface ThreadMessage {
   id: string;
   sender_role: "recruiter" | "candidate";
+  /** Who actually wrote a staff message (00195). Null for candidate messages. */
+  sender_profile_id?: string | null;
+  author_name?: string | null;
   body: string;
   created_at: string;
   read_at: string | null;
@@ -151,6 +154,16 @@ export default function MessageSidebar({ threads, candidateMap, token, isMobileF
                 return (
                   <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${isMe ? "bg-[#FE6E3E] text-white" : "bg-gray-100 text-[#1C1B1A]"}`}>
+                      {/* A staff message is not necessarily YOUR message: an
+                          admin or manager answering writes into this thread and
+                          the row is stamped with the assigned recruiter's id.
+                          Name the real author so a colleague's words are never
+                          shown as your own. See migration 00195. */}
+                      {isMe && msg.author_name && (
+                        <p className="mb-0.5 text-[9px] font-semibold text-white/70">
+                          {msg.author_name}
+                        </p>
+                      )}
                       <p className="text-xs whitespace-pre-wrap">{msg.body}</p>
                       <p className={`mt-0.5 text-[9px] ${isMe ? "text-white/50" : "text-gray-400"}`}>
                         {new Date(msg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
