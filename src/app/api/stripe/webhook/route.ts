@@ -447,10 +447,16 @@ export async function POST(request: Request) {
       const engagementId = pi.metadata?.engagement_id;
 
       if (engagementId) {
+        // Guarded: only an ACTIVE engagement degrades on a failed payment.
+        // The notice-completion cron now closes engagements on a schedule,
+        // and a delayed async failure (ACH return, retried PI from the final
+        // clamped period) must not flip a terminal 'completed' back to
+        // 'payment_failed' days after the countdown legitimately ended.
         await supabase
           .from("engagements")
           .update({ status: "payment_failed" })
-          .eq("id", engagementId);
+          .eq("id", engagementId)
+          .eq("status", "active");
       }
       break;
     }

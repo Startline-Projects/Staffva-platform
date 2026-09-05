@@ -151,7 +151,7 @@ export default async function CandidateDashboardPage() {
     // written for render functions that re-run client-side.
     // eslint-disable-next-line react-hooks/purity
     const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    const [viewsRes, activeEngRes, unreadRes, clientUnreadRes, recentMsgRes] = await Promise.all([
+    const [viewsRes, activeEngRes, noticeRes, unreadRes, clientUnreadRes, recentMsgRes] = await Promise.all([
       // profile_views is one row per client (upsert bumps viewed_at), so this
       // count honestly means "distinct clients who looked in the last week",
       // and the activity feed can only ever say that much — never a per-visit
@@ -168,6 +168,16 @@ export default async function CandidateDashboardPage() {
         .select("id", { count: "exact", head: true })
         .eq("candidate_id", live.id)
         .eq("status", "active"),
+      // Any engagement in its notice period — the countdown belongs on the
+      // home page, not buried behind the contract detail.
+      admin
+        .from("engagements")
+        .select("id, ends_at, notice_given_by")
+        .eq("candidate_id", live.id)
+        .eq("status", "active")
+        .not("ends_at", "is", null)
+        .order("ends_at", { ascending: true })
+        .limit(1),
       admin
         .from("recruiter_messages")
         .select("id", { count: "exact", head: true })
@@ -231,6 +241,7 @@ export default async function CandidateDashboardPage() {
           views7d={viewsRes.count ?? 0}
           unreadMessages={(unreadRes.count ?? 0) + (clientUnreadRes.count ?? 0)}
           activeEngagements={activeEngRes.count ?? 0}
+          noticeEngagement={noticeRes.data?.[0] ?? null}
           activity={activity}
         />
         {/* The operational cards the legacy inventory marked MUST SURVIVE —

@@ -99,6 +99,34 @@ export async function POST(request: Request) {
         break;
     }
 
+    // A period must not outlive the engagement. When 14 days' notice is
+    // running, the final period CLAMPS to ends_at — the clause pays "for all
+    // work satisfactorily completed up to the date of termination", not for a
+    // month that extends past it. Only hourly-basis engagements can carry a
+    // notice (it requires a signed contract, and signing requires hourly
+    // terms), so the pro-rate below is always well-defined.
+    let periodFraction = 1;
+    if (engagement.ends_at) {
+      // DATE-truncated (UTC): period_start/period_end are DATE columns, so the
+      // clamp, the refusal, and the stored row must all speak in dates. With
+      // the raw instant, a period clamped to '09-19' still admitted a
+      // follow-up starting 09-19T00:00 < the 14:32 end instant — a zero-day
+      // duplicate the client could be charged for.
+      const endsDate = new Date(engagement.ends_at.slice(0, 10));
+      if (periodStart >= endsDate) {
+        return NextResponse.json(
+          { error: "This engagement ends before another period would start." },
+          { status: 409 }
+        );
+      }
+      if (periodEnd > endsDate) {
+        periodFraction =
+          (endsDate.getTime() - periodStart.getTime()) /
+          (periodEnd.getTime() - periodStart.getTime());
+        periodEnd.setTime(endsDate.getTime());
+      }
+    }
+
     // WHAT THE CANDIDATE IS OWED FOR THE PERIOD — not candidate_rate_usd raw.
     // candidate_rate_usd is a CYCLE amount on the legacy engagements
     // (payment_cycle set) but an HOURLY rate on every offer-created one
@@ -110,9 +138,12 @@ export async function POST(request: Request) {
     if (engagement.payment_cycle != null) {
       periodAmount = Number(engagement.candidate_rate_usd);
     } else if (engagement.weekly_hours != null) {
-      // Hourly basis, monthly period (the switch above defaulted to monthly).
+      // Hourly basis, monthly period (the switch above defaulted to monthly),
+      // pro-rated when the notice clamp shortened it.
       periodAmount =
-        Math.round(Number(engagement.candidate_rate_usd) * engagement.weekly_hours * 4.33 * 100) / 100;
+        Math.round(
+          Number(engagement.candidate_rate_usd) * engagement.weekly_hours * 4.33 * periodFraction * 100
+        ) / 100;
     } else {
       // No cycle and no hours: the amount is underivable. Refusing beats
       // moving a wrong amount of money — the same rule the contract-signing

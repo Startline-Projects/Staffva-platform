@@ -75,6 +75,10 @@
     {
       "path": "/api/escrow/auto-release",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/engagement-notice-complete",
+      "schedule": "30 * * * *"
     }
   ],
   "functions": {

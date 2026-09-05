@@ -21,6 +21,9 @@ export interface CandidateContract {
   engagementStatus: string | null;
   employer: string | null;
   client_id: string | null;
+  noticeGivenAt: string | null;
+  noticeGivenBy: string | null;
+  endsAt: string | null;
   generatedAt: string;
   clientSignedAt: string | null;
   candidateSignedAt: string | null;
@@ -75,7 +78,7 @@ export async function loadCandidateContracts(
   const engIds = [...new Set(list.map((r) => r.engagement_id))];
   const { data: engs, error: engErr } = await db
     .from("engagements")
-    .select("id, status, weekly_hours, payment_cycle, contract_type, candidate_rate_usd")
+    .select("id, status, weekly_hours, payment_cycle, contract_type, candidate_rate_usd, notice_given_at, notice_given_by, ends_at")
     .in("id", engIds);
   if (engErr) throw new Error(`engagement read failed: ${engErr.message}`);
 
@@ -94,6 +97,9 @@ export async function loadCandidateContracts(
       engagementStatus: (e?.status as string) ?? null,
       employer: c?.company_name || c?.full_name || null,
       client_id: ((r as { client_id?: string }).client_id as string) ?? null,
+      noticeGivenAt: (e as { notice_given_at?: string | null })?.notice_given_at ?? null,
+      noticeGivenBy: (e as { notice_given_by?: string | null })?.notice_given_by ?? null,
+      endsAt: (e as { ends_at?: string | null })?.ends_at ?? null,
       generatedAt: r.generated_at as string,
       clientSignedAt: (r.client_signed_at as string) ?? null,
       candidateSignedAt: (r.candidate_signed_at as string) ?? null,

@@ -51,6 +51,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Engagement is not active" }, { status: 400 });
     }
 
+    // Where both sides SIGNED an agreement, its termination clause governs:
+    // "14 days' written notice delivered through the StaffVA platform."
+    // Instant release on a signed engagement is the platform contradicting
+    // the document it generated — the step-18 audit's finding. Unsigned
+    // engagements (the legacy four included) keep this path.
+    const { data: executedContract } = await admin
+      .from("engagement_contracts")
+      .select("id")
+      .eq("engagement_id", engagementId)
+      .eq("status", "fully_executed")
+      .limit(1)
+      .maybeSingle();
+    if (executedContract) {
+      return NextResponse.json(
+        {
+          error:
+            "This engagement has a signed agreement, which requires 14 days' notice to end. Use \"End with notice\" instead.",
+        },
+        { status: 409 }
+      );
+    }
+
     // Update engagement status — DB trigger handles candidate lock release
     await admin
       .from("engagements")

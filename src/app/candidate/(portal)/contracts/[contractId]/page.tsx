@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import { loadCandidateContracts } from "@/lib/candidateContracts";
 import ContractRecord from "@/components/candidate/ContractRecord";
+import NoticeControl from "@/components/candidate/NoticeControl";
 
 /**
  * One agreement, readable in full whatever state it is in.
@@ -60,6 +61,17 @@ export default async function CandidateContractPage({
               contract.employer ?? "a client"
             )}
           </h1>
+        </div>
+
+        <div className="mb-4">
+          <NoticeControl
+            engagementId={contract.engagementId}
+            engagementStatus={contract.engagementStatus}
+            contractStatus={contract.status}
+            noticeGivenAt={contract.noticeGivenAt}
+            noticeGivenBy={contract.noticeGivenBy}
+            endsAt={contract.endsAt}
+          />
         </div>
 
         <ContractRecord

@@ -107,7 +107,54 @@ export async function POST(request: Request) {
       }
 
       existingIntentId = period.stripe_payment_intent_id || null;
-      amountUsd = Number(engagement.client_total_usd);
+      // Hourly-basis engagements charge from the PERIOD's own amount + the 10%
+      // fee — client_total_usd is the full-month estimate, and the final
+      // period of a 14-day notice clamps short of a month: charging the full
+      // month against a pro-rated payout would have the platform silently
+      // keeping the difference (the step-18 money bug's shape, reversed).
+      // Legacy cycle-amount engagements keep client_total_usd — for them it
+      // IS the per-cycle total.
+      const hourlyBasis = engagement.payment_cycle == null && engagement.weekly_hours != null;
+
+      // A pending period created BEFORE notice landed still spans the full
+      // month. Re-clamp at funding time: charging the stale full amount for a
+      // period the engagement outlives by days would over-collect from the
+      // client and over-pay past the termination date the clause defines.
+      if (hourlyBasis && engagement.ends_at) {
+        const endsDate = new Date(String(engagement.ends_at).slice(0, 10));
+        const pStart = new Date(period.period_start);
+        const pEnd = new Date(period.period_end);
+        if (pStart >= endsDate) {
+          return NextResponse.json(
+            { error: "This engagement ends before this period starts — nothing to fund." },
+            { status: 409 }
+          );
+        }
+        if (pEnd > endsDate) {
+          const fraction =
+            (endsDate.getTime() - pStart.getTime()) / (pEnd.getTime() - pStart.getTime());
+          const clamped =
+            Math.round(Number(period.amount_usd) * fraction * 100) / 100;
+          const { data: reclamped } = await admin
+            .from("payment_periods")
+            .update({
+              period_end: endsDate.toISOString().split("T")[0],
+              amount_usd: clamped,
+            })
+            .eq("id", periodId)
+            .is("funded_at", null)
+            .select("amount_usd")
+            .maybeSingle();
+          if (!reclamped) {
+            return NextResponse.json({ error: "Period already funded" }, { status: 400 });
+          }
+          period.amount_usd = reclamped.amount_usd;
+        }
+      }
+
+      amountUsd = hourlyBasis
+        ? Math.round(Number(period.amount_usd) * 1.1 * 100) / 100
+        : Number(engagement.client_total_usd);
       description = `StaffVA — Period ${period.period_start} to ${period.period_end}`;
     } else {
       // Project contract — fund a milestone

@@ -79,6 +79,21 @@ export default async function CandidateContractsPage() {
                           year: "numeric",
                         })}
                       </p>
+                      {/* The dashboard banner's "See the agreement" lands on
+                          this list — the engagement being terminated must not
+                          be indistinguishable from every other card. */}
+                      {c.noticeGivenAt && c.engagementStatus === "active" && (
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                          14 days&apos; notice given · ends{" "}
+                          {c.endsAt
+                            ? new Date(c.endsAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                timeZone: "UTC",
+                              })
+                            : ""}
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${

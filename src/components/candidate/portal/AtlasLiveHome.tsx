@@ -30,6 +30,7 @@ export interface ActivityItem {
 export default function AtlasLiveHome({
   candidate,
   firstName,
+  noticeEngagement = null,
   pendingOfferCount,
   signableContractCount,
   flaggedContractCount,
@@ -54,6 +55,7 @@ export default function AtlasLiveHome({
   views7d: number;
   unreadMessages: number;
   activeEngagements: number;
+  noticeEngagement?: { id: string; ends_at: string; notice_given_by: string | null } | null;
   activity: ActivityItem[];
 }) {
   const vis = computeVisibility(candidate);
@@ -146,6 +148,37 @@ export default function AtlasLiveHome({
             className="mt-3 inline-block text-sm font-semibold text-red-900 underline hover:no-underline"
           >
             See the details
+          </Link>
+        </section>
+      )}
+
+      {/* An engagement in its 14-day notice period — the one date a working
+          candidate must not discover late. */}
+      {noticeEngagement && (
+        <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+          <h2 className="text-base font-bold text-amber-900">
+            {noticeEngagement.notice_given_by === "candidate"
+              ? "You've given 14 days' notice on an engagement."
+              : "A client has given 14 days' notice on your engagement."}
+          </h2>
+          <p className="mt-1 text-sm text-amber-800">
+            It ends on{" "}
+            <strong>
+              {new Date(noticeEngagement.ends_at).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+                timeZone: "UTC",
+              })}
+            </strong>
+            . Work and pay continue until then; funded money follows the normal
+            release process.
+          </p>
+          <Link
+            href="/candidate/contracts"
+            className="mt-3 inline-block text-sm font-semibold text-amber-900 underline hover:no-underline"
+          >
+            See the agreement
           </Link>
         </section>
       )}

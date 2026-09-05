@@ -61,6 +61,9 @@ interface Engagement {
   contract_type: string;
   payment_cycle: string | null;
   weekly_hours: number | null;
+  notice_given_at: string | null;
+  notice_given_by: string | null;
+  ends_at: string | null;
   candidate_rate_usd: number;
   platform_fee_usd: number;
   client_total_usd: number;
@@ -293,6 +296,28 @@ export default function TeamPortalPage() {
         pollRef.current = null;
       }
     }, 3000);
+  }
+
+  async function handleGiveNotice(engagementId: string) {
+    if (
+      !confirm(
+        "End this engagement with 14 days' notice, as the signed agreement requires? " +
+          "Work and payment continue through the notice period, and this can't be withdrawn."
+      )
+    )
+      return;
+    setActionLoading(engagementId);
+    const res = await fetch("/api/engagements/notice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engagementId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't give notice — try again.");
+    }
+    await loadEngagements();
+    setActionLoading(null);
   }
 
   async function handleRelease(engagementId: string) {
@@ -769,13 +794,34 @@ export default function TeamPortalPage() {
                   >
                     Message
                   </button>
-                  <button
-                    onClick={() => handleRelease(eng.id)}
-                    disabled={actionLoading === eng.id}
-                    className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
-                  >
-                    Release Candidate
-                  </button>
+                  {eng.notice_given_at ? (
+                    <span className="text-sm text-amber-700">
+                      {eng.notice_given_by === "client" ? "You gave" : "They gave"} 14 days&apos;
+                      notice · ends{" "}
+                      {eng.ends_at
+                        ? new Date(eng.ends_at).toLocaleDateString("en-US", { month: "short", day: "numeric" , timeZone: "UTC" })
+                        : ""}
+                    </span>
+                  ) : eng.contract?.status === "fully_executed" ? (
+                    // The signed agreement's own clause: 14 days' written
+                    // notice through the platform. Instant release is refused
+                    // server-side for signed engagements.
+                    <button
+                      onClick={() => handleGiveNotice(eng.id)}
+                      disabled={actionLoading === eng.id}
+                      className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+                    >
+                      End with 14 days&apos; notice
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRelease(eng.id)}
+                      disabled={actionLoading === eng.id}
+                      className="text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+                    >
+                      Release Candidate
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
