@@ -19,6 +19,7 @@ interface MatchedCandidate {
   bio: string;
   profile_photo_url: string | null;
   match_score: number;
+  invited_at?: string | null;
 }
 
 interface JobPostResult {
@@ -51,12 +52,57 @@ function ShortlistContent() {
   const [invited, setInvited] = useState<Set<string>>(new Set());
   const [inviteError, setInviteError] = useState<{ id: string; message: string } | null>(null);
 
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
-    const stored = sessionStorage.getItem("job_post_result");
-    if (stored) {
-      try { setResult(JSON.parse(stored)); } catch { /* ignore */ }
+    // From the DATABASE, not sessionStorage. The matches were persisted at
+    // publish all along; reading them only from browser storage meant a
+    // client who closed the tab could never again see who matched or invite
+    // anyone, while their post stayed candidate-visible for 45 days.
+    let cancelled = false;
+    async function load() {
+      if (!jobId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/jobs/shortlist?id=${encodeURIComponent(jobId)}`);
+        // Every failure used to collapse into "No results found" plus a
+        // "Post a Role" CTA — steering a client with a LIVE post and a
+        // persisted shortlist into publishing a duplicate (which re-runs
+        // matching and re-notifies candidates) because their cookie expired.
+        if (res.status === 401) {
+          router.replace(`/login?next=${encodeURIComponent(`/post-role/shortlist?id=${jobId}`)}`);
+          return;
+        }
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          if (!cancelled) setLoadError(body.error || "Could not load your shortlist.");
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        setResult({ jobPost: data.jobPost, matches: data.matches });
+        setInvited(
+          new Set(
+            (data.matches as MatchedCandidate[])
+              .filter((m) => m.invited_at)
+              .map((m) => m.id)
+          )
+        );
+      } catch {
+        /* the empty state renders */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }, []);
+    const t = setTimeout(load, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [jobId, router]);
 
   async function handleInvite(candidateId: string, displayName: string) {
     void displayName;
@@ -87,6 +133,33 @@ function ShortlistContent() {
       setInviteError({ id: candidateId, message: "Could not reach the server." });
     }
     setInviting(null);
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <p className="text-sm text-gray-500">Loading your shortlist…</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-xl font-bold text-[#1C1B1A]">Couldn&apos;t load your shortlist</h1>
+        <p className="mt-2 text-sm text-gray-500">{loadError}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Your post and its matches are safe — this is a loading problem, not a
+          missing shortlist.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 inline-block rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B]"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (!result) {
@@ -175,7 +248,7 @@ function ShortlistContent() {
         <Link href={`/browse?role=${encodeURIComponent(jobPost.role_category)}`} className="text-sm font-medium text-[#FE6E3E] hover:underline">Browse all {jobPost.role_category} professionals →</Link>
       </div>
       <div className="mt-4 text-center">
-        <button onClick={() => { sessionStorage.removeItem("job_post_result"); router.push("/post-role"); }} className="text-sm text-gray-500 hover:text-[#1C1B1A]">Post another role</button>
+        <button onClick={() => router.push("/post-role")} className="text-sm text-gray-500 hover:text-[#1C1B1A]">Post another role</button>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import ContractReviewModal from "@/components/ContractReviewModal";
 import EscrowPaymentModal from "@/components/escrow/EscrowPaymentModal";
 import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
 import ReviewExchange from "@/components/reviews/ReviewExchange";
+import RolePosts from "@/components/client/RolePosts";
 import type { ReviewState } from "@/lib/reviewEligibility";
 import {
   ResponsiveContainer,
@@ -600,6 +601,9 @@ export default function TeamPortalPage() {
           </div>
         </div>
       )}
+
+      {/* ═══ ROLE POSTS — the way back to a shortlist ═══ */}
+      <RolePosts />
 
       {/* ═══ ACTIVE ENGAGEMENTS ═══ */}
       {activeEngagements.length > 0 && (

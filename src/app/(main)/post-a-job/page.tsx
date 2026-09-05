@@ -172,7 +172,8 @@ export default function PostAJobPage() {
         return;
       }
       localStorage.removeItem(STORAGE_KEY);
-      sessionStorage.setItem("job_post_result", JSON.stringify(data));
+      // The shortlist page reads from /api/jobs/shortlist now — persisted at
+      // publish, owner-scoped, and it survives the browser session. No blob.
       router.push(`/post-role/shortlist?id=${data.jobPost.id}`);
     } catch {
       setError("Publishing failed. Please try again.");
