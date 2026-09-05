@@ -1,8 +1,8 @@
 // src/app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
 import { validateDraft, type JobDraft } from "@/lib/jobDraft";
 import { containsContact, maskCandidateText } from "@/lib/contactMask";
+import { hasUsExperience } from "@/lib/usExperienceLabels";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -10,6 +10,25 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+// The maximum the structured scorer can award: 40 role + 24 must-have +
+// 9 nice-to-have + 15 rate + 8 english + 5 US + 4 availability.
+const MAX_MATCH_SCORE = 105;
+
+/** The columns the shortlist scores over. */
+interface PoolCandidate {
+  id: string;
+  role_category: string | null;
+  hourly_rate: number | null;
+  english_written_tier: string | null;
+  us_client_experience: string | null;
+  availability_status: string | null;
+  skills: unknown;
+  tools: unknown;
+  bio?: string | null;
+  tagline?: string | null;
+  [k: string]: unknown;
 }
 
 // POST — Create a job post and return matched candidates
@@ -73,7 +92,21 @@ export async function POST(req: NextRequest) {
       // brief to the composer is deliberately NOT checked: it is never shown
       // to candidates, and "I run acme-shop.com, need a Shopify VA" is the
       // normal way to use a composer.
-      const freeText = [d.title, d.summary, ...(d.responsibilities || [])].join("\n");
+      // Every field jobs_for_candidate() hands to a candidate goes through this,
+      // not just the prose ones. Skill tags and duration_estimate are rendered
+      // on the role card too, and a chip reading "call 555-0100" is a contact
+      // detail wherever it is displayed.
+      const freeText = [
+        d.title,
+        d.summary,
+        ...(d.responsibilities || []),
+        ...(d.must_have_skills || []),
+        ...(d.nice_to_have_skills || []),
+        d.duration_estimate,
+        d.hours_per_week_estimate,
+      ]
+        .filter(Boolean)
+        .join("\n");
       if (containsContact(freeText)) {
         return NextResponse.json(
           {
@@ -108,12 +141,22 @@ export async function POST(req: NextRequest) {
           experience_level: d.experience_level,
           hours_per_week_estimate: d.hours_per_week_estimate,
           ai_brief: brief,
-          description: d.summary,
+          // `description` is NOT written any more. jobDraft clamps summary to
+          // 600 and job_posts_description_check caps description at 500, so a
+          // 501-600 char summary — well within what the model is asked for and
+          // within the editor's own maxLength — failed the whole INSERT and
+          // returned the raw Postgres error to the Publish button. The column
+          // is nullable and nothing in src/ reads it.
           hours_per_week: d.hours_per_week_estimate,
           budget_range: legacyBudget,
           start_date: startDate,
           status: "active",
-          published_at: new Date().toISOString(),
+          // Deliberately NOT published here. job_is_open() requires
+          // published_at, so the post is invisible to candidates until the
+          // shortlist has been written. Every error path below used to return
+          // after an already-live insert, which left a candidate-visible job
+          // post behind while telling the client that publishing had failed.
+          published_at: null,
         })
         .select()
         .single();
@@ -126,28 +169,41 @@ export async function POST(req: NextRequest) {
       // the single definition of "this candidate may see this job" (role
       // match, or a must-have skill they carry). Shortlisting anyone the rule
       // would hide makes no sense: they could never be invited.
-      const availabilityFilter =
-        startDate === "Immediately"
-          ? ["available_now"]
-          : ["available_now", "available_by_date"];
+      // One call, and the SAME predicate the candidate's own list uses
+      // (00192). This was a pool query with a hand-rolled copy of the
+      // approved / ID-window / availability rules — which silently omitted
+      // permanently_blocked, unlike /api/match — followed by one RPC round trip
+      // PER CANDIDATE. 31 today; unusable at the agreed 10k target.
+      const { data: eligible, error: eligibleErr } = await supabase.rpc(
+        "candidates_for_job",
+        { p_job_id: jobPost.id }
+      );
+      if (eligibleErr) {
+        // The post exists but is unpublished; remove it rather than leave a
+        // draft the client cannot see or retry.
+        await supabase.from("job_posts").delete().eq("id", jobPost.id);
+        return NextResponse.json({ error: eligibleErr.message }, { status: 500 });
+      }
+      const eligibleIds = (eligible || []).map((r: { candidate_id: string }) => r.candidate_id);
 
-      const { data: pool } = await supabase
-        .from("candidates")
-        .select(
-          "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url, skills, tools"
-        )
-        .eq("admin_status", "approved")
-      // Overdue-unverified profiles are hidden from clients (00154).
-      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
-        .in("availability_status", availabilityFilter);
-
-      const visible: typeof pool = [];
-      for (const c of pool || []) {
-        const { data: ok } = await supabase.rpc("job_visible_to_candidate", {
-          p_job_id: jobPost.id,
-          p_candidate_id: c.id,
-        });
-        if (ok === true) visible.push(c);
+      // Fetched in chunks. supabase-js splices every id into a PostgREST GET
+      // querystring, and candidates_for_job has no LIMIT, so a broad role at
+      // the agreed 10k-candidate target would build a URL past what the
+      // gateway accepts and fail the publish outright.
+      const CHUNK = 200;
+      let visible: PoolCandidate[] = [];
+      for (let i = 0; i < eligibleIds.length; i += CHUNK) {
+        const { data: rows, error: poolErr } = await supabase
+          .from("candidates")
+          .select(
+            "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, total_earnings_usd, bio, profile_photo_url, skills, tools"
+          )
+          .in("id", eligibleIds.slice(i, i + CHUNK));
+        if (poolErr) {
+          await supabase.from("job_posts").delete().eq("id", jobPost.id);
+          return NextResponse.json({ error: poolErr.message }, { status: 500 });
+        }
+        visible = visible.concat((rows || []) as PoolCandidate[]);
       }
 
       const norm = (arr: unknown): string[] =>
@@ -157,15 +213,23 @@ export async function POST(req: NextRequest) {
         .map((c) => {
           let score = 0;
           if (c.role_category?.toLowerCase() === d.role_category.toLowerCase()) score += 40;
-          const candidateSkills = new Set([...norm(c.skills), ...norm(c.tools)]);
+          // Must-have scores against SKILLS ONLY, matching
+          // job_skill_or_role_match in 00192. The gate and the score have to
+          // read the same vocabulary: crediting tools here while the gate
+          // ignores them would rank a candidate highly on "Slack" for a
+          // bookkeeping role they only reached on role category.
+          const candidateSkills = new Set(norm(c.skills));
           let must = 0;
           for (const skill of d.must_have_skills) {
             if (candidateSkills.has(skill.toLowerCase())) must += 8;
           }
           score += Math.min(must, 24);
+          // Nice-to-have may still credit tools: it is a tie-breaker, not a
+          // qualification, and familiarity with a client's stack is real.
+          const candidateSkillsAndTools = new Set([...norm(c.skills), ...norm(c.tools)]);
           let nice = 0;
           for (const skill of d.nice_to_have_skills) {
-            if (candidateSkills.has(skill.toLowerCase())) nice += 3;
+            if (candidateSkillsAndTools.has(skill.toLowerCase())) nice += 3;
           }
           score += Math.min(nice, 9);
           if (d.rate_type === "hourly" && typeof c.hourly_rate === "number") {
@@ -177,239 +241,78 @@ export async function POST(req: NextRequest) {
           if (c.english_written_tier === "exceptional") score += 8;
           else if (c.english_written_tier === "proficient") score += 5;
           else if (c.english_written_tier === "competent") score += 3;
-          if (c.us_client_experience) score += 5;
+          // The column is an enum whose "none" value is a truthy string, so
+          // every candidate scored this. The helper is already used by four
+          // other surfaces, including the badge on this very card — so a
+          // candidate could score the bonus and not get the badge.
+          if (hasUsExperience(c.us_client_experience as string | null)) score += 5;
           if (c.availability_status === "available_now") score += 4;
-          return { ...maskCandidateText(c), match_score: score };
+          // Raw scores max at 105 and the shortlist renders this as both
+          // `width: ${score}%` and "{score}% match" — so a strong match
+          // overflowed the bar and told a paying client "105% match".
+          const pct = Math.max(0, Math.min(100, Math.round((score / MAX_MATCH_SCORE) * 100)));
+          return { ...maskCandidateText(c), match_score: pct };
         })
         .sort((a, b) => b.match_score - a.match_score)
         .slice(0, 12);
 
+      // The structured branch is the only reachable publish path and it never
+      // wrote job_post_matches — the single insert lived in the legacy branch
+      // below, which no UI can reach. That is why the table has zero rows and
+      // why "Invite to Role" has always updated nothing. Error-checked, because
+      // a silent failure here is exactly how that went unnoticed.
+      if (matches.length > 0) {
+        const { error: matchErr } = await supabase
+          .from("job_post_matches")
+          .upsert(
+            matches.map((m) => ({
+              job_post_id: jobPost.id,
+              candidate_id: m.id as string,
+              match_score: m.match_score,
+            })),
+            { onConflict: "job_post_id,candidate_id" }
+          );
+        if (matchErr) {
+          // Not swallowed. These rows are the ONLY authorization the invite
+          // route accepts, so a silent failure here produces a shortlist where
+          // every "Invite" returns 404 — and the post stays unpublished, so a
+          // candidate would never see it either.
+          console.error("[jobs] job_post_matches upsert failed:", matchErr.message);
+          await supabase.from("job_posts").delete().eq("id", jobPost.id);
+          return NextResponse.json(
+            { error: "Could not build the shortlist for this role. Nothing was published." },
+            { status: 500 }
+          );
+        }
+      }
+
+      // Everything landed: NOW the post becomes visible to candidates.
+      const { error: publishErr } = await supabase
+        .from("job_posts")
+        .update({ published_at: new Date().toISOString() })
+        .eq("id", jobPost.id);
+      if (publishErr) {
+        await supabase.from("job_posts").delete().eq("id", jobPost.id);
+        return NextResponse.json({ error: "Could not publish this role." }, { status: 500 });
+      }
+
       return NextResponse.json({ jobPost, matches });
     }
 
-    const {
-      role_category,
-      custom_role_description,
-      hours_per_week,
-      budget_range,
-      start_date,
-      description,
-    } = body;
-
-    if (!role_category || !hours_per_week || !budget_range || !start_date) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    if (containsContact([description || "", custom_role_description || ""].join("\n"))) {
-      return NextResponse.json(
-        {
-          error:
-            "Job posts can't include contact details — candidates apply and message you here on StaffVA, which keeps both sides protected.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const { data: jobPost, error: insertError } = await supabase
-      .from("job_posts")
-      .insert({
-        client_id: client.id,
-        role_category,
-        custom_role_description:
-          role_category === "Other" ? custom_role_description : null,
-        hours_per_week,
-        budget_range,
-        start_date,
-        description,
-        status: "active",
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 500 }
-      );
-    }
-
-    // --- AI Matching: score approved candidates ---
-
-    let budgetMin = 0;
-    let budgetMax = 99999;
-    switch (budget_range) {
-      case "Under $800":
-        budgetMin = 0;
-        budgetMax = 800;
-        break;
-      case "$800 - $1,200":
-        budgetMin = 800;
-        budgetMax = 1200;
-        break;
-      case "$1,200 - $2,000":
-        budgetMin = 1200;
-        budgetMax = 2000;
-        break;
-      case "Over $2,000":
-        budgetMin = 2000;
-        budgetMax = 99999;
-        break;
-    }
-
-    const availabilityFilter =
-      start_date === "Immediately"
-        ? ["available_now"]
-        : ["available_now", "available_by_date"];
-
-    const { data: candidates } = await supabase
-      .from("candidates")
-      .select(
-        "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, committed_hours, total_earnings_usd, bio, profile_photo_url"
-      )
-      .eq("admin_status", "approved")
-      // Overdue-unverified profiles are hidden from clients (00154).
-      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
-      .in("availability_status", availabilityFilter);
-
-    if (!candidates || candidates.length === 0) {
-      return NextResponse.json({
-        jobPost,
-        matches: [],
-        message: "No matching candidates found",
-      });
-    }
-
-    // Scoring: 6 dimensions, max 90 pts total (role_match 40 + budget 15 + english_tier 15 + us_experience 10 + availability 5 + earnings_bonus 5)
-    const scored = candidates.map((c) => {
-      let score = 0;
-
-      // Role match (40 points)
-      if (c.role_category?.toLowerCase() === role_category.toLowerCase()) {
-        score += 40;
-      } else {
-        const legalRoles = ["paralegal", "legal assistant", "legal secretary", "litigation support", "contract reviewer"];
-        const accountingRoles = ["bookkeeper", "accounts payable specialist", "accounts receivable specialist", "payroll specialist", "tax preparer", "financial analyst"];
-        const adminRoles = ["administrative assistant", "executive assistant", "virtual assistant", "office manager", "data entry specialist"];
-        const medicalRoles = ["medical billing specialist", "medical administrative assistant", "insurance verification specialist", "dental office administrator"];
-
-        const candidateRole = (c.role_category || "").toLowerCase();
-        const targetRole = role_category.toLowerCase();
-
-        const roleGroups = [legalRoles, accountingRoles, adminRoles, medicalRoles];
-        for (const group of roleGroups) {
-          if (
-            group.some((r) => candidateRole.includes(r)) &&
-            group.some((r) => targetRole.includes(r))
-          ) {
-            score += 20;
-            break;
-          }
-        }
-      }
-
-      // Budget fit (15 points)
-      if (c.hourly_rate >= budgetMin && c.hourly_rate <= budgetMax) {
-        score += 15;
-      } else if (c.hourly_rate >= budgetMin * 0.8 && c.hourly_rate <= budgetMax * 1.2) {
-        score += 8;
-      }
-
-      // English tier (15 points)
-      if (c.english_written_tier === "exceptional") score += 15;
-      else if (c.english_written_tier === "proficient") score += 10;
-      else if (c.english_written_tier === "competent") score += 5;
-
-      // US client experience (10 points). Legacy enum values map to the closest new bucket.
-      const usExpPoints: Record<string, number> = {
-        "5_plus_years": 10,
-        "2_to_5_years": 8,
-        "1_to_2_years": 6,
-        "6_months_to_1_year": 4,
-        "less_than_6_months": 2,
-        international_only: 1,
-        none: 0,
-        full_time: 10,
-        part_time_contract: 6,
-      };
-      if (c.us_client_experience && usExpPoints[c.us_client_experience as string] !== undefined) {
-        score += usExpPoints[c.us_client_experience as string];
-      }
-
-      // Availability (5 points)
-      if (c.availability_status === "available_now") score += 5;
-      else if (c.availability_status === "available_by_date") score += 3;
-
-      // Verified earnings bonus (5 points)
-      if (c.total_earnings_usd > 5000) score += 5;
-      else if (c.total_earnings_usd > 1000) score += 3;
-      else if (c.total_earnings_usd > 0) score += 1;
-
-      return { ...maskCandidateText(c), match_score: score };
-    });
-
-    scored.sort((a, b) => b.match_score - a.match_score);
-    const topMatches = scored.slice(0, 5);
-    const nearMisses = scored.slice(5, 10);
-
-    if (topMatches.length > 0) {
-      const matchRows = topMatches.map((m) => ({
-        job_post_id: jobPost.id,
-        candidate_id: m.id,
-        match_score: m.match_score,
-      }));
-
-      await supabase.from("job_post_matches").insert(matchRows);
-    }
-
-    // Feature 5: Send role match alert emails to candidates ranked 6-10
-    if (nearMisses.length > 0 && process.env.RESEND_API_KEY) {
-      // Get emails for near-miss candidates
-      const nearMissIds = nearMisses.map((c) => c.id);
-      const { data: nearMissCandidates } = await supabase
-        .from("candidates")
-        .select("id, email, display_name")
-        .in("id", nearMissIds);
-
-      if (nearMissCandidates) {
-        for (const c of nearMissCandidates) {
-          try {
-            await sendEmail({
-                from: "StaffVA <notifications@staffva.com>",
-                to: c.email,
-                subject: "A client is looking for someone like you",
-                html: `
-                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-                    <h2 style="color: #1C1B1A; font-size: 18px;">Hi ${c.display_name?.split(" ")[0] || "there"},</h2>
-                    <p style="color: #666; font-size: 14px; line-height: 1.6;">
-                      A client recently posted a role for a <strong>${role_category}</strong> professional on StaffVA.
-                    </p>
-                    <p style="color: #666; font-size: 14px; line-height: 1.6;">
-                      Make sure your profile is complete and your availability is up to date so you are first in line for the next opportunity.
-                    </p>
-                    <div style="text-align: center; margin: 28px 0;">
-                      <a href="https://staffva.com/candidate/dashboard" style="display: inline-block; background: #FE6E3E; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Review my profile</a>
-                    </div>
-                    <p style="color: #999; font-size: 12px; border-top: 1px solid #E0E0E0; padding-top: 16px; margin-top: 32px;">
-                      You received this because you have an active profile on StaffVA matching this role category.
-                    </p>
-                  </div>
-                `,
-              }, { recipientKind: "candidate", emailType: "role_match_alert" });
-          } catch {
-            // Silent — don't block the response
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      }
-    }
-
-    return NextResponse.json({
-      jobPost,
-      matches: topMatches,
-    });
+    // The legacy branch used to live here and has been deleted.
+    //
+    // It was unreachable: /post-role redirects to /post-a-job, which always
+    // posts a structured draft. It never set published_at, so anything it
+    // wrote would be invisible to the candidate's list forever. It carried a
+    // second scoring rule and a second role-matching heuristic — two publish
+    // paths is exactly what produced the two generations of column shape in
+    // job_posts. And it held a five-candidate near-miss mail blast to
+    // candidates, which the freeze suppresses today but which should not be
+    // sitting there waiting for the freeze to lift.
+    return NextResponse.json(
+      { error: "Job posts must be created through the composer." },
+      { status: 400 }
+    );
   } catch (err) {
     console.error("Job post error:", err);
     return NextResponse.json(

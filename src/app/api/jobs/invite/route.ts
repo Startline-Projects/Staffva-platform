@@ -9,6 +9,14 @@ function getAdminClient() {
   );
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = getAdminClient();
@@ -29,7 +37,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { job_post_id, candidate_id, candidate_name, role_category, hours_per_week, budget_range } = body;
+    // Only the two ids are read from the body now. Everything shown in the
+    // email comes from the stored job row: four caller-controlled strings
+    // used to be interpolated unescaped into StaffVA-branded mail, so an
+    // <a href> in budget_range shipped as a link from notifications@staffva.com.
+    const { job_post_id, candidate_id } = body;
 
     if (!job_post_id || !candidate_id) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -46,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const { data: jobPost } = await supabase
       .from("job_posts")
-      .select("client_id")
+      .select("client_id, role_category, title, hours_per_week_estimate, rate_type, hourly_rate_min, hourly_rate_max, fixed_budget")
       .eq("id", job_post_id)
       .maybeSingle();
 
@@ -54,12 +66,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Mark as invited in job_post_matches
-    await supabase
+    // Compare-and-swap, and the match row is the authorization.
+    //
+    // This was a fire-and-forget update that matched zero rows — the publish
+    // path never wrote job_post_matches — and then returned {success:true},
+    // which the shortlist rendered as "✓ Invited". It also never validated
+    // candidate_id, so a client could mail any of the 256 candidate rows,
+    // including rejected and withdrawn people. Requiring an existing match row
+    // makes the shortlist the only thing a client can invite from.
+    const { data: claimed, error: claimErr } = await supabase
       .from("job_post_matches")
       .update({ invited_at: new Date().toISOString() })
       .eq("job_post_id", job_post_id)
-      .eq("candidate_id", candidate_id);
+      .eq("candidate_id", candidate_id)
+      .is("invited_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (claimErr) {
+      console.error("[invite] claim failed:", claimErr.message);
+      return NextResponse.json({ error: "Could not send the invite." }, { status: 500 });
+    }
+    if (!claimed) {
+      // Either there is no match row (not shortlisted for this post) or the
+      // invite already went out. Distinguish them, so the UI can too.
+      const { data: existing } = await supabase
+        .from("job_post_matches")
+        .select("invited_at")
+        .eq("job_post_id", job_post_id)
+        .eq("candidate_id", candidate_id)
+        .maybeSingle();
+      if (!existing) {
+        return NextResponse.json(
+          { error: "That candidate is not shortlisted for this role." },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json({ success: true, already: true });
+    }
 
     // Get candidate email
     const { data: candidate } = await supabase
@@ -67,6 +111,19 @@ export async function POST(req: NextRequest) {
       .select("email, display_name")
       .eq("id", candidate_id)
       .single();
+
+    const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
+    const hoursLine = jobPost.hours_per_week_estimate
+      ? ` for ${escapeHtml(jobPost.hours_per_week_estimate)}`
+      : "";
+    // budget_range is not used: it holds monthly buckets on legacy rows and
+    // hourly strings on new ones, so the old copy read "$5-$12/hr per month".
+    const rateLine =
+      jobPost.rate_type === "fixed" && jobPost.fixed_budget != null
+        ? ` at $${Number(jobPost.fixed_budget).toLocaleString()} fixed`
+        : jobPost.hourly_rate_min != null && jobPost.hourly_rate_max != null
+          ? ` at $${jobPost.hourly_rate_min}-$${jobPost.hourly_rate_max}/hr`
+          : "";
 
     // Send invite notification email via Resend
     if (candidate?.email && process.env.RESEND_API_KEY) {
@@ -77,11 +134,11 @@ export async function POST(req: NextRequest) {
             subject: "A client wants to connect with you on StaffVA",
             html: `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1C1B1A;">Hi ${candidate.display_name || candidate_name},</h2>
-                <p style="color: #666;">A client is looking for a <strong>${role_category}</strong> professional for <strong>${hours_per_week}</strong> at <strong>${budget_range}</strong> per month.</p>
+                <h2 style="color: #1C1B1A;">Hi ${escapeHtml(candidate.display_name || "there")},</h2>
+                <p style="color: #666;">A client is looking for a <strong>${escapeHtml(jobPost.role_category || "professional")}</strong>${hoursLine}${rateLine}.</p>
                 <p style="color: #666;">They reviewed your profile and would like to connect.</p>
                 <p style="margin-top: 24px;">
-                  <a href="https://staffva.com/login" style="background: #FE6E3E; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Log in to respond</a>
+                  <a href="${SITE}/candidate/work" style="background: #FE6E3E; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">See the role</a>
                 </p>
                 <p style="color: #999; font-size: 12px; margin-top: 32px;">You received this because you have an active profile on StaffVA.</p>
               </div>

@@ -59,7 +59,17 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
   if (!offer) return <div className="py-20 text-center text-text-muted">Offer not found</div>;
 
   const expiryDate = new Date(new Date(offer.sent_at).getTime() + 5 * 24 * 60 * 60 * 1000);
-  const isExpired = offer.status === "expired" || (offer.status === "sent" && expiryDate < new Date());
+  // Expiry is a STATUS, not a clock reading. /api/cron/expire-offers flips it
+  // once daily at 12:00 UTC, and the accept CAS in /api/offers honours
+  // sent/viewed with no time predicate — so ticking here refused an acceptance
+  // the server would have taken. It also contradicted the offer card on
+  // /candidate/work, which is the only surface an offer reaches a candidate
+  // through while candidate email is frozen, and it made this page disagree
+  // with itself: the tick only applied to status 'sent', so the same
+  // past-deadline offer showed "expired" before the page marked it viewed and
+  // Accept/Decline immediately after. expiryDate is still used for the
+  // "respond by" line below, which stays true.
+  const isExpired = offer.status === "expired";
   const clientName = (offer.clients as Offer["clients"])?.full_name || "A client";
   const company = (offer.clients as Offer["clients"])?.company_name;
 

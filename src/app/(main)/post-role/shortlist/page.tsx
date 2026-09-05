@@ -49,6 +49,7 @@ function ShortlistContent() {
   const [result, setResult] = useState<JobPostResult | null>(null);
   const [inviting, setInviting] = useState<string | null>(null);
   const [invited, setInvited] = useState<Set<string>>(new Set());
+  const [inviteError, setInviteError] = useState<{ id: string; message: string } | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("job_post_result");
@@ -58,18 +59,33 @@ function ShortlistContent() {
   }, []);
 
   async function handleInvite(candidateId: string, displayName: string) {
+    void displayName;
     setInviting(candidateId);
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !result) return;
-      await fetch("/api/jobs/invite", {
+      // Only the two ids are sent now: the route reads everything the email
+      // shows from the stored job row, because four caller-supplied strings
+      // used to be interpolated unescaped into StaffVA-branded mail.
+      const res = await fetch("/api/jobs/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ job_post_id: jobId, candidate_id: candidateId, candidate_name: displayName, role_category: result.jobPost.role_category, hours_per_week: result.jobPost.hours_per_week, budget_range: result.jobPost.budget_range }),
+        body: JSON.stringify({ job_post_id: jobId, candidate_id: candidateId }),
       });
+      // fetch does not reject on 4xx/5xx, and this used to mark the candidate
+      // invited on the next line regardless — so a 404 ("not shortlisted for
+      // this role") or a 500 still rendered "✓ Invited".
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setInviteError({ id: candidateId, message: body.error || "Could not send that invite." });
+        return;
+      }
+      setInviteError(null);
       setInvited((prev) => new Set(prev).add(candidateId));
-    } catch { /* silent */ }
+    } catch {
+      setInviteError({ id: candidateId, message: "Could not reach the server." });
+    }
     setInviting(null);
   }
 
@@ -142,10 +158,13 @@ function ShortlistContent() {
               </div>
               <div className="mt-4 flex items-center gap-3 pl-[5.5rem]">
                 <Link href={`/candidate/${candidate.id}`} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors">View Profile</Link>
-                <Link href={`/inbox?to=${candidate.id}`} className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors">Message</Link>
+                <Link href={`/inbox?candidate=${candidate.id}`} className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors">Message</Link>
                 <button onClick={() => handleInvite(candidate.id, candidate.display_name)} disabled={inviting === candidate.id || invited.has(candidate.id)} className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${invited.has(candidate.id) ? "border-green-200 bg-green-50 text-green-600 cursor-default" : "border-gray-200 text-[#1C1B1A] hover:border-[#FE6E3E] hover:text-[#FE6E3E]"} disabled:opacity-50`}>
                   {invited.has(candidate.id) ? "✓ Invited" : inviting === candidate.id ? "Sending..." : "Invite to Role"}
                 </button>
+                {inviteError?.id === candidate.id && (
+                  <p className="mt-1 text-xs text-red-600">{inviteError.message}</p>
+                )}
               </div>
             </div>
           ))}

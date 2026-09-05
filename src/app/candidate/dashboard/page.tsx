@@ -7,6 +7,7 @@ import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import Asti, { AstiPointChip, AstiProgressRing } from "@/components/landing/Asti";
 import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
 import LivePortal from "@/components/candidate/LivePortal";
+import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import StartInterviewButton from "@/app/candidate/dashboard/StartInterviewButton";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
@@ -133,10 +134,17 @@ export default async function CandidateDashboardPage() {
     if (liveError || !live) {
       throw new Error(`live candidate lookup failed: ${liveError?.message ?? "no row"}`);
     }
+    // Same loader the work page uses, so the two surfaces cannot disagree
+    // about whether an offer is waiting. A failure here must not silently
+    // become "no offers" — that is the one thing this must never get wrong —
+    // so loadCandidateWork throws and this page fails loudly.
+    const { offers } = await loadCandidateWork(live.id);
+    const waiting = pendingOffers(offers).length;
+
     return (
       <>
         <Navbar />
-        <LivePortal candidate={live} />
+        <LivePortal candidate={live} pendingOfferCount={waiting} />
         <LegacyDashboard variant="live" />
       </>
     );

@@ -193,18 +193,20 @@ export async function POST(req: NextRequest) {
       } catch { /* fallback to defaults */ }
     }
 
-    // Query candidates
-    const { data: candidates } = await admin
-      .from("candidates")
-      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status")
-      .eq("admin_status", "approved")
-      .eq("permanently_blocked", false)
-      // Overdue-unverified profiles are hidden from clients (00154).
-      .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
-      // Someone who said they are not available should not be matched to work.
-      // /api/jobs has always applied this; this route never did, so the same
-      // person was excluded from one shortlist and returned by the other.
-      .in("availability_status", ["available_now", "available_by_date"]);
+    // Query candidates through the shared view (00192), which holds the one
+    // definition of "eligible to be matched": approved, not permanently
+    // blocked, inside the ID-verification window, and not self-marked
+    // unavailable. The four filters used to be pasted here by hand — and the
+    // same string was pasted again in /api/jobs and a third time in the SQL
+    // function, which is how they came to disagree.
+    const { data: candidates, error: poolError } = await admin
+      .from("matchable_candidates")
+      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status");
+
+    if (poolError) {
+      console.error("[match] pool query failed:", poolError.message);
+      return NextResponse.json({ error: "Could not search right now." }, { status: 500 });
+    }
 
     if (!candidates || candidates.length === 0) {
       return NextResponse.json({ results: [], extracted, message: "No candidates available" });

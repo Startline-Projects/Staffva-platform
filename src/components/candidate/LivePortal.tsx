@@ -19,6 +19,8 @@ import GoingLiveWelcome from "./GoingLiveWelcome";
  */
 
 interface Props {
+  /** Offers still awaiting an answer, from the same loader /candidate/work uses. */
+  pendingOfferCount?: number;
   candidate: VisibilityInput & {
     id: string;
     first_name?: string | null;
@@ -32,7 +34,7 @@ interface Props {
   };
 }
 
-export default function LivePortal({ candidate }: Props) {
+export default function LivePortal({ candidate, pendingOfferCount = 0 }: Props) {
   const vis = computeVisibility(candidate);
   const stale = availabilityIsStale(candidate);
   const firstName =
@@ -52,6 +54,28 @@ export default function LivePortal({ candidate }: Props) {
           ID-overdue candidate whom the marketplace query excludes. */}
       {!candidate.going_live_ack_at && vis.searchable && (
         <GoingLiveWelcome firstName={firstName} />
+      )}
+
+      {/* An offer is the single most important thing that can be true of a
+          live candidate, and with candidate email frozen this card is the ONLY
+          way one reaches them. It sits above the status card on purpose. */}
+      {pendingOfferCount > 0 && (
+        <section className="mb-6 rounded-lg border border-[#FE6E3E] bg-orange-50 p-5">
+          <h2 className="text-base font-bold text-[#1C1B1A]">
+            {pendingOfferCount === 1
+              ? "You have an offer waiting."
+              : `You have ${pendingOfferCount} offers waiting.`}
+          </h2>
+          <p className="mt-1 text-sm text-gray-700">
+            A client wants to work with you. Have a look and give them an answer.
+          </p>
+          <Link
+            href="/candidate/work"
+            className="mt-3 inline-block rounded-full bg-[#FE6E3E] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#E55A2B]"
+          >
+            Review it
+          </Link>
+        </section>
       )}
 
       {/* ── Live status ── */}
@@ -91,12 +115,20 @@ export default function LivePortal({ candidate }: Props) {
                     : "Clients browsing StaffVA can find your profile, and you're included when they post new work."}
             </p>
           </div>
-          <Link
-            href={`/candidate/${candidate.id}`}
-            className="shrink-0 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
-          >
-            View my public profile
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link
+              href="/candidate/work"
+              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+            >
+              See what&apos;s open
+            </Link>
+            <Link
+              href={`/candidate/${candidate.id}`}
+              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-[#1C1B1A] transition-colors hover:border-[#1C1B1A]"
+            >
+              View my public profile
+            </Link>
+          </div>
         </div>
 
         {reasons.length > 0 && (

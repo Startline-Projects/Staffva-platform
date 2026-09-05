@@ -590,8 +590,13 @@ export default function PostAJobPage() {
               {phase === "publishing" ? "Publishing…" : "Publish this job"}
             </button>
             <p className="mt-3 text-xs leading-relaxed text-text-tertiary">
-              Only candidates matching this role or its skills will see the post.
-              You&apos;ll get a shortlist of matches the moment it&apos;s live.
+              {/* This sentence was false until step 14: no candidate could see a
+                  job post at all, because nothing rendered one. It is true now,
+                  and the 45 days is the window job_is_open() enforces — the
+                  number is defined in SQL and stated here, nowhere else. */}
+              Only candidates matching this role or its skills see it, and it
+              stays on their work page for 45 days. You&apos;ll get a shortlist
+              of matches the moment it&apos;s live.
             </p>
           </div>
         </aside>

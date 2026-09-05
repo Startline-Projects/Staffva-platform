@@ -50,7 +50,10 @@ export async function GET() {
       .from("engagement_offers")
       .select("*, clients(full_name, company_name)")
       .eq("candidate_id", candidate.id)
-      .in("status", ["sent", "viewed", "accepted", "declined"])
+      // `expired` included: with candidate mail frozen, the likeliest thing to
+      // happen to an offer is that it times out unseen, and dropping it here
+      // would erase the evidence the candidate was ever offered work.
+      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
       .order("sent_at", { ascending: false });
 
     return NextResponse.json({ offers: data || [] });
