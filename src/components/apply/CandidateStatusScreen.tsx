@@ -182,13 +182,17 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
               <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              <span className="text-sm text-text/70">Profile live and visible to clients</span>
+              {/* NOT "live and visible" — at this moment the profile is
+                  submitted, review has not happened, and the interview below
+                  is a GATE, not polish. Both lies pointed people away from the
+                  one step that actually blocks them. */}
+              <span className="text-sm text-text/70">Profile submitted for review</span>
             </li>
             <li className="flex items-start gap-2">
               <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-primary flex items-center justify-center">
                 <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               </div>
-              <span className="text-sm text-text/70 font-medium">Take the AI interview to boost your ranking</span>
+              <span className="text-sm text-text/70 font-medium">Take the AI interview — required before your profile can go live</span>
             </li>
           </ul>
 
@@ -207,6 +211,16 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
                 )}
               </div>
             )}
+            {/* The only pre-approval door to the video recorder. Atlas puts
+                record-intro inside the pipeline; without a link here the whole
+                feature was dark for the cohort meant to record before review
+                (0 of 256 have one — the step-11 diagnosis, still true). */}
+            <Link
+              href="/profile/video-intro"
+              className="block w-full rounded-lg border border-gray-200 px-6 py-2.5 text-center text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+            >
+              Add a 75-second video intro (optional — clients watch it first)
+            </Link>
             <Link
               href="/candidate/dashboard"
               className="block w-full rounded-lg border border-gray-200 px-6 py-2.5 text-center text-sm font-medium text-text hover:bg-gray-50 transition-colors"

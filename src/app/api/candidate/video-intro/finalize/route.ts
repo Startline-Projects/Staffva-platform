@@ -36,10 +36,20 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { takeId, chunkCount, durationMs, sections } = body as {
+  const { takeId, chunkCount, durationMs, sections, mimeType } = body as {
     takeId?: string; chunkCount?: number; durationMs?: number;
     sections?: { index: number; prompt: string; start_ms: number }[];
+    mimeType?: string;
   };
+
+  // The container the recorder actually produced. Chrome/Firefox record WebM,
+  // Safari records MP4 — and the final object used to be stamped video/webm
+  // regardless, so a Safari candidate's intro would not play back for them or
+  // for the reviewer. Allowlisted, never trusted raw.
+  const finalContentType =
+    typeof mimeType === "string" && /^video\/mp4(;|$)/.test(mimeType)
+      ? "video/mp4"
+      : "video/webm";
 
   if (!takeId || !/^[0-9a-f-]{36}$/i.test(takeId)) {
     return NextResponse.json({ error: "Bad take" }, { status: 400 });
@@ -95,11 +105,11 @@ export async function POST(req: NextRequest) {
     parts.push(buf);
   }
 
-  const finalPath = `${candidate.id}/intro/${takeId}.webm`;
+  const finalPath = `${candidate.id}/intro/${takeId}.${finalContentType === "video/mp4" ? "mp4" : "webm"}`;
   const { error: upErr } = await db.storage
     .from("video-intros")
     .upload(finalPath, Buffer.concat(parts), {
-      contentType: "video/webm",
+      contentType: finalContentType,
       upsert: true,
     });
   if (upErr) {

@@ -398,7 +398,9 @@ export default async function CandidateProfilePage({
       {isOwnProfile && candidate.admin_status === "revision_required" && (
         <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
           <p className="text-sm text-red-800">
-            <strong>Action required</strong> — Our team has reviewed your profile and left feedback. Check your email for details on what to update.
+            {/* The reviewer's note renders on the dashboard; pointing at email
+                the freeze withholds is the step-12 defect on a second surface. */}
+            <strong>Action required</strong> — Our team reviewed your profile and left feedback. Your dashboard shows exactly what to change.
           </p>
           <Link href="/apply" className="mt-1 inline-block text-sm font-semibold text-red-700 underline hover:text-red-900">
             Edit your profile
@@ -408,7 +410,12 @@ export default async function CandidateProfilePage({
       {isOwnProfile && candidate.admin_status === "rejected" && (
         <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
           <p className="text-sm text-red-800">
-            <strong>Profile needs updates</strong> — Your profile needs updates before going live. Check your email for instructions from our team.
+            {/* This is a FINAL decision. "Needs updates — check your email"
+                described a recoverable state and pointed at frozen mail — the
+                precise harm step 12 was recorded as fixing, alive here. */}
+            <strong>This application was not approved</strong> — the decision and
+            your options (appeal, and when you can apply again) are on your{" "}
+            <Link href="/candidate/dashboard" className="underline font-semibold">dashboard</Link>.
           </p>
         </div>
       )}
@@ -423,7 +430,7 @@ export default async function CandidateProfilePage({
         ) : (
           <div className="bg-green-50 border-b border-green-200 px-6 py-3 text-center">
             <p className="text-sm text-green-800">
-              <strong>Your profile is live</strong> — You are visible to clients. You will be notified when a client sends you a message.
+              <strong>Your profile is live</strong> — You are visible to clients. Offers and invitations land on your dashboard the moment they happen.
             </p>
           </div>
         )

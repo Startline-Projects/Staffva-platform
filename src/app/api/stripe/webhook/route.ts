@@ -84,10 +84,18 @@ export async function POST(request: Request) {
       const candidateId = session.metadata?.candidate_id;
 
       if (candidateId) {
+        // passed may overwrite pending or failed (a late success is a
+        // success) but never a manual_review hold — that is a human's verdict
+        // in progress, and create-session/check-status already refuse to
+        // touch those rows for the same reason.
+        // .or over .neq: PostgREST's .neq silently drops NULL rows (the step-9
+        // lesson). No NULLs exist today (column defaults 'pending') but the
+        // filter must not depend on that staying true.
         await supabase
           .from("candidates")
           .update({ id_verification_status: "passed" })
-          .eq("id", candidateId);
+          .eq("id", candidateId)
+          .or("id_verification_status.is.null,id_verification_status.neq.manual_review");
 
         // Anchor the verified identity: store the session id, compute the
         // identity hash, and flag if this same document already verified a
@@ -165,10 +173,21 @@ export async function POST(request: Request) {
       const candidateId = session.metadata?.candidate_id;
 
       if (candidateId) {
-        await supabase
+        // Guarded transition: Stripe events arrive OUT OF ORDER (a delayed
+        // requires_input can land after the verified event from the same
+        // session), and this write used to be unconditional — flipping
+        // passed -> failed, showing the candidate a failure screen, and once
+        // their 14-day window lapsed, hiding them from every client surface.
+        // It also dissolved manual_review holds an admin had placed. A failed
+        // stamp may only land on a row still waiting for one.
+        const { data: failedApplied } = await supabase
           .from("candidates")
           .update({ id_verification_status: "failed" })
-          .eq("id", candidateId);
+          .eq("id", candidateId)
+          .eq("id_verification_status", "pending")
+          .select("id")
+          .maybeSingle();
+        if (!failedApplied) break;
 
         // Send failure email
         if (process.env.RESEND_API_KEY) {

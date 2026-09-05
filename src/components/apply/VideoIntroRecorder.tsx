@@ -367,6 +367,10 @@ export default function VideoIntroRecorder({
           chunkCount: chunkNRef.current,
           durationMs,
           sections: sectionsRef.current,
+          // The container the recorder ACTUALLY produced. Safari records MP4;
+          // storing it as video/webm made the candidate's own intro (and the
+          // admin review player) refuse to play it back on the same device.
+          mimeType: mimeRef.current,
         }),
       });
       const data = await res.json().catch(() => ({}));

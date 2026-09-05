@@ -9,6 +9,7 @@ import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import { loadMyReviewState, openReviews } from "@/lib/reviewState";
 import StartInterviewButton from "@/app/candidate/(portal)/dashboard/StartInterviewButton";
+import { ResubmitButton, AppealForm, ReapplyButton } from "@/components/candidate/OutcomeActions";
 
 function getAdminClient() {
   return createClient(
@@ -413,6 +414,29 @@ export default async function CandidateDashboardPage() {
       tips: [],
     },
   };
+  // The specialist channel's change items. Three channels can put someone in
+  // a revision state, and this one delivered its items ONLY through an email
+  // the freeze suppresses — the candidate saw a generic "something needs an
+  // update" with no way to learn what.
+  let changeItems: { area: string; instruction: string }[] = [];
+  if (candidate && ["revision_required", "changes_requested"].includes(candidate.admin_status ?? "")) {
+    const { data: pendingReq } = await admin
+      .from("candidate_change_requests")
+      .select("change_items, general_note")
+      .eq("candidate_id", candidate.id)
+      .eq("status", "pending")
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const raw = pendingReq?.change_items;
+    if (Array.isArray(raw)) {
+      changeItems = raw
+        .filter((i): i is { area: string; instruction: string } =>
+          !!i && typeof i.area === "string" && typeof i.instruction === "string")
+        .slice(0, 10);
+    }
+  }
+
   // The reviewer's note, shown in the card rather than pointed at in an email
   // the freeze may never send.
   const revisionNote =
@@ -692,6 +716,46 @@ export default async function CandidateDashboardPage() {
                 </details>
               </div>
             )}
+
+            {/* The three doors the step-18 audit found promised but absent.
+                Every API existed; nothing called them. */}
+            {actionRequired && changeItems.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>What to change:</p>
+                <ul style={{ paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {changeItems.map((i, n) => (
+                    <li key={n} style={{ fontSize: 14 }}>
+                      <strong>{i.area}:</strong> {i.instruction}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {actionRequired && <ResubmitButton />}
+            {status === "rejected" && !candidate?.permanently_blocked && (
+              candidate?.appeal_decision ? (
+                <div style={{ marginTop: 16, fontSize: 14 }}>
+                  <p style={{ fontWeight: 600 }}>
+                    {candidate.appeal_decision === "overturned"
+                      ? "Your appeal was accepted."
+                      : "Your appeal was reviewed and the decision stands."}
+                  </p>
+                  {candidate.appeal_response && (
+                    <p style={{ marginTop: 6, color: "var(--ink-mute, #6B6860)" }}>{candidate.appeal_response}</p>
+                  )}
+                </div>
+              ) : candidate?.appeal_submitted_at ? (
+                <p style={{ marginTop: 16, fontSize: 14 }}>
+                  Your appeal is with the team. The decision will appear here.
+                </p>
+              ) : (
+                <AppealForm />
+              )
+            )}
+            {status === "rejected" &&
+              !candidate?.permanently_blocked &&
+              candidate?.reapply_eligible_at &&
+              new Date(candidate.reapply_eligible_at) <= new Date() && <ReapplyButton />}
           </div>
         </section>
 

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 interface Offer {
   id: string;
@@ -28,8 +27,15 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const { data } = await supabase.from("engagement_offers").select("*, clients(full_name, company_name)").eq("id", id).single();
+      // Through the API, not a direct table read: RLS on `clients` nulls the
+      // join for a candidate viewer, which rendered every offer as coming
+      // from "A client" — an accept/decline decision on a binding engagement
+      // made against an anonymous counterparty. GET /api/offers reads with
+      // the service role, scoped to the caller's own offers, and returns the
+      // client's name the way every other candidate surface shows it.
+      const res = await fetch("/api/offers");
+      const j = res.ok ? await res.json() : { offers: [] };
+      const data = (j.offers || []).find((o: { id: string }) => o.id === id) ?? null;
       if (data) {
         setOffer(data as unknown as Offer);
         // Mark as viewed
@@ -70,7 +76,8 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
   // Accept/Decline immediately after. expiryDate is still used for the
   // "respond by" line below, which stays true.
   const isExpired = offer.status === "expired";
-  const clientName = (offer.clients as Offer["clients"])?.full_name || "A client";
+  const clientCo = offer.clients as Offer["clients"] | null;
+  const clientName = clientCo?.company_name || clientCo?.full_name || "A client";
   const company = (offer.clients as Offer["clients"])?.company_name;
 
   return (

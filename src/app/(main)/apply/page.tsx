@@ -128,9 +128,12 @@ export default function ApplyPage() {
       return;
     }
 
-    // If permanently blocked from retakes, show result
+    // Permanently blocked → the dashboard's terminal card owns that message.
+    // This used to render the RETIRED TestResult screen, which disagrees with
+    // /assessment and the dashboard about the same fact — the last reachable
+    // door into the superseded English-test machinery.
     if (candidate.permanently_blocked) {
-      setStep("test_result");
+      router.replace("/candidate/dashboard");
       return;
     }
 
@@ -234,9 +237,12 @@ export default function ApplyPage() {
   // for recordings and profile. /verify-id (step 7) owns the ID window.
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
-    // Persist the step for the restore logic, then hand off to the
-    // assessment page — the whole proctored flow lives there now.
-    goToStep("device_check", data.id);
+    // Persist a step slug for the restore logic, then hand off to the
+    // assessment page — the whole proctored flow lives there now. Persist
+    // WITHOUT setStep: rendering "device_check" even for a frame mounts the
+    // retired DeviceCheck→…→EnglishTest chain, and if the navigation is
+    // interrupted the candidate sits a full un-proctored legacy exam.
+    void saveStep("english_test", data.id);
     router.replace("/assessment");
   }
 
