@@ -60,6 +60,7 @@ interface Engagement {
   candidate_id: string;
   contract_type: string;
   payment_cycle: string | null;
+  weekly_hours: number | null;
   candidate_rate_usd: number;
   platform_fee_usd: number;
   client_total_usd: number;
@@ -652,8 +653,12 @@ export default function TeamPortalPage() {
                   </div>
                 )}
 
-                {/* Ongoing: latest period */}
-                {eng.contract_type === "ongoing" && eng.latest_period && (
+                {/* Period-funded engagements: ongoing, plus fixed-term hourly
+                    deals (payment_cycle null + weekly_hours set) — the shape
+                    every offer-created engagement has. Before this, a
+                    default-length offer produced a legally executed deal with
+                    NO funding control anywhere. */}
+                {(eng.contract_type === "ongoing" || (eng.payment_cycle == null && eng.weekly_hours != null)) && eng.latest_period && (
                   <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3 flex items-center justify-between">
                     <div>
                       <p className="text-xs text-text/40">Current Period</p>
@@ -668,8 +673,8 @@ export default function TeamPortalPage() {
                   </div>
                 )}
 
-                {/* Ongoing: fund the pending period, or start the next one */}
-                {eng.contract_type === "ongoing" && (
+                {/* Fund the pending period, or start the next one */}
+                {(eng.contract_type === "ongoing" || (eng.payment_cycle == null && eng.weekly_hours != null)) && (
                   <div className="mt-4">
                     {eng.latest_period &&
                     eng.latest_period.status === "pending" &&
