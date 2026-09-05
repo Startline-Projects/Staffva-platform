@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import InboxLink from "@/components/InboxLink";
 import NotificationBell from "@/components/NotificationBell";
 
 interface DropdownNavbarProps {
@@ -206,7 +207,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
               {role === "client" && (
                 <>
                   <Link href="/team" className={`text-[14px] font-medium transition-colors ${textColor}`}>My Team</Link>
-                  <Link href="/inbox" className={`text-[14px] font-medium transition-colors ${textColor}`}>Inbox</Link>
+                  <InboxLink className={`text-[14px] font-medium transition-colors ${textColor}`} />
                   <Link href="/services" className={`text-[14px] font-medium transition-colors ${textColor}`}>Services</Link>
                 </>
               )}

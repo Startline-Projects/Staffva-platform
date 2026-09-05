@@ -151,7 +151,7 @@ export default async function CandidateDashboardPage() {
     // written for render functions that re-run client-side.
     // eslint-disable-next-line react-hooks/purity
     const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    const [viewsRes, activeEngRes, unreadRes, recentMsgRes] = await Promise.all([
+    const [viewsRes, activeEngRes, unreadRes, clientUnreadRes, recentMsgRes] = await Promise.all([
       // profile_views is one row per client (upsert bumps viewed_at), so this
       // count honestly means "distinct clients who looked in the last week",
       // and the activity feed can only ever say that much — never a per-visit
@@ -173,6 +173,15 @@ export default async function CandidateDashboardPage() {
         .select("id", { count: "exact", head: true })
         .eq("candidate_id", live.id)
         .eq("sender_role", "recruiter")
+        .is("read_at", null),
+      // Client messages count toward the same stat — the sidebar badge sums
+      // both, and two surfaces disagreeing about whether anything is waiting
+      // is the exact drift this page exists to prevent.
+      admin
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("candidate_id", live.id)
+        .eq("sender_type", "client")
         .is("read_at", null),
       admin
         .from("recruiter_messages")
@@ -220,7 +229,7 @@ export default async function CandidateDashboardPage() {
           flaggedContractCount={flaggedContracts(contracts).length}
           openReviewCount={openReviews(reviewStates).length}
           views7d={viewsRes.count ?? 0}
-          unreadMessages={unreadRes.count ?? 0}
+          unreadMessages={(unreadRes.count ?? 0) + (clientUnreadRes.count ?? 0)}
           activeEngagements={activeEngRes.count ?? 0}
           activity={activity}
         />

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { contactSafeClientName } from "@/lib/contactSafeName";
 
 function getAdminClient() {
   return createClient(
@@ -76,10 +77,35 @@ export async function GET(request: Request) {
     }
   }
 
+  // A client asking about a pair with NO thread is previewing a conversation
+  // they may be about to start — run the same initiation gate the send does.
+  // Without this, ?threadId=<own_id>:<any-uuid> resolved display names for
+  // rejected and mid-application candidates: a name oracle over people who
+  // never agreed to be contactable.
+  if ((!messages || messages.length === 0) && role === "client") {
+    const [{ data: target }, { data: pairEngagement }] = await Promise.all([
+      admin
+        .from("candidates")
+        .select("admin_status")
+        .eq("id", candidateRecordId)
+        .maybeSingle(),
+      admin
+        .from("engagements")
+        .select("id")
+        .eq("client_id", clientRecordId)
+        .eq("candidate_id", candidateRecordId)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (!target || (target.admin_status !== "approved" && !pairEngagement)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
+
   // Get names for header
   const { data: clientData } = await admin
     .from("clients")
-    .select("full_name")
+    .select("full_name, company_name")
     .eq("id", clientRecordId)
     .single();
 
@@ -91,7 +117,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     messages: messages || [],
-    clientName: clientData?.full_name || "Client",
+    clientName: contactSafeClientName(clientData?.company_name, clientData?.full_name),
     candidateName: candidateData?.display_name || "Candidate",
   });
 }

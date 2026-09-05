@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import { loadCandidateThread } from "@/lib/recruiterThread";
 import MessageThread from "@/components/candidate/MessageThread";
+import ClientThreads from "@/components/candidate/ClientThreads";
 
 /**
  * The candidate's messages.
@@ -76,6 +77,8 @@ export default async function CandidateMessagesPage() {
             </p>
           </div>
         )}
+
+        <ClientThreads candidateId={candidate.id} />
 
         {state.awaitingReply && (
           <p className="mt-4 text-xs leading-relaxed text-gray-500">

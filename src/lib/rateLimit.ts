@@ -62,6 +62,10 @@ export const LIMITS = {
   browseParse: { limit: 120, windowSeconds: 3600 },
   classifyRole: { limit: 20, windowSeconds: 3600 },
   offerMessage: { limit: 30, windowSeconds: 3600 },
+  // Direct client<->candidate messages. Generous for a real conversation,
+  // a wall for the 10,000-row bell-flood script the messaging review wrote
+  // out — and it bounds candidate_notifications growth with it.
+  message: { limit: 120, windowSeconds: 3600 },
   recruiterScoring: { limit: 100, windowSeconds: 3600 },
 
   // Interview booking + cancelling, keyed on user id. Every booking emails a

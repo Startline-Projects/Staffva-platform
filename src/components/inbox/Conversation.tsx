@@ -30,11 +30,15 @@ export default function Conversation({
   const [candidateName, setCandidateName] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    // A refusal belongs to the thread it happened in — switching must not
+    // carry thread A's contact-filter banner over thread B's composer.
+    setSendError(null);
     loadMessages();
 
     // Poll every 30s; pause when the tab is hidden to avoid background DB load
@@ -79,20 +83,31 @@ export default function Conversation({
     if (!newMessage.trim() || sending) return;
 
     setSending(true);
+    setSendError(null);
 
-    const res = await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        candidateId,
-        clientId,
-        body: newMessage.trim(),
-      }),
-    });
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidateId,
+          clientId,
+          body: newMessage.trim(),
+        }),
+      });
 
-    if (res.ok) {
-      setNewMessage("");
-      await loadMessages();
+      if (res.ok) {
+        setNewMessage("");
+        await loadMessages();
+      } else {
+        // The refusal must reach the person. The contact-info filter returns a
+        // real explanation ("contact details wait for a contract"), and a
+        // silent no-op here turned it into "the button is broken".
+        const j = await res.json().catch(() => ({}));
+        setSendError(j.error || "Your message didn't send. Try again.");
+      }
+    } catch {
+      setSendError("We couldn't reach the server. Check your connection and try again.");
     }
 
     setSending(false);
@@ -129,7 +144,11 @@ export default function Conversation({
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {messages.length === 0 ? (
           <p className="text-center text-sm text-text/40 py-8">
-            Start the conversation by sending a message.
+            {/* Candidates reply, never initiate — the API refuses a first
+                message from them, so the invitation must not be issued. */}
+            {userRole === "candidate"
+              ? "You can reply here once a client has messaged you."
+              : "Start the conversation by sending a message."}
           </p>
         ) : (
           <div className="space-y-4">
@@ -174,7 +193,10 @@ export default function Conversation({
       </div>
 
       {/* Input */}
-      {!isReadOnly && (
+      {sendError && (
+        <p className="border-t border-red-100 bg-red-50 px-6 py-2 text-xs text-red-700">{sendError}</p>
+      )}
+      {!isReadOnly && !(userRole === "candidate" && messages.length === 0) && (
         <div className="border-t border-gray-200 px-6 py-4">
           <form onSubmit={handleSend} className="flex gap-3">
             <input

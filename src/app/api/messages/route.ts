@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { notifyCandidate } from "@/lib/notifyCandidate";
+import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
+import { contactSafeClientName } from "@/lib/contactSafeName";
 
 function getAdminClient() {
   return createClient(
@@ -43,7 +46,11 @@ export async function GET() {
   }
 
   if (!userRecordId) {
-    return NextResponse.json({ threads: [] });
+    // role travels on EVERY return. The audit traced the composer flip-flop to
+    // this exact omission: with zero threads the page never learned who it was
+    // rendering for, guessed "not read-only", let the first message through —
+    // and then bricked on the next visit once a thread existed.
+    return NextResponse.json({ threads: [], role, self_id: null });
   }
 
   // Get all distinct threads for this user
@@ -56,7 +63,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (!messages || messages.length === 0) {
-    return NextResponse.json({ threads: [] });
+    return NextResponse.json({ threads: [], role, self_id: userRecordId });
   }
 
   // Group by thread_id, get latest message and unread count per thread
@@ -104,10 +111,12 @@ export async function GET() {
   } else {
     const { data } = await admin
       .from("clients")
-      .select("id, full_name")
+      .select("id, full_name, company_name")
       .in("id", otherIds);
     if (data) {
-      namesMap = Object.fromEntries(data.map((d) => [d.id, d.full_name]));
+      namesMap = Object.fromEntries(
+        data.map((d) => [d.id, contactSafeClientName(d.company_name, d.full_name)])
+      );
     }
   }
 
@@ -116,7 +125,7 @@ export async function GET() {
     other_party_name: namesMap[t.other_party_id] || "Unknown",
   }));
 
-  return NextResponse.json({ threads: enrichedThreads, role });
+  return NextResponse.json({ threads: enrichedThreads, role, self_id: userRecordId });
 }
 
 // POST — send a message
@@ -130,11 +139,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  // The repo's own limiter convention — an offer's cover note is capped at
+  // 30/hr while an actual message was uncapped, which the review demonstrated
+  // as a 10,000-row bell-flood script. Same bucket family, keyed per sender.
+  const limited = await enforceRateLimit(`message:${user.id}`, LIMITS.message);
+  if (limited) return limited;
+
   const { candidateId, clientId, body } = await request.json();
   const role = user.app_metadata?.role;
 
   if (!body?.trim()) {
     return NextResponse.json({ error: "Message body required" }, { status: 400 });
+  }
+  if (typeof body !== "string" || body.length > 4000) {
+    return NextResponse.json(
+      { error: "Keep messages under 4,000 characters." },
+      { status: 400 }
+    );
   }
 
   // Both ids land in NOT NULL uuid columns; unvalidated they produced a
@@ -183,6 +204,49 @@ export async function POST(request: Request) {
     if (client.id !== clientId) {
       return NextResponse.json({ error: "Not your conversation" }, { status: 403 });
     }
+
+    // Who may a client message? A LIVE candidate, or someone they already
+    // work with. Without this, any client account could open a thread with
+    // any of the 256 candidate rows — rejected, mid-application, withdrawn —
+    // people who never agreed to be contactable.
+    //
+    // The gate applies to INITIATION only. A reply into a thread the client
+    // already opened passes on the thread's existence: the review showed the
+    // ungated version 403-ing a client mid-conversation the moment their
+    // candidate was reset for an English retake (admin_status leaves
+    // 'approved' through several ordinary transitions), while the candidate
+    // could keep replying — a one-way conversation neither side chose.
+    const { count: priorClientMsgs } = await admin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .eq("candidate_id", candidateId)
+      .eq("sender_type", "client");
+    if (!priorClientMsgs) {
+      const [{ data: target }, { data: pairEngagement }] = await Promise.all([
+        admin
+          .from("candidates")
+          .select("admin_status")
+          .eq("id", candidateId)
+          .maybeSingle(),
+        admin
+          .from("engagements")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("candidate_id", candidateId)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (!target) {
+        return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
+      }
+      if (target.admin_status !== "approved" && !pairEngagement) {
+        return NextResponse.json(
+          { error: "This candidate isn't available for messages." },
+          { status: 403 }
+        );
+      }
+    }
     senderId = client.id;
   } else if (role === "candidate") {
     const { data: candidate } = await admin
@@ -219,18 +283,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid role" }, { status: 403 });
   }
 
-  // Check if there's an active engagement (contract in place)
-  const { data: activeEngagement } = await admin
-    .from("engagements")
-    .select("id")
-    .eq("client_id", clientId)
-    .eq("candidate_id", candidateId)
-    .eq("status", "active")
+  // Contact details unmask when a contract is actually IN PLACE — a
+  // fully-executed one — not merely when an engagement row is active. The
+  // filter's own error message and the candidate-facing copy both promise
+  // "until a contract is in place", and the four legacy active engagements
+  // are exactly the case where the two differ: running since April, contract
+  // never signed, terms disputed. Words and code now check the same thing.
+  const { data: executedContract } = await admin
+    .from("engagement_contracts")
+    .select("id, engagements!inner(client_id, candidate_id)")
+    .eq("engagements.client_id", clientId)
+    .eq("engagements.candidate_id", candidateId)
+    .eq("status", "fully_executed")
     .limit(1)
     .maybeSingle();
 
-  // If no active engagement, filter contact information
-  if (!activeEngagement) {
+  // No executed contract between the pair -> filter contact information
+  if (!executedContract) {
     const contactPatterns = [
       /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i, // email
       /\+?\d{1,4}[\s.-]?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}/i, // phone
@@ -285,6 +354,29 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // The delivery half. This insert used to be the END of the story: candidate
+  // mail is frozen, the portal never linked /inbox, and no bell rang — the
+  // audit's "first contact, silently swallowed".
+  //
+  // One bell per thread per day, enforced by the dedupe index rather than a
+  // read-then-decide check — the review showed the count-based version racing
+  // to ZERO notifications on a double-send, and a missed bell is the one
+  // failure this must never have. No client-typed text in the body either:
+  // company_name is free signup text, and "From StaffVA Support — WhatsApp
+  // +63..." in the trusted bell surface is both the impersonation and the
+  // contact-filter bypass in one string. The thread list shows who wrote.
+  if (role === "client") {
+    const day = new Date().toISOString().slice(0, 10);
+    await notifyCandidate(admin, {
+      candidateId,
+      category: "message",
+      title: "A client sent you a message",
+      body: "Read and reply from your messages page. Who it's from is on the thread.",
+      route: "/candidate/messages",
+      dedupeKey: `client-msg-${threadId}-${day}`,
+    });
   }
 
   return NextResponse.json({ message });

@@ -48,13 +48,25 @@ export default async function PortalLayout({ children }: { children: React.React
   // (read_at stamps when the thread loads).
   let unreadMessages = 0;
   if (candidate) {
-    const { count } = await db
-      .from("recruiter_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("candidate_id", candidate.id)
-      .eq("sender_role", "recruiter")
-      .is("read_at", null);
-    unreadMessages = count ?? 0;
+    // Specialist replies AND client messages — both land on the same Messages
+    // page, so one badge speaks for both. Each uses its table's read-marker
+    // contract (recruiter_messages stamps on thread load; messages stamps on
+    // thread open via the thread API).
+    const [{ count: staffUnread }, { count: clientUnread }] = await Promise.all([
+      db
+        .from("recruiter_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("candidate_id", candidate.id)
+        .eq("sender_role", "recruiter")
+        .is("read_at", null),
+      db
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("candidate_id", candidate.id)
+        .eq("sender_type", "client")
+        .is("read_at", null),
+    ]);
+    unreadMessages = (staffUnread ?? 0) + (clientUnread ?? 0);
   }
 
   const displayName =
