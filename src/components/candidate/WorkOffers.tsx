@@ -62,7 +62,16 @@ export default function WorkOffers({ offers }: { offers: WorkOffer[] }) {
                     {/* Loaded server-side. The browser cannot read `clients`,
                         which is why /offers/[id] says "A client" — worth fixing
                         there too rather than copying the limitation here. */}
-                    {o.employer ?? "A client"}
+                    {o.client_id ? (
+                      <Link
+                        href={`/candidate/clients/${o.client_id}`}
+                        className="hover:underline"
+                      >
+                        {o.employer ?? "A client"}
+                      </Link>
+                    ) : (
+                      o.employer ?? "A client"
+                    )}
                   </p>
                   <p className="mt-0.5 text-sm text-gray-600">
                     ${o.hourly_rate}/hr · {o.hours_per_week} hrs/week · {o.contract_length}

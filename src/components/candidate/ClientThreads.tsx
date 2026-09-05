@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Conversation from "@/components/inbox/Conversation";
 
@@ -110,6 +111,19 @@ export default function ClientThreads({ candidateId }: { candidateId: string }) 
                 })}
               </span>
             </button>
+            {active?.thread_id === t.thread_id && (
+              <div className="border-t border-gray-100 px-4 py-2">
+                {/* An <a> inside the row's <button> is invalid interactive
+                    nesting — keyboard and screen-reader users couldn't reach
+                    it. The door to who-they-are lives in the opened thread. */}
+                <Link
+                  href={`/candidate/clients/${t.other_party_id}`}
+                  className="text-xs font-semibold text-[#FE6E3E] hover:underline"
+                >
+                  View {t.other_party_name}&apos;s client profile →
+                </Link>
+              </div>
+            )}
             {active?.thread_id === t.thread_id && (
               <div className="h-[420px] border-t border-gray-100">
                 <Conversation

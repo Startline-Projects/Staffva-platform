@@ -20,6 +20,7 @@ export interface CandidateContract {
   status: string;
   engagementStatus: string | null;
   employer: string | null;
+  client_id: string | null;
   generatedAt: string;
   clientSignedAt: string | null;
   candidateSignedAt: string | null;
@@ -57,7 +58,7 @@ export async function loadCandidateContracts(
   const { data: rows, error } = await db
     .from("engagement_contracts")
     .select(
-      "id, engagement_id, status, generated_at, client_signed_at, candidate_signed_at, contract_html, clients(full_name, company_name)"
+      "id, engagement_id, status, client_id, generated_at, client_signed_at, candidate_signed_at, contract_html, clients(full_name, company_name)"
     )
     .eq("candidate_id", candidateId)
     .order("generated_at", { ascending: false });
@@ -92,6 +93,7 @@ export async function loadCandidateContracts(
       status: r.status as string,
       engagementStatus: (e?.status as string) ?? null,
       employer: c?.company_name || c?.full_name || null,
+      client_id: ((r as { client_id?: string }).client_id as string) ?? null,
       generatedAt: r.generated_at as string,
       clientSignedAt: (r.client_signed_at as string) ?? null,
       candidateSignedAt: (r.candidate_signed_at as string) ?? null,

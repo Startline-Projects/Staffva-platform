@@ -2,9 +2,11 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Offer {
   id: string;
+  client_id: string | null;
   hourly_rate: number;
   hours_per_week: number;
   contract_length: string;
@@ -98,7 +100,15 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
 
       <div className="rounded-2xl border border-border-light bg-card p-6">
         <p className="text-xs text-text-tertiary uppercase tracking-widest">Offer from</p>
-        <h1 className="mt-1 text-xl font-semibold text-text">{clientName}</h1>
+        <h1 className="mt-1 text-xl font-semibold text-text">
+          {offer.client_id ? (
+            <Link href={`/candidate/clients/${offer.client_id}`} className="hover:underline">
+              {clientName}
+            </Link>
+          ) : (
+            clientName
+          )}
+        </h1>
         {company && <p className="text-sm text-text-muted">{company}</p>}
 
         <div className="mt-6 space-y-3 text-sm">

@@ -43,3 +43,17 @@ export function contactSafeClientName(
   }
   return "A client";
 }
+
+/**
+ * The contact person's first name, or null when the field (or the token
+ * itself) reads as a contact channel. "hireme@gmail.com" is its own first
+ * token; "+639175550100 Juan" hides the payload IN the token — both must
+ * die here, because this renders on the pre-contract trust page.
+ */
+export function contactSafeFirstName(fullName: string | null | undefined): string | null {
+  const trimmed = fullName?.trim();
+  if (!trimmed || looksLikeContactChannel(trimmed)) return null;
+  const token = trimmed.split(/\s+/)[0];
+  if (!token || looksLikeContactChannel(token)) return null;
+  return token;
+}

@@ -32,6 +32,8 @@ export interface WorkOffer {
   /** sent_at + 5 days — the window /api/cron/expire-offers actually enforces. */
   respond_by: string | null;
   employer: string | null;
+  /** For the client-profile link — the who-are-they page (Atlas 4.23). */
+  client_id: string | null;
 }
 
 export interface WorkRole {
@@ -80,7 +82,7 @@ export async function loadCandidateWork(candidateId: string): Promise<CandidateW
     db
       .from("engagement_offers")
       .select(
-        "id, status, hourly_rate, hours_per_week, contract_length, start_date, signing_bonus_usd, personal_message, sent_at, clients(full_name, company_name)"
+        "id, status, client_id, hourly_rate, hours_per_week, contract_length, start_date, signing_bonus_usd, personal_message, sent_at, clients(full_name, company_name)"
       )
       .eq("candidate_id", candidateId)
       // `expired` is included deliberately. Under the email freeze a candidate
@@ -135,6 +137,7 @@ export async function loadCandidateWork(candidateId: string): Promise<CandidateW
         ? new Date(Date.parse(o.sent_at as string) + RESPOND_WINDOW_DAYS * 86_400_000).toISOString()
         : null,
       employer: c?.company_name || c?.full_name || null,
+      client_id: (o as { client_id?: string }).client_id ?? null,
     };
   });
 

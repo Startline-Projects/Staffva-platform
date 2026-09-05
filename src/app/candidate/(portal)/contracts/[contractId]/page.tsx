@@ -51,7 +51,14 @@ export default async function CandidateContractPage({
             ← All contracts
           </Link>
           <h1 className="mt-2 text-xl font-bold text-[#1C1B1A]">
-            Agreement with {contract.employer ?? "a client"}
+            Agreement with{" "}
+            {contract.client_id ? (
+              <Link href={`/candidate/clients/${contract.client_id}`} className="underline decoration-gray-300 underline-offset-2 hover:decoration-[#1C1B1A]">
+                {contract.employer ?? "a client"}
+              </Link>
+            ) : (
+              contract.employer ?? "a client"
+            )}
           </h1>
         </div>
 

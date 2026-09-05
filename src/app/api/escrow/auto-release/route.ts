@@ -21,6 +21,15 @@ function getAdminClient() {
  *
  * Protected by a simple API key in production.
  */
+// Vercel cron invocations are GET. This route only exported POST, so the
+// schedule added alongside the client-profile page would have fired hourly
+// into a 405 forever — auto-release silently never running, which is exactly
+// the state the escrow copy stopped being false about. Same handler, both
+// verbs; the CRON_SECRET check inside covers each.
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   // Internal scheduler only. This was previously fail-OPEN — the check was
   // `if (cronSecret && ...)`, so with CRON_SECRET unset the guard was skipped
