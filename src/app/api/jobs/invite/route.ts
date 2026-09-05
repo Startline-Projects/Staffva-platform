@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(
@@ -124,6 +125,15 @@ export async function POST(req: NextRequest) {
         : jobPost.hourly_rate_min != null && jobPost.hourly_rate_max != null
           ? ` at $${jobPost.hourly_rate_min}-$${jobPost.hourly_rate_max}/hr`
           : "";
+
+    await notifyCandidate(supabase, {
+      candidateId: candidate_id,
+      category: "offer",
+      title: "A client invited you to a role",
+      body: `They reviewed your profile for a ${jobPost.role_category || "role"} position and want to connect.`,
+      route: "/candidate/work",
+      dedupeKey: `job-invite-${job_post_id}-${candidate_id}`,
+    });
 
     // Send invite notification email via Resend
     if (candidate?.email && process.env.RESEND_API_KEY) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { loadAwaitingThreads, loadCandidateThread } from "@/lib/recruiterThread";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 /**
  * Staff view of every candidate waiting on a reply, and the ability to answer.
@@ -101,6 +102,15 @@ export async function POST(req: NextRequest) {
     console.error("[admin/messages] insert failed:", error.message);
     return NextResponse.json({ error: "Could not send." }, { status: 500 });
   }
+
+  // No dedupe key: every reply is its own event.
+  await notifyCandidate(db, {
+    candidateId: candidate.id,
+    category: "message",
+    title: "New message from your StaffVA team",
+    body: text.length > 120 ? text.slice(0, 117) + "…" : text,
+    route: "/candidate/messages",
+  });
 
   return NextResponse.json({ message });
 }

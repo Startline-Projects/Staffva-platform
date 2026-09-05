@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { hasCronSecret } from "@/lib/auth";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(
@@ -177,6 +178,15 @@ ${contract.contract_html}
           }, { recipientKind: "client", emailType: "contract_executed" });
         } catch { /* silent */ }
       }
+
+      await notifyCandidate(admin, {
+        candidateId: contract.candidate_id,
+        category: "contract",
+        title: "Your contract is fully executed",
+        body: "Both sides have signed. The agreement stays on your contracts page whenever you need it.",
+        route: `/candidate/contracts/${contractId}`,
+        dedupeKey: `contract-executed-${contractId}`,
+      });
 
       // Send to candidate
       if (candidateInfo?.email) {

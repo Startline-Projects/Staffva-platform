@@ -556,7 +556,8 @@ function PayoutSetupCard({ payoutStatus }: { payoutStatus: string | null }) {
 
 /**
  * `variant="live"` is passed by the approved-candidate dashboard, which renders
- * LivePortal above this and needs the application pipeline out of the way. The
+ * the Atlas live home (AtlasLiveHome) above this and needs the application
+ * pipeline out of the way. The
  * pipeline derives its stage from english_mc_score and ai_interview_* — fields
  * the reverification reset zeroed for 30 of the 31 live candidates — so left
  * running it greets people who are already working on the platform with "Your
@@ -878,7 +879,7 @@ export default function CandidateDashboardPage({
 
   return (
     <div className={`mx-auto max-w-4xl px-4 pb-8 ${variant === "live" ? "pt-0" : "pt-8"}`}>
-      {/* Header — LivePortal renders the greeting and the live/hidden status
+      {/* Header — the Atlas home renders the greeting and the live/hidden status
           for approved candidates, so repeating "Welcome back" and a "Live"
           badge directly underneath it would say the same thing twice. */}
       <div className={`mb-8 flex items-center gap-4 ${variant === "live" ? "hidden" : ""}`}>
@@ -905,7 +906,7 @@ export default function CandidateDashboardPage({
       </div>
 
       {/* Interview hours — a different question from the availability card in
-          LivePortal ("are you taking work?" vs "when can a client book a call
+          the availability bar ("are you taking work?" vs "when can a client book a call
           with you?"), which the product unhelpfully gives one word to. Both
           states live here so the two surfaces cannot each own half of it.
           availabilityCount is null while loading: no card rather than a wrong
@@ -1401,7 +1402,9 @@ export default function CandidateDashboardPage({
       </div>
 
       {/* AI Interview Results — visible to candidate only */}
-      {aiInterview && aiInterview.status === "completed" && (
+      {/* AI results are on the candidate's own public profile; in the Atlas
+          shell duplicating them here earned its place out (1 of 31 has data). */}
+      {variant !== "live" && aiInterview && aiInterview.status === "completed" && (
         <div className="mb-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">AI Interview Results</h2>
           <div className="rounded-xl border border-gray-200 bg-white p-5">
@@ -1426,6 +1429,9 @@ export default function CandidateDashboardPage({
       )}
 
       {/* Profile Activity */}
+      {/* The Atlas home's stats row and activity card carry views for live
+          candidates; two counters for one number WILL disagree eventually. */}
+      {variant !== "live" && (
       <div className="mb-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Profile Activity</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1470,6 +1476,7 @@ export default function CandidateDashboardPage({
           </div>
         )}
       </div>
+      )}
 
       {/* Reputation Score */}
       <ReputationSection />
@@ -1480,7 +1487,11 @@ export default function CandidateDashboardPage({
       </div>
 
       {/* Payout Setup */}
-      <PayoutSetupCard payoutStatus={candidate.payout_status} />
+      {/* #payouts: the dashboard's "set up payouts" resource link lands here,
+          on the card, not several screens above it. */}
+      <div id="payouts">
+        <PayoutSetupCard payoutStatus={candidate.payout_status} />
+      </div>
 
       {/* Contracts */}
       <ContractsSection />
@@ -1542,6 +1553,10 @@ export default function CandidateDashboardPage({
       )}
 
       {/* Quick actions */}
+      {/* In the Atlas shell the sidebar and resources card are the quick
+          actions; the one non-duplicate (a direct edit link) moved into the
+          completeness card's live links. */}
+      {variant !== "live" && (
       <div className="mb-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Quick Actions</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1552,10 +1567,10 @@ export default function CandidateDashboardPage({
               <p className="text-xs text-gray-500">See how clients see you</p>
             </div>
           </Link>
-          {/* /apply is the application machine; an approved candidate has no
-              application to continue. /candidate/profile/edit is a complete
-              edit surface that already exists and was simply never linked. */}
-          <Link href={variant === "live" ? "/candidate/profile/edit" : "/apply"} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
+          {/* Quick Actions only renders pre-approval now, so this is always
+              the application machine. Live candidates edit from the
+              completeness card and their public profile. */}
+          <Link href="/apply" className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-lg">✏️</span>
             <div>
               <p className="text-sm font-semibold text-[#1C1B1A]">Edit Profile</p>
@@ -1564,8 +1579,13 @@ export default function CandidateDashboardPage({
           </Link>
         </div>
       </div>
+      )}
 
       {/* Profile details card */}
+      {/* DEAD for live candidates: English tier prints "Pending" for all 31
+          until retakes, verified earnings prints $0 for all 31 (no write
+          path), and role is on three other surfaces. */}
+      {variant !== "live" && (
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Profile Summary</h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1573,19 +1593,15 @@ export default function CandidateDashboardPage({
             <p className="text-gray-500">Role</p>
             <p className="font-medium text-[#1C1B1A]">{candidate.role_category}</p>
           </div>
-          {/* Rate and availability are LivePortal's card in the live variant.
-              This component fetches once on mount and never refetches, so
-              after a save the card above would show the new values and these
-              two cells the old ones — the same screen contradicting itself. */}
-          {variant !== "live" && (
+          {/* The whole card only renders pre-approval now; the availability
+              editor owns these values for live candidates. */}
+          {(
             <div>
-              {/* Labelled "Monthly Rate" while printing an hourly figure. It is
-                  an hourly rate everywhere else in the product. */}
               <p className="text-gray-500">Rate</p>
               <p className="font-medium text-[#FE6E3E]">${candidate.hourly_rate?.toLocaleString()}/hr</p>
             </div>
           )}
-          {variant !== "live" && (
+          {(
             <div>
               <p className="text-gray-500">Availability</p>
               <p className="font-medium text-[#1C1B1A]">
@@ -1609,6 +1625,7 @@ export default function CandidateDashboardPage({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 function getAdminClient() {
@@ -204,6 +205,22 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Same bell write as the admin triage route: the delivery must not depend
+  // on which internal screen the reply was typed in. Candidate-authored
+  // messages notify nobody — they already know what they wrote.
+  if (senderRole === "recruiter" && candidateId) {
+    await notifyCandidate(admin, {
+      candidateId,
+      category: "message",
+      title: "New message from your StaffVA team",
+      body:
+        messageBody.trim().length > 120
+          ? messageBody.trim().slice(0, 117) + "…"
+          : messageBody.trim(),
+      route: "/candidate/messages",
+    });
   }
 
   return NextResponse.json({ message });

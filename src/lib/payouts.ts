@@ -1,5 +1,6 @@
 import { getStripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/email";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 /**
  * Initiate payout to candidate via Stripe Connect transfer.
@@ -47,6 +48,15 @@ export async function initiatePayout(
       .eq("id", recordId);
 
     // Notify candidate to set up their payout account
+    await notifyCandidate(admin, {
+      candidateId,
+      category: "payout",
+      title: `A payment of $${amountUsd.toFixed(2)} is waiting on your payout setup`,
+      body: "It was released to you but can't be sent until your payout account is active. Set it up from your dashboard.",
+      route: "/candidate/dashboard",
+      dedupeKey: `payout-blocked-${table}-${recordId}`,
+    });
+
     if (process.env.RESEND_API_KEY && candidate.email) {
       try {
         await sendEmail({
@@ -97,6 +107,15 @@ export async function initiatePayout(
         payout_fired_at: new Date().toISOString(),
       })
       .eq("id", recordId);
+
+    await notifyCandidate(admin, {
+      candidateId,
+      category: "payout",
+      title: `$${amountUsd.toFixed(2)} is on its way to you`,
+      body: "The payout has been sent to your account. Transfers usually settle within a couple of business days.",
+      route: "/candidate/dashboard",
+      dedupeKey: `payout-sent-${table}-${recordId}`,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown Stripe error";
 

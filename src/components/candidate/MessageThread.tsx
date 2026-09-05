@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { computeWaiting, type ThreadMessage } from "@/lib/recruiterThread";
 
 /**
@@ -44,6 +45,7 @@ export default function MessageThread({
 }: {
   initialMessages: ThreadMessage[];
 }) {
+  const router = useRouter();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -54,6 +56,16 @@ export default function MessageThread({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // The page's server render stamped read_at as a side effect of loading this
+  // thread, but the portal chrome (sidebar badge, topbar dot) is rendered by
+  // the route-group layout, which soft navigation does not re-run. One
+  // refresh reconciles them; without it the badge shows the old count until a
+  // hard reload.
+  useEffect(() => {
+    router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 60 seconds. About five messages a month pass through this thread, so
   // anything faster is polling an empty table. (The page this replaces said 30s

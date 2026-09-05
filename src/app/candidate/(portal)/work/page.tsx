@@ -2,14 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
-import Navbar from "@/components/Navbar";
 import { computeVisibility } from "@/lib/candidateVisibility";
 import { loadCandidateWork } from "@/lib/candidateWork";
 import WorkOffers from "@/components/candidate/WorkOffers";
 import OpenRoles from "@/components/candidate/OpenRoles";
 import WorkEmpty from "@/components/candidate/WorkEmpty";
-import WorkReviews from "@/components/candidate/WorkReviews";
-import { loadMyReviewState } from "@/lib/reviewState";
 
 /**
  * Work available to this candidate: offers sent to them, and roles they match.
@@ -56,7 +53,6 @@ export default async function CandidateWorkPage() {
 
   const vis = computeVisibility(candidate);
   const { offers, roles, engagementCount } = await loadCandidateWork(candidate.id);
-  const reviewStates = await loadMyReviewState();
 
   const firstName =
     candidate.first_name ||
@@ -70,7 +66,6 @@ export default async function CandidateWorkPage() {
 
   return (
     <>
-      <Navbar />
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-8">
           <h1 className="text-xl font-bold text-[#1C1B1A]">Your work</h1>
@@ -88,8 +83,6 @@ export default async function CandidateWorkPage() {
             computeVisibility() — so a candidate who is out of matching is never
             told that roles will start appearing for them. */}
         {roles.length === 0 && <WorkEmpty matchable={vis.matchable} reason={blockReason} />}
-
-        <WorkReviews states={reviewStates} />
 
         {/* Contracts already have a home on the dashboard. Two homes for one
             thing is the drift this codebase keeps paying for, so this is a

@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { termsAreReproducible } from "@/lib/contractTerms";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(
@@ -123,6 +124,17 @@ export async function POST(req: NextRequest) {
         .select("display_name, email, full_name")
         .eq("id", contract.candidate_id)
         .single();
+
+      // In-app is the real delivery under the freeze; the CAS above means this
+      // runs exactly once per countersign.
+      await notifyCandidate(admin, {
+        candidateId: contract.candidate_id,
+        category: "contract",
+        title: "A contract is ready for your signature",
+        body: "The client has signed. Read it through and sign when the terms look right.",
+        route: `/candidate/contracts/${contractId}`,
+        dedupeKey: `contract-ready-${contractId}`,
+      });
 
       // Send signing email to candidate
       if (process.env.RESEND_API_KEY && candidate?.email) {
@@ -280,6 +292,17 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
+
+      // Same dedupe key as the generate-pdf site — whichever runs first wins,
+      // and the CRON_SECRET-gated internal fetch failing no longer loses it.
+      await notifyCandidate(admin, {
+        candidateId: contract.candidate_id,
+        category: "contract",
+        title: "Your contract is fully executed",
+        body: "Both sides have signed. The agreement stays on your contracts page whenever you need it.",
+        route: `/candidate/contracts/${contractId}`,
+        dedupeKey: `contract-executed-${contractId}`,
+      });
 
       // Trigger PDF generation asynchronously
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

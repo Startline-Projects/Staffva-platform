@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(
@@ -54,14 +55,37 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "reject") {
-    // Clear pending photo
-    await supabase
+    // Compare-and-swap on the pending flag: a double-click or replayed request
+    // now no-ops instead of writing a second rejection notice, and a reject
+    // aimed at a candidate with nothing pending delivers nothing.
+    const { data: flipped } = await supabase
       .from("candidates")
       .update({
         pending_photo_url: null,
         photo_pending_review: false,
       })
-      .eq("id", candidateId);
+      .eq("id", candidateId)
+      .eq("photo_pending_review", true)
+      .select("id")
+      .maybeSingle();
+
+    if (!flipped) {
+      return NextResponse.json({ success: true, action: "rejected", alreadyHandled: true });
+    }
+
+    // Until this line existed, rejecting a photo left NO record anywhere that
+    // it happened: the update above erases the pending state, the email below
+    // is suppressed by the freeze, and the reviewer's note evaporated with it.
+    // This row is both the delivery and the storage.
+    await notifyCandidate(supabase, {
+      candidateId,
+      category: "profile",
+      title: "Your profile photo wasn't approved",
+      body: rejectionNote
+        ? `Reviewer's note: ${rejectionNote} Upload a new one from your profile.`
+        : "Upload a new professional photo from your profile — clear, well-lit, no filters.",
+      route: "/candidate/dashboard",
+    });
 
     // Send rejection email
     if (process.env.RESEND_API_KEY && candidate.email) {

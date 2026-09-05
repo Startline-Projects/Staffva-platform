@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
-import Navbar from "@/components/Navbar";
 import { loadCandidateContracts } from "@/lib/candidateContracts";
 import ContractRecord from "@/components/candidate/ContractRecord";
 
@@ -46,7 +45,6 @@ export default async function CandidateContractPage({
 
   return (
     <>
-      <Navbar />
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">
           <Link href="/candidate/contracts" className="text-xs text-gray-500 hover:underline">

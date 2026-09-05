@@ -16,6 +16,11 @@
  * `inApp` is a route the candidate can actually reach and where the fact is
  * legible — not a table that happens to hold the value. Where it is null, the
  * `note` says what the person does not find out.
+ *
+ * Since the Atlas shell landed, "the bell" means candidate_notifications
+ * (00202): a persistent in-app notification the dashboard's bell renders,
+ * written server-side at the event site (src/lib/notifyCandidate.ts). Rows
+ * that say "bell" below are delivered even while the email stays frozen.
  */
 
 export type FreezeState = "delivered" | "suppressed";
@@ -59,7 +64,7 @@ export const CANDIDATE_NOTIFICATIONS: readonly NotificationRow[] = [
     event: "A client sent an offer",
     freeze: "suppressed",
     inApp: "/candidate/work",
-    note: "Also the orange card at the top of /candidate/dashboard.",
+    note: "Also the orange card at the top of /candidate/dashboard, and a bell notification.",
   },
   {
     type: "job_invite",
@@ -91,11 +96,11 @@ export const CANDIDATE_NOTIFICATIONS: readonly NotificationRow[] = [
     type: "interview_cancelled",
     event: "An interview was cancelled",
     freeze: "suppressed",
-    inApp: null,
+    inApp: "/candidate/dashboard",
     note:
-      "GAP, and it read as covered because UpcomingInterviews is on the dashboard. But a cancellation " +
-      "is not rendered there — the row simply disappears. The candidate has to have memorised that a " +
-      "booking existed to notice it is gone, and is told no reason. Absence is not a notification.",
+      "Closed by the bell: sendCancellationEmails() writes a candidate_notifications row when the " +
+      "CLIENT cancels (never for the candidate's own cancellation), so the disappearing dashboard row " +
+      "is no longer the only signal.",
   },
   {
     type: "interview_reminder",
@@ -257,20 +262,22 @@ export const CANDIDATE_NOTIFICATIONS: readonly NotificationRow[] = [
     type: "photo_rejected",
     event: "Profile photo rejected",
     freeze: "suppressed",
-    inApp: null,
+    inApp: "/candidate/dashboard",
     note:
-      "GAP, and not a surfacing problem — a recording one. /api/admin/photo-review sets " +
-      "pending_photo_url = null and photo_pending_review = false on reject, leaving no column that " +
-      "says a rejection happened and none that holds the reason; the note the reviewer typed exists " +
-      "only inside the suppressed email body. No screen can show what nothing stores. Closing this " +
-      "needs a column, not a component.",
+      "Closed by the bell FOR LIVE CANDIDATES, which fixed the recording problem too: the rejection " +
+      "used to leave NO record anywhere (pending_photo_url nulled, flag cleared, the reviewer's note " +
+      "only in a suppressed email). The candidate_notifications row is now both the delivery and the " +
+      "durable record, reviewer's note included. Caveat: the bell renders only in live-mode chrome, " +
+      "so a pre-approval candidate's rejection is recorded but not surfaced — 0 such rows today.",
   },
   {
     type: "profile_viewed",
     event: "A client viewed their profile",
     freeze: "suppressed",
-    inApp: null,
-    note: "No candidate-facing surface reads profile_views at all.",
+    inApp: "/candidate/dashboard",
+    note:
+      "The Atlas home's stats row ('Profile views · 7d') and activity feed read profile_views now. " +
+      "Deliberately NOT a bell notification — a ping per view would train people to ignore the bell.",
   },
   {
     type: "weekly_digest",

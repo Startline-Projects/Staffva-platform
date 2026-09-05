@@ -5,6 +5,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
 import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -101,6 +102,9 @@ export async function POST(req: NextRequest) {
         console.error("[Profile Review] AI insights error:", err)
       );
 
+      // The "you're live" notification is written by the candidates trigger
+      // (migration 00203) on the admin_status transition itself — approval has
+      // FIVE write sites, and per-site copies would drift.
       if (process.env.RESEND_API_KEY && candidate.email) {
         try {
           await sendEmail({

@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
-import Navbar from "@/components/Navbar";
 import { loadCandidateThread } from "@/lib/recruiterThread";
 import MessageThread from "@/components/candidate/MessageThread";
 
@@ -49,7 +48,6 @@ export default async function CandidateMessagesPage() {
 
   return (
     <>
-      <Navbar />
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-[#1C1B1A]">Messages</h1>

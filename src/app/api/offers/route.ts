@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { notifyCandidate } from "@/lib/notifyCandidate";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import {generateContractHtml} from "@/lib/contracts";
@@ -173,6 +174,21 @@ export async function POST(req: NextRequest) {
     }).select().single();
 
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+
+    // The in-app half. Under the email freeze this is the ONLY delivery, so it
+    // is written before the (suppressed) email is even attempted, and never
+    // behind the RESEND_API_KEY check.
+    // Fixed title, client-typed name only in the body and framed as "from" —
+    // company_name is free text a client types at signup, and a title like
+    // "StaffVA Support sent you an offer" would wear the platform's own voice.
+    await notifyCandidate(supabase, {
+      candidateId,
+      category: "offer",
+      title: "A client sent you an offer",
+      body: `From ${client.company_name || client.full_name || "a client"} · $${hourlyRate}/hr · ${hoursPerWeek} hrs/week · respond within 5 days.`,
+      route: `/offers/${offer.id}`,
+      dedupeKey: `offer-sent-${offer.id}`,
+    });
 
     // Send email to candidate
     if (process.env.RESEND_API_KEY && candidate.email) {

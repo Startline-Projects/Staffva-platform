@@ -11,11 +11,15 @@ import { icsAttachment } from "@/lib/ics";
  * detail page shows the truth, and callers log rather than roll back.
  */
 
+import { notifyCandidate } from "@/lib/notifyCandidate";
+import { interviewAdminClient } from "@/lib/interviewBookingData";
+
 const SITE = "https://staffva.com";
 const FROM = "StaffVA <notifications@staffva.com>";
 
 export interface BookingEmailData {
   bookingId: string;
+  candidateId: string;
   startsAt: Date;
   durationMinutes: number;
   candidate: { name: string; email: string; tz: string };
@@ -51,6 +55,17 @@ function shell(heading: string, name: string, lines: string[], cta?: { href: str
 const first = (n: string) => n.split(" ")[0] || "there";
 
 export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
+  // In-app first: the candidate email below is suppressed by the freeze, so
+  // the bell is how this actually reaches them.
+  await notifyCandidate(interviewAdminClient(), {
+    candidateId: b.candidateId,
+    category: "interview",
+    title: "A client booked an interview with you",
+    body: `${b.client.company || b.client.name} · ${inZone(b.startsAt, b.candidate.tz)}. The join link appears 15 minutes before the start.`,
+    route: "/candidate/dashboard",
+    dedupeKey: `interview-booked-${b.bookingId}`,
+  });
+
   const manage = `${SITE}/interviews/${b.bookingId}`;
   const clientWho = b.client.company || b.client.name;
   const candTime = inZone(b.startsAt, b.candidate.tz);
@@ -135,6 +150,19 @@ export async function sendCancellationEmails(
   b: BookingEmailData,
   cancelledBy: "client" | "candidate"
 ): Promise<void> {
+  // The step-17 matrix called this the gap where "the row simply disappears":
+  // a cancellation now states itself instead of relying on the candidate
+  // noticing an absence. Only when the CLIENT cancels — telling someone about
+  // their own cancellation is noise.
+  if (cancelledBy === "client") await notifyCandidate(interviewAdminClient(), {
+    candidateId: b.candidateId,
+    category: "interview",
+    title: "Your interview was cancelled",
+    body: `The ${inZone(b.startsAt, b.candidate.tz)} interview with ${b.client.company || b.client.name} is off. No action needed from you.`,
+    route: "/candidate/dashboard",
+    dedupeKey: `interview-cancelled-${b.bookingId}`,
+  });
+
   const clientWho = b.client.company || b.client.name;
   const candTime = inZone(b.startsAt, b.candidate.tz);
   const clientTime = b.client.tz ? inZone(b.startsAt, b.client.tz) : inZone(b.startsAt, "UTC");

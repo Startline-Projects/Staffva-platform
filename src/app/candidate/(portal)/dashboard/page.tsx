@@ -2,18 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
-import Navbar from "@/components/Navbar";
-import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import Asti, { AstiPointChip, AstiProgressRing } from "@/components/landing/Asti";
 import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
-import LivePortal from "@/components/candidate/LivePortal";
+import AtlasLiveHome, { type ActivityItem } from "@/components/candidate/portal/AtlasLiveHome";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import { loadMyReviewState, openReviews } from "@/lib/reviewState";
-import StartInterviewButton from "@/app/candidate/dashboard/StartInterviewButton";
-import "@/app/landing.css";
-import "@/app/atlas-auth.css";
-import "@/app/atlas-dash.css";
+import StartInterviewButton from "@/app/candidate/(portal)/dashboard/StartInterviewButton";
 
 function getAdminClient() {
   return createClient(
@@ -150,16 +145,89 @@ export default async function CandidateDashboardPage() {
     // the dashboard carrying this person's offers and contracts cannot.
     const reviewStates = await loadMyReviewState();
 
+    // ── Atlas home data: stats + recent activity, one round of queries ──
+    // Server component: "now" is request time by design. The purity rule is
+    // written for render functions that re-run client-side.
+    // eslint-disable-next-line react-hooks/purity
+    const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    const [viewsRes, activeEngRes, unreadRes, recentMsgRes] = await Promise.all([
+      // profile_views is one row per client (upsert bumps viewed_at), so this
+      // count honestly means "distinct clients who looked in the last week",
+      // and the activity feed can only ever say that much — never a per-visit
+      // event log, because the upsert destroys the history.
+      admin
+        .from("profile_views")
+        .select("viewed_at", { count: "exact" })
+        .eq("candidate_id", live.id)
+        .gte("viewed_at", weekAgo)
+        .order("viewed_at", { ascending: false })
+        .limit(5),
+      admin
+        .from("engagements")
+        .select("id", { count: "exact", head: true })
+        .eq("candidate_id", live.id)
+        .eq("status", "active"),
+      admin
+        .from("recruiter_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("candidate_id", live.id)
+        .eq("sender_role", "recruiter")
+        .is("read_at", null),
+      admin
+        .from("recruiter_messages")
+        .select("created_at")
+        .eq("candidate_id", live.id)
+        .eq("sender_role", "recruiter")
+        .gte("created_at", weekAgo)
+        .order("created_at", { ascending: false })
+        .limit(3),
+    ]);
+
+    const waitingOffers = pendingOffers(offers);
+    const activity: ActivityItem[] = [
+      ...(viewsRes.data ?? []).map((v) => ({
+        kind: "view" as const,
+        label: "A client viewed your profile",
+        at: v.viewed_at as string,
+      })),
+      ...(recentMsgRes.data ?? []).map((m) => ({
+        kind: "message" as const,
+        label: "Your StaffVA team sent you a message",
+        at: m.created_at as string,
+      })),
+      ...waitingOffers
+        .filter((o) => o.sent_at && new Date(o.sent_at) >= new Date(weekAgo))
+        .map((o) => ({
+          kind: "offer" as const,
+          label: "A client sent you an offer",
+          at: o.sent_at as string,
+        })),
+    ]
+      .sort((a, b) => +new Date(b.at) - +new Date(a.at))
+      .slice(0, 6);
+
     return (
       <>
-        <Navbar />
-        <LivePortal
+        <AtlasLiveHome
           candidate={live}
+          firstName={
+            live.first_name ||
+            (live.display_name || live.full_name || "there").split(" ")[0]
+          }
           pendingOfferCount={waiting}
           signableContractCount={signableContracts(contracts).length}
           flaggedContractCount={flaggedContracts(contracts).length}
           openReviewCount={openReviews(reviewStates).length}
+          views7d={viewsRes.count ?? 0}
+          unreadMessages={unreadRes.count ?? 0}
+          activeEngagements={activeEngRes.count ?? 0}
+          activity={activity}
         />
+        {/* The operational cards the legacy inventory marked MUST SURVIVE —
+            interview hours, specialist thread, upcoming interviews, escrow,
+            payout setup (with its focus-refetch), video intro, completeness,
+            reputation. The #payouts anchor lives on the payout card itself,
+            inside LegacyDashboard. */}
         <LegacyDashboard variant="live" />
       </>
     );
@@ -440,26 +508,12 @@ export default async function CandidateDashboardPage() {
     live: "Your profile joins the marketplace.",
   };
 
+  // The (portal) layout provides the Atlas shell — sidebar, topbar, fonts,
+  // the .lp wrapper. This page is only the content column now; its old inline
+  // <nav> is gone because two navbars is one of the things the shell exists
+  // to end.
   return (
-    <div className="lp lp-auth lp-dash">
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900&family=Geist:wght@300..900&family=Geist+Mono:wght@400..600&display=swap"
-        rel="stylesheet"
-      />
-      <nav className="nav" id="nav">
-        <div className="nav-inner">
-          <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
-            <StaffvaLogo />
-          </Link>
-          <div className="nav-right">
-            <span className="existing-q">{candidate?.email || profile?.email || ""}</span>
-            <Link href="/account/security" className="signin">Account</Link>
-          </div>
-        </div>
-      </nav>
-
-      <main className="page" style={{ maxWidth: "980px", margin: "0 auto" }}>
+    <main style={{ maxWidth: "980px", margin: "0 auto" }}>
         {/* ── Welcome ── */}
         <section className="dash-welcome">
           <div className={`status-banner ${terminal ? "rejected" : lockedOut ? "cooldown" : underReview ? "waiting" : actionRequired ? "waiting" : ""}`}>
@@ -723,6 +777,5 @@ export default async function CandidateDashboardPage() {
           </section>
         </div>
       </main>
-    </div>
   );
 }
