@@ -182,7 +182,13 @@ export function computeVisibility(c: VisibilityInput | null | undefined): Visibi
       title: "You're not being matched to jobs",
       detail:
         "Your availability says you're not available, so you're left out when clients post work. Your profile is still searchable.",
-      action: { label: "Update availability", href: "#availability" },
+      // Absolute, not a bare fragment. These reasons are rendered on
+      // /candidate/work as well as the dashboard, and the id="availability"
+      // section lives in AvailabilityRateCard, which only the dashboard
+      // renders — so "#availability" was a primary CTA that silently did
+      // nothing. A Next.js Link to the current route with a hash still scrolls
+      // in-page, so the dashboard keeps working.
+      action: { label: "Update availability", href: "/candidate/dashboard#availability" },
     });
   } else if (!notAvailable && availabilityIsStale(c)) {
     const stamp = c.availability_last_updated_at || c.created_at;
@@ -193,7 +199,7 @@ export function computeVisibility(c: VisibilityInput | null | undefined): Visibi
       detail: stamp
         ? `Clients can find you, but the last we heard about your availability was ${new Date(stamp).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}.`
         : "Clients can find you, but we don't have a recent answer on your availability.",
-      action: { label: "Confirm availability", href: "#availability" },
+      action: { label: "Confirm availability", href: "/candidate/dashboard#availability" },
     });
   }
 
