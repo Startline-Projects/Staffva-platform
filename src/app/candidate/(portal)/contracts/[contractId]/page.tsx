@@ -71,6 +71,8 @@ export default async function CandidateContractPage({
             noticeGivenAt={contract.noticeGivenAt}
             noticeGivenBy={contract.noticeGivenBy}
             endsAt={contract.endsAt}
+            pausedAt={contract.pausedAt}
+            pausedBy={contract.pausedBy}
           />
         </div>
 

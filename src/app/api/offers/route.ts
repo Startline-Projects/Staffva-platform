@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { executeOfferAccept } from "@/lib/acceptOffer";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import {generateContractHtml} from "@/lib/contracts";
 import { extractText } from "@/lib/anthropic";
 import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 
@@ -54,7 +54,7 @@ export async function GET() {
       // `expired` included: with candidate mail frozen, the likeliest thing to
       // happen to an offer is that it times out unseen, and dropping it here
       // would erase the evidence the candidate was ever offered work.
-      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+      .in("status", ["sent", "viewed", "countered", "accepted", "declined", "expired"])
       .order("sent_at", { ascending: false });
 
     return NextResponse.json({ offers: data || [] });
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       .select("id")
       .eq("client_id", client.id)
       .eq("candidate_id", candidateId)
-      .in("status", ["sent", "viewed"])
+      .in("status", ["sent", "viewed", "countered"])
       .limit(1)
       .maybeSingle();
     if (existing) {
@@ -231,6 +231,22 @@ export async function POST(req: NextRequest) {
     const { data: offer } = await supabase.from("engagement_offers").select("*, clients(full_name, email)").eq("id", offerId).eq("candidate_id", candidate.id).single();
     if (!offer) return NextResponse.json({ error: "Offer not found" }, { status: 404 });
 
+    // Negotiation turn: on a countered offer, only the party the last counter
+    // was SENT TO may respond. Turn comes from the envelope's current_round
+    // parity (rounds strictly alternate; the original offer is the client's
+    // round zero — odd = candidate proposed last), same rule as /negotiate.
+    // expectedRound doubles as the version fence: the accept/decline CAS
+    // below matches only the envelope THIS check saw, so a counter landing in
+    // between (either party's, either tab's) makes the CAS match zero rows
+    // instead of binding terms nobody agreed to.
+    const expectedRound: number = offer.current_round ?? 0;
+    if (offer.status === "countered" && expectedRound % 2 === 1) {
+      return NextResponse.json(
+        { error: "You've countered — it's the client's turn to respond." },
+        { status: 409 }
+      );
+    }
+
     if (response === "accept") {
       // Compare-and-set: only an open offer can transition, and every side
       // effect below (engagement, contract, email) runs ONLY when this
@@ -240,74 +256,29 @@ export async function POST(req: NextRequest) {
         .from("engagement_offers")
         .update({ status: "accepted", responded_at: new Date().toISOString() })
         .eq("id", offerId)
-        .in("status", ["sent", "viewed"])
+        .in("status", ["sent", "viewed", "countered"])
+        .eq("current_round", expectedRound)
         .select("id");
       if (!transitioned?.length) {
         return NextResponse.json({ error: "This offer is no longer open." }, { status: 409 });
       }
 
-      // Create engagement from offer terms
-      const { data: engagement } = await supabase.from("engagements").insert({
-        client_id: offer.client_id,
-        candidate_id: offer.candidate_id,
-        contract_type: offer.contract_length === "Ongoing" ? "ongoing" : "project",
-        candidate_rate_usd: offer.hourly_rate,
-        platform_fee_usd: Number(offer.hourly_rate) * offer.hours_per_week * 4.33 * 0.10,
-        client_total_usd: Number(offer.estimated_monthly_cost),
-        weekly_hours: offer.hours_per_week,
-        status: "active",
-      }).select().single();
-
-      // Generate contract for the new engagement
-      if (engagement) {
-        try {
-          const { data: clientInfo } = await supabase.from("clients").select("full_name, company_name, email").eq("id", offer.client_id).single();
-          const { data: candInfo } = await supabase.from("candidates").select("display_name, full_name, role_category, hourly_rate").eq("id", offer.candidate_id).single();
-
-          const contractHtml = await generateContractHtml({
-            clientLegalName: clientInfo?.company_name || clientInfo?.full_name || "Client",
-            candidateDisplayName: candInfo?.display_name || candInfo?.full_name || "Contractor",
-            roleCategory: candInfo?.role_category || "Professional Services",
-            hourlyRate: Number(offer.hourly_rate),
-            hoursPerWeek: offer.hours_per_week || 40,
-            paymentCycle: "monthly",
-            contractType: offer.contract_length === "Ongoing" ? "ongoing" : "project",
-            startDate: offer.start_date ? new Date(offer.start_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-          });
-
-          const { data: contract } = await supabase.from("engagement_contracts").insert({
-            engagement_id: engagement.id,
-            candidate_id: offer.candidate_id,
-            client_id: offer.client_id,
-            contract_html: contractHtml,
-            status: "pending_client",
-          }).select().single();
-
-          if (contract) {
-
-            // Email client to review and sign contract
-            if (process.env.RESEND_API_KEY && clientInfo?.email) {
-              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
-              try {
-                await sendEmail({
-                  from: "StaffVA <notifications@staffva.com>",
-                  to: clientInfo.email,
-                  subject: `${candInfo?.display_name || "A candidate"} accepted your offer — Contract ready for signing`,
-                  html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#1C1B1A;">Offer Accepted!</h2>
-                    <p style="color:#444;font-size:14px;">${candInfo?.display_name || "The candidate"} has accepted your offer. An Independent Contractor Agreement has been generated and is ready for your review and signature.</p>
-                    <p style="color:#444;font-size:14px;">Please sign the contract so it can be sent to the contractor for their signature. Escrow funding will become available once both parties sign.</p>
-                    <a href="${siteUrl}/team" style="display:inline-block;background:#FE6E3E;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review & Sign Contract</a>
-                    <p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p>
-                  </div>`,
-                }, { recipientKind: "client", emailType: "offer_response" });
-              } catch { /* silent */ }
-            }
-          }
-        } catch (contractErr) {
-          console.error("Contract generation on offer accept failed:", contractErr);
-        }
-      }
+      // Engagement + contract + notify-the-other-side, shared with the
+      // client-accept path in /api/offers/negotiate — after a candidate
+      // counter it is the CLIENT who accepts, and the effects must be
+      // identical.
+      //
+      // RE-FETCHED after the CAS, not the row read at the top: between that
+      // read and this accept, the client could counter (sent -> countered is
+      // inside the CAS set), and executing the stale object would create an
+      // engagement at terms the candidate never saw. The CAS froze the
+      // envelope; this read takes what it froze.
+      const { data: acceptedOffer } = await supabase
+        .from("engagement_offers")
+        .select("*")
+        .eq("id", offerId)
+        .single();
+      await executeOfferAccept(supabase, acceptedOffer ?? offer, "candidate");
 
       return NextResponse.json({ success: true, status: "accepted" });
     }
@@ -317,7 +288,8 @@ export async function POST(req: NextRequest) {
         .from("engagement_offers")
         .update({ status: "declined", responded_at: new Date().toISOString() })
         .eq("id", offerId)
-        .in("status", ["sent", "viewed"])
+        .in("status", ["sent", "viewed", "countered"])
+        .eq("current_round", expectedRound)
         .select("id");
       if (!transitioned?.length) {
         return NextResponse.json({ error: "This offer is no longer open." }, { status: 409 });

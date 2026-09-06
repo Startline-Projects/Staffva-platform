@@ -55,7 +55,13 @@ export default function AtlasLiveHome({
   views7d: number;
   unreadMessages: number;
   activeEngagements: number;
-  noticeEngagement?: { id: string; ends_at: string; notice_given_by: string | null } | null;
+  noticeEngagement?: {
+    id: string;
+    ends_at: string | null;
+    notice_given_by: string | null;
+    paused_at?: string | null;
+    paused_by?: string | null;
+  } | null;
   activity: ActivityItem[];
 }) {
   const vis = computeVisibility(candidate);
@@ -152,27 +158,46 @@ export default function AtlasLiveHome({
         </section>
       )}
 
-      {/* An engagement in its 14-day notice period — the one date a working
-          candidate must not discover late. */}
+      {/* An engagement mid-notice or paused — the dates a working candidate
+          must not discover late. Notice wording wins when both are set. */}
       {noticeEngagement && (
         <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
           <h2 className="text-base font-bold text-amber-900">
-            {noticeEngagement.notice_given_by === "candidate"
-              ? "You've given 14 days' notice on an engagement."
-              : "A client has given 14 days' notice on your engagement."}
+            {noticeEngagement.ends_at
+              ? noticeEngagement.notice_given_by === "candidate"
+                ? "You've given 14 days' notice on an engagement."
+                : "A client has given 14 days' notice on your engagement."
+              : noticeEngagement.paused_by === "candidate"
+                ? "You've paused an engagement."
+                : "A client has paused your engagement."}
           </h2>
           <p className="mt-1 text-sm text-amber-800">
-            It ends on{" "}
-            <strong>
-              {new Date(noticeEngagement.ends_at).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-                timeZone: "UTC",
-              })}
-            </strong>
-            . Work and pay continue until then; funded money follows the normal
-            release process.
+            {noticeEngagement.ends_at ? (
+              <>
+                It ends on{" "}
+                <strong>
+                  {new Date(noticeEngagement.ends_at).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })}
+                </strong>
+                . Work and pay continue until then; funded money follows the
+                normal release process.
+              </>
+            ) : (
+              <>
+                No new payment periods accrue while paused. If it isn&apos;t
+                resumed by{" "}
+                <strong>
+                  {new Date(
+                    new Date(noticeEngagement.paused_at!).getTime() + 30 * 24 * 3600 * 1000
+                  ).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}
+                </strong>
+                , it ends automatically.
+              </>
+            )}
           </p>
           <Link
             href="/candidate/contracts"

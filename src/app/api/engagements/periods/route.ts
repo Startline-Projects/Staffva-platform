@@ -54,6 +54,13 @@ export async function POST(request: Request) {
     if (!engagement || engagement.clients.user_id !== user.id) {
       return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
     }
+    // The pause clause: "While paused, no new payment periods accrue."
+    if (engagement.paused_at) {
+      return NextResponse.json(
+        { error: "This engagement is paused — no new periods accrue until it resumes." },
+        { status: 409 }
+      );
+    }
     const hourlyBasis = engagement.payment_cycle == null && engagement.weekly_hours != null;
     if (engagement.contract_type !== "ongoing" && !hourlyBasis) {
       return NextResponse.json(
@@ -80,9 +87,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const periodStart = latestPeriod
+    let periodStart = latestPeriod
       ? new Date(latestPeriod.period_end)
       : new Date();
+
+    // After a resume, the next period starts AT the resume — not at the last
+    // period's end, which would span the paused weeks and bill them at full
+    // price against the clause's "no new payment periods accrue while
+    // paused". DATE-truncated, same convention as the notice clamp below.
+    if (engagement.last_resumed_at) {
+      const resumedDate = new Date(String(engagement.last_resumed_at).slice(0, 10));
+      if (periodStart < resumedDate) periodStart = resumedDate;
+    }
 
     const periodEnd = new Date(periodStart);
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PAUSE_AUTO_END_DAYS } from "@/lib/engagementLifecycle";
 
 /**
  * The candidate's half of section 3: "Either party may terminate this
@@ -20,6 +21,8 @@ export default function NoticeControl({
   noticeGivenAt,
   noticeGivenBy,
   endsAt,
+  pausedAt = null,
+  pausedBy = null,
 }: {
   engagementId: string;
   engagementStatus: string | null;
@@ -27,6 +30,8 @@ export default function NoticeControl({
   noticeGivenAt: string | null;
   noticeGivenBy: string | null;
   endsAt: string | null;
+  pausedAt?: string | null;
+  pausedBy?: string | null;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -37,21 +42,84 @@ export default function NoticeControl({
   // completes it, "work and payment continue until then" would be a
   // present-tense promise on a closed engagement. Ended states are the page's
   // block copy's job.
+  async function pauseAction(action: "pause" | "resume") {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/engagements/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engagementId, action }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error || "We couldn't update the engagement. Try again.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("We couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Paused state renders above everything: it changes what "active" means.
+  const pauseBlock =
+    engagementStatus === "active" && pausedAt ? (
+      <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-semibold text-amber-900">
+          {pausedBy === "candidate" ? "You paused this engagement" : "The client paused this engagement"}
+        </p>
+        <p className="mt-1 text-sm text-amber-800">
+          No new payment periods accrue while paused.{" "}
+          {noticeGivenAt ? (
+            <>Notice is running — the engagement ends on its notice date.</>
+          ) : (
+            <>
+              If it isn&apos;t resumed by{" "}
+              <strong>
+                {new Date(new Date(pausedAt).getTime() + PAUSE_AUTO_END_DAYS * 24 * 3600 * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}
+              </strong>
+              , it ends automatically. You can give 14 days&apos; notice at any
+              time.
+            </>
+          )}
+        </p>
+        {pausedBy === "candidate" && (
+          <button
+            type="button"
+            onClick={() => pauseAction("resume")}
+            disabled={busy}
+            className="mt-2 text-sm font-semibold text-amber-900 underline hover:no-underline disabled:opacity-50"
+          >
+            {busy ? "Resuming…" : "Resume the engagement"}
+          </button>
+        )}
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </div>
+    ) : null;
+
   if (noticeGivenAt && engagementStatus === "active") {
     const ends = endsAt
       ? new Date(endsAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" , timeZone: "UTC" })
       : "";
     return (
+      <>
+      {pauseBlock}
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
         <p className="text-sm font-semibold text-amber-900">
           {noticeGivenBy === "candidate" ? "You gave" : "The client gave"} 14 days&apos; notice
         </p>
         <p className="mt-1 text-sm text-amber-800">
-          This engagement ends on <strong>{ends}</strong>. Work and payment
-          continue until then, and money already in escrow follows the normal
-          release process.
+          This engagement ends on <strong>{ends}</strong>.{" "}
+          {pausedAt
+            ? "It's paused, so no new payment periods accrue before then — money already in escrow follows the normal release process."
+            : "Work and payment continue until then, and money already in escrow follows the normal release process."}
         </p>
       </div>
+      </>
     );
   }
 
@@ -81,6 +149,25 @@ export default function NoticeControl({
   }
 
   return (
+    <>
+    {pauseBlock}
+    {!pausedAt && (
+      <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p className="text-sm font-semibold text-[#1C1B1A]">Pausing this engagement</p>
+        <p className="mt-1 text-sm text-gray-600">
+          Either side can pause — no new payment periods accrue until the person
+          who paused resumes it, and 30 days paused ends the engagement.
+        </p>
+        <button
+          type="button"
+          onClick={() => pauseAction("pause")}
+          disabled={busy}
+          className="mt-2 text-sm font-semibold text-[#1C1B1A] underline hover:no-underline disabled:opacity-50"
+        >
+          {busy ? "Pausing…" : "Pause"}
+        </button>
+      </div>
+    )}
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
       <p className="text-sm font-semibold text-[#1C1B1A]">Ending this engagement</p>
       <p className="mt-1 text-sm text-gray-600">
@@ -120,5 +207,6 @@ export default function NoticeControl({
       )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
+    </>
   );
 }

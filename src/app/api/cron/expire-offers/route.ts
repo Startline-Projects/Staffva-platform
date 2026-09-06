@@ -19,15 +19,29 @@ export async function GET(req: NextRequest) {
   const { data: expired } = await supabase
     .from("engagement_offers")
     .select("id, client_id, candidate_id, clients(email, full_name), candidates(display_name)")
-    .in("status", ["sent", "viewed"])
+    .in("status", ["sent", "viewed", "countered"])
     .lt("sent_at", fiveDaysAgo);
 
   if (!expired || expired.length === 0) {
     return NextResponse.json({ message: "No offers to expire", count: 0 });
   }
 
+  let expiredCount = 0;
   for (const offer of expired) {
-    await supabase.from("engagement_offers").update({ status: "expired" }).eq("id", offer.id);
+    // CAS on a still-open status: between the select and this write the offer
+    // may have been accepted, declined, or freshly countered (which resets
+    // sent_at and deserves its new 5-day clock). Skip — and skip the "your
+    // offer expired" email — when the write matched nothing.
+    const { data: closed } = await supabase
+      .from("engagement_offers")
+      .update({ status: "expired" })
+      .eq("id", offer.id)
+      .in("status", ["sent", "viewed", "countered"])
+      .lt("sent_at", fiveDaysAgo)
+      .select("id")
+      .maybeSingle();
+    if (!closed) continue;
+    expiredCount++;
 
     const clientInfo = offer.clients as unknown as { email: string; full_name: string } | null;
     const candInfo = offer.candidates as unknown as { display_name: string } | null;
@@ -48,5 +62,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ message: `Expired ${expired.length} offers`, count: expired.length });
+  return NextResponse.json({ message: `Expired ${expiredCount} offers`, count: expiredCount });
 }

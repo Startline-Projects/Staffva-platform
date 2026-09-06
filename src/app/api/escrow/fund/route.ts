@@ -106,6 +106,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Period already funded" }, { status: 400 });
       }
 
+      // The pause clause stops NEW periods, not pay for work already done: a
+      // period that STARTED before the pause stays fundable — including after
+      // a 30-day pause-out completes the engagement, which would otherwise
+      // strand it permanently unpayable. Periods starting at/after the pause
+      // wait for a resume. (period_start is a DATE; compare in dates.)
+      if (
+        engagement.paused_at &&
+        String(period.period_start) >= String(engagement.paused_at).slice(0, 10)
+      ) {
+        return NextResponse.json(
+          { error: "This engagement is paused — resume it before funding this period." },
+          { status: 409 }
+        );
+      }
+
       existingIntentId = period.stripe_payment_intent_id || null;
       // Hourly-basis engagements charge from the PERIOD's own amount + the 10%
       // fee — client_total_usd is the full-month estimate, and the final
@@ -170,6 +185,14 @@ export async function POST(request: Request) {
       }
       if (milestone.status !== "pending") {
         return NextResponse.json({ error: "Milestone not in pending state" }, { status: 400 });
+      }
+      // Milestones are funded BEFORE the work happens, so a pause blocks them
+      // outright — there is no pre-pause work to pay for.
+      if (engagement.paused_at) {
+        return NextResponse.json(
+          { error: "This engagement is paused — resume it before funding a milestone." },
+          { status: 409 }
+        );
       }
 
       existingIntentId = milestone.stripe_payment_intent_id || null;

@@ -24,6 +24,7 @@ import type { WorkOffer } from "@/lib/candidateWork";
 const STATUS: Record<string, { label: string; cls: string }> = {
   sent: { label: "Awaiting your answer", cls: "bg-orange-50 text-orange-800 border-orange-200" },
   viewed: { label: "Awaiting your answer", cls: "bg-orange-50 text-orange-800 border-orange-200" },
+  countered: { label: "In negotiation", cls: "bg-blue-50 text-blue-800 border-blue-200" },
   accepted: { label: "Accepted", cls: "bg-green-50 text-green-800 border-green-200" },
   declined: { label: "Declined", cls: "bg-gray-50 text-gray-600 border-gray-200" },
   expired: { label: "Expired", cls: "bg-gray-50 text-gray-600 border-gray-200" },
@@ -47,8 +48,19 @@ export default function WorkOffers({ offers }: { offers: WorkOffer[] }) {
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Offers</h2>
       <div className="space-y-3">
         {offers.map((o) => {
-          const open = o.status === "sent" || o.status === "viewed";
-          const s = STATUS[o.status] ?? STATUS.expired;
+          // 'countered' is OPEN — the review's one critical finding was this
+          // status vanishing from every candidate surface, which broke
+          // negotiation at n=1 in both directions (their own counter looked
+          // like the offer disappearing; a client's counter arrived nowhere).
+          const open = o.status === "sent" || o.status === "viewed" || o.status === "countered";
+          const s =
+            o.status === "countered"
+              ? o.awaiting_you === true
+                ? { label: "Counter received — your answer", cls: "bg-orange-50 text-orange-800 border-orange-200" }
+                : o.awaiting_you === false
+                  ? { label: "You countered — with the client", cls: "bg-blue-50 text-blue-800 border-blue-200" }
+                  : STATUS.countered
+              : (STATUS[o.status] ?? STATUS.expired);
           return (
             <div
               key={o.id}
@@ -100,7 +112,7 @@ export default function WorkOffers({ offers }: { offers: WorkOffer[] }) {
                     href={`/offers/${o.id}`}
                     className="rounded-full bg-[#FE6E3E] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#E55A2B]"
                   >
-                    Review this offer
+                    {o.status === "countered" ? "View the negotiation" : "Review this offer"}
                   </Link>
                   {o.respond_by && (
                     // A date, never a live countdown. The expiry is enforced by

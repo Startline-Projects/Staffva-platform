@@ -9,6 +9,8 @@ import EscrowPaymentModal from "@/components/escrow/EscrowPaymentModal";
 import UpcomingInterviews from "@/components/interview/UpcomingInterviews";
 import ReviewExchange from "@/components/reviews/ReviewExchange";
 import RolePosts from "@/components/client/RolePosts";
+import NegotiationPanel from "@/components/offers/NegotiationPanel";
+import { PAUSE_AUTO_END_DAYS } from "@/lib/engagementLifecycle";
 import type { ReviewState } from "@/lib/reviewEligibility";
 import {
   ResponsiveContainer,
@@ -65,6 +67,8 @@ interface Engagement {
   notice_given_at: string | null;
   notice_given_by: string | null;
   ends_at: string | null;
+  paused_at: string | null;
+  paused_by: string | null;
   candidate_rate_usd: number;
   platform_fee_usd: number;
   client_total_usd: number;
@@ -100,8 +104,10 @@ interface OfferRow {
   id: string;
   status: string;
   hourly_rate: number;
+  signing_bonus_usd: number | null;
   hours_per_week: number;
   contract_length: string;
+  start_date: string | null;
   sent_at: string | null;
   responded_at: string | null;
   candidates: {
@@ -117,6 +123,7 @@ const OFFER_LABELS: Record<string, { label: string; color: string }> = {
   accepted: { label: "Accepted", color: "bg-green-100 text-green-700" },
   declined: { label: "Declined", color: "bg-gray-100 text-gray-600" },
   expired: { label: "Expired", color: "bg-gray-100 text-gray-500" },
+  countered: { label: "Counter received", color: "bg-orange-100 text-orange-700" },
 };
 
 interface DashboardStats {
@@ -155,6 +162,9 @@ export default function TeamPortalPage() {
   const [reviewState, setReviewState] = useState<ReviewState[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Per-offer negotiation turn, reported by each NegotiationPanel — used to
+  // hide accept/decline while the ball is in the candidate's court.
+  const [counterTurns, setCounterTurns] = useState<Record<string, "client" | "candidate" | null>>({});
   const [payModal, setPayModal] = useState<{
     engagementId: string;
     periodId?: string;
@@ -297,6 +307,49 @@ export default function TeamPortalPage() {
         pollRef.current = null;
       }
     }, 3000);
+  }
+
+  async function handleCounterRespond(offerId: string, response: "accept" | "decline") {
+    if (
+      response === "accept" &&
+      !confirm("Accept the candidate's counter-offer? A contract will be drawn up at their proposed terms.")
+    )
+      return;
+    setActionLoading(offerId);
+    const res = await fetch("/api/offers/negotiate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "respond", offerId, response }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't respond — try again.");
+    }
+    await loadOffers();
+    await loadEngagements();
+    setActionLoading(null);
+  }
+
+  async function handlePause(engagementId: string, action: "pause" | "resume") {
+    if (
+      action === "pause" &&
+      !confirm(
+        "Pause this engagement? No new payment periods accrue while paused, and if it stays paused 30 days it ends automatically."
+      )
+    )
+      return;
+    setActionLoading(engagementId);
+    const res = await fetch("/api/engagements/pause", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engagementId, action }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't update the engagement — try again.");
+    }
+    await loadEngagements();
+    setActionLoading(null);
   }
 
   async function handleGiveNotice(engagementId: string) {
@@ -595,10 +648,54 @@ export default function TeamPortalPage() {
                   {o.status === "accepted" && (
                     <span className="text-xs text-text/50">contract in progress below</span>
                   )}
+                  {o.status === "countered" && counterTurns[o.id] === "candidate" && (
+                    <span className="text-xs text-text/50">waiting on the candidate</span>
+                  )}
+                  {o.status === "countered" && counterTurns[o.id] !== "candidate" && (
+                    <>
+                      <button
+                        onClick={() => handleCounterRespond(o.id, "accept")}
+                        disabled={actionLoading === o.id}
+                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Accept counter
+                      </button>
+                      <button
+                        onClick={() => handleCounterRespond(o.id, "decline")}
+                        disabled={actionLoading === o.id}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-text hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+          {/* Round history + the client's own counter form, per open offer.
+              Rendered once per countered offer below the list. */}
+          {offers
+            .filter((o) => ["sent", "viewed", "countered"].includes(o.status))
+            .map((o) => (
+              <div key={`neg-${o.id}`} className="mt-2">
+                <NegotiationPanel
+                  offerId={o.id}
+                  viewer="client"
+                  currentTerms={{
+                    hourly_rate: Number(o.hourly_rate),
+                    hours_per_week: o.hours_per_week,
+                    contract_length: o.contract_length,
+                    start_date: o.start_date ?? null,
+                  }}
+                  signingBonus={o.signing_bonus_usd ? Number(o.signing_bonus_usd) : null}
+                  onChanged={() => {
+                    loadOffers();
+                  }}
+                  onTurnKnown={(t) => setCounterTurns((prev) => ({ ...prev, [o.id]: t }))}
+                />
+              </div>
+            ))}
         </div>
       )}
 
@@ -705,7 +802,20 @@ export default function TeamPortalPage() {
                 {/* Fund the pending period, or start the next one */}
                 {(eng.contract_type === "ongoing" || (eng.payment_cycle == null && eng.weekly_hours != null)) && (
                   <div className="mt-4">
-                    {eng.latest_period &&
+                    {/* While paused, the only fundable thing is a period that
+                        STARTED before the pause (work already done). Starting
+                        a new period is exactly what the clause suspends — the
+                        server enforces both rules; this just stops the button
+                        from promising what a click can't deliver. */}
+                    {eng.paused_at &&
+                    !(
+                      eng.latest_period?.status === "pending" &&
+                      String(eng.latest_period.period_start) < String(eng.paused_at).slice(0, 10)
+                    ) ? (
+                      <p className="text-xs text-amber-700">
+                        Paused — no new payment periods accrue until it resumes.
+                      </p>
+                    ) : eng.latest_period &&
                     eng.latest_period.status === "pending" &&
                     fundingInFlight.has(eng.latest_period.id) ? (
                       <button
@@ -748,7 +858,10 @@ export default function TeamPortalPage() {
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${MILESTONE_LABELS[ms.status]?.color || "bg-gray-100"}`}>
                               {MILESTONE_LABELS[ms.status]?.label || ms.status}
                             </span>
-                            {ms.status === "pending" &&
+                            {ms.status === "pending" && eng.paused_at != null && (
+                              <span className="text-xs text-amber-700">paused</span>
+                            )}
+                            {ms.status === "pending" && eng.paused_at == null &&
                               (fundingInFlight.has(ms.id) ? (
                                 <span className="rounded bg-gray-200 px-3 py-1 text-xs font-semibold text-text-secondary">
                                   Payment processing…
@@ -798,6 +911,30 @@ export default function TeamPortalPage() {
                   >
                     Message
                   </button>
+                  {eng.paused_at && !eng.notice_given_at && (
+                    <span className="text-sm text-amber-700">
+                      Paused {eng.paused_by === "client" ? "by you" : "by them"} · auto-ends{" "}
+                      {new Date(new Date(eng.paused_at).getTime() + PAUSE_AUTO_END_DAYS * 24 * 3600 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                    </span>
+                  )}
+                  {eng.paused_at && eng.paused_by === "client" && (
+                    <button
+                      onClick={() => handlePause(eng.id, "resume")}
+                      disabled={actionLoading === eng.id}
+                      className="text-sm text-primary hover:text-primary-dark disabled:opacity-50"
+                    >
+                      Resume
+                    </button>
+                  )}
+                  {!eng.paused_at && !eng.notice_given_at && eng.contract?.status === "fully_executed" && (
+                    <button
+                      onClick={() => handlePause(eng.id, "pause")}
+                      disabled={actionLoading === eng.id}
+                      className="text-sm text-text/60 hover:text-text disabled:opacity-50"
+                    >
+                      Pause
+                    </button>
+                  )}
                   {eng.notice_given_at ? (
                     <span className="text-sm text-amber-700">
                       {eng.notice_given_by === "client" ? "You gave" : "They gave"} 14 days&apos;

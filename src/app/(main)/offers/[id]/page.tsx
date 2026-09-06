@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import NegotiationPanel from "@/components/offers/NegotiationPanel";
 
 interface Offer {
   id: string;
@@ -25,6 +26,7 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
   const [offer, setOffer] = useState<Offer | null>(null);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState(false);
+  const [negTurn, setNegTurn] = useState<"client" | "candidate" | null>(null);
   const [responded, setResponded] = useState<"accepted" | "declined" | null>(null);
 
   useEffect(() => {
@@ -144,6 +146,26 @@ export default function OfferResponsePage({ params }: { params: Promise<{ id: st
         )}
 
         {!responded && !isExpired && (
+          <NegotiationPanel
+            offerId={offer.id}
+            viewer="candidate"
+            currentTerms={{
+              hourly_rate: offer.hourly_rate,
+              hours_per_week: offer.hours_per_week,
+              contract_length: offer.contract_length,
+              start_date: offer.start_date,
+            }}
+            signingBonus={offer.signing_bonus_usd ? Number(offer.signing_bonus_usd) : null}
+            onChanged={() => window.location.reload()}
+            onTurnKnown={setNegTurn}
+          />
+        )}
+
+        {/* Off-turn honesty: after THEIR counter, accept/decline belong to the
+            client — the server 409s these clicks anyway, but a button that
+            only ever errors is a broken promise. Unknown turn (fetch failed)
+            keeps the buttons; the server stays the enforcer. */}
+        {!responded && !isExpired && !(offer.status === "countered" && negTurn === "client") && (
           <div className="mt-6 flex gap-3">
             <button onClick={() => handleRespond("decline")} disabled={responding}
               className="flex-1 rounded-full border border-border py-3 text-sm font-medium text-text hover:border-text transition-colors disabled:opacity-50">

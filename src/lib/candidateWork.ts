@@ -34,6 +34,8 @@ export interface WorkOffer {
   employer: string | null;
   /** For the client-profile link — the who-are-they page (Atlas 4.23). */
   client_id: string | null;
+  /** On a countered offer: is the ball in the candidate's court? */
+  awaiting_you?: boolean;
 }
 
 export interface WorkRole {
@@ -61,9 +63,16 @@ export interface CandidateWork {
   engagementCount: number;
 }
 
-/** Offers still awaiting an answer. The dashboard shouts only for these. */
+/** Offers still awaiting THIS candidate's answer. The dashboard shouts only
+ *  for these — a countered offer waiting on the CLIENT must not tell the
+ *  candidate to "give them an answer". */
 export function pendingOffers(offers: WorkOffer[]): WorkOffer[] {
-  return offers.filter((o) => o.status === "sent" || o.status === "viewed");
+  return offers.filter(
+    (o) =>
+      o.status === "sent" ||
+      o.status === "viewed" ||
+      (o.status === "countered" && o.awaiting_you === true)
+  );
 }
 
 const RESPOND_WINDOW_DAYS = 5;
@@ -82,14 +91,14 @@ export async function loadCandidateWork(candidateId: string): Promise<CandidateW
     db
       .from("engagement_offers")
       .select(
-        "id, status, client_id, hourly_rate, hours_per_week, contract_length, start_date, signing_bonus_usd, personal_message, sent_at, clients(full_name, company_name)"
+        "id, status, client_id, current_round, hourly_rate, hours_per_week, contract_length, start_date, signing_bonus_usd, personal_message, sent_at, clients(full_name, company_name)"
       )
       .eq("candidate_id", candidateId)
       // `expired` is included deliberately. Under the email freeze a candidate
       // is never told an offer arrived, so the likeliest thing that happens to
       // one is that it times out unseen. Dropping it from the list would erase
       // the evidence that they were ever offered work.
-      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+      .in("status", ["sent", "viewed", "countered", "accepted", "declined", "expired"])
       .order("sent_at", { ascending: false, nullsFirst: false }),
     db.rpc("jobs_for_candidate", { p_candidate_id: candidateId }),
     db
@@ -138,6 +147,13 @@ export async function loadCandidateWork(candidateId: string): Promise<CandidateW
         : null,
       employer: c?.company_name || c?.full_name || null,
       client_id: (o as { client_id?: string }).client_id ?? null,
+      // Envelope parity, same rule as the negotiate routes: rounds strictly
+      // alternate from the client's round zero, so an even current_round on a
+      // countered offer means the client proposed last — the candidate's move.
+      awaiting_you:
+        o.status === "countered"
+          ? (Number((o as { current_round?: number }).current_round ?? 0) % 2 === 0)
+          : undefined,
     };
   });
 

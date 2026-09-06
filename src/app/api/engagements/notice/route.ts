@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
 import { sendEmail } from "@/lib/email";
+import { NOTICE_DAYS } from "@/lib/engagementLifecycle";
 
 function admin() {
   return createClient(
@@ -11,7 +12,6 @@ function admin() {
   );
 }
 
-const NOTICE_DAYS = 14;
 
 /**
  * "Either party may terminate this Agreement with 14 days' written notice

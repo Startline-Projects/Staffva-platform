@@ -172,11 +172,11 @@ export default async function CandidateDashboardPage() {
       // home page, not buried behind the contract detail.
       admin
         .from("engagements")
-        .select("id, ends_at, notice_given_by")
+        .select("id, ends_at, notice_given_by, paused_at, paused_by")
         .eq("candidate_id", live.id)
         .eq("status", "active")
-        .not("ends_at", "is", null)
-        .order("ends_at", { ascending: true })
+        .or("ends_at.not.is.null,paused_at.not.is.null")
+        .order("ends_at", { ascending: true, nullsFirst: false })
         .limit(1),
       admin
         .from("recruiter_messages")
