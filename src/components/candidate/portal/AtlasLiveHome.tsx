@@ -2,6 +2,7 @@ import Link from "next/link";
 import AvailabilityBar from "./AvailabilityBar";
 import AvailabilityRateCard from "@/components/candidate/AvailabilityRateCard";
 import GoingLiveWelcome from "@/components/candidate/GoingLiveWelcome";
+import DashboardTour from "@/components/candidate/portal/DashboardTour";
 import {
   computeVisibility,
   availabilityIsStale,
@@ -46,6 +47,7 @@ export default function AtlasLiveHome({
     hours_per_week?: number | null;
     availability_date?: string | null;
     going_live_ack_at?: string | null;
+    tour_seen_at?: string | null;
   };
   firstName: string;
   pendingOfferCount: number;
@@ -82,6 +84,9 @@ export default function AtlasLiveHome({
       {!candidate.going_live_ack_at && vis.searchable && (
         <GoingLiveWelcome firstName={firstName} />
       )}
+      {/* Tour AFTER the welcome, never over it: the welcome's ack triggers a
+          refresh, and the next render starts the tour. */}
+      {candidate.going_live_ack_at && !candidate.tour_seen_at && <DashboardTour />}
 
       {/* ── Greeting ── */}
       <section className="live-greeting" style={{ display: "block" }}>

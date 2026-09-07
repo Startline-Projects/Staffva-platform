@@ -20,6 +20,10 @@ export default function SecuritySettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Fresh plaintext codes exist only in this state, only until navigation.
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [backupRemaining, setBackupRemaining] = useState<number | null>(null);
+  const [codesBusy, setCodesBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -30,6 +34,15 @@ export default function SecuritySettingsPage() {
     if (verified) {
       setFactorId(verified.id);
       setPhase("on");
+      try {
+        const res = await fetch("/api/auth/backup-codes");
+        if (res.ok) {
+          const j = await res.json();
+          setBackupRemaining(typeof j.remaining === "number" ? j.remaining : null);
+        }
+      } catch {
+        /* the count line simply doesn't render */
+      }
     } else {
       setPhase("off");
     }
@@ -85,10 +98,32 @@ export default function SecuritySettingsPage() {
       }
       setNotice("Two-step verification is on. You'll be asked for a code at every sign-in.");
       await refresh();
+      // Mint backup codes immediately: the one moment we KNOW the person is
+      // present with a working authenticator is right after they proved it.
+      await generateCodes();
     } catch {
       setError("Could not verify. Try again.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function generateCodes() {
+    if (codesBusy) return;
+    setCodesBusy(true);
+    try {
+      const res = await fetch("/api/auth/backup-codes", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error || "Could not generate backup codes.");
+        return;
+      }
+      setBackupCodes(j.codes || []);
+      setBackupRemaining((j.codes || []).length);
+    } catch {
+      setError("Could not generate backup codes. Try again from this page.");
+    } finally {
+      setCodesBusy(false);
     }
   }
 
@@ -101,7 +136,13 @@ export default function SecuritySettingsPage() {
     try {
       const { error: unErr } = await supabase.auth.mfa.unenroll({ factorId });
       if (unErr) { setError(unErr.message); return; }
-      setNotice("Two-step verification is off.");
+      // Backup codes are credentials against THIS enrollment — a set that
+      // outlives it would silently back the next one. Best-effort: if this
+      // fails, regeneration on the next enroll replaces them anyway.
+      await fetch("/api/auth/backup-codes", { method: "DELETE" }).catch(() => {});
+      setNotice("Two-step verification is off. Your backup codes no longer work.");
+      setBackupCodes(null);
+      setBackupRemaining(null);
       await refresh();
     } catch {
       setError("Could not turn it off. Try again.");
@@ -197,6 +238,48 @@ export default function SecuritySettingsPage() {
             <p className="mt-2 text-sm text-text/60">
               Every sign-in asks for a 6-digit code from your authenticator app.
             </p>
+            <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <h3 className="text-sm font-semibold text-text">Backup codes</h3>
+              {backupCodes ? (
+                <>
+                  <p className="mt-1 text-sm text-text/60">
+                    If you lose your authenticator, one of these gets you back
+                    in: using it at sign-in removes two-step verification from
+                    your account so you can set it up fresh. Each works once,
+                    and this is the only time they&apos;re shown — copy them
+                    somewhere safe now.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 font-mono text-sm text-text sm:grid-cols-5 sm:gap-x-2">
+                    {backupCodes.map((c) => (
+                      <span key={c}>{c}</span>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(backupCodes.join("\n")).then(() => setNotice("Backup codes copied."))}
+                    className="mt-3 text-xs font-semibold text-primary underline"
+                  >
+                    Copy all
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-text/60">
+                    {backupRemaining != null && backupRemaining > 0
+                      ? `${backupRemaining} unused code${backupRemaining === 1 ? "" : "s"} left. Lost the list? Generating a new set invalidates the old one.`
+                      : "If you lose your authenticator, a backup code is the only way back in without support. Generate a set and store it safely."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={generateCodes}
+                    disabled={codesBusy}
+                    className="mt-3 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-text hover:bg-white transition-colors disabled:opacity-50"
+                  >
+                    {codesBusy ? "Generating…" : backupRemaining ? "Generate a new set" : "Generate backup codes"}
+                  </button>
+                </>
+              )}
+            </div>
             <button
               onClick={disable}
               disabled={busy}
@@ -209,7 +292,10 @@ export default function SecuritySettingsPage() {
       </div>
 
       <p className="mt-4 text-xs text-text/40">
-        Lost your authenticator? Contact <a href="mailto:support@staffva.com" className="underline">support@staffva.com</a> from your account email and we&apos;ll help you recover access.
+        Lost your authenticator? Use one of your backup codes at sign-in
+        (&ldquo;Use a backup code instead&rdquo; under the code prompt) — it
+        removes two-step from your account so you can re-enroll. No codes
+        either? Contact <a href="mailto:support@staffva.com" className="underline">support@staffva.com</a> from your account email.
       </p>
     </div>
   );

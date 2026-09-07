@@ -1,0 +1,23 @@
+-- 00218: the lesson from the 2026-09-07 wedge, made permanent.
+--
+-- An ALTER PUBLICATION blocked behind the Realtime walsender's lock; the
+-- statement sat waiting, retries piled up behind it, and the connection pool
+-- starved until every query on the platform timed out for ~90 minutes. Two
+-- guards so that failure mode dies in seconds next time:
+--
+-- (1) idle_in_transaction_session_timeout: a client that vanishes (or an MCP
+--     call that times out client-side) can no longer leave an open
+--     transaction holding locks indefinitely. Two minutes is generous for
+--     every legitimate transaction this platform runs (PostgREST requests
+--     are single-statement; our migrations are seconds).
+--
+-- (2) lock_timeout for the roles that run DDL and ad-hoc SQL: a migration
+--     that can't get its lock in 10s FAILS VISIBLY instead of queueing —
+--     and, crucially, instead of making every later query queue behind it.
+--     PostgREST's roles are deliberately excluded: an app request that
+--     briefly waits on a row lock should wait, not error.
+--
+-- Role-level settings apply at the NEXT connection; existing pooled
+-- connections keep old settings until they cycle.
+alter database postgres set idle_in_transaction_session_timeout = '2min';
+alter role postgres set lock_timeout = '10s';

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
 
-type SigninState = "default" | "2fa" | "lockout" | "suspended" | "routing";
+type SigninState = "default" | "2fa" | "backup" | "lockout" | "suspended" | "routing";
 
 /** Client-side attempt throttle: after this many failed passwords we show the
  * lockout screen with a cooldown. Supabase's own server-side rate limiting
@@ -60,6 +60,9 @@ function LoginContent() {
   // 2FA
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [backupCode, setBackupCode] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupError, setBackupError] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const factorIdRef = useRef<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -133,6 +136,34 @@ function LoginContent() {
     setRoutingMsg(dest.label);
     setState("routing");
     setTimeout(() => router.push(dest.path), 900);
+  }
+
+  async function submitBackupCode() {
+    if (backupBusy || backupCode.trim().length < 8) return;
+    setBackupBusy(true);
+    setBackupError("");
+    try {
+      const res = await fetch("/api/auth/recover-mfa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: backupCode }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBackupError(j.error || "That code didn't work.");
+        return;
+      }
+      // The factors are gone; refresh so the session's claims stop asking
+      // for aal2, then route like a normal sign-in.
+      const supabase = createClient();
+      await supabase.auth.refreshSession();
+      const { data: userData } = await supabase.auth.getUser();
+      finishSignIn(userData.user?.app_metadata?.role);
+    } catch {
+      setBackupError("We couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setBackupBusy(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -434,6 +465,61 @@ function LoginContent() {
               )}
               <button type="button" className={`btn-submit ${otpBusy ? "loading" : ""}`} disabled={otp.join("").length !== 6 || otpBusy} onClick={() => submitOtp()}>
                 <span className="submit-label">Verify</span>
+                <span className="spinner" aria-hidden></span>
+              </button>
+              <p style={{ marginTop: 14, fontSize: 13, textAlign: "center" }}>
+                <button
+                  type="button"
+                  className="forgot-link"
+                  onClick={() => { setBackupError(""); setBackupCode(""); setState("backup"); }}
+                >
+                  Lost your authenticator? Use a backup code instead
+                </button>
+              </p>
+            </div>
+          )}
+
+          {state === "backup" && (
+            <div className="signin-state">
+              <button
+                className="state-back"
+                type="button"
+                onClick={() => { setBackupError(""); setState("2fa"); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M11 7H3M7 3 3 7l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                Back to the code prompt
+              </button>
+              <h2 className="state-title">Use a backup code</h2>
+              <p className="state-subtitle">
+                Enter one of the single-use codes you saved when you set up
+                two-step verification. Using one removes the lost authenticator
+                from your account — you&apos;ll set up a new one afterwards.
+              </p>
+              <input
+                type="text"
+                className="otp-input"
+                style={{ width: "100%", height: 48, fontSize: 16, letterSpacing: "0.15em", textAlign: "center" }}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXX-XXXX"
+                aria-label="Backup code"
+                value={backupCode}
+                onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => { if (e.key === "Enter") submitBackupCode(); }}
+              />
+              {backupError && (
+                <div className="otp-error-text" role="alert" style={{ display: "block" }}>
+                  <span>{backupError}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                className={`btn-submit ${backupBusy ? "loading" : ""}`}
+                disabled={backupCode.trim().length < 8 || backupBusy}
+                onClick={() => submitBackupCode()}
+                style={{ marginTop: 12 }}
+              >
+                <span className="submit-label">Recover my account</span>
                 <span className="spinner" aria-hidden></span>
               </button>
             </div>

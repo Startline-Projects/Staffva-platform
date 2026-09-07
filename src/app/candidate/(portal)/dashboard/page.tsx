@@ -122,7 +122,7 @@ export default async function CandidateDashboardPage() {
   if (candidate?.admin_status === "approved") {
     const { data: live, error: liveError } = await admin
       .from("candidates")
-      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, role_category")
+      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category")
       .eq("id", candidate.id)
       .single();
     // Dropping the portal on a failed read would leave a live candidate on a

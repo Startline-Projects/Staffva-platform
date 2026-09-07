@@ -1,30 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import { loadCandidateThread } from "@/lib/recruiterThread";
-import MessageThread from "@/components/candidate/MessageThread";
-import ClientThreads from "@/components/candidate/ClientThreads";
+import AtlasMessages from "@/components/candidate/portal/AtlasMessages";
 
 /**
- * The candidate's messages.
+ * The candidate's messages — the Atlas messages view: one conversation list
+ * (assigned specialist + every client thread), filters, search, day
+ * dividers, bubbles, system cards, realtime. The step-15 accordion this
+ * replaces split the same data across two stacked components.
  *
- * This is the one messaging channel on the platform that people actually use —
- * and it has been failing them. Ten candidates have written to their assigned
- * specialist; seven have never had a reply; nine are waiting now, eight of them
- * since April; the longest has waited 141 days.
- *
- * The cause looks structural rather than personal. A candidate sending a message
- * creates no email (candidate mail is frozen) and no notification of any kind —
- * recruiter_notifications holds 39 rows, all unread, none about a message — so
- * the only way a recruiter learns of one is by choosing to open the chat. Step
- * 15 pairs this page with a staff triage screen and a daily escalation, because
- * a nicer thread on its own would not get anyone an answer.
- *
- * Deliberately NOT gated on admin_status === "approved", unlike
- * /candidate/work. One candidate on an 'active' account has had two unread
- * replies waiting since April because no screen has ever shown them a way in.
- * Anyone with an assigned specialist can reach their own conversation.
+ * What carries over unchanged from step 15's findings:
+ *  - Deliberately NOT gated on admin_status === "approved". One candidate on
+ *    an 'active' account had two unread replies waiting since April because
+ *    no screen ever showed them a way in. Anyone with an assigned specialist
+ *    can reach their own conversation.
+ *  - A candidate sending a message still creates no email and no
+ *    notification for staff — the daily escalation cron is what gets
+ *    specialist threads answered, and the in-thread footnote says exactly
+ *    that much and no more.
+ *  - Candidates REPLY to clients, never initiate; the API enforces it, so
+ *    every client thread in the list is one a client already opened.
  */
 export default async function CandidateMessagesPage() {
   const user = await getUser();
@@ -48,55 +44,16 @@ export default async function CandidateMessagesPage() {
   const { messages, state } = await loadCandidateThread(candidate.id);
 
   return (
-    <>
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#1C1B1A]">Messages</h1>
-          {state.assigneeName ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Your conversation with{" "}
-              <span className="font-medium text-[#1C1B1A]">{state.assigneeName}</span>, your
-              talent specialist.
-            </p>
-          ) : (
-            // Only said when assigned_recruiter really is null — never as a
-            // fallback for a failed request, which is what the previous page
-            // did for all 242 candidates who do have one.
-            <p className="mt-1 text-sm text-gray-600">
-              You don&apos;t have a talent specialist assigned yet.
-            </p>
-          )}
-        </div>
-
-        {state.assigneeId ? (
-          <MessageThread initialMessages={messages} />
-        ) : (
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <p className="text-sm text-gray-600">
-              Once someone is assigned to you, your conversation with them appears here.
-            </p>
-          </div>
-        )}
-
-        <ClientThreads candidateId={candidate.id} />
-
-        {state.awaitingReply && (
-          <p className="mt-4 text-xs leading-relaxed text-gray-500">
-            {/* Says only what the code performs. The cron does run daily and
-                does send the list to staff — but "reviewed daily" would promise
-                that a person acts on it, which nothing here can make true, and
-                which the last four months say is not the case. */}
-            If nobody answers within two days, your message is added to a list
-            that goes to our team every day.
-          </p>
-        )}
-
-        <p className="mt-8 text-xs text-gray-400">
-          <Link href="/candidate/dashboard" className="hover:underline">
-            Back to dashboard
-          </Link>
-        </p>
-      </div>
-    </>
+    <AtlasMessages
+      candidateId={candidate.id}
+      specialist={
+        state.assigneeId
+          ? { assigneeId: state.assigneeId, assigneeName: state.assigneeName }
+          : null
+      }
+      specialistMessages={messages}
+      specialistUnread={state.unreadByCandidate}
+      awaitingReply={state.awaitingReply}
+    />
   );
 }

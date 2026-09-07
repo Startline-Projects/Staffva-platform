@@ -212,7 +212,7 @@ export const CANDIDATE_NOTIFICATIONS: readonly NotificationRow[] = [
     event: "A requested profile edit was approved",
     freeze: "suppressed",
     inApp: "/candidate/messages",
-    note: "MessageThread renders message_type 'edit_request' explicitly.",
+    note: "AtlasMessages renders message_type 'edit_request' as a system card.",
   },
   {
     type: "edit_request_declined",

@@ -14,6 +14,7 @@ import type { PortalUser } from "./PortalShell";
  * follows the route, which is the obvious intent of a crumb.
  */
 const CRUMBS: Array<[prefix: string, label: string]> = [
+  ["/candidate/settings/notifications", "Notification settings"],
   ["/candidate/work", "Find work"],
   ["/candidate/messages", "Messages"],
   ["/candidate/contracts", "Contracts"],

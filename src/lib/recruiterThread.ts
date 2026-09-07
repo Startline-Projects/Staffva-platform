@@ -75,7 +75,7 @@ export function computeWaiting(
       // counting it here would leave the thread waiting forever on a request
       // that was resolved within the hour: false copy on the candidate's page,
       // a queue entry with no clearing action, and a cron pinned at 503 mailing
-      // every admin daily. MessageThread already renders these as system
+      // every admin daily. AtlasMessages already renders these as system
       // events; this is the same rule, in the predicate.
       m.messageType !== "edit_request" &&
       (!lastReply || m.createdAt > lastReply)

@@ -66,6 +66,11 @@ export const LIMITS = {
   // a wall for the 10,000-row bell-flood script the messaging review wrote
   // out — and it bounds candidate_notifications growth with it.
   message: { limit: 120, windowSeconds: 3600 },
+
+  // Backup-code recovery. Five guesses an hour per account: 10 valid codes
+  // out of 32^8 means brute force is hopeless at this rate, while a person
+  // fumbling a paper printout gets enough tries to land one.
+  mfaRecovery: { limit: 5, windowSeconds: 3600 },
   recruiterScoring: { limit: 100, windowSeconds: 3600 },
 
   // Interview booking + cancelling, keyed on user id. Every booking emails a

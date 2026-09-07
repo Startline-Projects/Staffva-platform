@@ -248,6 +248,18 @@ export default function NotifBell() {
             ))
           )}
         </div>
+        <footer className="notif-dropdown-footer">
+          <button
+            type="button"
+            className="notif-footer-link"
+            onClick={() => {
+              setOpen(false);
+              router.push("/candidate/settings/notifications");
+            }}
+          >
+            Notification settings
+          </button>
+        </footer>
       </div>
     </span>
   );

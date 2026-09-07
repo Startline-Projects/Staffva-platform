@@ -115,9 +115,35 @@ export async function GET(request: Request) {
     .eq("id", candidateRecordId)
     .single();
 
+  // The unlock moment, for the thread's system card: a fully executed
+  // contract is exactly when the send-side contact filter stops applying, so
+  // the card the UI renders at this timestamp states a rule the API actually
+  // enforces. DERIVED at read time from the same table the filter checks —
+  // no stored system row that could drift from the truth.
+  const { data: executedRows } = await admin
+    .from("engagement_contracts")
+    .select("client_signed_at, candidate_signed_at, created_at, engagements!inner(client_id, candidate_id)")
+    .eq("engagements.client_id", clientRecordId)
+    .eq("engagements.candidate_id", candidateRecordId)
+    .eq("status", "fully_executed");
+  // Per row the executed moment is the LATER signature; legacy rows with null
+  // signature timestamps still count (status says executed, and the send-side
+  // filter keys on status alone — a null date must not render "locked" copy
+  // over an unlocked thread), approximated by created_at. Across rows, the
+  // EARLIEST executed moment is when the unlock first happened.
+  const moments = (executedRows ?? []).map((r) => {
+    const later =
+      r.client_signed_at && r.candidate_signed_at
+        ? (r.client_signed_at > r.candidate_signed_at ? r.client_signed_at : r.candidate_signed_at)
+        : r.client_signed_at ?? r.candidate_signed_at ?? r.created_at;
+    return later as string;
+  });
+  const contractExecutedAt = moments.length ? moments.sort()[0] : null;
+
   return NextResponse.json({
     messages: messages || [],
     clientName: contactSafeClientName(clientData?.company_name, clientData?.full_name),
     candidateName: candidateData?.display_name || "Candidate",
+    contractExecutedAt,
   });
 }
