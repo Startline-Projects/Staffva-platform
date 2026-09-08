@@ -3641,3 +3641,132 @@
   font-size: 13px;
   color: var(--lime);
 }
+
+/* ── Browse: facet counts, compare select, compare modal (client step 6) ──
+   The view toggle and the compare BAR already existed; these are the pieces
+   that had no styles because nothing rendered them yet. */
+.lp .filter-chip .chip-count{
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: .55;
+}
+.lp .filter-chip.active .chip-count{ opacity: .75; }
+
+.lp .result-compare{
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.lp .result-card{ position: relative; }
+.lp .result-card:hover .result-compare,
+.lp .result-compare.on,
+.lp .result-compare:focus-within{ opacity: 1; }
+.lp .result-compare.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.lp .result-compare input{ accent-color: var(--lime-deep); }
+
+.lp .compare-bar-count{ font-size: 13px; font-weight: 500; white-space: nowrap; }
+.lp .compare-bar-names{ display: flex; gap: 6px; flex-wrap: wrap; }
+.lp .compare-bar-chip{
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  color: var(--paper);
+  white-space: nowrap;
+}
+.lp .compare-bar-chip:hover{ background: rgba(255,255,255,.22); }
+.lp .compare-bar-btn{
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.lp .compare-bar-btn:disabled{ opacity: .45; cursor: not-allowed; }
+.lp .compare-bar-btn.outline{ background: transparent; color: #aaa; }
+.lp .compare-bar-btn.outline:hover{ color: var(--paper); }
+
+.lp .compare-modal{ position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.lp .compare-backdrop{ position: absolute; inset: 0; background: rgba(20,20,18,.55); }
+.lp .compare-shell{
+  position: relative;
+  background: var(--paper);
+  border-radius: var(--r-lg, 16px);
+  max-width: 1100px;
+  width: 100%;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+.lp .compare-modal-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.lp .compare-modal-head h2{ font-size: 17px; font-weight: 600; }
+.lp .compare-close{ font-size: 20px; color: var(--ink-mute); padding: 2px 8px; border-radius: 6px; }
+.lp .compare-close:hover{ background: var(--cream); color: var(--ink); }
+.lp .compare-table-wrap{ overflow: auto; padding: 4px 22px 0; }
+.lp .compare-table{ width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.lp .compare-table th, .lp .compare-table td{
+  text-align: left;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+.lp .compare-table thead th{ position: sticky; top: 0; background: var(--paper); }
+.lp .compare-table tbody th{ color: var(--ink-mute); font-weight: 500; width: 170px; white-space: nowrap; }
+.lp .compare-col-name{ font-weight: 600; }
+.lp .compare-col-remove{ margin-left: 8px; color: var(--ink-mute); }
+.lp .compare-col-remove:hover{ color: var(--ink); }
+.lp .compare-view-link{ font-weight: 500; }
+.lp .compare-foot{ padding: 14px 22px 18px; font-size: 12.5px; color: var(--ink-mute); }
+.lp .sr-only-label{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Compare select: on a touch screen there is no hover to reveal it, and at
+   the selection cap the disabled input drops out of the tab order — taking
+   its :focus-within reveal with it. Both cases show the control instead. */
+@media (hover: none) {
+  .lp .result-compare{ opacity: 1; }
+}
+.lp .result-compare:has(input:disabled){ opacity: 1; color: var(--ink-mute); cursor: not-allowed; }
+
+/* `.result-main` is a layout no-op in grid view — the card keeps the exact
+   child flow it had before the wrapper existed — and becomes the flexible
+   middle column in list view, which is what the list rules below it have
+   always assumed. */
+.lp .result-main{ display: contents; }
+.lp .results-grid.list-view .result-main{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lp .filter-note{
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin-top: 2px;
+}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 import CandidatePreviewPanel from "@/components/browse/CandidatePreviewPanel";
+import CompareTray, { COMPARE_MAX, type CompareCandidate } from "@/components/browse/CompareTray";
 import AtlasNav from "@/components/landing/AtlasNav";
 import AtlasFooter from "@/components/landing/AtlasFooter";
 import LandingInteractive from "@/components/landing/LandingInteractive";
@@ -37,6 +38,18 @@ const ROLE_CATEGORIES = [
   "Medical",
   "E-Commerce",
 ];
+
+interface Facets {
+  poolTotal: number;
+  poolCapped: boolean;
+  tiersExistInPool: boolean;
+  matching: number;
+  matchingExceptRole: number;
+  roles: { value: string; count: number }[];
+  countries: { value: string; count: number }[];
+  availability: Record<string, number>;
+  tiers: Record<string, number>;
+}
 
 interface CandidateResult {
   id: string;
@@ -95,6 +108,13 @@ function BrowseContent() {
   const [aiApplied, setAiApplied] = useState<string[]>([]);
   const [aiError, setAiError] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  // Facet counts, computed server-side over the same visible pool the results
+  // come from. Null while loading or if the call fails — the sidebar then
+  // renders without numbers rather than showing a zero it cannot defend.
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [compare, setCompare] = useState<CompareCandidate[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [skillFilters, setSkillFilters] = useState<string[]>(() => {
     const s = searchParams.get("skills");
@@ -143,11 +163,56 @@ function BrowseContent() {
     } finally {
       setLoading(false);
     }
+
+    // Facet counts ride alongside, and fail quietly on their own: numbers
+    // beside the filters are useful, but losing them must not take the
+    // results list with them.
+    try {
+      // sort and page cannot change WHICH candidates match, so they go.
+      // search can and does — dropping it made every sidebar number describe
+      // a different set than the "of N matches" line beside them.
+      const facetParams = new URLSearchParams(params);
+      facetParams.delete("sort");
+      facetParams.delete("page");
+      const fres = await fetch(`/api/candidates/facets?${facetParams}`);
+      if (fres.ok) setFacets(await fres.json());
+      else setFacets(null);
+    } catch {
+      setFacets(null);
+    }
   }, [search, role, country, minRate, maxRate, availability, tier, usExperience, skillFilters, sort, page]);
 
   useEffect(() => {
     fetchCandidates();
   }, [fetchCandidates]);
+
+  const compareIds = new Set(compare.map((c) => c.id));
+
+  function toggleCompare(c: CandidateResult) {
+    setCompare((prev) => {
+      if (prev.some((p) => p.id === c.id)) return prev.filter((p) => p.id !== c.id);
+      // A cap, because a comparison of nine people is a spreadsheet. Atlas
+      // uses four and that is about right for one screen.
+      if (prev.length >= COMPARE_MAX) return prev;
+      return [
+        ...prev,
+        {
+          id: c.id,
+          display_name: c.display_name,
+          country: c.country,
+          role_category: c.role_category,
+          hourly_rate: c.hourly_rate,
+          english_written_tier: c.english_written_tier,
+          availability_status: c.availability_status,
+          availability_date: c.availability_date ?? null,
+          us_client_experience: c.us_client_experience,
+          skills: c.skills ?? null,
+          video_intro_status: c.video_intro_status ?? null,
+          is_assessed: c.is_assessed,
+        },
+      ];
+    });
+  }
 
   function toggleSkillFilter(skill: string) {
     setSkillFilters((prev) =>
@@ -355,11 +420,28 @@ function BrowseContent() {
             <div className="filter-group">
               <div className="filter-label">Role category</div>
               <div className="filter-chips">
-                {ROLE_CATEGORIES.map((r) => (
-                  <button key={r} className={`filter-chip ${role === r ? "active" : ""}`} onClick={() => { setRole(r); setPage(1); }}>
-                    {r}
-                  </button>
-                ))}
+                {ROLE_CATEGORIES.map((r) => {
+                  // Counted, not invented — and a role with nobody behind it
+                  // shows its zero rather than hiding, so the client can see
+                  // the gap instead of wondering where the pill went.
+                  // "All" means everything the OTHER filters allow, not the
+                  // whole pool — otherwise it reads higher than its own
+                  // siblings sum to.
+                  const n = r === "All"
+                    ? facets?.matchingExceptRole
+                    : facets?.roles.find((x) => x.value === r)?.count ?? (facets ? 0 : undefined);
+                  return (
+                    <button
+                      key={r}
+                      className={`filter-chip ${role === r ? "active" : ""}`}
+                      onClick={() => { setRole(r); setPage(1); }}
+                      aria-label={n !== undefined ? `${r}, ${n} candidates` : r}
+                    >
+                      {r}
+                      {n !== undefined && <span className="chip-count" aria-hidden>{n}</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -404,18 +486,55 @@ function BrowseContent() {
               <div className="filter-label">Availability</div>
               <div className="filter-chips">
                 <button className={`filter-chip ${availability === "" ? "active" : ""}`} onClick={() => { setAvailability(""); setPage(1); }}>All</button>
-                <button className={`filter-chip ${availability === "available" ? "active" : ""}`} onClick={() => { setAvailability("available"); setPage(1); }}>Available now</button>
-                <button className={`filter-chip ${availability === "partially_available" ? "active" : ""}`} onClick={() => { setAvailability("partially_available"); setPage(1); }}>Partial</button>
+                <button
+                  className={`filter-chip ${availability === "available" ? "active" : ""}`}
+                  onClick={() => { setAvailability("available"); setPage(1); }}
+                  aria-label={facets ? `Available now, ${facets.availability["available_now"] ?? 0} candidates` : "Available now"}
+                >
+                  Available now
+                  {facets && <span className="chip-count" aria-hidden>{facets.availability["available_now"] ?? 0}</span>}
+                </button>
+                <button
+                  className={`filter-chip ${availability === "partially_available" ? "active" : ""}`}
+                  onClick={() => { setAvailability("partially_available"); setPage(1); }}
+                  aria-label={facets ? `Available from a future date, ${facets.availability["available_by_date"] ?? 0} candidates` : "Available from a future date"}
+                >
+                  From a date
+                  {facets && <span className="chip-count" aria-hidden>{facets.availability["available_by_date"] ?? 0}</span>}
+                </button>
               </div>
             </div>
 
+            {/* When nobody in the pool has a tier, the chips would each
+                return an empty list — but hiding the group outright left the
+                "English —" on all 254 cards unexplained, and (once tiers
+                exist again) could hide the group while a tier filter was
+                still applied, with the only reset control inside it. So the
+                group stays and says why instead. `tiersExistInPool` is
+                deliberately NOT the cross-filtered tally: that empties
+                whenever the current filters exclude everyone who has one. */}
             <div className="filter-group">
               <div className="filter-label">English level</div>
+              {facets && !facets.tiersExistInPool && tier === "any" ? (
+                <p className="filter-note">
+                  No one in the pool has a written English tier yet — the assessment is being
+                  retaken, and tiers reappear here as results land.
+                </p>
+              ) : (
+              <>
               <div className="filter-chips">
                 {[["any", "Any"], ["exceptional", "Exceptional"], ["advanced", "Advanced"], ["professional", "Professional"]].map(([v, lbl]) => (
-                  <button key={v} className={`filter-chip ${tier === v ? "active" : ""}`} onClick={() => { setTier(v); setPage(1); }}>{lbl}</button>
+                  <button key={v} className={`filter-chip ${tier === v ? "active" : ""}`} onClick={() => { setTier(v); setPage(1); }}>
+                    {lbl}
+                    {/* Tiers exist only where an assessment produced one, so
+                        most of the pool counts toward none of these. The "—"
+                        rule from the relist: absent is shown as absent. */}
+                    {facets && v !== "any" && <span className="chip-count" aria-hidden>{facets.tiers[v] ?? 0}</span>}
+                  </button>
                 ))}
               </div>
+              </>
+              )}
             </div>
 
             <div className="filter-group">
@@ -468,6 +587,24 @@ function BrowseContent() {
               {loading ? "Counting matches…" : (
                 <>Showing <strong>{candidates.length ? (page - 1) * 24 + 1 : 0}–{(page - 1) * 24 + candidates.length}</strong> of <strong>{total.toLocaleString()}</strong> matches</>
               )}
+              <span className="view-toggle" role="group" aria-label="Result layout">
+                <button
+                  type="button"
+                  className={`view-toggle-btn ${view === "grid" ? "active" : ""}`}
+                  aria-pressed={view === "grid"}
+                  onClick={() => setView("grid")}
+                >
+                  Grid
+                </button>
+                <button
+                  type="button"
+                  className={`view-toggle-btn ${view === "list" ? "active" : ""}`}
+                  aria-pressed={view === "list"}
+                  onClick={() => setView("list")}
+                >
+                  List
+                </button>
+              </span>
             </div>
 
             {fetchError ? (
@@ -486,7 +623,7 @@ function BrowseContent() {
               </div>
             ) : (
               <>
-                <div className="results-grid reveal-stagger in">
+                <div className={`results-grid reveal-stagger in${view === "list" ? " list-view" : ""}`}>
                   {candidates.map((c) => {
                     // Was derived from committed_hours, which is 0 for every
                     // row and written by nothing — so every card read
@@ -530,6 +667,21 @@ function BrowseContent() {
                         }}
                       >
                         <div className="result-top">
+                          {/* Compare select. Its click must not bubble: the
+                              whole card is a button that opens the preview. */}
+                          <label
+                            className={`result-compare ${compareIds.has(c.id) ? "on" : ""}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={compareIds.has(c.id)}
+                              onChange={() => toggleCompare(c)}
+                              disabled={!compareIds.has(c.id) && compare.length >= COMPARE_MAX}
+                              aria-label={`Compare ${c.display_name}`}
+                            />
+                            <span>Compare</span>
+                          </label>
                           <div className="result-photo" style={photoBg ? { backgroundImage: `url(${photoBg})`, backgroundSize: "cover", backgroundPosition: "center" } : { background: "linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)" }}>
                             {!photoBg && initial && <div className="result-initial" aria-hidden>{initial}</div>}
                             <div className="result-avail"><span className={`avail-dot ${avail === "AVAILABLE NOW" ? "avail-now" : ""}`}></span>{avail}</div>
@@ -546,6 +698,12 @@ function BrowseContent() {
                             <div className="result-flag">{FLAGS[c.country || ""] || "🌍"}</div>
                           </div>
                         </div>
+                        {/* The list-view CSS has always styled `.result-main`
+                            and nothing ever rendered it, so switching to List
+                            laid all seven children out in one row. In grid
+                            view this wrapper is `display: contents`, so that
+                            layout is byte-identical to before. */}
+                        <div className="result-main">
                         <div className="result-name-row">
                           <div className="result-name">{c.display_name}
                             {assessed && (
@@ -566,6 +724,7 @@ function BrowseContent() {
                               id_verification_status. This slot now shows the
                               one screening fact the API does return. */}
                           <div className="result-badge"><div className={`result-badge-val ${assessed ? "green" : "muted"}`}>{assessed ? "Vetted" : "Not yet"}</div><div className="result-badge-lbl">Screened</div></div>
+                        </div>
                         </div>
                         <div className="result-bottom">
                           <div className="result-rate">${Number(c.hourly_rate)}<span>/hr</span></div>
@@ -604,6 +763,17 @@ function BrowseContent() {
         candidateId={previewId}
         onClose={() => setPreviewId(null)}
         onSkillClick={toggleSkillFilter}
+      />
+      <CompareTray
+        selected={compare}
+        onRemove={(id) => setCompare((prev) => prev.filter((p) => p.id !== id))}
+        onClear={() => {
+          setCompare([]);
+          setCompareOpen(false);
+        }}
+        open={compareOpen}
+        onOpen={() => setCompareOpen(true)}
+        onClose={() => setCompareOpen(false)}
       />
       <LandingInteractive />
     </div>
