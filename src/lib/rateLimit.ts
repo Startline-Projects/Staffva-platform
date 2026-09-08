@@ -108,6 +108,19 @@ export const LIMITS = {
   // mint dozens. This also bounds the check-status fallback's exposure.
   identitySession: { limit: 6, windowSeconds: 3600 },
 
+  // Card-setup intents, keyed on user id. Deliberately NOT identitySession's
+  // budget: a declined card, a typo, a closed tab and a retry are ordinary,
+  // and six of those in an hour would lock a paying client out of the one
+  // step that lets them fund anything. A SetupIntent charges nothing, so the
+  // abuse ceiling here is Stripe API noise, not money.
+  cardSetup: { limit: 30, windowSeconds: 3600 },
+
+  // The verify page's status poll, keyed on user id. It fires every 3s for
+  // up to two minutes per pending check, so the budget has to clear a couple
+  // of full waits plus reloads — but it is bounded because each call can
+  // reach Stripe. Sized for the poll, not for the abuse case.
+  identityStatusPoll: { limit: 200, windowSeconds: 3600 },
+
   // Assessment answer-recording uploads, keyed on candidate id. One test
   // uploads at most 3 recordings (with client retries) — 30/hr covers every
   // legitimate pattern while capping storage abuse.

@@ -79,9 +79,38 @@ export async function POST(request: Request) {
     case "identity.verification_session.verified": {
       const session = event.data.object as {
         id: string;
-        metadata?: { candidate_id?: string };
+        metadata?: { candidate_id?: string; client_id?: string };
       };
       const candidateId = session.metadata?.candidate_id;
+      // Clients verify through the same Stripe product (client step 4); the
+      // metadata says whose row this is. Same rule as the candidate branch
+      // below: a late success may overwrite pending or failed, but never a
+      // manual_review hold or a verdict a human wrote — that is a review in
+      // progress, and create-session refuses to restart those for the same
+      // reason.
+      const clientId = session.metadata?.client_id;
+      if (clientId) {
+        const { data: applied } = await supabase
+          .from("clients")
+          .update({
+            id_verification_status: "passed",
+            id_verification_verified_at: new Date().toISOString(),
+          })
+          .eq("id", clientId)
+          .is("id_verification_reviewed_by", null)
+          .or("id_verification_status.is.null,id_verification_status.neq.manual_review")
+          .select("id")
+          .maybeSingle();
+        // A verdict the guard discarded looks identical to one it applied
+        // unless we say so: the event is marked processed either way, so
+        // this line is the only trace that a hold swallowed a Stripe pass.
+        if (!applied) {
+          console.warn(
+            `[client identity] verified event for ${clientId} matched no row — a manual_review hold or human verdict is in place`
+          );
+        }
+        break;
+      }
 
       if (candidateId) {
         // passed may overwrite pending or failed (a late success is a
@@ -168,9 +197,30 @@ export async function POST(request: Request) {
     case "identity.verification_session.requires_input": {
       const session = event.data.object as {
         id: string;
-        metadata?: { candidate_id?: string };
+        metadata?: { candidate_id?: string; client_id?: string };
       };
       const candidateId = session.metadata?.candidate_id;
+      const clientId = session.metadata?.client_id;
+      if (clientId) {
+        // Same guarded transition as the candidate branch: Stripe events
+        // arrive OUT OF ORDER, so a delayed requires_input can land after
+        // the verified event from the same session. A failed stamp may only
+        // land on a row still waiting for one.
+        const { data: failedApplied } = await supabase
+          .from("clients")
+          .update({ id_verification_status: "failed" })
+          .eq("id", clientId)
+          .eq("id_verification_status", "pending")
+          .is("id_verification_reviewed_by", null)
+          .select("id")
+          .maybeSingle();
+        if (!failedApplied) {
+          console.warn(
+            `[client identity] requires_input for ${clientId} matched no pending row — ignored`
+          );
+        }
+        break;
+      }
 
       if (candidateId) {
         // Guarded transition: Stripe events arrive OUT OF ORDER (a delayed

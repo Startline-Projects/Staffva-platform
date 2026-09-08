@@ -2202,3 +2202,131 @@
   color: var(--ink-soft);
   border: 1px solid var(--line);
 }
+
+/* ── Verify to fund (client step 4) ────────────────────────────────────────
+   The banner is the prototype's, minus its amber-alarm framing: nothing is
+   wrong and nothing is blocked except funding, so it reads as information.
+   It sits inside .dash-content rather than above the whole shell, which
+   keeps it out of the way of every page that isn't about money. */
+.lp-dash .verify-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  margin: 0 0 24px;
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(232, 118, 58, 0.10), rgba(232, 118, 58, 0.06));
+  border: 1px solid rgba(232, 118, 58, 0.22);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.lp-dash .verify-banner svg { flex-shrink: 0; color: var(--amber, #C24A1A); }
+.lp-dash .verify-banner-text { flex: 1; }
+.lp-dash .verify-banner-text strong { color: var(--ink); font-weight: 600; }
+.lp-dash .verify-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s ease;
+}
+.lp-dash .verify-banner-cta:hover { background: var(--ink-soft); }
+.lp-dash .verify-banner-dismiss {
+  flex-shrink: 0;
+  color: var(--ink-mute);
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.lp-dash .verify-banner-dismiss:hover { color: var(--ink); background: rgba(0, 0, 0, 0.04); }
+@media (max-width: 720px) {
+  .lp-dash .verify-banner { flex-wrap: wrap; }
+  .lp-dash .verify-banner-text { flex-basis: 100%; order: 3; }
+}
+
+.lp-dash .vf-wrap { max-width: 640px; margin: 0 auto; }
+.lp-dash .vf-header { margin-bottom: 26px; }
+.lp-dash .vf-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.lp-dash .vf-header h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 10px 0 8px;
+  color: var(--ink);
+}
+.lp-dash .vf-header h1 em { font-style: italic; }
+.lp-dash .vf-lead { color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; }
+.lp-dash .vf-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 22px;
+  margin-bottom: 16px;
+}
+.lp-dash .vf-card.vf-complete { border-color: rgba(46, 125, 84, 0.35); }
+.lp-dash .vf-card.vf-done { background: var(--cream); }
+.lp-dash .vf-card-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.lp-dash .vf-step-num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.lp-dash .vf-complete .vf-step-num { background: var(--success); }
+.lp-dash .vf-card h2 { font-size: 16px; font-weight: 600; color: var(--ink); margin: 2px 0 4px; }
+.lp-dash .vf-card-sub { font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; }
+.lp-dash .vf-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+.lp-dash .vf-consent input { margin-top: 2px; flex-shrink: 0; }
+.lp-dash .vf-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background .15s ease, opacity .15s ease;
+}
+.lp-dash .vf-btn:hover { background: var(--cream-deep); }
+.lp-dash .vf-btn-primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-dash .vf-btn-primary:hover { background: var(--ink-soft); }
+.lp-dash .vf-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.lp-dash .vf-status { font-size: 13.5px; line-height: 1.55; }
+.lp-dash .vf-status-ok { color: var(--success); font-weight: 500; }
+.lp-dash .vf-status-pending { color: var(--ink-soft); margin-bottom: 12px; }
+.lp-dash .vf-status-hold { color: var(--ink-soft); }
+.lp-dash .vf-status-fail { color: var(--danger); margin-bottom: 14px; }
+.lp-dash .vf-error { margin-top: 12px; font-size: 13px; color: var(--danger); }
+.lp-dash .vf-foot { margin-top: 18px; font-size: 12.5px; color: var(--ink-mute); }

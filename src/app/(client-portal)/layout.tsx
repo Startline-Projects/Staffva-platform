@@ -48,6 +48,27 @@ export default async function ClientPortalLayout({ children }: { children: React
     .maybeSingle();
   if (error) throw new Error(`client portal lookup failed: ${error.message}`);
 
+  // The verification columns are read separately and fail SOFT, unlike the
+  // identity lookup above. They arrive in migration 00221, and code reaches
+  // production before a migration does at least as often as the reverse — a
+  // missing column here must not 500 the whole portal for every client over
+  // a banner. Unreadable means "don't prompt"; it never means "may fund",
+  // because the gate that decides that lives in api/escrow/fund, where an
+  // unreadable row refuses the payment (fails closed, the safe direction).
+  let needsVerification = false;
+  let needsCard = false;
+  if (client) {
+    const { data: gate } = await db
+      .from("clients")
+      .select("id_verification_status, payment_method_id")
+      .eq("id", client.id)
+      .maybeSingle();
+    if (gate) {
+      needsVerification = gate.id_verification_status !== "passed";
+      needsCard = !gate.payment_method_id;
+    }
+  }
+
   // Unread candidate replies — the Messages rail badge and the topbar dot.
   // sender_type 'candidate' + read_at NULL is the same read-marker contract
   // the messages API stamps when a thread is opened.
@@ -71,6 +92,10 @@ export default async function ClientPortalLayout({ children }: { children: React
     // because clients have no verification state to report until step 4.
     subtitle: client?.company_name || client?.email || user.email || "",
     unreadMessages,
+    // The banner prompts only for what is actually missing, and only these
+    // two things gate anything (D1: they gate escrow funding, nothing else).
+    needsVerification,
+    needsCard,
   };
 
   return <ClientPortalShell user={portalUser}>{children}</ClientPortalShell>;

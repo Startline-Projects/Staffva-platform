@@ -214,16 +214,46 @@ async function reprocessStripeWebhook(
 
   switch (wh.event_type) {
     case "identity.verification_session.verified": {
+      // Clients verify through the same Stripe product (client step 4).
+      // Without this branch a client's failed event was retried three times,
+      // returned false each time, then alerted as permanently unreconcilable
+      // — leaving the client 'pending' with no automatic recovery at all.
+      const verifiedClientId = (payload.metadata as Record<string, string>)?.client_id;
+      if (verifiedClientId) {
+        await supabase
+          .from("clients")
+          .update({
+            id_verification_status: "passed",
+            id_verification_verified_at: new Date().toISOString(),
+          })
+          .eq("id", verifiedClientId)
+          .is("id_verification_reviewed_by", null)
+          .or("id_verification_status.is.null,id_verification_status.neq.manual_review");
+        return true;
+      }
       const candidateId = (payload.metadata as Record<string, string>)?.candidate_id;
       if (!candidateId) return false;
+      // Replays are stale by definition, so this carries the same guard the
+      // live handler has: never dissolve a review hold or a human verdict.
       await supabase
         .from("candidates")
         .update({ id_verification_status: "passed" })
-        .eq("id", candidateId);
+        .eq("id", candidateId)
+        .or("id_verification_status.is.null,id_verification_status.neq.manual_review");
       return true;
     }
 
     case "identity.verification_session.requires_input": {
+      const failedClientId = (payload.metadata as Record<string, string>)?.client_id;
+      if (failedClientId) {
+        await supabase
+          .from("clients")
+          .update({ id_verification_status: "failed" })
+          .eq("id", failedClientId)
+          .eq("id_verification_status", "pending")
+          .is("id_verification_reviewed_by", null);
+        return true;
+      }
       const candidateId = (payload.metadata as Record<string, string>)?.candidate_id;
       if (!candidateId) return false;
       // Reconcile replays STALE events by definition — only move a row that

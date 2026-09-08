@@ -121,7 +121,7 @@ async function sendProfileViewNotification(
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
           <h2 style="color:#1C1B1A;">Your profile is getting noticed</h2>
           <p style="color:#444;font-size:14px;">Hi ${firstName},</p>
-          <p style="color:#444;font-size:14px;">A verified client just viewed your profile on StaffVA. This means your skills and experience are catching the attention of U.S. businesses looking to hire.</p>
+          <p style="color:#444;font-size:14px;">A client just viewed your profile on StaffVA. This means your skills and experience are catching the attention of U.S. businesses looking to hire.</p>
           <div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:16px;margin:16px 0;">
             <p style="margin:0;color:#9A3412;font-size:13px;font-weight:600;">Make the best impression</p>
             <p style="margin:8px 0 0;color:#9A3412;font-size:13px;">Make sure your profile is complete and your availability status is current. A polished profile with a strong bio, updated skills, and a professional photo gets more responses.</p>

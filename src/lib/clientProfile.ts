@@ -7,12 +7,21 @@ import { maskContact } from "@/lib/contactMask";
  * can actually vouch for.
  *
  * The prototype's page carries "Verified Client" pills, a company bio, a
- * working-style blurb, industries, and a would-hire percentage. None of that
- * has backing data here: there is no client verification of any kind, no bio
- * column, and reviews don't ask "would you work with them again". Per the
- * program's standing rule, this loader computes ONLY facts the database can
- * defend — tenure, hiring activity, payment record, signed contracts, and the
- * candidate-authored reviews from step 17 — and the page says nothing else.
+ * working-style blurb, industries, and a would-hire percentage. Most of that
+ * still has no backing data: no bio column, and reviews don't ask "would you
+ * work with them again". Per the program's standing rule, this loader
+ * computes ONLY facts the database can defend — tenure, hiring activity,
+ * payment record, signed contracts, and the candidate-authored reviews from
+ * step 17 — and the page says nothing else.
+ *
+ * ONE OF THOSE CHANGED: client identity verification now exists
+ * (clients.id_verification_status, migration 00221 — client step 4). A
+ * "Verified client" pill is therefore backed for the first time, but it is
+ * NOT surfaced here yet, because most clients are unverified by design:
+ * verification gates escrow funding only, so a candidate reading "not
+ * verified" on a perfectly legitimate client would be misled about what the
+ * absence means. Surfacing it needs copy that says what it actually
+ * signifies — that belongs with the client-profile step, not here.
  * client_reviews_private finally gets its reader: the view kept a
  * service-role-only grant until "a client-reputation surface with a real
  * access rule behind it" existed. This is that surface, and the access rule

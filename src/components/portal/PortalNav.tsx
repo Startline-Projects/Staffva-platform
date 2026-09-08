@@ -108,6 +108,12 @@ export const PORTAL_NAV_ICONS: Record<string, React.ReactNode> = {
       <path d="M2 7.5h14" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   ),
+  shield: (
+    <svg className="nav-icon" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path d="M9 1.8 3 4.2v4.1c0 3.4 2.5 6.4 6 7.1 3.5-.7 6-3.7 6-7.1V4.2L9 1.8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="m6.6 8.8 1.7 1.7 3.1-3.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
   settings: (
     <svg className="nav-icon" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <circle cx="9" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.5" />

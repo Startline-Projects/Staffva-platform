@@ -75,6 +75,18 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
         <PortalNavItem href="/team#engagements" icon="reviews" label="Reviews" mobileHide />
 
         <PortalNavSection label="Account" />
+        {/* A permanent way back to verification. The banner is dismissible
+            and disappears entirely once nothing is outstanding, which left
+            /verify reachable only by URL — including for anyone needing to
+            replace an expired card. */}
+        <PortalNavItem
+          href="/verify"
+          icon="shield"
+          label={user.needsVerification || user.needsCard ? "Verify to fund" : "Verification"}
+          active={is("/verify")}
+          badge={user.needsVerification || user.needsCard ? "Todo" : undefined}
+          mobileHide
+        />
         <PortalNavItem href="/account/security" icon="settings" label="Account Settings" active={is("/account")} mobileHide />
         <PortalNavItem href="mailto:support@staffva.com" icon="help" label="Help" mobileHide />
       </ul>

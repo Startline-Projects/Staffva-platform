@@ -42,15 +42,56 @@ export async function POST(request: Request) {
 
     const admin = getAdminClient();
 
-    // Verify engagement belongs to this client
+    // Verify engagement belongs to this client. The gate columns are read
+    // SEPARATELY, on purpose: naming them in this embed means that before
+    // migration 00221 lands PostgREST answers 42703, `data` comes back null,
+    // and every funding attempt reports "Engagement not found" — a total
+    // outage wearing a false diagnosis. Review caught it.
     const { data: engagement } = await admin
       .from("engagements")
-      .select("*, clients!inner(user_id, stripe_customer_id)")
+      .select("*, clients!inner(id, user_id, stripe_customer_id)")
       .eq("id", engagementId)
       .single();
 
     if (!engagement || engagement.clients.user_id !== user.id) {
       return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
+    }
+
+    // THE gate — the only thing client verification controls (owner decision
+    // D1). Hiring, messaging, interviewing, sending proposals and signing
+    // contracts are all open to an unverified client; moving money is not.
+    // Enforced here, before any PaymentIntent exists, so the rule is a
+    // refusal rather than a claim on a screen.
+    //
+    // Unreadable gate state refuses the payment. That is the safe direction
+    // and the honest message: we say we cannot confirm it, rather than
+    // inventing either a pass or a "not found".
+    const { data: gate, error: gateError } = await admin
+      .from("clients")
+      .select("id_verification_status, payment_method_id")
+      .eq("id", engagement.clients.id)
+      .maybeSingle();
+
+    if (gateError || !gate) {
+      console.error("[escrow/fund] gate lookup failed:", gateError?.message ?? "no client row");
+      return NextResponse.json(
+        { error: "We couldn't confirm your account is ready to fund. Try again shortly." },
+        { status: 503 }
+      );
+    }
+
+    if (gate.id_verification_status !== "passed" || !gate.payment_method_id) {
+      return NextResponse.json(
+        {
+          error:
+            "Verify your identity and add a card before funding. Everything else stays open — this gate is only on money.",
+          code: "verification_required",
+          needsVerification: gate.id_verification_status !== "passed",
+          needsCard: !gate.payment_method_id,
+          verifyUrl: "/verify",
+        },
+        { status: 403 }
+      );
     }
 
     // Check contract is fully executed before allowing escrow funding
@@ -70,9 +111,12 @@ export async function POST(request: Request) {
     // Get or create Stripe customer
     let customerId = engagement.clients.stripe_customer_id;
     if (!customerId) {
+      // Same metadata shape as the card-setup route's customer creation, so
+      // the two sites cannot produce structurally different customers for
+      // the same person.
       const customer = await getStripe().customers.create({
         email: user.email,
-        metadata: { supabase_user_id: user.id },
+        metadata: { supabase_user_id: user.id, client_id: engagement.clients.id },
       });
       customerId = customer.id;
       await admin

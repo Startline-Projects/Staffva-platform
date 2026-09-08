@@ -104,6 +104,9 @@ export default function EscrowPaymentModal({ engagementId, periodId, milestoneId
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [amountUsd, setAmountUsd] = useState(0);
   const [error, setError] = useState("");
+  // The verify-to-fund gate refuses with a code and a route. An error message
+  // saying "verify first" with no way to do it is half a control.
+  const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -118,6 +121,9 @@ export default function EscrowPaymentModal({ engagementId, periodId, milestoneId
       if (cancelled) return;
       if (!res.ok || !data.clientSecret) {
         setError(data.error || "We couldn't start the payment — try again in a moment.");
+        if (data.code === "verification_required" && typeof data.verifyUrl === "string") {
+          setVerifyUrl(data.verifyUrl);
+        }
         return;
       }
       setClientSecret(data.clientSecret);
@@ -170,7 +176,17 @@ export default function EscrowPaymentModal({ engagementId, periodId, milestoneId
             missing. Nothing was charged.
           </p>
         ) : error ? (
-          <p className="mt-4 text-sm text-red-600">{error}</p>
+          <>
+            <p className="mt-4 text-sm text-red-600">{error}</p>
+            {verifyUrl && (
+              <a
+                href={verifyUrl}
+                className="mt-3 inline-block rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+              >
+                Verify to fund
+              </a>
+            )}
+          </>
         ) : !clientSecret || !stripeReady ? (
           <p className="mt-4 text-sm text-text-tertiary">Preparing secure payment…</p>
         ) : (
