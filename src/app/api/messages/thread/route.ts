@@ -111,9 +111,24 @@ export async function GET(request: Request) {
 
   const { data: candidateData } = await admin
     .from("candidates")
-    .select("display_name")
+    .select("display_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at")
     .eq("id", candidateRecordId)
     .single();
+
+  // Can a CLIENT still open this candidate's profile, book them, or send them
+  // an offer? Messaging deliberately outlives approval (see the comment in
+  // POST /api/messages — a candidate re-sitting the English test must not have
+  // a conversation cut off mid-sentence), but /candidate/[id] and
+  // /hire/[id]/offer both refuse anyone who is not currently listed. Without
+  // this flag the thread header drew three buttons that all dead-end on
+  // "Profile Not Found" in exactly the state messaging exists to preserve.
+  const candidateReachable =
+    !!candidateData &&
+    candidateData.admin_status === "approved" &&
+    !candidateData.permanently_blocked &&
+    (candidateData.id_verification_status === "passed" ||
+      !candidateData.id_verification_due_at ||
+      new Date(candidateData.id_verification_due_at).getTime() > Date.now());
 
   // The unlock moment, for the thread's system card: a fully executed
   // contract is exactly when the send-side contact filter stops applying, so
@@ -144,6 +159,7 @@ export async function GET(request: Request) {
     messages: messages || [],
     clientName: contactSafeClientName(clientData?.company_name, clientData?.full_name),
     candidateName: candidateData?.display_name || "Candidate",
+    candidateReachable,
     contractExecutedAt,
   });
 }

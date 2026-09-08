@@ -52,10 +52,10 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
         <PortalNavSection label="Hiring" />
         <PortalNavItem href="/team#roles" icon="jobs" label="Jobs" mobileHide />
         <PortalNavItem
-          href="/inbox"
+          href="/messages"
           icon="messages"
           label="Messages"
-          active={is("/inbox")}
+          active={is("/messages")}
           badge={unread > 0 ? String(unread) : undefined}
         />
         <PortalNavItem href="/interviews" icon="interviews" label="Interviews" active={is("/interviews")} mobileHide />

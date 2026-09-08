@@ -161,7 +161,7 @@ export const CLIENT_NOTIFICATIONS: readonly ClientNotificationRow[] = [
     type: "(no email)",
     event: "A candidate replied to a message",
     bell: "message",
-    inApp: "/inbox",
+    inApp: "/messages",
     note:
       "NEW in client step 3, bell only. One per thread per day, enforced by the dedupe " +
       "index. No candidate-typed text in the body — the bell is a trusted surface, and the " +

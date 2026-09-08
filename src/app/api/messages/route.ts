@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { containsContact } from "@/lib/contactMask";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
@@ -299,28 +300,26 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
 
-  // No executed contract between the pair -> filter contact information
+  // No executed contract between the pair -> filter contact information.
+  //
+  // Via containsContact (@/lib/contactMask) — the SAME predicate
+  // /api/offers/negotiate and /api/jobs already use. This route carried its
+  // own cruder copy, and the copies did not agree: its phone pattern was
+  //   /\+?\d{1,4}[\s.-]?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}/
+  // whose separators are all optional, so it collapsed to "any run of four or
+  // more digits". "Budget is 1200 a month", "hiring VAs since 2019" and "I
+  // need 3000 words per week" were all refused with a message accusing the
+  // sender of sharing contact details. It also matched the bare words
+  // "signal", "discord" and "skype" anywhere, so "that's a great signal" and
+  // "we use Discord for standups" bounced too.
+  //
+  // contactMask's version requires an id-shaped token beside a platform name
+  // and keeps short digit runs and year ranges, which is why it was written.
+  // Verified against both sets of sentences before the swap.
   if (!executedContract) {
-    const contactPatterns = [
-      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i, // email
-      /\+?\d{1,4}[\s.-]?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}/i, // phone
-      /(?:instagram|ig)\s*[:\-@]\s*\S+/i, // instagram
-      /@[a-zA-Z0-9._]{2,30}/i, // social handles
-      /whatsapp/i, // whatsapp
-      /linkedin\.com/i, // linkedin
-      /facebook\.com|fb\.com/i, // facebook
-      /t\.me\//i, // telegram
-      /twitter\.com|x\.com/i, // twitter/x
-      /discord/i, // discord
-      /skype/i, // skype
-      /viber/i, // viber
-      /signal/i, // signal app
-    ];
-
     const trimmedBody = body.trim();
-    const matchedPattern = contactPatterns.find((p) => p.test(trimmedBody));
 
-    if (matchedPattern) {
+    if (containsContact(trimmedBody)) {
       // Log the blocked attempt
       const recipientId = role === "client" ? candidateId : clientId;
       try {
@@ -387,8 +386,11 @@ export async function POST(request: Request) {
       clientId,
       category: "message",
       title: "A candidate replied to you",
-      body: "Read and reply from your inbox. Who it's from is on the thread.",
-      route: "/inbox",
+      body: "Read and reply from your messages. Who it's from is on the thread.",
+      // Straight to the thread it is about. /inbox forwards clients to
+      // /messages but carries no candidate, so the bell used to land on
+      // whichever conversation happened to be first.
+      route: `/messages?candidate=${candidateId}`,
       dedupeKey: `candidate-msg-${threadId}-${day}`,
     });
   }

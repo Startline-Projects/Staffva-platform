@@ -26,6 +26,9 @@ const CRUMBS: Array<[prefix: string, label: string]> = [
   ["/browse", "Browse Talent"],
   ["/post-a-job", "Jobs"],
   ["/post-role", "Jobs"],
+  ["/messages", "Messages"],
+  // Kept so a client who arrives on the legacy path still reads "Messages"
+  // rather than the "Dashboard" fallback during the redirect frame.
   ["/inbox", "Messages"],
   ["/account", "Account Settings"],
 ];
@@ -49,7 +52,7 @@ export default function ClientPortalTopbar({ user }: { user: ClientPortalUser })
           emptyText="Nothing yet. Replies, counters, signatures and approvals all land here."
         />
         <Link
-          href="/inbox"
+          href="/messages"
           className="topbar-btn"
           aria-label={unread > 0 ? `Messages, ${unread} unread` : "Messages"}
           style={{ position: "relative" }}

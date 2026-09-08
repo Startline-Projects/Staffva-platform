@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // reason the mfaPending branch spells out: without it, an MFA detour on the
 // way back from Stripe drops ?id_check=returning, and the page it lands on
 // never polls for the result.
-const protectedRoutes = ["/apply", "/inbox", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
+const protectedRoutes = ["/apply", "/inbox", "/messages", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
 
 // Routes only for unauthenticated users
 const authRoutes = ["/login", "/signup"];
