@@ -10,7 +10,7 @@ export default function AtlasFooter() {
     <div className="footer-top">
       <div className="footer-brand">
         <Link href="/" className="logo"><StaffvaLogo /></Link>
-        <p className="footer-tagline">The global talent marketplace for companies who actually want A-players.</p>
+        <p className="footer-tagline">The global talent marketplace where you can tell who&apos;s been screened.</p>
       </div>
 
       <div className="footer-col">

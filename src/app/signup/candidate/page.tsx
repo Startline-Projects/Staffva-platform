@@ -342,7 +342,7 @@ export default function CandidateSignupPage() {
                 <span className="serif-italic underline-accent">candidate</span> account.
               </h1>
               <p className="lead">
-                StaffVA is a curated marketplace for vetted global talent. Starting your application takes about <strong>two minutes</strong>. Getting fully approved takes a few days — and every step is on your time.
+                StaffVA is a marketplace for global remote talent, and passing our skills interview earns you a vetted badge. Starting your application takes about <strong>two minutes</strong>. Getting fully approved takes a few days — and every step is on your time.
               </p>
 
               <div style={{ display: "flex", justifyContent: "center", margin: "8px 0 -6px" }}>
@@ -666,7 +666,7 @@ export default function CandidateSignupPage() {
                 <span className="trust-dot" aria-hidden></span>
                 <span className="trust-item">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.2" /><path d="M2 10c.5-1.8 2-3 4-3s3.5 1.2 4 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-                  Identity-verified
+                  Escrow-protected pay
                 </span>
                 <span className="trust-dot" aria-hidden></span>
                 <span className="trust-item">

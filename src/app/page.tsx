@@ -8,13 +8,13 @@ import AtlasFooter from "@/components/landing/AtlasFooter";
 import "./landing.css";
 
 export const metadata: Metadata = {
-  title: 'StaffVA — Vetted Virtual Assistants & Remote Talent',
+  title: 'StaffVA — Virtual Assistants & Remote Talent',
   description:
-    'Browse remote professionals who passed a written English assessment, government-ID verification, and a skills interview before their profile went live. Listen to their voice samples, then hire with escrow protection.',
+    'Browse remote professionals and see at a glance who cleared StaffVA screening — they carry a Vetted badge for a proctored skills interview and a human review. Listen to their voice samples, then hire with escrow protection.',
   openGraph: {
-    title: 'StaffVA — Vetted Virtual Assistants & Remote Talent',
+    title: 'StaffVA — Virtual Assistants & Remote Talent',
     description:
-      'Browse remote professionals who passed a written English assessment, government-ID verification, and a skills interview before their profile went live. Listen to their voice samples, then hire with escrow protection.',
+      'Browse remote professionals and see at a glance who cleared StaffVA screening — they carry a Vetted badge for a proctored skills interview and a human review. Listen to their voice samples, then hire with escrow protection.',
     siteName: 'StaffVA',
     type: 'website',
   },
@@ -37,6 +37,8 @@ function initials(name: string | null): string {
 
 interface FeaturedCandidate {
   id: string;
+  /** Canonical vetting flag — featured cards are drawn from assessed rows only. */
+  ai_interview_passed?: boolean | null;
   display_name: string;
   role_category: string;
   hourly_rate: number;
@@ -45,51 +47,79 @@ interface FeaturedCandidate {
   skills: string[] | null;
 }
 
+// One page of the live pool. The exact total comes from count:'exact';
+// anything derived from the PAGE must degrade rather than under-report.
+const LIVE_ROW_CAP = 1000;
+
 interface LandingData {
-  applications: number | null;
+  signups: number | null;
   liveCount: number;
+  assessedCount: number | null;
   featured: FeaturedCandidate[];
   pillCounts: Record<string, number>;
-  approvalPct: number | null;
-  rejectPct: number | null;
 }
 
 // Every number on this page is live-rendered from the database — the
-// owner's call: real figures that grow, never invented ones. Percentages
-// hold back until at least 3 candidates are live so the re-verification
-// window can't render absurdities ("we reject 100%").
+// owner's call: real figures that grow, never invented ones.
+//
+// The browsable pool holds two populations: people who cleared StaffVA's
+// screening interview (the Vetted badge) and people who signed up and
+// haven't finished it. So the page tracks BOTH counts and is careful about
+// which one each sentence is allowed to use — vetting-flavoured claims get
+// assessedCount, "how much is there to browse" gets liveCount.
+//
+// The old approvalPct/rejectPct are gone rather than rescoped: they read
+// liveCount/applications as a screening funnel, and with unscreened
+// signups approved onto the platform there is no honest percentage to
+// print. Neither population is a rejection, so counts it is.
 async function landingData(): Promise<LandingData> {
-  const empty: LandingData = { applications: null, liveCount: 0, featured: [], pillCounts: {}, approvalPct: null, rejectPct: null };
+  const empty: LandingData = { signups: null, liveCount: 0, assessedCount: null, featured: [], pillCounts: {} };
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return empty; // local dev has no service key by design
   try {
     const db = createClient(url, key);
-    const [{ count: applications }, { data: liveRows }] = await Promise.all([
+    const [{ count: signups }, { data: liveRows, count: liveTotal }] = await Promise.all([
       db.from("candidates").select("*", { count: "exact", head: true }),
       db
         .from("candidates")
-        .select("id, display_name, role_category, hourly_rate, country, profile_photo_url, skills")
+        .select("id, ai_interview_passed, display_name, role_category, hourly_rate, country, profile_photo_url, skills", { count: "exact" })
         .eq("admin_status", "approved")
       // Overdue-unverified profiles are hidden from clients (00154).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
         .order("created_at", { ascending: false })
-        .limit(200),
+        .limit(LIVE_ROW_CAP),
     ]);
     const live = liveRows || [];
     const pillCounts: Record<string, number> = {};
     for (const p of PILLS) {
       pillCounts[p.label] = live.filter((c) => p.roles.includes(c.role_category)).length;
     }
-    const liveCount = live.length;
-    const showPcts = applications && liveCount >= 3;
+    // The canonical vetting fact — same column every approval gate reads.
+    // NOT the presence of an ai_interviews row: the 00143 re-verification
+    // reset parked 52 scored interviews at 'failed_technical', so that table
+    // reports one passed row while 30 people actually passed. Reading it
+    // would have branded 29 vetted candidates "not yet assessed".
+    const isAssessed = (c: { ai_interview_passed?: boolean | null }) =>
+      c.ai_interview_passed === true;
     return {
-      applications: applications ?? null,
-      liveCount,
-      featured: (live as FeaturedCandidate[]).filter((c) => c.profile_photo_url).slice(0, 8),
+      signups: signups ?? null,
+      // The exact total, not the page size: the select is capped, so
+      // live.length would silently under-report the pool it counts.
+      liveCount: liveTotal ?? live.length,
+      // Computed by intersecting the CAPPED page above with the assessed
+      // set, while liveCount is an exact count. Past the cap those two
+      // disagree and the badge number would silently under-report — worse
+      // as the pool grows toward the 10k target. So past the cap it reports
+      // null and the page falls back to prose: a number we cannot defend is
+      // worse than no number.
+      assessedCount: live.length >= LIVE_ROW_CAP ? null : live.filter(isAssessed).length,
+      // Featured cards carry vetting chips and a check badge, so they are
+      // drawn from the assessed set only. If too few have photos the section
+      // hides itself (it already gates on >= 3) rather than padding with
+      // profiles those chips would misdescribe.
+      featured: (live as FeaturedCandidate[]).filter((c) => isAssessed(c) && c.profile_photo_url).slice(0, 8),
       pillCounts,
-      approvalPct: showPcts ? Math.round((liveCount / applications) * 100) : null,
-      rejectPct: showPcts ? Math.round((1 - liveCount / applications) * 100) : null,
     };
   } catch {
     return empty;
@@ -122,7 +152,7 @@ const TESTIMONIALS: { quote: string; name: string; title: string; initials: stri
 
 const FAQS: { q: string; a: string }[] = [
   { q: "What's your actual fee?", a: "A flat 10% on top of the candidate's rate — they keep 100% of what they quote. No markup on their rate, no service-fee creep, no premium tier. It's shown on every offer and every contract before you commit." },
-  { q: "How rigorous is your vetting?", a: "Every candidate passes a camera-proctored English assessment and a proctored skills interview scored on demonstrated evidence — not confident talk. Identity is verified against a government ID through Stripe, and a person makes the final approval call. Most applicants don't make it." },
+  { q: "How rigorous is your vetting?", a: "Candidates carrying the Vetted badge passed a proctored skills interview scored on demonstrated evidence — not confident talk — and a person made the final approval call. Profiles without the badge signed up but haven't completed screening yet, so you can tell the two apart before you reach out." },
   { q: "How fast can I hire?", a: "Browse without an account. When someone fits, book an interview directly on their published calendar — the call happens right here on StaffVA. Send an offer after the call; the contract generates itself and escrow opens when you fund it. Days, not weeks." },
   { q: "What if the hire doesn't work out?", a: "You fund work in periods, and each period has a 48-hour dispute window after it ends. Funds sit in escrow until you release them or a dispute is resolved — by a person, not an algorithm." },
   { q: "Where are candidates based?", a: "Mostly the Philippines, with strong benches in Egypt, India, Kenya and Nigeria. Every profile shows the candidate's timezone in plain words, and the booking calendar warns you when a slot lands outside their waking hours." },
@@ -153,16 +183,16 @@ export default async function LandingPage() {
           <span className="hero-badge-dot">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           </span>
-          Pre-vetted. Human-reviewed. A-players only.
+          Vetted bench. Human-reviewed. Look for the badge.
         </div>
         <h1 className="display">
-          Hire <span className="serif-italic">pre-vetted</span><br />
+          Hire <span className="serif-italic">vetted</span><br />
           global A-players.<br />
           <span className="underline-accent">Browse</span> before<br />
           signing up.
         </h1>
         <p className="hero-sub">
-          Every candidate passes a <strong>camera-proctored English assessment</strong>, a proctored skills interview, and a <strong>final review</strong> before going live. Explore the full pool. Sign up only when you&apos;re ready to act.
+          Candidates with the <strong>Vetted badge</strong> passed a proctored skills interview and a <strong>human review</strong> before going live. Explore the full pool. Sign up only when you&apos;re ready to act.
         </p>
 
         {/* Search */}
@@ -193,17 +223,25 @@ export default async function LandingPage() {
 
         {/* Live stats */}
         <div className="live-stats">
+          {/* "Applications reviewed" counted every candidate row, including
+              people who signed up and never submitted anything to review.
+              The query counts signups, so the label says signups. */}
           <div className="live-stat">
-            <div className="live-stat-num">{data.applications === null ? "—" : data.applications.toLocaleString()}</div>
-            <div className="live-stat-label">Applications reviewed</div>
+            <div className="live-stat-num">{data.signups === null ? "—" : data.signups.toLocaleString()}</div>
+            <div className="live-stat-label">Candidate signups</div>
           </div>
+          {data.assessedCount !== null && (
+            <div className="live-stat">
+              <div className="live-stat-num"><span className="live-dot"></span>{data.assessedCount.toLocaleString()}</div>
+              <div className="live-stat-label">Vetted candidates live</div>
+            </div>
+          )}
+          {/* Was a hardcoded "100% / Camera-proctored" — an assertion about
+              every profile, which the page does not check and is no longer
+              true. Replaced with the browsable total, which it does know. */}
           <div className="live-stat">
-            <div className="live-stat-num"><span className="live-dot"></span>{data.liveCount.toLocaleString()}</div>
-            <div className="live-stat-label">A-players live now</div>
-          </div>
-          <div className="live-stat">
-            <div className="live-stat-num">100%</div>
-            <div className="live-stat-label">Camera-proctored</div>
+            <div className="live-stat-num">{data.liveCount.toLocaleString()}</div>
+            <div className="live-stat-label">Profiles to browse</div>
           </div>
         </div>
       </div>
@@ -225,8 +263,12 @@ export default async function LandingPage() {
             </div>
             <div className="hc-stats">
               <div><div className="hc-stat-val">{"$" + Number(c.hourly_rate) + "/hr"}</div><div className="hc-stat-lbl">Rate</div></div>
-              <div><div className="hc-stat-val">ID ✓</div><div className="hc-stat-lbl">Verified</div></div>
-              <div><div className="hc-stat-val">Proctored</div><div className="hc-stat-lbl">Vetting</div></div>
+              {/* These cards are drawn from the assessed set only (see
+                  landingData), so both chips are true of the person shown.
+                  The old "ID ✓ / Verified" was not: the live-profile filter
+                  also admits manual_review and not-yet-due profiles. */}
+              <div><div className="hc-stat-val">Vetted</div><div className="hc-stat-lbl">Screened</div></div>
+              <div><div className="hc-stat-val">Proctored</div><div className="hc-stat-lbl">Interview</div></div>
             </div>
           </div>
         ))}
@@ -313,7 +355,7 @@ export default async function LandingPage() {
     <div className="section-head reveal">
       <div>
         <div className="eyebrow">{"// Featured this week"}</div>
-        <h2 className="display">Meet a few of<br />our <span className="serif-italic">A-players</span>.</h2>
+        <h2 className="display">Meet a few of our<br />vetted <span className="serif-italic">A-players</span>.</h2>
       </div>
       <p className="section-head-copy">
         Click any card for the full profile. Video intros, messaging, proposals, and booking an interview require a free account — everything else stays open.
@@ -370,35 +412,42 @@ export default async function LandingPage() {
   <div className="container vetting-inner">
     <div className="vetting-head reveal">
       <div className="eyebrow">{"// How vetting works"}</div>
-      <h2 className="display">We reject <span className="serif-italic">{data.rejectPct !== null ? data.rejectPct + "%" : "most"}</span><br />of applicants.</h2>
-      <p>Every name on the platform cleared three gates &mdash; a camera-proctored English assessment, a proctored skills interview, and a final review before going live. This is the filter we&apos;d want if we were hiring.</p>
+      <h2 className="display">What <span className="serif-italic">vetted</span><br />actually means.</h2>
+      <p>Candidates carrying the Vetted badge cleared two gates &mdash; a proctored skills interview and a final review before the badge went on. Profiles without it signed up but haven&apos;t finished screening yet. This is the filter we&apos;d want if we were hiring.</p>
     </div>
 
     <div className="vetting-steps reveal-stagger">
       <div className="vstep">
         <div className="vstep-num">01</div>
-        <h3>Proctored English assessment<br />+ skills interview.</h3>
-        <p>A written English assessment and a structured skills interview. Every session is camera-proctored, recorded, and integrity-checked &mdash; a proctored exam, end to end.</p>
+        {/* The English assessment came out of this step: platform-wide the
+            scores were reset after the test was found defective, so there is
+            no English result to stand behind. The skills interview is the
+            gate the badge is actually derived from. */}
+        <h3>Proctored<br />skills interview.</h3>
+        <p>A structured skills interview scored on demonstrated evidence. The session is camera-proctored, recorded, and integrity-checked &mdash; a proctored exam, end to end.</p>
         <div className="vstep-meta">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-          ~90 MIN · INTEGRITY-CHECKED
+          RECORDED · INTEGRITY-CHECKED
         </div>
       </div>
 
       <div className="vstep">
         <div className="vstep-num">02</div>
         <h3>Profile and intro recorded.</h3>
-        <p>The candidate verifies their government ID, builds their profile, and records a voice intro. Nothing goes public yet.</p>
+        {/* ID verification dropped from the claim: the live-profile filter
+            admits manual_review and not-yet-due profiles, so "ID-verified"
+            is not something this page can assert about a given candidate. */}
+        <p>The candidate builds their profile and records a voice intro. Nothing goes public yet.</p>
         <div className="vstep-meta">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3" /></svg>
-          ID-VERIFIED
+          VOICE INTRO ON FILE
         </div>
       </div>
 
       <div className="vstep">
         <div className="vstep-num">03</div>
         <h3>Talent Specialist review.</h3>
-        <p>A person reviews the full scorecard &mdash; the assessment results, the interview, the profile and intro &mdash; then approves, requests revisions, or rejects. Only then does the profile go live.</p>
+        <p>A person reviews the full scorecard &mdash; the interview, the profile and intro &mdash; then approves, requests revisions, or rejects. Only then does the Vetted badge go on.</p>
         <div className="vstep-meta">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
           ONE COMPREHENSIVE REVIEW
@@ -407,13 +456,17 @@ export default async function LandingPage() {
     </div>
 
     <div className="vetting-stat reveal">
-      <div className="vetting-stat-num">{data.approvalPct !== null ? data.approvalPct + "%" : data.applications !== null ? data.applications.toLocaleString() : "…"}</div>
+      {/* Was an approval/rejection rate derived from liveCount/applications.
+          That read the whole approved pool as "everyone who passed", which
+          it no longer is — so the stat is now the plain count of who holds
+          the badge, against the pool you can actually browse. */}
+      <div className="vetting-stat-num">
+        {data.assessedCount !== null && data.liveCount > 0 ? data.assessedCount.toLocaleString() : "…"}
+      </div>
       <div className="vetting-stat-label">
-        {data.applications === null
-          ? "Approval rate across all applications reviewed."
-          : data.liveCount >= 3
-            ? "Approval rate. " + data.applications.toLocaleString() + " applications reviewed — " + data.liveCount.toLocaleString() + " live on the platform."
-            : "applications reviewed — the bench is re-verifying under our camera-proctored standard right now."}
+        {data.assessedCount !== null && data.liveCount > 0
+          ? "of " + data.liveCount.toLocaleString() + " profiles open to browse carry the Vetted badge. The rest signed up but haven't completed screening yet."
+          : "Look for the Vetted badge — it marks the candidates who completed screening."}
       </div>
       <a href="/signup/candidate">See the full vetting process →</a>
     </div>
@@ -484,7 +537,7 @@ export default async function LandingPage() {
       <div className="cand-content">
         <div className="eyebrow cand-eyebrow">{"// For candidates"}</div>
         <h2 className="display">Are you an<br /><span className="lime">A-player?</span><br />Apply to join.</h2>
-        <p>{data.rejectPct !== null ? "We\u2019re picky \u2014 we reject " + data.rejectPct + "% of applicants \u2014 " : "We\u2019re picky \u2014 most applicants don\u2019t make it \u2014 "}but once you&apos;re in, you work with US clients who pay full rate. No platform fees, ever.</p>
+        <p>The Vetted badge takes a proctored skills interview and a human review &mdash; but once you&apos;re through, you work with US clients who pay full rate. No platform fees, ever.</p>
         <a href="/signup/candidate" className="btn btn-lime btn-lg">
           Apply to Join
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
@@ -531,13 +584,13 @@ export default async function LandingPage() {
         <div className="trust-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
         </div>
-        <div className="trust-text"><strong>ID Verified</strong>Every candidate, liveness-checked.</div>
+        <div className="trust-text"><strong>Vetted badge</strong>Shows who cleared screening.</div>
       </div>
       <div className="trust-item">
         <div className="trust-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
         </div>
-        <div className="trust-text"><strong>Skills examined</strong>A proctored interview, scored on evidence.</div>
+        <div className="trust-text"><strong>Skills examined</strong>Scored on what they showed, not how they talk.</div>
       </div>
       <div className="trust-item">
         <div className="trust-icon">

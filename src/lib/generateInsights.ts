@@ -92,7 +92,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 300,
-        system: `You are an insight generator for StaffVA, a professional talent marketplace connecting US clients with vetted remote professionals. Given a candidate's profile data and AI interview scores, return a JSON array of exactly 2 strings. Each string is one specific, compelling insight a US client would value when evaluating this candidate. Max 20 words per insight. Be specific — reference actual skills, scores, or experience from the data. No generic statements like "strong communicator" or "hard worker". Focus on what makes this candidate uniquely valuable. Return only the JSON array, no other text.`,
+        system: `You are an insight generator for StaffVA, a professional talent marketplace connecting US clients with remote professionals, some of whom have passed StaffVA's skills interview. Given a candidate's profile data and AI interview scores, return a JSON array of exactly 2 strings. Each string is one specific, compelling insight a US client would value when evaluating this candidate. Max 20 words per insight. Be specific — reference actual skills, scores, or experience from the data. No generic statements like "strong communicator" or "hard worker". Focus on what makes this candidate uniquely valuable. Return only the JSON array, no other text.`,
         messages: [{ role: "user", content: userContent }],
       }),
       signal: controller.signal,

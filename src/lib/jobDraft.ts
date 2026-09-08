@@ -69,7 +69,7 @@ export function buildSystemPrompt(rateStats: RoleRateStats[]): string {
           .join("\n")
       : "(no marketplace rate data available — suggest conservative ranges between $4 and $15/hr)";
 
-  return `You draft job postings for StaffVA, a marketplace where businesses hire pre-vetted remote professionals (virtual assistants, bookkeepers, paralegals, and similar roles). A client will describe what they need in plain words; you produce a structured job post.
+  return `You draft job postings for StaffVA, a marketplace where businesses hire remote professionals (virtual assistants, bookkeepers, paralegals, and similar roles). A client will describe what they need in plain words; you produce a structured job post.
 
 VOICE: Write like a busy, decent employer — plain, specific, warm. Short sentences. No corporate filler ("dynamic", "rockstar", "fast-paced environment"), no emoji, no exclamation marks. The reader is a skilled professional deciding whether this job respects their time.
 

@@ -62,6 +62,21 @@ export async function GET(request: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const aiInterviewMap: Record<string, any> = {};
 
+  // The canonical vetting fact is candidates.ai_interview_passed, NOT the
+  // presence of an ai_interviews row: the 00143 re-verification reset left 52
+  // scored interviews at status 'failed_technical', so the table holds ONE
+  // completed+passed row while 30 people legitimately passed. The column is
+  // the pre-reset truth every approval gate reads, so the badge reads it too.
+  const assessedIds = new Set<string>();
+  if (candidateIds.length > 0) {
+    const { data: passedRows } = await supabase
+      .from("candidates")
+      .select("id")
+      .in("id", candidateIds)
+      .eq("ai_interview_passed", true);
+    for (const r of passedRows ?? []) assessedIds.add(r.id as string);
+  }
+
   if (candidateIds.length > 0) {
     const { data: aiInterviews } = await supabase
       .from("ai_interviews")
@@ -104,6 +119,15 @@ export async function GET(request: Request) {
     return {
       ...masked,
       ai_interview: signedIn ? aiInterviewMap[c.id as string] || null : null,
+      // Whether this person has actually been through StaffVA's screening
+      // interview. The map above holds ONLY completed+passed skills
+      // interviews, so its presence IS the assessment fact — no new column,
+      // nothing to drift. Deliberately NOT gated on signedIn: the scorecard
+      // numbers are marketing-sensitive, but "has this person been vetted
+      // at all" is the claim the public browse page makes on every card,
+      // and hiding it from anonymous visitors is what would make the page
+      // lie. See the owner's 2026-09-07 relist of the full pipeline.
+      is_assessed: assessedIds.has(c.id as string),
     };
   });
 

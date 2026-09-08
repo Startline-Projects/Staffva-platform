@@ -31,8 +31,9 @@ export default function PrivacyPolicy() {
           <strong>Profile content</strong> — photo, résumé, bio, tagline,
           skills, tools, work history, portfolio items, availability, LinkedIn
           URL, and payout method. Parts of your profile, including your photo,
-          voice recordings and assessment badges, are visible to clients on the
-          marketplace — that is what the profile is for.
+          voice recordings and any assessment badges you have earned, are
+          visible to clients on the marketplace — that is what the profile is
+          for.
         </li>
         <li>
           <strong>Assessment data</strong> — your English test answers, the
@@ -53,7 +54,8 @@ export default function PrivacyPolicy() {
         </li>
         <li>
           <strong>Proctored assessment recordings</strong> — assessment
-          sessions (currently the English test) are camera-proctored. With
+          sessions, including the written English test and the spoken skills
+          interview, are camera-proctored. With
           your explicit, versioned consent — collected before the session,
           and required to sit the assessment — your camera records video for
           the whole session, along with periodic still frames; no audio is
@@ -122,7 +124,8 @@ export default function PrivacyPolicy() {
       <ul>
         <li>To run the marketplace: profiles, search, matching, offers, contracts, escrow and payouts.</li>
         <li>
-          To assess and vet candidates. Parts of this are automated: the
+          To assess and vet candidates who sit our assessments — not every
+          candidate on the marketplace has. Parts of this are automated: the
           English test is scored automatically, applications are screened with
           AI assistance, and the AI interview is scored by an AI model. A
           passing result and a complete profile lead to approval without a
@@ -137,8 +140,9 @@ export default function PrivacyPolicy() {
         </li>
         <li>
           To prepare clients for interviews: we generate interview guidance
-          for the client from the candidate&apos;s marketplace profile and
-          StaffVA screening results.
+          for the client from the candidate&apos;s marketplace profile and,
+          where the candidate has been screened, their StaffVA screening
+          results.
         </li>
         <li>To communicate with you about your application, account and transactions.</li>
         <li>To handle disputes, prevent fraud and duplicate accounts, and comply with law.</li>

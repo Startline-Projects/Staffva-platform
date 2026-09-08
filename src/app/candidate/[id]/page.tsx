@@ -345,6 +345,10 @@ export default async function CandidateProfilePage({
   // Trust marks belong to LIVE listings only — a rejected or in-review
   // profile viewed by its owner or staff must not wear them.
   const isLive = candidate.admin_status === "approved";
+  // Assessed = actually passed the structured skills interview. Since the
+  // 2026-09-07 relist put the whole pipeline live, "approved" and "screened"
+  // are different facts and every vetting claim keys off THIS one.
+  const isAssessed = candidate.ai_interview_passed === true;
 
   // The Atlas scorecard, fed by real screening numbers only. The interview
   // stores each dimension /20; everything renders /100 here.
@@ -612,8 +616,10 @@ export default async function CandidateProfilePage({
 
           <h1 className="profile-name">
             {displayedName}
-            {isLive && (
-              <span className="profile-name-verify" title="Verified by StaffVA">
+            {/* The checkmark beside a person's name is the strongest trust
+                signal on the page, so it follows screening, not listing. */}
+            {isLive && isAssessed && (
+              <span className="profile-name-verify" title="Passed StaffVA's skills interview">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
               </span>
             )}
@@ -740,14 +746,32 @@ export default async function CandidateProfilePage({
                 </div>
               </div>
             )}
-            {isLive && (
+            {/* "Vetted" is a claim about screening, so it follows screening —
+                not admin_status. The owner's 2026-09-07 relist listed the
+                whole pipeline, so being live no longer implies being
+                assessed, and gating this on isLive would have stamped the
+                badge on 223 people who have never sat an interview. The
+                honest counterpart renders below rather than nothing at all:
+                silence would let the surrounding badges imply vetting. */}
+            {isLive && isAssessed && (
               <div className="verify-item">
                 <div className="verify-icon-round">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 </div>
                 <div className="verify-content">
                   <strong>Vetted by StaffVA</strong>
-                  Human-reviewed before going live
+                  Passed our structured skills interview
+                </div>
+              </div>
+            )}
+            {isLive && !isAssessed && (
+              <div className="verify-item">
+                <div className="verify-icon-round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                </div>
+                <div className="verify-content">
+                  <strong>Not yet assessed</strong>
+                  Hasn&apos;t completed StaffVA screening
                 </div>
               </div>
             )}

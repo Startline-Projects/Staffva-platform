@@ -42,12 +42,23 @@ export default function TermsOfService() {
       <h2>3. Vetting and assessments</h2>
       <ul>
         <li>
-          Candidates complete assessments before their profile can go live:
-          an English test, identity verification, voice recordings and an
+          Being listed on the marketplace does not by itself mean a candidate
+          has been assessed. Candidates who complete StaffVA screening — a
+          structured, camera-proctored skills interview — carry a vetted
+          marker on their profile; profiles without it show that screening
+          has not been completed. Other assessments may be offered or
+          required, including an English test, voice recordings and an
           AI-conducted interview. Assessment content and passing requirements
           may change as the platform evolves, and additional or repeated
           assessments may be required — including re-taking assessments under
           updated integrity monitoring.
+        </li>
+        <li>
+          Identity verification is not required before a profile goes live.
+          Candidates get a window after their assessments to verify, and a
+          profile whose window passes unverified is hidden from the
+          marketplace. A listed profile does not by itself mean the
+          person&apos;s identity has been verified.
         </li>
         <li>
           Assessment sessions are monitored for integrity, and proctored
@@ -152,8 +163,9 @@ export default function TermsOfService() {
       <p>
         The platform is provided &quot;as is&quot;. We do not guarantee that a
         candidate will find work, that a client will find a professional, or
-        the outcome of any engagement. Vetting reduces risk; it is not a
-        warranty of any professional&apos;s work.
+        the outcome of any engagement. Not every professional on the platform
+        has completed StaffVA screening. Where it has happened, vetting
+        reduces risk; it is not a warranty of any professional&apos;s work.
       </p>
 
       <h2>10. Limitation of liability</h2>

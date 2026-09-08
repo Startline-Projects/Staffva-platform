@@ -58,6 +58,9 @@ interface CandidateResult {
   skills?: string[] | null;
   video_intro_status?: string | null;
   video_intro_thumbnail_url?: string | null;
+  // True only when this person has a completed, passed skills interview.
+  // The API derives it per row and does not gate it on sign-in.
+  is_assessed?: boolean;
 }
 
 function BrowseContent() {
@@ -292,8 +295,14 @@ function BrowseContent() {
             <div className="browse-header">
               <div>
                 <h1>
-                  Browse <span className="count">{total.toLocaleString()}</span> vetted A-players
+                  Browse <span className="count">{total.toLocaleString()}</span> candidates
                 </h1>
+                {/* The count is every approved profile, and only some of them
+                    have sat StaffVA's skills interview — so the headline
+                    counts people and the badge carries the vetting claim. */}
+                <p className="browse-note">
+                  The lime check means they passed StaffVA&apos;s skills interview. The rest haven&apos;t been assessed yet.
+                </p>
               </div>
               <div className="browse-subactions">
                 <button className="mobile-filter-trigger" onClick={() => setShowFilters(!showFilters)}>
@@ -455,7 +464,7 @@ function BrowseContent() {
             </div>
 
             <div className="results-count">
-              {loading ? "Checking the bench…" : (
+              {loading ? "Counting matches…" : (
                 <>Showing <strong>{candidates.length ? (page - 1) * 24 + 1 : 0}–{(page - 1) * 24 + candidates.length}</strong> of <strong>{total.toLocaleString()}</strong> matches</>
               )}
             </div>
@@ -491,6 +500,14 @@ function BrowseContent() {
                     // block and nothing hints at a video.
                     const hasVideo = c.video_intro_status === "approved";
                     const photoBg = (hasVideo && c.video_intro_thumbnail_url) || c.profile_photo_url;
+                    // The check and the screening badge are the same fact, and
+                    // it is the only vetting claim this card is entitled to
+                    // make: most approved profiles have never sat the
+                    // interview. Most of them have no photo either, so the
+                    // gradient gets an initial rather than being one of a
+                    // grid of identical green tiles.
+                    const assessed = c.is_assessed === true;
+                    const initial = (c.display_name || "").trim().charAt(0).toUpperCase();
                     return (
                       <div
                         key={c.id}
@@ -513,6 +530,7 @@ function BrowseContent() {
                       >
                         <div className="result-top">
                           <div className="result-photo" style={photoBg ? { backgroundImage: `url(${photoBg})`, backgroundSize: "cover", backgroundPosition: "center" } : { background: "linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)" }}>
+                            {!photoBg && initial && <div className="result-initial" aria-hidden>{initial}</div>}
                             <div className="result-avail"><span className={`avail-dot ${avail === "AVAILABLE NOW" ? "avail-now" : ""}`}></span>{avail}</div>
                             {hasVideo && !isLoggedIn && (
                               <div className="result-video-lock" aria-hidden>
@@ -529,7 +547,9 @@ function BrowseContent() {
                         </div>
                         <div className="result-name-row">
                           <div className="result-name">{c.display_name}
-                            <span className="result-verify"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></span>
+                            {assessed && (
+                              <span className="result-verify" title="Passed StaffVA's skills interview"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></span>
+                            )}
                           </div>
                         </div>
                         <div className="result-role">{c.tagline || c.role_category}</div>
@@ -540,7 +560,11 @@ function BrowseContent() {
                         <div className="result-badges">
                           <div className="result-badge"><div className="result-badge-val">{tierLabel}</div><div className="result-badge-lbl">English</div></div>
                           <div className="result-badge"><div className="result-badge-val">{hasUs ? "US ✓" : "—"}</div><div className="result-badge-lbl">US exp</div></div>
-                          <div className="result-badge"><div className="result-badge-val green">ID ✓</div><div className="result-badge-lbl">Verified</div></div>
+                          {/* Was a hardcoded "ID ✓ / Verified" that read no
+                              column at all — the listing rows don't even carry
+                              id_verification_status. This slot now shows the
+                              one screening fact the API does return. */}
+                          <div className="result-badge"><div className={`result-badge-val ${assessed ? "green" : "muted"}`}>{assessed ? "Vetted" : "Not yet"}</div><div className="result-badge-lbl">Screened</div></div>
                         </div>
                         <div className="result-bottom">
                           <div className="result-rate">${Number(c.hourly_rate)}<span>/hr</span></div>

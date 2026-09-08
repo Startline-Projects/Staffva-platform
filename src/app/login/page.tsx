@@ -621,12 +621,12 @@ function LoginContent() {
           <span className="trust-dot" aria-hidden></span>
           <span className="trust-item">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.2" /><path d="M2 10c.5-1.8 2-3 4-3s3.5 1.2 4 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-            Identity-verified
+            Escrow-protected pay
           </span>
           <span className="trust-dot" aria-hidden></span>
           <span className="trust-item">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="m2.5 6 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            Human-reviewed
+            Vetted bench
           </span>
         </div>
       </div>

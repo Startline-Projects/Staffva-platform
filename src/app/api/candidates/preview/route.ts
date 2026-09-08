@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     // Fetch candidate
     const { data: candidate } = await admin
       .from("candidates")
-      .select("id, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, reputation_score, reputation_tier, total_earnings_usd, committed_hours, availability_status, availability_date")
+      .select("id, ai_interview_passed, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, reputation_score, reputation_tier, total_earnings_usd, committed_hours, availability_status, availability_date")
       .eq("id", candidateId)
       .eq("admin_status", "approved")
       // Overdue-unverified profiles are hidden from clients (00154).
@@ -97,6 +97,12 @@ export async function GET(req: NextRequest) {
       // The scorecard is sign-up-gated for real: anonymous callers get no
       // numbers, matching what the profile page now shows them.
       aiInterview: signedIn ? aiInterview || null : null,
+      // Ungated, unlike the scores: the query above returns only a
+      // completed+passed screening interview, so this IS "have we vetted
+      // this person". Everyone can see that distinction — it is what keeps
+      // the pool's "pre-vetted" framing true now that the full pipeline is
+      // listed (owner directive, 2026-09-07).
+      isAssessed: (candidate as { ai_interview_passed?: boolean }).ai_interview_passed === true,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       review: review ? { ...review, clientName: review.client_first_name ?? null } : null,
       reviewCount: reviewCount || 0,

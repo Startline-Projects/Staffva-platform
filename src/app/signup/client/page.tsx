@@ -21,7 +21,7 @@ import "@/app/atlas-auth.css";
  */
 const AHEAD = [
   "Verify your email",
-  "Browse the vetted talent pool",
+  "Browse the talent pool",
   "Message, interview, and send offers",
   "Sign your contract",
   "Verify your identity to fund escrow",
@@ -348,7 +348,7 @@ export default function ClientSignupPage() {
                 <span className="serif-italic underline-accent">client</span> account.
               </h1>
               <p className="lead">
-                StaffVA is a curated marketplace for vetted global talent. Signing up and browsing are <strong>free</strong> — you only pay when you fund an engagement.
+                StaffVA is a marketplace for global remote talent, and the candidates who passed our skills interview carry a vetted badge. Signing up and browsing are <strong>free</strong> — you only pay when you fund an engagement.
               </p>
 
               <div className="ahead-card" aria-label="What's ahead">
@@ -696,7 +696,7 @@ export default function ClientSignupPage() {
                 <span className="trust-dot" aria-hidden></span>
                 <span className="trust-item">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="m2.5 6 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  Vetted talent
+                  Vetted bench
                 </span>
               </div>
             </section>

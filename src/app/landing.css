@@ -1614,6 +1614,12 @@
   font-style: italic;
   color: var(--amber);
 }
+.lp .browse-note{
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-top: 10px;
+  max-width: 48ch;
+}
 .lp .browse-subactions{
   display: flex;
   gap: 10px;
@@ -1941,6 +1947,18 @@
   inset: 0;
   background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.55) 100%);
 }
+.lp .result-initial{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 400;
+  color: rgba(251, 248, 242, 0.92);
+  z-index: 1;
+  user-select: none;
+}
 .lp .result-play{
   position: absolute;
   bottom: 10px;
@@ -2079,6 +2097,7 @@
   color: var(--ink);
 }
 .lp .result-badge-val.green{ color: #17A05B; }
+.lp .result-badge-val.muted{ color: var(--ink-mute); font-weight: 400; }
 .lp .result-badge-lbl{
   font-size: 9px;
   letter-spacing: 0.1em;

@@ -167,7 +167,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                     </svg>
                     <div>
                       <p className="text-sm font-medium text-text">Apply as a Professional</p>
-                      <p className="text-xs text-text/50">Join our vetted talent pool</p>
+                      <p className="text-xs text-text/50">Join our talent pool</p>
                     </div>
                   </Link>
                   <Link href="/login" onClick={() => setActiveDropdown(null)} className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-primary/5 transition-colors">
@@ -343,7 +343,7 @@ export default function DropdownNavbar({ user, variant = "light" }: DropdownNavb
                   </svg>
                 </div>
                 <h3 className="text-sm font-semibold text-[#1C1B1A]">Sign up as an Employer</h3>
-                <p className="mt-1 text-xs text-gray-500">Post roles and hire pre-vetted professionals</p>
+                <p className="mt-1 text-xs text-gray-500">Post roles and hire from our vetted bench</p>
               </Link>
 
               {/* Professional card */}

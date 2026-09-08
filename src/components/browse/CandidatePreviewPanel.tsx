@@ -34,6 +34,10 @@ interface PanelData {
     availability_date: string | null;
   };
   aiInterview: { overall_score: number; technical_knowledge_score: number; problem_solving_score: number; communication_score: number; experience_depth_score: number; professionalism_score: number; passed: boolean } | null;
+  // Whether this person has actually sat StaffVA's skills interview. Unlike
+  // the scores above it is not sign-in gated, so the drawer can tell the two
+  // populations apart for anonymous visitors too.
+  isAssessed: boolean;
   review: { rating: number; body: string | null; submitted_at: string; clientName: string | null } | null;
   reviewCount: number;
   relationship: "none" | "messaged" | "engaged";
@@ -185,7 +189,7 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
                   <span key={i} style={{ height: `${25 + ((i * 37) % 70)}%`, animationDelay: `${i * 60}ms` }} />
                 ))}
               </div>
-              <p className="pv-hint">Hear {firstName} — every professional on StaffVA is voice verified.</p>
+              <p className="pv-hint">Hear {firstName} in their own voice — recorded for StaffVA.</p>
             </>
           ) : (
             <p className="pv-hint">Voice recording pending — this professional has not yet added their introduction.</p>
@@ -201,20 +205,33 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
         </div>
       </div>
 
-      {/* Screening results */}
-      {scoreRows.length > 0 && (
-        <div className="pv-section">
-          <p className="pv-label">Screening results</p>
-          {scoreRows.map((d) => (
-            <div className="score-row" key={d.label}>
-              <div className="score-label">{d.label}</div>
-              <div className="score-bar"><div className="score-fill" style={{ width: `${Math.min(d.score, 100)}%` }}></div></div>
-              <div className="score-val">{d.score}</div>
-            </div>
-          ))}
-          <p className="pv-hint">These scores come from a real assessment. {firstName} completed a written English test and a structured skills interview before appearing on this platform.</p>
-        </div>
-      )}
+      {/* Screening — this renders for everyone, not only the assessed. Being
+          listed no longer implies having been interviewed (the owner's
+          2026-09-07 relist put the whole pipeline on /browse), so saying
+          nothing here would let the rest of the drawer imply vetting. The
+          scores stay sign-in gated; the assessed/not-assessed fact does not.
+          The English test is gone from this copy on purpose — these bars are
+          the skills interview, and English scores are NULL platform-wide. */}
+      <div className="pv-section">
+        <p className="pv-label">Screening</p>
+        {data?.isAssessed ? (
+          <>
+            {scoreRows.map((d) => (
+              <div className="score-row" key={d.label}>
+                <div className="score-label">{d.label}</div>
+                <div className="score-bar"><div className="score-fill" style={{ width: `${Math.min(d.score, 100)}%` }}></div></div>
+                <div className="score-val">{d.score}</div>
+              </div>
+            ))}
+            <p className="pv-hint">
+              {scoreRows.length > 0 ? "These scores come from a real assessment. " : ""}
+              {firstName} passed StaffVA&apos;s structured skills interview.
+            </p>
+          </>
+        ) : (
+          <p className="pv-hint">Not yet assessed — {firstName} hasn&apos;t completed StaffVA screening.</p>
+        )}
+      </div>
 
       {/* Bio */}
       {c.bio && (
@@ -298,7 +315,12 @@ export default function CandidatePreviewPanel({ candidateId, onClose, onSkillCli
               </div>
               <h2 className="pv-name">
                 {c.display_name}
-                <span className="result-verify"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></span>
+                {/* The checkmark beside a name is the strongest trust signal
+                    in the drawer, so it follows screening, not listing — the
+                    same rule the full profile page uses. */}
+                {data?.isAssessed && (
+                  <span className="result-verify" title="Passed StaffVA's skills interview"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg></span>
+                )}
               </h2>
               <p className="pv-role">{c.tagline || c.role_category}</p>
               <p className="pv-meta">{c.country}{localTime ? ` · ${localTime} local` : ""}</p>
