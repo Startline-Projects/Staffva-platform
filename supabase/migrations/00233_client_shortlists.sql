@@ -1,4 +1,4 @@
--- 00227 — named shortlists and saved searches (client vertical step 8).
+-- 00233 — named shortlists and saved searches (client vertical step 8).
 --
 -- Atlas gives a client three shortlists in a dropdown, a heart on every card,
 -- and a "save this search" modal with email-frequency radios. None of it
@@ -85,7 +85,7 @@ create index client_saved_searches_notify
 
 -- ── Access ──────────────────────────────────────────────────────────────────
 -- Read-own, and no browser writes at all. Every mutation goes through a
--- service-role route that checks ownership, which is the shape 00224 settled
+-- service-role route that checks ownership, which is the shape 00230 settled
 -- on after 00001's FOR-ALL policies turned out to be the recurring hole in
 -- this schema.
 alter table public.client_shortlists enable row level security;

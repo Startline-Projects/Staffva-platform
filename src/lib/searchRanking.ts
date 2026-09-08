@@ -8,7 +8,8 @@
  * checklist and still rank low, because the two ask different questions.
  *
  * ⚠️ THE WEIGHTS BELOW MUST MATCH
- * `supabase/migrations/00219_browse_completeness_sort.sql`.
+ * `supabase/migrations/00219_browse_completeness_sort.sql` (profile) and
+ * `00224_assessments_affect_ranking.sql` (assessments).
  * The SQL is authoritative — it is what actually orders client search. This
  * exists so the dashboard can tell a candidate why they sit where they sit,
  * and a nudge that disagrees with the ranking is worse than no nudge.
@@ -18,11 +19,19 @@
  *   1. Profiles WITH a photo sort above profiles without one. Photo is its
  *      own sort key, not merely the heaviest term — a card with no face on
  *      it cannot lead the page however full the rest of it is.
- *   2. Within each group, higher completeness first.
+ *   2. Within each group, higher (profile completeness + assessment bonus).
+ *
+ * Profile and assessment points are reported SEPARATELY here, because they
+ * answer different questions for the candidate: "have I finished my profile"
+ * and "have I taken the optional assessments". Merging them into one
+ * percentage would make the number on their dashboard unexplainable.
  */
 
 export interface RankingInput {
   profile_photo_url?: string | null;
+  /** Passed the skills interview — the Vetted badge and the biggest bonus. */
+  ai_interview_passed?: boolean | null;
+  english_written_tier?: string | null;
   video_intro_status?: string | null;
   video_intro_url?: string | null;
   voice_recording_1_url?: string | null;
@@ -80,4 +89,36 @@ export function rankingScore(c: RankingInput): number {
 
 export function missingForRanking(c: RankingInput): RankingItem[] {
   return rankingItems(c).filter((i) => !i.done);
+}
+
+/** The optional-assessment half of the ordering (00224). Separate from the
+ *  profile score on purpose — see the note at the top of this file. */
+export function assessmentItems(c: RankingInput): RankingItem[] {
+  const tier = c.english_written_tier;
+  const tierPoints = tier === "exceptional" ? 12 : tier === "proficient" ? 8 : tier === "competent" ? 4 : 0;
+  return [
+    {
+      key: "interview",
+      label: "Passed the skills interview",
+      points: 25,
+      done: c.ai_interview_passed === true,
+    },
+    {
+      key: "english",
+      // The points vary by tier, so the label says what was earned rather
+      // than implying a flat award.
+      label: tier ? `English tier: ${tier}` : "Sat the English assessment",
+      points: tierPoints || 12,
+      done: tierPoints > 0,
+    },
+  ];
+}
+
+export function assessmentBonus(c: RankingInput): number {
+  return assessmentItems(c).reduce((n, i) => n + (i.done ? i.points : 0), 0);
+}
+
+/** What browse actually orders on, within a photo group. */
+export function searchRankTotal(c: RankingInput): number {
+  return rankingScore(c) + assessmentBonus(c);
 }

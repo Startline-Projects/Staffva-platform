@@ -168,9 +168,9 @@ export interface Client {
   email: string;
   company_name: string | null;
   stripe_customer_id: string | null;
-  /** Signup "hiring for" chips (browse pill labels + "Other"); 00226. */
+  /** Signup "hiring for" chips (browse pill labels + "Other"); 00232. */
   hiring_for: string[] | null;
-  /** Signup "how did you hear about us" enum; 00226. */
+  /** Signup "how did you hear about us" enum; 00232. */
   referral_source: string | null;
 }
 

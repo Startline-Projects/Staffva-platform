@@ -57,7 +57,7 @@ export async function GET() {
     const firstName = (client.full_name || "").trim().split(/\s+/)[0] || "there";
 
     // Gate state and signup intent come from columns added by migrations
-    // 00226/00225, read separately and tolerantly: a dashboard must not 500
+    // 00232/00231, read separately and tolerantly: a dashboard must not 500
     // because a migration has not landed yet (the step-4 lesson). Unreadable
     // means "treat as not-yet-verified", which shows the explore dashboard —
     // the safe direction, since the funding gate itself lives server-side.
@@ -380,7 +380,7 @@ export async function GET() {
         .limit(2000),
     ]);
 
-    // Migration 00227 may not be applied yet. A missing table must not take
+    // Migration 00233 may not be applied yet. A missing table must not take
     // the whole dashboard down over one card, so the count goes null and the
     // card is omitted rather than rendering a 0 that would read as "you have
     // saved nobody".

@@ -11,7 +11,7 @@ function getAdminClient() {
 }
 
 /**
- * Saved searches (client step 8, migration 00227).
+ * Saved searches (client step 8, migration 00233).
  *
  * GET    — the client's searches, each with a LIVE match count and how many
  *          of those are new since they last looked.

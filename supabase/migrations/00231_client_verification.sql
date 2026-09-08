@@ -1,4 +1,4 @@
--- 00225 — client identity verification and a card on file (client step 4).
+-- 00231 — client identity verification and a card on file (client step 4).
 --
 -- src/lib/clientProfile.ts has said it plainly since it was written: "there
 -- is no client verification of any kind". Candidates hand over a government

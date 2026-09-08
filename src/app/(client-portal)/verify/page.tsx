@@ -31,7 +31,7 @@ export default async function VerifyPage() {
     .maybeSingle();
   if (!base) redirect("/team");
 
-  // The verification columns arrive in migration 00225. Before it lands this
+  // The verification columns arrive in migration 00231. Before it lands this
   // read fails, and throwing here would 500 the ONE page that fixes the
   // state the funding gate is refusing on — so it degrades to "we can't read
   // your status" instead. (The layout takes the same position; review caught

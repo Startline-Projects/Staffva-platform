@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   rankingScore,
   missingForRanking,
+  assessmentItems,
+  assessmentBonus,
   type RankingInput,
 } from "@/lib/searchRanking";
 
@@ -32,7 +34,12 @@ export default function ProfileRankNudge({
 
   const score = rankingScore(candidate);
   const missing = missingForRanking(candidate);
-  if (missing.length === 0) return null;
+  // Assessments are the OTHER half of the ordering (00224), so a candidate
+  // with a finished profile still has something true to be told.
+  const assessments = assessmentItems(candidate);
+  const bonus = assessmentBonus(candidate);
+  const assessmentsLeft = assessments.filter((a) => !a.done);
+  if (missing.length === 0 && assessmentsLeft.length === 0) return null;
 
   const noPhoto = !candidate.profile_photo_url;
   // The photo is the headline when it's missing; otherwise lead with the
@@ -67,6 +74,26 @@ export default function ProfileRankNudge({
           complete ones. Yours has a photo — filling these in moves you up
           among them.
         </p>
+      )}
+
+      {assessmentsLeft.length > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--line, #E5E0D6)" }}>
+          <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0 }}>
+            Optional assessments also move you up
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--ink-mute)" }}>
+            {bonus > 0
+              ? `They're worth ${bonus} points on your position so far, out of 37.`
+              : "They're worth up to 37 points on your position — more than a third of what a complete profile is worth."}
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {assessmentsLeft.map((a) => (
+              <li key={a.key} className="text-sm text-gray-600">
+                <span className="text-gray-400">·</span> {a.label} (+{a.points})
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {rest.length > 0 && (

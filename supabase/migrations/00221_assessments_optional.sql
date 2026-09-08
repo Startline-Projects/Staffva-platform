@@ -11,9 +11,11 @@
 --
 -- Removed from every function below: the passed `kind='skills'` interview,
 -- english_mc_score >= 70, english_comprehension_score >= 70, and
--- interview_consent_at (consent to an OPTIONAL activity cannot gate use of
--- the platform; it is still collected, and the interview takes its own
--- consent before recording).
+-- interview_consent_at. That column is misnamed: the checkbox behind it is
+-- consent to show your VOICE RECORDINGS to clients, not consent to the AI
+-- interview (which takes its own consent at interview time). The profile
+-- builder still requires it and should — the recordings are mandatory
+-- profile content. It is dropped as an approval-gate condition only.
 --
 -- Retained everywhere: the seven profile conditions — both voice recordings,
 -- photo, résumé, tagline, bio, payout method. That set is now precisely
@@ -147,8 +149,9 @@ $$;
 -- ── 4. Profile completion ─────────────────────────────────────────────────
 -- Required English >= 70 to consider a profile complete, so an unassessed
 -- candidate could never get profile_completed_at stamped — which the
--- watchdog above now reads. Also dropped interview_consent, for the same
--- compelled-consent reason as everywhere else.
+-- watchdog above now reads. interview_consent is dropped here as a GATE; the
+-- profile builder still requires the underlying consent, which is about
+-- publishing voice recordings (see the note at the top of this file).
 create or replace function public.mark_profile_complete()
 returns text
 language plpgsql
