@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Write one in-app notification for a client — the bell in the client portal
- * topbar reads these (migration 00220).
+ * topbar reads these (migration 00224).
  *
  * FAIL-SOFT, deliberately, and for the same reason as notifyCandidate: every
  * call site is a business action (a counter sent, a milestone marked, a

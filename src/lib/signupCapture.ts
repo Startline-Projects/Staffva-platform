@@ -8,7 +8,7 @@ import { BROWSE_PILLS } from "./roleTaxonomy";
  * is exactly how the "VA pill matched zero rows" bug happened.
  *
  * The DB-side copies (the CHECK constraints and handle_new_user's allowlist
- * in migration 00222) are necessarily frozen SQL literals: change anything
+ * in migration 00226) are necessarily frozen SQL literals: change anything
  * here and ship a migration updating them in the same commit.
  */
 export const SIGNUP_ROLE_CATEGORIES: string[] = [

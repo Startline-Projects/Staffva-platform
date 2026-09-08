@@ -9,7 +9,7 @@ import PortalFrame from "@/components/portal/PortalFrame";
  * as the candidate shell — the sidebar rail, the topbar, the content column —
  * with the client's own rail and actions.
  *
- * The notifications bell is live as of step 3 (client_notifications, 00220);
+ * The notifications bell is live as of step 3 (client_notifications, 00224);
  * the verify banner as of step 4, and per the owner's D1 it says "verify to
  * fund", never "verify to hire" — hiring is not gated on anything.
  *

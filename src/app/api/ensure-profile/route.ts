@@ -8,7 +8,7 @@ import {
 } from "@/lib/signupCapture";
 
 // Both vocabularies come from src/lib/signupCapture.ts so the pages and this
-// route cannot drift; the DB keeps frozen copies in migration 00222's CHECK
+// route cannot drift; the DB keeps frozen copies in migration 00226's CHECK
 // constraints and handle_new_user allowlists.
 const SIGNUP_ROLE_CATEGORIES = new Set(SIGNUP_ROLE_CATEGORY_LIST);
 const CLIENT_REFERRAL_SOURCES = new Set(CLIENT_REFERRAL_SOURCE_LIST.map((r) => r.value));
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   // NOTE on who actually writes what: since 00205 the handle_new_user
   // trigger creates the profiles row (and the clients row for role
-  // 'client') inside auth.signUp itself, and since 00222 it persists the
+  // 'client') inside auth.signUp itself, and since 00226 it persists the
   // signup capture from raw_user_meta_data. When the trigger succeeded,
   // both upserts below hit ON CONFLICT DO NOTHING — this route is the BELT
   // for the trigger's swallowed-exception path, so its inserts carry the

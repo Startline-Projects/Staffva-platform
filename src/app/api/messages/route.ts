@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     // nothing could ever start a subscription, so every client sat at NULL
     // and every client message 403'd — not one was ever sent. The
     // subscription is now fully retired (client vertical step 1: checkout
-    // route deleted, columns dropped in 00222). MessageButton advertises
+    // route deleted, columns dropped in 00226). MessageButton advertises
     // "Free to join. Free to message. No subscription required." If
     // messaging is ever meant to be paid, the paywall gets built first.
     // The client may only write to their OWN thread.

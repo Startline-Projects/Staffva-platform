@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 /**
  * The Atlas notifications bell, shared by both portals. The candidate bell
  * reads candidate_notifications (00202), the client bell client_notifications
- * (00220); the behavior is identical, so it lives here once rather than
+ * (00224); the behavior is identical, so it lives here once rather than
  * drifting in two copies.
  *
  * Faithful to the prototype: badge with unread count, dropdown with

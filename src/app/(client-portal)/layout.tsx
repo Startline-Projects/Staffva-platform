@@ -49,7 +49,7 @@ export default async function ClientPortalLayout({ children }: { children: React
   if (error) throw new Error(`client portal lookup failed: ${error.message}`);
 
   // The verification columns are read separately and fail SOFT, unlike the
-  // identity lookup above. They arrive in migration 00221, and code reaches
+  // identity lookup above. They arrive in migration 00225, and code reaches
   // production before a migration does at least as often as the reverse — a
   // missing column here must not 500 the whole portal for every client over
   // a banner. Unreadable means "don't prompt"; it never means "may fund",
