@@ -4033,3 +4033,16 @@
   box-shadow: var(--shadow-lg);
   text-align: left;
 }
+/* A save that failed says so on the control itself (the title carries the
+   reason) — the menu may well be closed when it happens. */
+.lp .result-save:has(.result-save-heart.failed){ opacity: 1; border-color: #b4342f; }
+.lp .result-save-heart.failed{ color: #b4342f; }
+.lp .save-search-summary{
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border-radius: var(--r-sm);
+  padding: 6px 9px;
+  margin: 8px 0 0;
+  line-height: 1.4;
+}

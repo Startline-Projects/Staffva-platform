@@ -96,17 +96,32 @@ function BrowseContent() {
   const [skillAggregation, setSkillAggregation] = useState<{ skill: string; count: number }[]>([]);
   const [showAllSkills, setShowAllSkills] = useState(false);
 
-  // Initialize from URL params
+  // Initialize from URL params — ALL of the filters, not some of them.
+  //
+  // Until step 8 only search/role/availability/skills were read here, while
+  // the fetch below sent nine. A link carrying country, rate bounds, tier or
+  // US experience therefore opened a page that quietly ignored them, and the
+  // replaceState further down then erased them from the address bar, so
+  // nothing on screen revealed that the filters had been dropped. That is
+  // survivable for a hand-typed URL and fatal for a saved search, which
+  // prints an exact match count next to a link that must open exactly that
+  // set.
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [role, setRole] = useState(searchParams.get("role") || "All");
-  const [country, setCountry] = useState("");
-  const [minRate, setMinRate] = useState(0);
-  const [maxRate, setMaxRate] = useState(150);
+  const [country, setCountry] = useState(searchParams.get("country") || "");
+  const [minRate, setMinRate] = useState(() => {
+    const n = Number(searchParams.get("minRate"));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  });
+  const [maxRate, setMaxRate] = useState(() => {
+    const n = Number(searchParams.get("maxRate"));
+    return Number.isFinite(n) && n > 0 && n < 150 ? n : 150;
+  });
   const [availability, setAvailability] = useState(
     searchParams.get("availability") || ""
   );
-  const [tier, setTier] = useState("any");
-  const [usExperience, setUsExperience] = useState("");
+  const [tier, setTier] = useState(searchParams.get("tier") || "any");
+  const [usExperience, setUsExperience] = useState(searchParams.get("usExperience") || "");
   // lockStatus removed — availability comes from the candidate's own answer
   const [sort, setSort] = useState("complete");
   const [showFilters, setShowFilters] = useState(false);
@@ -144,12 +159,14 @@ function BrowseContent() {
     params.set("sort", sort);
     params.set("page", page.toString());
 
-    // Update URL without navigation
-    const urlParams = new URLSearchParams();
-    if (search) urlParams.set("search", search);
-    if (role && role !== "All") urlParams.set("role", role);
-    if (availability) urlParams.set("availability", availability);
-    if (skillFilters.length > 0) urlParams.set("skills", skillFilters.join(","));
+    // Update URL without navigation. The address bar carries every filter the
+    // fetch used, minus sort and page — so copying the URL, reloading it, or
+    // saving it as a search all reproduce what is on screen. It previously
+    // kept four of the nine, which silently deleted the rest of a shared or
+    // saved link on first render.
+    const urlParams = new URLSearchParams(params);
+    urlParams.delete("sort");
+    urlParams.delete("page");
     const newUrl = urlParams.toString() ? `/browse?${urlParams}` : "/browse";
     window.history.replaceState(null, "", newUrl);
 

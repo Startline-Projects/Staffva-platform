@@ -27,5 +27,10 @@ comment on column public.candidates.english_attempts_exhausted is
   'permanently_blocked — that column delists a candidate from the marketplace '
   'via the 00188 trigger, and an optional assessment must never do that.';
 
--- No grant to authenticated: candidates.* is column-granted (00120) and this
--- is written server-side by the grader only.
+-- No grant to authenticated. Note WHERE that protection comes from: 00120
+-- revoked the table-level UPDATE on candidates and re-grants column by
+-- column, so a new column is writable by nobody until someone grants it.
+-- This file does nothing to earn that — it inherits it. A future migration
+-- that ever restores a table-level grant would silently make this column
+-- browser-writable, and with it the ability to hand yourself unlimited
+-- English attempts.

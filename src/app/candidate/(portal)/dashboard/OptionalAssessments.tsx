@@ -78,7 +78,9 @@ export default function OptionalAssessments({
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
               A structured, recorded interview about the work you do. Passing
               it earns the <strong>Vetted badge</strong> — the one clients can
-              see and filter on.
+              see and filter on. It also counts for 40% of your reputation
+              score: without it that score is capped at 60, however good your
+              reviews are.
             </p>
             <button type="button" className="current-step-cta" onClick={launchInterview} disabled={busy}>
               <span>{busy ? "Opening…" : "Take the skills interview"}</span>

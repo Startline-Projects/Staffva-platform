@@ -40,6 +40,8 @@
  */
 
 interface GateCandidate {
+  admin_status?: string | null;
+  permanently_blocked?: boolean | null;
   voice_recording_1_url: string | null;
   voice_recording_2_url: string | null;
   id_verification_status: string | null;
@@ -56,29 +58,50 @@ export function checkApprovalGates(candidate: GateCandidate): {
 } {
   const failingConditions: string[] = [];
 
-  if (!candidate.voice_recording_1_url) {
+  // Two conditions the DB enforces and this did not, so a route could pass
+  // its own check and then be silently refused by promote_candidate_if_ready
+  // — or, worse, write admin_status directly and bypass a rule the database
+  // believes it is holding.
+  if (candidate.permanently_blocked) {
+    failingConditions.push("Account is blocked");
+  }
+  if (
+    candidate.admin_status != null &&
+    !["active", "pending_2nd_interview", "revision_required", "under_review"].includes(
+      candidate.admin_status
+    )
+  ) {
+    failingConditions.push(`Cannot approve from status "${candidate.admin_status}"`);
+  }
+
+  // `filled` not `!!`: the SQL gates test IS NOT NULL, so a whitespace-only
+  // tagline satisfies the database and would fail here (or vice versa). Trim
+  // first so both copies agree on what "present" means.
+  const filled = (v: string | null | undefined) => typeof v === "string" && v.trim() !== "";
+
+  if (!filled(candidate.voice_recording_1_url)) {
     failingConditions.push("Oral reading recording missing");
   }
-  if (!candidate.voice_recording_2_url) {
+  if (!filled(candidate.voice_recording_2_url)) {
     failingConditions.push("Self-introduction recording missing");
   }
   // ID verification is deliberately NOT a gate (owner's call, 2026-09-03):
   // candidates get a 14-day window AFTER assessments to verify, and an
   // overdue unverified profile is hidden from clients by the read-side
   // predicate (00154) rather than blocked from approval.
-  if (!candidate.profile_photo_url) {
+  if (!filled(candidate.profile_photo_url)) {
     failingConditions.push("Profile photo missing");
   }
-  if (!candidate.resume_url) {
+  if (!filled(candidate.resume_url)) {
     failingConditions.push("Resume missing");
   }
-  if (!candidate.tagline) {
+  if (!filled(candidate.tagline)) {
     failingConditions.push("Tagline missing");
   }
-  if (!candidate.bio) {
+  if (!filled(candidate.bio)) {
     failingConditions.push("Bio missing");
   }
-  if (!candidate.payout_method) {
+  if (!filled(candidate.payout_method)) {
     failingConditions.push("Payout method not selected");
   }
 

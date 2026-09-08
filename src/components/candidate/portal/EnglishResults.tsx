@@ -16,6 +16,9 @@
  * assessment to find out where to improve.
  */
 
+/** Keys under notes that are for reviewers, never rendered to the candidate. */
+const INTERNAL_NOTE_KEYS = new Set(["read_aloud_internal"]);
+
 const PARTS = [
   ["grammar", "Grammar"],
   ["comprehension", "Comprehension"],
@@ -62,7 +65,7 @@ export default function EnglishResults({ parts }: { parts: EnglishPartScores | n
   // submitted for this part", which is precisely the thing a candidate needs
   // told. Scoring drops it from the breakdown, so it would vanish silently.
   const explained = PARTS.filter(
-    ([key]) => typeof parts[key] !== "number" && notes?.[key]
+    ([key]) => typeof parts[key] !== "number" && notes?.[key] && !INTERNAL_NOTE_KEYS.has(key)
   );
 
   return (

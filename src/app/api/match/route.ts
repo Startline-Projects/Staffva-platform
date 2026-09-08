@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { englishTierBonus } from "@/lib/englishTier";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { extractText } from "@/lib/anthropic";
@@ -97,10 +98,9 @@ function calculateScore(
   }
 
   // English tier bonus (10 points max)
-  const tier = candidate.english_written_tier as string;
-  if (tier === "exceptional") score += 10;
-  else if (tier === "advanced") score += 7;
-  else if (tier === "professional") score += 5;
+  // Was checking "advanced"/"professional" — names the enum cannot hold and
+  // the grader has never written, so only the top tier ever scored here.
+  score += englishTierBonus(candidate.english_written_tier as string | null, [10, 7, 5]);
 
   return Math.min(score, 100);
 }

@@ -642,13 +642,17 @@ export default async function CandidateDashboardPage() {
   // The English-lockout copy may only override the step card's own body/CTA.
   // Terminal and action-required cards outrank it: "This application is
   // closed" must not be followed by "Your next attempt opens…".
-  const englishLockoutOverride =
-    englishLocked && currentNode.id === "english" && !!lockedUntil && !terminal && !actionRequired;
+  // Was also keyed on currentNode.id === "english". Since English became
+  // optional it never becomes the current node, so this could never be true
+  // again — the retake countdown was unreachable while the copy announcing it
+  // still rendered. The lock itself is the condition; terminal and
+  // action-required still take precedence over it.
+  const englishLockoutOverride = englishLocked && !!lockedUntil && !terminal && !actionRequired;
   const currentIndex = requiredNodes.findIndex((n) => n.id === currentNode.id);
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming" && !n.optional).slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
     whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",
-    id: "Upload a government ID within 14 days of finishing your assessments — after that, unverified profiles hide from clients.",
+    id: "Upload a government ID within 14 days of going live — after that, unverified profiles hide from clients.",
     english: "A camera-proctored assessment of grammar and comprehension.",
     interview1: "A short behavioral interview — communication, problem-solving, judgment.",
     interview2: "A skills interview that probes what you claimed you can do.",

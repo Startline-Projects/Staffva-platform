@@ -7,18 +7,23 @@ import { countMatches, describeFilters, filtersToQuery, type SavedSearchFilters 
  * Saved-search digest (client step 8).
  *
  * Runs daily. Each search says how often it wants to hear — daily, weekly, or
- * never — and this only mails when the live count has actually risen above
- * the number the client last saw. Two rules follow from that, and both matter
- * more than they look:
+ * never — and this only mails when the live count has risen above BOTH what
+ * the client last saw and what we last told them about.
  *
- *  - It mails about a RISE, not about a total. A search that has matched the
- *    same eleven people since March generates nothing, forever. The Atlas
- *    prototype's alert has no such notion and would mail every day about the
- *    same eleven.
- *  - Sending advances last_notified_at but NOT last_seen_count. The high-water
- *    mark belongs to the client's eyes: if it moved on send, the "+3 more
- *    since you looked" badge would be cleared by an email they never opened,
- *    and the page would show nothing new.
+ * Those two marks are deliberately separate columns:
+ *
+ *  - last_seen_count is the client's eyes. It moves only when they open the
+ *    search on /shortlists, and it is what the "+3 more since you looked"
+ *    badge is computed from. A send must not touch it, or an email nobody
+ *    opened would clear the badge.
+ *  - last_notified_count is our mouth. It moves on every send. Without it,
+ *    "daily" means re-sending the byte-identical email every single day
+ *    forever, because the client has no reason to visit the page that would
+ *    move the other mark. That is precisely the Atlas behaviour this was
+ *    supposed to improve on.
+ *
+ * So the rule is: mail about people who have arrived since the last thing
+ * that happened, whichever of the two that was.
  *
  * Client mail is not under the candidate freeze (see emailFreeze), so these
  * genuinely send.
@@ -52,10 +57,16 @@ export async function GET(req: NextRequest) {
   const db = getAdminClient();
   const site = process.env.NEXT_PUBLIC_SITE_URL || "https://staffva.com";
 
+  // Bounded. An unpaginated select is at the mercy of PostgREST's db-max-rows,
+  // which would silently drop the tail of the table — a digest that quietly
+  // stops covering some clients is worse than one that reports being full.
+  const SCAN_LIMIT = 2000;
   const { data: rows, error } = await db
     .from("client_saved_searches")
-    .select("id, client_id, name, filters, notify, last_seen_count, last_notified_at")
-    .neq("notify", "off");
+    .select("id, client_id, name, filters, notify, last_seen_count, last_notified_count, last_notified_at")
+    .neq("notify", "off")
+    .order("last_notified_at", { ascending: true, nullsFirst: true })
+    .limit(SCAN_LIMIT);
 
   if (error) {
     console.error("[saved-search-digest] scan failed:", error.message);
@@ -86,7 +97,11 @@ export async function GET(req: NextRequest) {
       countFailures++;
       continue;
     }
-    const added = total - (row.last_seen_count ?? 0);
+    // The later of the two marks. Mailing against last_seen_count alone
+    // re-sends the same message daily; mailing against last_notified_count
+    // alone would re-announce arrivals the client already read on the page.
+    const mark = Math.max(row.last_seen_count ?? 0, row.last_notified_count ?? 0);
+    const added = total - mark;
     if (added <= 0) continue;
 
     const q = filtersToQuery(filters);
@@ -113,7 +128,7 @@ export async function GET(req: NextRequest) {
     .in("id", Array.from(perClient.keys()));
 
   let sent = 0;
-  const notifiedSearchIds: string[] = [];
+  let stampFailures = 0;
 
   for (const c of clients || []) {
     const entries = perClient.get(c.id) || [];
@@ -129,7 +144,7 @@ export async function GET(req: NextRequest) {
             `<div style="border:1px solid #E4DDCE;border-radius:10px;padding:14px;margin:12px 0;">` +
             `<div style="font-weight:600;color:#1C1B1A;font-size:15px;">${escapeHtml(e.name)}</div>` +
             `<div style="color:#6B6860;font-size:13px;margin-top:2px;">${escapeHtml(e.summary)}</div>` +
-            `<div style="color:#444;font-size:13px;margin-top:8px;"><strong>+${e.added}</strong> since you last looked · ${e.total} in total</div>` +
+            `<div style="color:#444;font-size:13px;margin-top:8px;"><strong>${e.total}</strong> now match — <strong>${e.added}</strong> more than when we last counted</div>` +
             `<a href="${e.href}" style="display:inline-block;color:#FE6E3E;font-weight:600;font-size:13px;margin-top:8px;text-decoration:none;">See them →</a>` +
             `</div>`
         )
@@ -151,37 +166,45 @@ export async function GET(req: NextRequest) {
         },
         { recipientKind: "client", emailType: "saved_search_digest" }
       );
-      if (!(res as { suppressed?: boolean })?.suppressed) sent++;
+      // A suppressed send is not a send. Stamping it would silence the search
+      // for a week over an email that never left the building.
+      if ((res as { suppressed?: boolean })?.suppressed) continue;
+      sent++;
     } catch (err) {
       // One client's bad address must not stop the rest of the run, and must
-      // not stamp last_notified_at as though it went out.
+      // not stamp as though it went out.
       console.error("[saved-search-digest] send failed:", err);
       continue;
     }
 
-    // Only the searches that were actually IN this email. Stamping the
-    // client's other alerting searches would silence a weekly one for another
-    // seven days without it ever having been mentioned.
-    for (const e of entries) notifiedSearchIds.push(e.id);
-  }
-
-  // Only last_notified_at moves. last_seen_count stays where the client left
-  // it, so the badge still says "+3 more since you looked" when they arrive.
-  if (notifiedSearchIds.length > 0) {
-    const { error: stampErr } = await db
-      .from("client_saved_searches")
-      .update({ last_notified_at: new Date().toISOString() })
-      .in("id", notifiedSearchIds);
-    if (stampErr) {
-      // Loud, because a silent failure here means weekly searches mail every
-      // single day.
-      console.error("[saved-search-digest] stamp failed:", stampErr.message);
-      return NextResponse.json(
-        { considered, alerted: perClient.size, sent, countFailures, error: "could not stamp last_notified_at" },
-        { status: 503 }
-      );
+    // Stamped per client, immediately after that client's email, rather than
+    // in one batch at the end: a timeout partway through the run would
+    // otherwise lose every stamp and re-send the whole digest tomorrow. Only
+    // the searches actually IN this email are stamped — the client's other
+    // alerting searches were never mentioned.
+    const stampedAt = new Date().toISOString();
+    for (const e of entries) {
+      const { error: stampErr } = await db
+        .from("client_saved_searches")
+        .update({ last_notified_at: stampedAt, last_notified_count: e.total })
+        .eq("id", e.id);
+      if (stampErr) {
+        // Loud: an unstamped search mails again tomorrow, and the next day.
+        console.error("[saved-search-digest] stamp failed:", e.id, stampErr.message);
+        stampFailures++;
+      }
     }
   }
 
-  return NextResponse.json({ considered, alerted: perClient.size, sent, countFailures });
+  const payload = { considered, alerted: perClient.size, sent, countFailures, stampFailures };
+  // Red while any stamp is missing — those searches will re-send tomorrow,
+  // and a run that reports success while queuing duplicate mail is how this
+  // goes unnoticed.
+  if (stampFailures > 0) {
+    return NextResponse.json(
+      { ...payload, error: `${stampFailures} search(es) sent but not stamped — they will re-send` },
+      { status: 503 }
+    );
+  }
+  return NextResponse.json(payload);
 }

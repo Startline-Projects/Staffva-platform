@@ -13,7 +13,12 @@ export interface ShortlistPerson {
   photo: string | null;
   tier: string | null;
   availability: string;
-  searchable: boolean;
+  /**
+   * Why this person is no longer listed, or null if they are. The server
+   * blanks the directory fields above whenever this is set, so a withdrawn
+   * candidate's photo and rate never reach the browser at all.
+   */
+  withdrawn: string | null;
 }
 
 export interface ShortlistWithPeople {
@@ -35,21 +40,47 @@ export interface SavedSearchRow {
 
 /**
  * The shortlists page body. Every control here writes: removing a person
- * removes them, deleting a list deletes it, changing the email frequency
- * changes what the digest sends. Atlas's equivalents are all decorative.
+ * removes them, renaming a list renames it, deleting one deletes it, and
+ * changing the email frequency changes what the digest sends. Atlas's
+ * equivalents are all decorative.
+ *
+ * Atlas controls deliberately NOT built here, so the omissions are on record
+ * rather than merely absent:
+ *  - Share by link (owner's D6 — candidate names and rates would leave the
+ *    authenticated product).
+ *  - Multi-select with "Move to…", "Message all", bulk Remove. Move needs a
+ *    selection model this page does not have; "Message all" would open N
+ *    conversations from one click, which is a decision per person, not one
+ *    decision. Both are worth revisiting once there is a reason beyond
+ *    matching the prototype.
+ *  - Per-list sort. Ours is newest-saved first, which is the order a client
+ *    building a list actually wants; a sort control over a list of six is
+ *    furniture.
+ *  - Editing a saved search's filters in place. /browse is where filters get
+ *    built, and an edit form here would be a second, diverging copy of them
+ *    — the same trap step 6's facets fell into. Save a new one and delete the
+ *    old.
+ *  - List descriptions and a "last updated" eyebrow: we store added_at and
+ *    created_at and could show both, but neither changes a decision.
  */
 export default function ShortlistsView({
   shortlists,
   searches,
+  distinctSaved,
 }: {
   shortlists: ShortlistWithPeople[];
   searches: SavedSearchRow[];
+  distinctSaved: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  // Which list is being renamed, and to what. Without a rename a mistyped
+  // name is permanent — there is nowhere else in the product to change one.
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameTo, setRenameTo] = useState("");
 
   async function post(body: unknown, path = "/api/client/shortlists") {
     setError("");
@@ -79,7 +110,8 @@ export default function ShortlistsView({
     const res = await fetch(`/api/client/shortlists?id=${id}`, { method: "DELETE" });
     setBusy(null);
     if (!res.ok) {
-      setError("Couldn't delete that list.");
+      const data = await res.json().catch(() => ({}));
+      setError(data?.error || "Couldn't delete that list.");
       return;
     }
     router.refresh();
@@ -93,6 +125,18 @@ export default function ShortlistsView({
     setCreating(false);
     if (ok) {
       setNewName("");
+      router.refresh();
+    }
+  }
+
+  async function saveRename(id: string) {
+    const name = renameTo.trim();
+    if (!name) return;
+    setBusy(id);
+    const ok = await post({ action: "rename", id, name });
+    setBusy(null);
+    if (ok) {
+      setRenaming(null);
       router.refresh();
     }
   }
@@ -128,15 +172,14 @@ export default function ShortlistsView({
     }
   }
 
-  const totalSaved = shortlists.reduce((n, l) => n + l.people.length, 0);
 
   return (
     <section className="sl">
       <h1 className="sl-title">My Shortlists</h1>
       <p className="sl-lead">
-        {totalSaved === 0
+        {distinctSaved === 0
           ? "Nothing saved yet. The heart on any browse card puts someone here."
-          : `${totalSaved} ${totalSaved === 1 ? "person" : "people"} across ${shortlists.length} ${shortlists.length === 1 ? "list" : "lists"}.`}
+          : `${distinctSaved} ${distinctSaved === 1 ? "person" : "people"} across ${shortlists.length} ${shortlists.length === 1 ? "list" : "lists"}. Someone can be on more than one.`}
       </p>
 
       {error && <p className="sl-error">{error}</p>}
@@ -172,25 +215,65 @@ export default function ShortlistsView({
         shortlists.map((l) => (
           <div key={l.id} className="sl-list">
             <div className="sl-list-head">
-              <h2>
-                {l.name}
-                {l.isDefault && <span className="sl-default" title="Where the heart saves by default">default</span>}
-              </h2>
-              <span className="sl-list-count">
-                {l.people.length} {l.people.length === 1 ? "person" : "people"}
-              </span>
-              {/* The default list is not deletable: the heart writes to it,
-                  and deleting it mid-session would make the next save create
-                  a second one with the same name. */}
-              {!l.isDefault && (
-                <button
-                  type="button"
-                  className="sl-list-del"
-                  onClick={() => deleteList(l.id)}
-                  disabled={busy === l.id}
-                >
-                  {busy === l.id ? "Deleting…" : "Delete list"}
-                </button>
+              {renaming === l.id ? (
+                <>
+                  <input
+                    className="sl-rename-input"
+                    type="text"
+                    value={renameTo}
+                    maxLength={60}
+                    autoFocus
+                    aria-label={`Rename ${l.name}`}
+                    onChange={(e) => setRenameTo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        saveRename(l.id);
+                      }
+                      if (e.key === "Escape") setRenaming(null);
+                    }}
+                  />
+                  <button type="button" className="sl-list-del" onClick={() => saveRename(l.id)} disabled={busy === l.id || !renameTo.trim()}>
+                    Save
+                  </button>
+                  <button type="button" className="sl-list-del" onClick={() => setRenaming(null)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2>
+                    {l.name}
+                    {l.isDefault && <span className="sl-default" title="Where the heart saves by default">default</span>}
+                  </h2>
+                  <span className="sl-list-count">
+                    {l.people.length} {l.people.length === 1 ? "person" : "people"}
+                  </span>
+                  {/* The default list can be renamed like any other — its
+                      identity is is_default, not its label — but it cannot be
+                      deleted: the heart writes into it, and the API refuses
+                      too, so this is not a UI-only rule. */}
+                  <button
+                    type="button"
+                    className="sl-list-del"
+                    onClick={() => {
+                      setRenameTo(l.name);
+                      setRenaming(l.id);
+                    }}
+                  >
+                    Rename
+                  </button>
+                  {!l.isDefault && (
+                    <button
+                      type="button"
+                      className="sl-list-del"
+                      onClick={() => deleteList(l.id)}
+                      disabled={busy === l.id}
+                    >
+                      {busy === l.id ? "Deleting…" : "Delete list"}
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -199,34 +282,40 @@ export default function ShortlistsView({
             ) : (
               <div className="sl-people">
                 {l.people.map((p) => (
-                  <div key={p.id} className={`sl-person${p.searchable ? "" : " gone"}`}>
+                  <div key={p.id} className={`sl-person${p.withdrawn ? " gone" : ""}`}>
                     <div
                       className="sl-avatar"
-                      style={p.photo ? { backgroundImage: `url(${p.photo})` } : undefined}
+                      // Quoted and encoded: this is the one place on the page
+                      // where a candidate-controlled string lands in a CSS
+                      // value rather than a text node. Today profile_photo_url
+                      // is an upload path, so it is not reachable — but the
+                      // fix costs nothing and the assumption might not hold.
+                      style={p.photo ? { backgroundImage: `url("${encodeURI(p.photo).replace(/"/g, "%22")}")` } : undefined}
                       aria-hidden
                     >
                       {!p.photo && (p.name[0] || "?").toUpperCase()}
                     </div>
                     <div className="sl-person-main">
                       <div className="sl-person-name">{p.name}</div>
-                      <div className="sl-person-role">{p.role}</div>
-                      <div className="sl-person-meta">
-                        {p.country}
-                        {p.rate > 0 && <> · ${p.rate}/hr</>}
-                        {p.tier && <> · English {p.tier}</>}
-                      </div>
-                      {p.searchable ? (
-                        <div className="sl-person-avail">{p.availability}</div>
+                      {p.withdrawn ? (
+                        // The specific reason, not one soft sentence covering
+                        // a closed account, an unlisted profile and a
+                        // temporary hide alike.
+                        <div className="sl-person-gone">{p.withdrawn}</div>
                       ) : (
-                        // Saying nothing here would leave a client emailing
-                        // someone the marketplace has already withdrawn.
-                        <div className="sl-person-gone">
-                          Not currently available on StaffVA
-                        </div>
+                        <>
+                          <div className="sl-person-role">{p.role}</div>
+                          <div className="sl-person-meta">
+                            {p.country}
+                            {p.rate > 0 && <> · ${p.rate}/hr</>}
+                            {p.tier && <> · English {p.tier}</>}
+                          </div>
+                          <div className="sl-person-avail">{p.availability}</div>
+                        </>
                       )}
                     </div>
                     <div className="sl-person-actions">
-                      {p.searchable && (
+                      {!p.withdrawn && (
                         <Link href={`/candidate/${p.id}`} className="sl-person-view">
                           View
                         </Link>
@@ -253,7 +342,8 @@ export default function ShortlistsView({
       {searches.length === 0 ? (
         <p className="sl-list-empty">
           None yet. &ldquo;Save this search&rdquo; on <Link href="/browse">Browse</Link> keeps a set of
-          filters and tells you when more people match.
+          filters so you can come back to it — and, if you ask it to, emails you when more
+          people match.
         </p>
       ) : (
         <div className="sl-searches">
@@ -270,14 +360,22 @@ export default function ShortlistsView({
                   ) : (
                     <>
                       {s.count.toLocaleString()} {s.count === 1 ? "match" : "matches"}
-                      {s.newSince > 0 && <span className="sl-search-new">+{s.newSince} more since you looked</span>}
+                      {/* A NET rise, not a set of arrivals: if five left and
+                          eight joined this says +3, and it says nothing at all
+                          when equal numbers move both ways. "more than when"
+                          is the claim we can actually defend. */}
+                      {s.newSince > 0 && (
+                        <span className="sl-search-new">{s.newSince} more than when you last looked</span>
+                      )}
                     </>
                   )}
                 </div>
               </div>
               <div className="sl-search-actions">
                 <label className="sl-search-freq">
-                  <span>Email</span>
+                  {/* "Email: Weekly" reads as a schedule; it is a ceiling —
+                      at most one message, and only when the count has risen. */}
+                  <span>Email at most</span>
                   <select
                     value={s.notify}
                     disabled={busy === s.id}
@@ -285,8 +383,8 @@ export default function ShortlistsView({
                     aria-label={`Email frequency for ${s.name}`}
                   >
                     <option value="off">Never</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
+                    <option value="daily">Once a day</option>
+                    <option value="weekly">Once a week</option>
                   </select>
                 </label>
                 <button

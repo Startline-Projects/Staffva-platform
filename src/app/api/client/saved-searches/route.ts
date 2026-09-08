@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { countMatches, type SavedSearchFilters } from "@/lib/savedSearch";
+import { countMatches, normalizeFilters } from "@/lib/savedSearch";
 
 function getAdminClient() {
   return createClient(
@@ -26,7 +26,13 @@ function getAdminClient() {
  * the copy says "more" rather than naming people.
  */
 
-const UUID = /^[0-9a-f-]{36}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Each alerting search costs one full RPC scan per digest run, forever. This
+ * is the ceiling on how much work one account can schedule for the platform.
+ */
+const MAX_SEARCHES = 30;
 
 async function requireClient() {
   const supabase = await createServerClient();
@@ -65,7 +71,7 @@ export async function GET() {
   for (const row of rows || []) {
     // Counted live against the same pool browse uses. A stored count would
     // be a number that was true once.
-    const count = await countMatches(admin!, (row.filters || {}) as SavedSearchFilters);
+    const count = await countMatches(admin!, normalizeFilters(row.filters));
     searches.push({
       id: row.id,
       name: row.name,
@@ -94,7 +100,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Give the search a name (1–60 characters)." }, { status: 400 });
     }
     const notify = ["off", "daily", "weekly"].includes(body.notify) ? body.notify : "off";
-    const filters = (body.filters && typeof body.filters === "object" ? body.filters : {}) as SavedSearchFilters;
+    // Coerced, never stored raw: the jsonb written here is read back by
+    // filtersToQuery/describeFilters, which index into it. See normalizeFilters.
+    const filters = normalizeFilters(body.filters);
+
+    const { count: existing } = await admin!
+      .from("client_saved_searches")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId!);
+    if ((existing ?? 0) >= MAX_SEARCHES) {
+      return NextResponse.json(
+        { error: `You've reached ${MAX_SEARCHES} saved searches. Delete one to save another.` },
+        { status: 409 }
+      );
+    }
 
     // Seed the high-water mark at what it matches RIGHT NOW, so the first
     // "N new" counts arrivals since the save rather than announcing the
@@ -110,6 +129,10 @@ export async function POST(request: Request) {
         notify,
         last_seen_count: count,
         last_seen_at: new Date().toISOString(),
+        // Seeded together: the digest measures a rise against whichever of
+        // the two marks is later, so leaving this at 0 would make the very
+        // first run mail the whole existing pool as if it were new.
+        last_notified_count: count,
       })
       .select("id, name, notify")
       .maybeSingle();
@@ -136,7 +159,7 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (!row) return NextResponse.json({ error: "Not your saved search" }, { status: 403 });
 
-    const count = await countMatches(admin!, (row.filters || {}) as SavedSearchFilters);
+    const count = await countMatches(admin!, normalizeFilters(row.filters));
     await admin!
       .from("client_saved_searches")
       .update({ last_seen_count: count, last_seen_at: new Date().toISOString() })

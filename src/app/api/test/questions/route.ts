@@ -166,10 +166,13 @@ export async function POST(request: Request) {
   // permanently_blocked = a person removed this account.
   if (candidateCheck?.permanently_blocked || candidateCheck?.english_attempts_exhausted) {
     return NextResponse.json({
-      error: "Permanently blocked",
+      error: "No attempts remaining",
       locked: true,
       permanent: true,
-      message: "After multiple attempts, your English assessment access has been permanently suspended.",
+      // Exhaustion closes the ASSESSMENT, not the account: the listing is
+      // untouched (00220). "Permanently suspended" described the old
+      // behaviour, where this also delisted the candidate.
+      message: "You've used all your attempts at the English assessment. Your profile and listing are unaffected.",
     }, { status: 403 });
   }
   if (

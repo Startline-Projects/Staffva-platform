@@ -261,10 +261,20 @@ export async function gradeAttempt(
         const raw = readAloudScore(q.question_text, transcript.text);
         const guarded = applySttConfidenceGuard(raw, transcript.confidence);
         partScores.read_aloud = guarded;
+        // Two audiences now. part_scores.notes is rendered to the CANDIDATE
+        // (EnglishResults), so this string must not carry the raw pre-guard
+        // score — that is the number applySttConfidenceGuard exists to
+        // withhold, and showing it says "we actually rated you N" after
+        // deciding not to. The diagnostic detail stays for reviewers under a
+        // separate key.
         partNotes.read_aloud =
-          `Word accuracy vs the passage (STT confidence ${transcript.confidence?.toFixed(2) ?? "n/a"}` +
+          guarded !== raw
+            ? "Your recording came through poorly, so this score was adjusted in your favour."
+            : "Scored on word accuracy against the passage.";
+        partNotes.read_aloud_internal =
+          `STT confidence ${transcript.confidence?.toFixed(2) ?? "n/a"}` +
           (guarded !== raw ? `; low-confidence audio floored the score from ${raw}` : "") +
-          `).`;
+          `.`;
       } else {
         openInputs.push({
           part: q.section as "listening" | "speaking",
@@ -385,8 +395,8 @@ export async function gradeAttempt(
               await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: currentCandidate.email,
-                subject: "StaffVA Application Update",
-                html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">Application Update</h2><p style="color:#444;font-size:14px;">Hi ${firstName},</p><p style="color:#444;font-size:14px;line-height:1.6;">After multiple attempts, we are unable to advance your application at this time.</p><p style="color:#444;font-size:14px;line-height:1.6;">You may reapply in <strong>90 days</strong>. We encourage you to continue developing your English language skills during this time.</p><p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p></div>`,
+                subject: "You've used all your English assessment attempts",
+                html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">English assessment attempts used</h2><p style="color:#444;font-size:14px;">Hi ${firstName},</p><p style="color:#444;font-size:14px;line-height:1.6;">You&rsquo;ve used all of your attempts at the English assessment, so there are no further retakes on it.</p><p style="color:#444;font-size:14px;line-height:1.6;"><strong>Your profile is unaffected.</strong> The English assessment is optional &mdash; it adds an English tier to your profile, and it is one signal among several. Your listing, your work and everything else on your account continue as normal.</p><p style="color:#999;margin-top:24px;font-size:12px;">— The StaffVA Team</p></div>`,
               }, { recipientKind: "candidate", emailType: "assessment_result" });
             } catch {
               /* silent */
@@ -399,8 +409,8 @@ export async function gradeAttempt(
               await sendEmail({
                 from: "StaffVA <notifications@staffva.com>",
                 to: "sam@glostaffing.com",
-                subject: `Candidate permanently blocked after ${attemptNumber} test failures`,
-                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">Permanent Block Notification</h2><p style="color:#444;font-size:14px;">Candidate <strong>${currentCandidate?.display_name || currentCandidate?.full_name}</strong> (${currentCandidate?.email}) has been permanently blocked after ${attemptNumber} failed English test attempts.</p><p style="color:#444;font-size:14px;">Identity hash: ${identityRecord.identity_hash.slice(0, 16)}...</p></div>`,
+                subject: `English retake ladder exhausted after ${attemptNumber} attempts`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;"><h2 style="color:#1C1B1A;">English attempts exhausted</h2><p style="color:#444;font-size:14px;">Candidate <strong>${currentCandidate?.display_name || currentCandidate?.full_name}</strong> (${currentCandidate?.email}) has used all ${attemptNumber} English assessment attempts. They are NOT blocked and their listing is unaffected &mdash; only further English retakes are closed (english_attempts_exhausted).</p><p style="color:#444;font-size:14px;">Identity hash: ${identityRecord.identity_hash.slice(0, 16)}...</p></div>`,
               }, { recipientKind: "staff", emailType: "candidate_blocked_alert" });
             } catch {
               /* silent */

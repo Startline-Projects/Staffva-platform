@@ -1163,10 +1163,13 @@ export default function AssessmentClient({
               {BACK_ARROW}
               Back to dashboard
             </Link>
+            {/* Was "StaffVA Pipeline · Step 3 of 10". The assessment is
+                optional now — presenting it as a numbered mandatory stage is
+                the claim this change set exists to retire. */}
             <span className="pipeline-step-indicator">
-              <span>StaffVA Pipeline</span>
+              <span>StaffVA</span>
               <span className="pipe-sep" aria-hidden></span>
-              <span className="step-num">Step 3 of 10</span>
+              <span className="step-num">Optional assessment</span>
             </span>
             <h1 className="display">
               Your <span className="serif-italic">Proctored English</span> Assessment.
@@ -1229,7 +1232,7 @@ export default function AssessmentClient({
                         })
                       : "soon"}
                   </strong>
-                  . Your dashboard has practice resources that target where your last attempt landed.
+                  . Your dashboard shows your score for each section, what the grader noted, and some general practice resources.
                 </p>
                 <Link href="/candidate/dashboard" className="state-action-btn">
                   Back to dashboard

@@ -1,5 +1,6 @@
 // src/app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { englishTierBonus } from "@/lib/englishTier";
 import { validateDraft, type JobDraft } from "@/lib/jobDraft";
 import { containsContact, maskCandidateText } from "@/lib/contactMask";
 import { hasUsExperience } from "@/lib/usExperienceLabels";
@@ -238,9 +239,7 @@ export async function POST(req: NextRequest) {
           } else {
             score += 8;
           }
-          if (c.english_written_tier === "exceptional") score += 8;
-          else if (c.english_written_tier === "proficient") score += 5;
-          else if (c.english_written_tier === "competent") score += 3;
+          score += englishTierBonus(c.english_written_tier as string | null, [8, 5, 3]);
           // The column is an enum whose "none" value is a truthy string, so
           // every candidate scored this. The helper is already used by four
           // other surfaces, including the badge on this very card — so a

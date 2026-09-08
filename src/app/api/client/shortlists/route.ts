@@ -27,7 +27,10 @@ function getAdminClient() {
  * No share links: the owner's D6 keeps shortlists inside the account.
  */
 
-const UUID = /^[0-9a-f-]{36}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Enough lists for real use; not enough to be a write amplifier. */
+const MAX_LISTS = 50;
 
 async function requireClient() {
   const supabase = await createServerClient();
@@ -106,6 +109,17 @@ export async function POST(request: Request) {
     if (name.length < 1 || name.length > 60) {
       return NextResponse.json({ error: "Give the list a name (1–60 characters)." }, { status: 400 });
     }
+    const { count: listCount } = await admin!
+      .from("client_shortlists")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId!);
+    if ((listCount ?? 0) >= MAX_LISTS) {
+      return NextResponse.json(
+        { error: `You've reached ${MAX_LISTS} lists. Delete one to make another.` },
+        { status: 409 }
+      );
+    }
+
     const { data, error } = await admin!
       .from("client_shortlists")
       .insert({ client_id: clientId!, name })
@@ -120,6 +134,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not create that list." }, { status: 500 });
     }
     return NextResponse.json({ shortlist: { id: data.id, name: data.name, isDefault: data.is_default, count: 0 } });
+  }
+
+  // ── Rename a list ─────────────────────────────────────────────────────────
+  // Atlas has a rename control; the first draft of this dropped it, which made
+  // a mistyped list name permanent — there is no other way to change one.
+  if (action === "rename") {
+    const id = typeof body.id === "string" ? body.id : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!UUID.test(id)) return NextResponse.json({ error: "id required" }, { status: 400 });
+    if (name.length < 1 || name.length > 60) {
+      return NextResponse.json({ error: "Give the list a name (1–60 characters)." }, { status: 400 });
+    }
+    const { data, error } = await admin!
+      .from("client_shortlists")
+      .update({ name })
+      .eq("id", id)
+      .eq("client_id", clientId!)
+      .select("id, name")
+      .maybeSingle();
+    if (error?.code === "23505") {
+      return NextResponse.json({ error: "You already have a list with that name." }, { status: 409 });
+    }
+    if (error || !data) return NextResponse.json({ error: "Not your shortlist" }, { status: 403 });
+    return NextResponse.json({ id: data.id, name: data.name });
   }
 
   // ── Add / remove a candidate ──────────────────────────────────────────────
@@ -147,27 +185,43 @@ export async function POST(request: Request) {
       if (existing) {
         shortlistId = existing.id;
       } else {
-        const { data: created, error: createErr } = await admin!
-          .from("client_shortlists")
-          .insert({ client_id: clientId!, name: "Saved", is_default: true })
-          .select("id")
-          .maybeSingle();
-        if (createErr || !created) {
+        // A client who already has a list called "Saved" would collide with
+        // the per-client name index, and the first draft then returned 500 on
+        // EVERY plain heart click, permanently, with no rename control to
+        // escape it. So the name gives way — the default list's identity is
+        // is_default, not its label.
+        const candidates = ["Saved", "Saved candidates", "My saved list"];
+        for (let i = 0; i < candidates.length && !shortlistId; i++) {
+          const { data: created, error: createErr } = await admin!
+            .from("client_shortlists")
+            .insert({ client_id: clientId!, name: candidates[i], is_default: true })
+            .select("id")
+            .maybeSingle();
+          if (created) {
+            shortlistId = created.id;
+            break;
+          }
           // Two hearts clicked at once: one insert wins the partial unique
-          // index, the loser re-reads rather than failing the click.
+          // index on is_default, the loser re-reads rather than failing the
+          // click. This also catches the name collision, where the re-read
+          // finds nothing and the loop tries the next name.
           const { data: raced } = await admin!
             .from("client_shortlists")
             .select("id")
             .eq("client_id", clientId!)
             .eq("is_default", true)
             .maybeSingle();
-          if (!raced) {
-            console.error("[shortlists] default create failed:", createErr?.message);
-            return NextResponse.json({ error: "Could not save that candidate." }, { status: 500 });
+          if (raced) {
+            shortlistId = raced.id;
+            break;
           }
-          shortlistId = raced.id;
-        } else {
-          shortlistId = created.id;
+          if (i === candidates.length - 1) {
+            console.error("[shortlists] default create failed:", createErr?.message);
+            return NextResponse.json(
+              { error: "Could not save that candidate. Try saving to a named list." },
+              { status: 500 }
+            );
+          }
         }
       }
     } else {
@@ -183,6 +237,27 @@ export async function POST(request: Request) {
     }
 
     if (action === "add") {
+      // The candidate must be someone this client could actually have found.
+      // Without this the only integrity check is the foreign key, so anyone
+      // holding a candidate UUID from another surface could shortlist a
+      // pending, rejected or blocked profile and read their name, photo,
+      // country and rate off the list page — directory data the marketplace
+      // deliberately withholds. Removal is deliberately NOT gated: a client
+      // must always be able to clear their own list.
+      const { data: cand, error: candErr } = await admin!
+        .from("candidates")
+        .select("id, admin_status, permanently_blocked")
+        .eq("id", candidateId)
+        .maybeSingle();
+      if (candErr) {
+        console.error("[shortlists] candidate check failed:", candErr.message);
+        return NextResponse.json({ error: "Could not save that candidate." }, { status: 500 });
+      }
+      // Fails closed: an unreadable or missing candidate is not saveable.
+      if (!cand || cand.admin_status !== "approved" || cand.permanently_blocked) {
+        return NextResponse.json({ error: "That profile isn't available." }, { status: 403 });
+      }
+
       const { error } = await admin!
         .from("client_shortlist_members")
         .upsert(
@@ -204,7 +279,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Could not remove that candidate." }, { status: 500 });
       }
     }
-    return NextResponse.json({ shortlistId, saved: action === "add" });
+    // The name comes back too: when this call CREATED the default list, the
+    // browser has no other way to label the row it is about to render, and
+    // the server may have had to fall back past "Saved" on a name collision.
+    const { data: named } = await admin!
+      .from("client_shortlists")
+      .select("name")
+      .eq("id", shortlistId)
+      .maybeSingle();
+    return NextResponse.json({ shortlistId, shortlistName: named?.name ?? null, saved: action === "add" });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
@@ -218,6 +301,24 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id") || "";
   if (!UUID.test(id)) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  // The default list is not deletable. The UI already hides the button, but
+  // an invariant that lives only in a React component is not an invariant:
+  // deleting it cascades away every saved member AND leaves the next heart
+  // click to create a fresh one.
+  const { data: target } = await admin!
+    .from("client_shortlists")
+    .select("id, is_default")
+    .eq("id", id)
+    .eq("client_id", clientId!)
+    .maybeSingle();
+  if (!target) return NextResponse.json({ error: "Not your shortlist" }, { status: 403 });
+  if (target.is_default) {
+    return NextResponse.json(
+      { error: "That's your default list — the heart saves into it. Empty it instead." },
+      { status: 409 }
+    );
+  }
 
   // Scoped to the caller's own rows, so a guessed id deletes nothing.
   const { data, error } = await admin!

@@ -89,17 +89,32 @@ export default async function ShortlistsPage() {
 
     for (const c of cands || []) {
       const vis = computeVisibility(c);
+      // "Not currently available" flattened three different things into one
+      // soft sentence — a closed account read like a scheduling matter. Each
+      // gets its own, and each is derived from the column that caused it.
+      const withdrawn = c.permanently_blocked
+        ? "This account has been closed."
+        : c.admin_status !== "approved"
+          ? "No longer listed on StaffVA."
+          : !vis.searchable
+            ? "Temporarily hidden from search."
+            : null;
+
       people.set(c.id, {
         id: c.id,
         name: c.display_name || "Candidate",
-        role: c.tagline || c.role_category || "",
-        country: c.country || "",
-        rate: Number(c.hourly_rate) || 0,
-        photo: c.profile_photo_url,
-        tier: c.english_written_tier,
-        availability: marketAvailability(c).label,
-        // The one fact that decides whether this row is a link or a note.
-        searchable: vis.searchable,
+        withdrawn,
+        // Everything below is directory data. For someone the marketplace has
+        // withdrawn it is NOT sent to the browser at all — a blocked or
+        // unlisted candidate's photo, rate, country and English tier stayed
+        // visible to every client who ever hearted them, indefinitely. The
+        // name stays so the row is still a usable record of who was saved.
+        role: withdrawn ? "" : c.tagline || c.role_category || "",
+        country: withdrawn ? "" : c.country || "",
+        rate: withdrawn ? 0 : Number(c.hourly_rate) || 0,
+        photo: withdrawn ? null : c.profile_photo_url,
+        tier: withdrawn ? null : c.english_written_tier,
+        availability: withdrawn ? "" : marketAvailability(c).label,
       });
     }
   }
@@ -120,6 +135,13 @@ export default async function ShortlistsPage() {
     };
   });
 
+  // Distinct PEOPLE, not memberships. Summing list lengths reported "4 people
+  // across 2 lists" for three people, one of whom was in both — a number the
+  // lists immediately below it contradict.
+  const distinctSaved = new Set(
+    shortlists.flatMap((l) => l.people.map((p) => p.id))
+  ).size;
+
   const searches: SavedSearchRow[] = [];
   for (const s of searchRows || []) {
     const filters = (s.filters || {}) as SavedSearchFilters;
@@ -130,12 +152,12 @@ export default async function ShortlistsPage() {
       summary: describeFilters(filters),
       href: `/browse${filtersToQuery(filters) ? `?${filtersToQuery(filters)}` : ""}`,
       notify: s.notify as "off" | "daily" | "weekly",
-      // -1 means the count query failed; the view renders "—" rather than a
-      // zero it cannot stand behind.
+      // -1 means the count query failed; the view says so in words rather
+      // than printing a zero it cannot stand behind.
       count,
       newSince: count < 0 ? 0 : Math.max(0, count - (s.last_seen_count ?? 0)),
     });
   }
 
-  return <ShortlistsView shortlists={shortlists} searches={searches} />;
+  return <ShortlistsView shortlists={shortlists} searches={searches} distinctSaved={distinctSaved} />;
 }

@@ -192,7 +192,7 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
               <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-primary flex items-center justify-center">
                 <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               </div>
-              <span className="text-sm text-text/70 font-medium">Take the AI interview — required before your profile can go live</span>
+              <span className="text-sm text-text/70 font-medium">Take the skills interview — optional, and passing it earns the Vetted badge clients filter on</span>
             </li>
           </ul>
 

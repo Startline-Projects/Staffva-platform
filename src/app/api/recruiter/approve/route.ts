@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const { data: candidate } = await supabase
       .from("candidates")
       .select(
-        "id, email, full_name, display_name, assigned_recruiter, role_category, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status"
+        "id, email, full_name, display_name, assigned_recruiter, role_category, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status, permanently_blocked"
       )
       .eq("id", candidateId)
       .single();

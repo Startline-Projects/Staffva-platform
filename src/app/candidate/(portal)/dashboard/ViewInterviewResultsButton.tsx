@@ -34,7 +34,13 @@ export default function ViewInterviewResultsButton({
     try {
       const res = await fetch("/api/interview/token");
       if (!res.ok) {
-        setError("We couldn't open your results right now. Try again in a minute, or contact support@staffva.com.");
+        // 403 is permanent (the token route refuses a decided application),
+        // so "try again in a minute" would send someone back for ever.
+        setError(
+          res.status === 403
+            ? "Your application is closed, so your interview feedback isn't available here any more. Contact support@staffva.com if you need it."
+            : "We couldn't open your results right now. Try again in a minute, or contact support@staffva.com."
+        );
         return;
       }
       const { token } = await res.json();

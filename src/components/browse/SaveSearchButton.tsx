@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { SavedSearchFilters } from "@/lib/savedSearch";
+import { describeFilters, type SavedSearchFilters } from "@/lib/savedSearch";
 
 /**
  * "Save this search" beside the result count.
@@ -49,10 +49,13 @@ export default function SaveSearchButton({
   }, [open]);
 
   // Changing the filters makes the confirmation stale — it described the old
-  // set — so the button goes back to offering a save.
+  // set — so the button goes back to offering a save. Keyed on the SERIALISED
+  // filters, not the object: the parent rebuilds that literal on every render,
+  // so any unrelated state change on /browse wiped the confirmation.
+  const filterKey = JSON.stringify(filters);
   useEffect(() => {
     setSaved(false);
-  }, [filters]);
+  }, [filterKey]);
 
   if (!enabled) return null;
 
@@ -106,15 +109,23 @@ export default function SaveSearchButton({
               }
             }}
           />
+          {/* Atlas shows the active filters before you commit; ours showed only
+              a count, so the client agreed to a filter set they were never
+              shown. describeFilters already existed for the next screen. */}
+          <p className="save-search-summary">{describeFilters(filters)}</p>
           <p className="save-search-note">
-            {matchCount.toLocaleString()} {matchCount === 1 ? "person matches" : "people match"} right now. We&apos;ll
-            tell you when that number grows.
+            {matchCount.toLocaleString()} {matchCount === 1 ? "person matches" : "people match"} right now.
+            {notify === "off"
+              ? " Saved for you to come back to — no email."
+              : notify === "daily"
+                ? " We'll email you at most once a day when more match."
+                : " We'll email you at most once a week when more match."}
           </p>
           <div className="save-search-freq" role="radiogroup" aria-label="Email me about new matches">
             {(["off", "daily", "weekly"] as const).map((v) => (
               <label key={v} className={notify === v ? "on" : undefined}>
                 <input type="radio" name="notify" checked={notify === v} onChange={() => setNotify(v)} />
-                {v === "off" ? "No email" : v === "daily" ? "Daily" : "Weekly"}
+                {v === "off" ? "Never" : v === "daily" ? "Daily" : "Weekly"}
               </label>
             ))}
           </div>

@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   const { data: candidate } = await supabase
     .from("candidates")
     .select(
-      "id, email, full_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status, appeal_submitted_at, appeal_decision"
+      "id, email, full_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status, permanently_blocked, appeal_submitted_at, appeal_decision"
     )
     .eq("id", candidateId)
     .single();
