@@ -174,6 +174,54 @@ export default async function CandidateDashboardPage() {
     // the dashboard carrying this person's offers and contracts cannot.
     const reviewStates = await loadMyReviewState();
 
+    // Sittings this candidate has bought and not yet used. The assessments
+    // are paid now, so the card below has to know whether it is selling one
+    // or handing over one already owned — offering "Buy" to someone who has
+    // already paid is how you get charged twice.
+    // "Live purchase" is paid, unsettled and unrefunded — a purchase CLAIMED
+    // by a sitting in progress still counts, which is what stops the card
+    // offering to sell a second one to someone mid-test.
+    const { data: entitlements } = await admin
+      .from("assessment_purchases")
+      .select("kind, status, created_at")
+      .eq("candidate_id", live.id)
+      .in("status", ["paid", "pending"])
+      .is("consumed_at", null)
+      .is("refunded_at", null);
+    const rows = entitlements ?? [];
+    const paidKinds = new Set(
+      rows.filter((e) => e.status === "paid").map((e) => e.kind as string)
+    );
+    // A delayed local payment method (bank debit, voucher — the methods that
+    // matter for candidates without an international card) leaves the row at
+    // 'pending' until it confirms. Showing the Buy button through that window
+    // is how someone pays twice for one sitting.
+    const oneHourAgo = Date.now() - 3600_000;
+    const pendingKinds = new Set(
+      rows
+        .filter(
+          (e) =>
+            e.status === "pending" &&
+            new Date(e.created_at as string).getTime() >= oneHourAgo &&
+            !paidKinds.has(e.kind as string)
+        )
+        .map((e) => e.kind as string)
+    );
+
+    // The interview is two rounds: Interview 1 (behavioral, free) opens the
+    // skills interview (paid). The interview app enforces that order, so the
+    // card has to respect it — offering the $5 sitting to someone who has not
+    // cleared Interview 1 sells a door that will not open.
+    const { count: skillsHistory } = await admin
+      .from("ai_interviews")
+      .select("*", { count: "exact", head: true })
+      .eq("candidate_id", live.id)
+      .eq("kind", "skills");
+    const needsInterview1 =
+      candidate.interview1_passed !== true &&
+      live.ai_interview_passed !== true &&
+      (skillsHistory ?? 0) === 0;
+
     // ── Atlas home data: stats + recent activity, one round of queries ──
     // Server component: "now" is request time by design. The purity rule is
     // written for render functions that re-run client-side.
@@ -306,10 +354,23 @@ export default async function CandidateDashboardPage() {
             removed every CTA that led to them, so the model had no entry
             point at all for a live candidate. ── */}
         <OptionalAssessments
+          candidateId={live.id}
           hasEnglish={candidate.english_mc_score !== null}
-          hasInterview={!!latestInterview}
+          // Passed the SKILLS interview — not "has any interview feedback".
+          // This read `!!latestInterview`, which is deliberately kind-blind so
+          // the results door also covers the behavioural round. The effect was
+          // that finishing the free Interview 1 made the card conclude the
+          // candidate was done with interviews and hide the paid skills
+          // interview altogether — removing the only place to buy it, at
+          // exactly the moment they became eligible for it.
+          hasInterview={live.ai_interview_passed === true}
           englishLocked={!!candidate.retake_available_at && new Date(candidate.retake_available_at) > new Date()}
           englishExhausted={candidate.english_attempts_exhausted === true}
+          paidEnglish={paidKinds.has("english")}
+          paidInterview={paidKinds.has("interview")}
+          pendingEnglish={pendingKinds.has("english")}
+          pendingInterview={pendingKinds.has("interview")}
+          needsInterview1={needsInterview1}
         />
 
         <LegacyDashboard variant="live" />

@@ -170,12 +170,6 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
               <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              <span className="text-sm text-text/70">English assessment completed</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
               <span className="text-sm text-text/70">Voice recordings submitted</span>
             </li>
             <li className="flex items-start gap-2">

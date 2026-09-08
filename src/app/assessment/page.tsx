@@ -41,7 +41,7 @@ export default async function AssessmentPage() {
   const passed =
     (candidate.english_mc_score ?? 0) >= 70 && (candidate.english_comprehension_score ?? 0) >= 70;
 
-  let mode: "run" | "passed" | "cooldown" | "blocked" | "grade_retry" = "run";
+  let mode: "run" | "passed" | "cooldown" | "blocked" | "grade_retry" | "unpaid" = "run";
   // Server component: "render" is once per request, so reading the clock is
   // the correct per-request behavior, not a purity bug.
   // eslint-disable-next-line react-hooks/purity
@@ -71,6 +71,35 @@ export default async function AssessmentPage() {
       mode = "grade_retry";
       pendingAttemptId = pendingAttempt.id;
     }
+  }
+
+  // The assessment is paid now. Decide it HERE rather than letting the deal
+  // route refuse: AssessmentClient takes the browser fullscreen and starts
+  // the proctor before it ever calls the API, so a payment check that only
+  // lives in the API means the candidate is locked into a proctored session
+  // and then told no. The route keeps its own 402 — that one is the actual
+  // enforcement, and this is the one that keeps the screen honest.
+  //
+  // Only 'run' is gated. A grade_retry is finishing a sitting they already
+  // paid for, and cooldown/blocked/passed never reach the test at all.
+  //
+  // The predicate is "paid, unsettled, unrefunded" — a purchase CLAIMED by an
+  // in-progress attempt still counts. It briefly did not, and the result was
+  // the worst bug in this feature: a candidate who reloaded ten minutes into
+  // the test was shown "You don't have a sitting yet" and offered to buy a
+  // second one, while the attempt they had paid for ran out its clock in the
+  // background.
+  if (mode === "run") {
+    const { data: entitlement } = await admin
+      .from("assessment_purchases")
+      .select("id")
+      .eq("candidate_id", candidate.id)
+      .eq("kind", "english")
+      .eq("status", "paid")
+      .is("consumed_at", null)
+      .is("refunded_at", null)
+      .maybeSingle();
+    if (!entitlement) mode = "unpaid";
   }
 
   const caps = assessmentCapabilities();

@@ -183,7 +183,7 @@ export default async function LandingPage() {
           <span className="hero-badge-dot">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           </span>
-          Vetted bench. Human-reviewed. Look for the badge.
+          Vetted bench. Proctored interviews. Look for the badge.
         </div>
         <h1 className="display">
           Hire <span className="serif-italic">vetted</span><br />
@@ -192,7 +192,7 @@ export default async function LandingPage() {
           signing up.
         </h1>
         <p className="hero-sub">
-          Candidates with the <strong>Vetted badge</strong> passed a proctored skills interview and a <strong>human review</strong> before going live. Explore the full pool. Sign up only when you&apos;re ready to act.
+          Candidates with the <strong>Vetted badge</strong> passed a proctored skills interview, scored against the work they&apos;d actually do. The rest have complete profiles with voice samples you can listen to. Explore the full pool. Sign up only when you&apos;re ready to act.
         </p>
 
         {/* Search */}

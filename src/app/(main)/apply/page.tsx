@@ -235,13 +235,17 @@ export default function ApplyPage() {
   // for recordings and profile. /verify-id (step 7) owns the ID window.
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
-    // Persist a step slug for the restore logic, then hand off to the
-    // assessment page — the whole proctored flow lives there now. Persist
-    // WITHOUT setStep: rendering "device_check" even for a frame mounts the
-    // retired DeviceCheck→…→EnglishTest chain, and if the navigation is
-    // interrupted the candidate sits a full un-proctored legacy exam.
-    void saveStep("english_test", data.id);
-    router.replace("/assessment");
+    // Straight on to the recordings — the first step of the profile that
+    // actually gets them listed.
+    //
+    // This used to hand off to /assessment, from back when the English test
+    // was a required stage in the middle of the application. It is optional
+    // and paid now, so that handoff sent every new applicant from the form
+    // they just finished to a page telling them they had not bought a
+    // sitting. The restore path below has routed to the recordings since the
+    // test became optional; this is the fresh-signup path catching up to it.
+    void saveStep("voice_recording_1", data.id);
+    goToStep("voice_recording_1");
   }
 
   function handleDeviceCheckPass() {
@@ -357,18 +361,24 @@ export default function ApplyPage() {
       {step !== "complete" && step !== "test_result" && step !== "anticheat_lockout" && (
         <div className="mx-auto max-w-3xl px-6 pt-6">
           <div className="flex items-center gap-1">
-            {["application_form", "english_test", "voice_recording_1", "profile_builder"].map((s, i) => {
-              const stepOrder = ["application_form", "device_check", "test_instructions", "integrity_pledge", "english_test", "test_result", "voice_recording_1", "voice_recording_2", "profile_builder"];
+            {/* Three steps, not four. "English Test" sat in the middle of
+                this bar from when it was required — now that it is optional
+                and paid, showing it here told every applicant they had an
+                unfinished mandatory stage they had never been asked to do,
+                and made the bar disagree with the flow they were actually
+                walking. The recordings are the second step now. */}
+            {["application_form", "voice_recording_1", "profile_builder"].map((s, i) => {
+              const stepOrder = ["application_form", "voice_recording_1", "voice_recording_2", "profile_builder"];
               const currentIndex = stepOrder.indexOf(step);
               const thisIndex = stepOrder.indexOf(s);
               const isComplete = currentIndex > thisIndex;
               const isCurrent = step === s
-                || (s === "english_test" && ["device_check", "test_instructions", "integrity_pledge", "english_test"].includes(step));
+                || (s === "voice_recording_1" && step === "voice_recording_2");
               return (
                 <div key={s} className="flex-1">
                   <div className={`h-1.5 rounded-full ${isComplete ? "bg-primary" : isCurrent ? "bg-primary/50" : "bg-gray-200"}`} />
                   <p className="mt-1 text-[10px] text-text/40 text-center">
-                    {["Application", "English Test", "Recordings", "Profile"][i]}
+                    {["Application", "Recordings", "Profile"][i]}
                   </p>
                 </div>
               );

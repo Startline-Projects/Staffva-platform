@@ -77,6 +77,28 @@ export default function TermsOfService() {
         </li>
         <li>Failed assessments may be retaken under the retake rules shown in your dashboard.</li>
         <li>Acceptance to the marketplace is at StaffVA&apos;s discretion.</li>
+        <li>
+          <strong>The assessments are optional and paid.</strong> Neither the
+          English assessment nor the skills interview is required to create a
+          profile or to be listed. Each costs <strong>$5</strong> and buys{" "}
+          <strong>one sitting</strong> of that assessment. The price is shown
+          before you pay.
+        </li>
+        <li>
+          <strong>What a payment does and does not buy.</strong> It buys the
+          sitting, not a result: a score below the pass mark is not refunded,
+          and no assessment guarantees work, a badge, or a particular position
+          in search. If a technical failure on StaffVA&apos;s side prevents your
+          sitting from being delivered or scored, <strong>we refund you
+          automatically</strong> — you do not have to ask. If you believe a
+          sitting was lost and no refund reached you, contact{" "}
+          <a href="mailto:support@staffva.com">support@staffva.com</a>.
+        </li>
+        <li>
+          A purchased sitting stays yours until you use it. Starting an
+          assessment uses it; reconnecting to an assessment already in
+          progress does not.
+        </li>
       </ul>
 
       <h2>4. Payments, escrow and disputes</h2>

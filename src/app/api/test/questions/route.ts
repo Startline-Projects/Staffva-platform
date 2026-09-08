@@ -245,6 +245,35 @@ export async function POST(request: Request) {
   }
 
   // ═══ DEAL A FRESH ATTEMPT ═══
+  // ═══ PAYMENT GATE ═══
+  // The English assessment is optional and paid. Placement matters: this is
+  // AFTER the resume branch returned, so a candidate coming back to an open
+  // attempt never reaches it.
+  //
+  // "Live purchase" is paid, unsettled and unrefunded — NOT "unclaimed". A
+  // purchase claimed by an attempt still belongs to the candidate; treating a
+  // claim as spent is what previously showed a mid-test candidate a paywall.
+  const { data: entitlement } = await supabase
+    .from("assessment_purchases")
+    .select("id, attempt_id")
+    .eq("candidate_id", candidateId)
+    .eq("kind", "english")
+    .eq("status", "paid")
+    .is("consumed_at", null)
+    .is("refunded_at", null)
+    .maybeSingle();
+
+  if (!entitlement) {
+    return NextResponse.json(
+      {
+        error: "This assessment hasn't been paid for yet.",
+        paymentRequired: true,
+        kind: "english",
+      },
+      { status: 402 }
+    );
+  }
+
   const { data: grammarQuestions } = await supabase
     .from("english_test_questions")
     .select("id, section, question_text, options")
@@ -367,6 +396,33 @@ export async function POST(request: Request) {
   if (attemptError || !attempt) {
     console.error("[test-questions] attempt insert failed:", attemptError?.message);
     return NextResponse.json({ error: "Failed to start test" }, { status: 500 });
+  }
+
+  // Attach the purchase to this attempt.
+  //
+  // Claiming, not spending: the money is only settled once the sitting is
+  // graded or the clock runs out (see the submit route). Until then the
+  // candidate still holds a live purchase, which is what lets them reload,
+  // resume, and not be shown a paywall or a second Buy button mid-test.
+  //
+  // The order is deliberately biased toward the candidate: if anything above
+  // had failed, they would still hold an unclaimed purchase. Claiming first
+  // would mean a bug in question dealing costs them $5 and returns nothing.
+  //
+  // A null return means another tab claimed it for a different attempt in the
+  // gap. The attempt is already dealt, so we let it stand rather than tearing
+  // it down — one free sitting out of our own race is a better outcome than a
+  // paying candidate staring at an error.
+  const { data: claimedId } = await supabase.rpc("claim_assessment_entitlement", {
+    p_candidate_id: candidateId,
+    p_kind: "english",
+    p_attempt_id: attempt.id,
+  });
+
+  if (!claimedId) {
+    console.warn(
+      `[test-questions] attempt ${attempt.id} dealt for candidate ${candidateId} but no entitlement was claimed (raced); allowing it to stand`
+    );
   }
 
   const clientQuestions = await Promise.all(

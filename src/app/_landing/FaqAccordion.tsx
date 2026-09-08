@@ -5,7 +5,7 @@ import { useState } from 'react';
 const FAQ_ITEMS = [
   {
     question: 'How is StaffVA different from other hiring platforms?',
-    answer: `<p>Three things. <strong>Every candidate records two voice samples during vetting</strong>, a self-introduction and a reading passage, so you can hear them before you ever message. Every candidate also passes a <strong>written English assessment and a skills interview</strong> before their profile goes live. And <strong>candidates never pay a fee</strong>, which means the best professionals stay — leaving makes no economic sense for them.</p>`,
+    answer: `<p>Three things. <strong>Every candidate records two voice samples</strong>, a self-introduction and a reading passage, so you can hear them before you ever message. Candidates who want to go further sit a <strong>written English assessment and a skills interview</strong>, and the results show on their profile as badges you can filter on. And <strong>candidates keep their full rate</strong> — we take no commission from their earnings, so the best professionals stay.</p>`,
   },
   {
     question: 'What does it cost to hire someone?',
@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How are candidates vetted?',
-    answer: `<p>Every candidate clears a multi-step vetting process before their profile goes live: a timed <strong>English grammar and comprehension test</strong> with anti-cheat monitoring, two <strong>voice recordings</strong> captured during vetting, <strong>government ID verification</strong> via Stripe Identity, and a <strong>skills interview</strong> built around their role.</p><p>About 1 in 10 applicants make it through. Every badge you see on a profile is locked and cannot be edited by the candidate.</p>`,
+    answer: `<p>To be listed at all, a candidate has to complete a full profile: two <strong>voice recordings</strong> (a self-introduction and a reading passage), a photo, a résumé, a headline, an About section, and payout details. That is the baseline for every profile you can see.</p><p>Beyond that, vetting is <strong>opt-in and shown on the profile</strong>, so you can tell the difference at a glance rather than taking our word for it. A candidate can sit a timed <strong>English grammar and comprehension test</strong> with anti-cheat monitoring, which earns an English tier you can filter and sort by, and a <strong>skills interview</strong> built around their role, which earns the <strong>Vetted badge</strong>. Some also complete <strong>government ID verification</strong> via Stripe Identity.</p><p>A profile with no badges has not been assessed — it is not a failed assessment, it is an untaken one. Every badge is locked and cannot be edited by the candidate.</p>`,
   },
   {
     question: "What happens if the hire doesn't work out?",

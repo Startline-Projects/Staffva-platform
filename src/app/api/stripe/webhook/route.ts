@@ -306,6 +306,63 @@ export async function POST(request: Request) {
       const clientId = session.metadata?.client_id;
       const interviewCount = session.metadata?.interview_count;
 
+      // ---- A candidate bought an optional assessment sitting ----
+      //
+      // This is the only place a sitting becomes spendable. The checkout
+      // route writes the row as 'pending' and never promotes it: Stripe is
+      // the sole authority on whether money actually arrived.
+      //
+      // Matched on the session id, not on (candidate, kind) — a candidate
+      // who starts checkout twice has two pending rows, and marking "their
+      // pending english row" paid could credit the wrong one.
+      if (session.metadata?.purpose === "assessment" && candidateId) {
+        // payment_status guards the async local methods (a bank debit can
+        // complete the session while the money is still in flight); those
+        // arrive later as an unpaid session and are settled by
+        // checkout.session.async_payment_succeeded below.
+        if (session.payment_status === "paid") {
+          const { error: payErr } = await supabase
+            .from("assessment_purchases")
+            .update({
+              status: "paid",
+              stripe_payment_intent_id: (session.payment_intent as string) ?? null,
+            })
+            .eq("stripe_checkout_session_id", session.id)
+            .eq("status", "pending");
+
+          if (payErr) {
+            // The candidate has been charged and holds nothing.
+            //
+            // Do NOT throw here. This handler's catch returns 200, so a throw
+            // would not make Stripe retry — and the webhook_log row is
+            // already written, so even a manual redelivery would hit the
+            // duplicate check and be skipped. Throwing would turn a
+            // recoverable failure into a permanent one, silently.
+            //
+            // Record it where the alert-health cron will see it instead, so
+            // a human can settle it while the charge is still fresh.
+            console.error(
+              `[stripe webhook] FAILED to credit assessment purchase for session ${session.id}:`,
+              payErr.message
+            );
+            await supabase.from("vendor_failures").insert({
+              app: "platform",
+              vendor: "stripe",
+              operation: "assessment_purchase_credit",
+              fatal: true,
+              message: `Candidate ${candidateId} paid for ${session.metadata?.kind} but the purchase row was not credited: ${payErr.message}`,
+              context: {
+                checkout_session_id: session.id,
+                payment_intent: session.payment_intent ?? null,
+                candidate_id: candidateId,
+                kind: session.metadata?.kind ?? null,
+              },
+            });
+          }
+        }
+        break;
+      }
+
       if (interviewRequestId) {
         // Mark request as paid
         await supabase
@@ -369,6 +426,62 @@ export async function POST(request: Request) {
           }
         }
       }
+      break;
+    }
+
+    // ---- Assessment bought with a delayed payment method ----
+    //
+    // A card settles inside checkout.session.completed. The local methods
+    // that matter for this audience do not: a bank debit or voucher can
+    // complete the Checkout session with payment_status 'unpaid' and confirm
+    // hours later. Without these two cases a candidate who paid by the only
+    // method available to them would hold a 'pending' row for ever.
+
+    case "checkout.session.async_payment_succeeded": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.purpose !== "assessment") break;
+
+      const { error: payErr } = await supabase
+        .from("assessment_purchases")
+        .update({
+          status: "paid",
+          stripe_payment_intent_id: (session.payment_intent as string) ?? null,
+        })
+        .eq("stripe_checkout_session_id", session.id)
+        .eq("status", "pending");
+
+      if (payErr) {
+        console.error(
+          `[stripe webhook] FAILED to credit async assessment purchase for session ${session.id}:`,
+          payErr.message
+        );
+        await supabase.from("vendor_failures").insert({
+          app: "platform",
+          vendor: "stripe",
+          operation: "assessment_purchase_credit",
+          fatal: true,
+          message: `Candidate ${session.metadata?.candidate_id} completed a delayed payment for ${session.metadata?.kind} but the purchase row was not credited: ${payErr.message}`,
+          context: {
+            checkout_session_id: session.id,
+            candidate_id: session.metadata?.candidate_id ?? null,
+            kind: session.metadata?.kind ?? null,
+          },
+        });
+      }
+      break;
+    }
+
+    case "checkout.session.async_payment_failed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.purpose !== "assessment") break;
+
+      // Close the pending row so it stops occupying the candidate's slot and
+      // they can try again with another method.
+      await supabase
+        .from("assessment_purchases")
+        .update({ status: "failed" })
+        .eq("stripe_checkout_session_id", session.id)
+        .eq("status", "pending");
       break;
     }
 
@@ -534,6 +647,32 @@ export async function POST(request: Request) {
       const pi = await getStripe().paymentIntents.retrieve(paymentIntentId);
       const periodId = pi.metadata?.period_id || null;
       const milestoneId = pi.metadata?.milestone_id || null;
+
+      // An assessment refund carries neither id — it is a candidate getting
+      // their $5 back, not escrow being returned to a client. Settle it here
+      // and stop, before the escrow lookup below logs it as unmappable.
+      //
+      // Matched on the PaymentIntent so it settles whichever way the refund
+      // was issued: by our own refund worker, or by hand in the Stripe
+      // dashboard. A dashboard refund is the likelier one for support, and it
+      // must not leave the row saying the candidate still owns a sitting.
+      const { data: refundedPurchase } = await supabase
+        .from("assessment_purchases")
+        .update({
+          status: "refunded",
+          refunded_at: new Date().toISOString(),
+        })
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .neq("status", "refunded")
+        .select("id, candidate_id, kind")
+        .maybeSingle();
+
+      if (refundedPurchase) {
+        console.log(
+          `[StaffVA] Refunded assessment purchase ${refundedPurchase.id} (${refundedPurchase.kind}) for candidate ${refundedPurchase.candidate_id} — $${refundedUsd}`
+        );
+        break;
+      }
 
       const table = periodId ? "payment_periods" : milestoneId ? "milestones" : null;
       const recordId = periodId || milestoneId;

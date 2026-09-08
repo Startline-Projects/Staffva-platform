@@ -96,6 +96,9 @@ export async function gradeAttempt(
       new Date(attempt.expires_at).getTime() + GRACE_MS;
   if (submittedLate) {
     await supabase.from("test_attempts").update({ status: "expired" }).eq("id", attemptId);
+    // Running the clock out is still a sitting delivered — settle it. The
+    // candidate had the full window and the questions were served.
+    await supabase.rpc("settle_assessment_entitlement", { p_attempt_id: attemptId });
     return { status: "expired" };
   }
 
@@ -115,6 +118,9 @@ export async function gradeAttempt(
     .maybeSingle();
   if (newer) {
     await supabase.from("test_attempts").update({ status: "expired" }).eq("id", attemptId);
+    // Running the clock out is still a sitting delivered — settle it. The
+    // candidate had the full window and the questions were served.
+    await supabase.rpc("settle_assessment_entitlement", { p_attempt_id: attemptId });
     return { status: "expired" };
   }
 
@@ -456,6 +462,12 @@ export async function gradeAttempt(
       .from("test_attempts")
       .update({ status: "graded", graded_at: new Date().toISOString(), part_scores: finalParts })
       .eq("id", attemptId);
+
+    // The sitting was delivered and scored — this is what actually spends the
+    // $5. Until now the purchase was only CLAIMED by this attempt, which is
+    // what let the candidate reload, resume, and retry a failed grading
+    // without being told they had not paid.
+    await supabase.rpc("settle_assessment_entitlement", { p_attempt_id: attemptId });
 
     if (passed) {
       try {

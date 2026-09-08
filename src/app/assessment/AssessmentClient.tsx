@@ -89,7 +89,7 @@ export default function AssessmentClient({
   tier,
 }: {
   candidateId: string;
-  mode: "run" | "passed" | "cooldown" | "blocked" | "grade_retry";
+  mode: "run" | "passed" | "cooldown" | "blocked" | "grade_retry" | "unpaid";
   pendingAttemptId?: string | null;
   spokenParts: boolean;
   writingPart: boolean;
@@ -1210,6 +1210,31 @@ export default function AssessmentClient({
                 <a href="mailto:support@staffva.com" className="state-action-btn">
                   Contact support
                 </a>
+              </div>
+            )}
+
+            {/* Reached the test page without a paid sitting. Not an error
+                state — the assessment is optional, so this is just an
+                explanation and the way back to buy one. */}
+            {mode === "unpaid" && (
+              <div className="signin-state state-centered">
+                <div className="state-icon-xl amber" aria-hidden>
+                  <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                    <circle cx="15" cy="15" r="11" stroke="currentColor" strokeWidth="2" />
+                    <path d="M15 10v6M15 20h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <h2 className="state-title">You don&apos;t have a sitting yet</h2>
+                <p className="state-subtitle">
+                  The English assessment is optional and costs $5 for one
+                  sitting. It gives you an English tier clients can filter on
+                  and moves you up in search. You can start it from your
+                  dashboard — and if anything on our side goes wrong during
+                  the test, we refund you automatically.
+                </p>
+                <Link href="/candidate/dashboard" className="state-action-btn">
+                  Back to dashboard
+                </Link>
               </div>
             )}
 

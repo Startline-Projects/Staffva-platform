@@ -320,8 +320,46 @@ async function reprocessStripeWebhook(
       return true;
     }
 
+    // A candidate's assessment purchase. Both event types credit the same
+    // way: the card path settles inside checkout.session.completed, and the
+    // delayed local methods — the ones candidates without an international
+    // card actually use — confirm later as async_payment_succeeded.
+    //
+    // Without these cases every assessment event fell through to
+    // `default: return false`, so a purchase the live handler failed to
+    // credit stayed 'pending' for ever: Stripe holding the money, the
+    // candidate holding nothing, and the reconcile pass that exists precisely
+    // to catch this walking straight past it.
+    case "checkout.session.async_payment_succeeded":
     case "checkout.session.completed": {
-      const interviewRequestId = (payload.metadata as Record<string, string>)?.interview_request_id;
+      const meta = (payload.metadata as Record<string, string>) || {};
+
+      if (meta.purpose === "assessment" && meta.candidate_id) {
+        // completed with an unpaid session is the delayed-method case — the
+        // money has not arrived yet, so there is nothing to credit and no
+        // failure to report.
+        if (
+          wh.event_type === "checkout.session.completed" &&
+          (payload.payment_status as string) !== "paid"
+        ) {
+          return true;
+        }
+
+        const { error } = await supabase
+          .from("assessment_purchases")
+          .update({
+            status: "paid",
+            stripe_payment_intent_id: (payload.payment_intent as string) || null,
+          })
+          .eq("stripe_checkout_session_id", payload.id as string)
+          .eq("status", "pending");
+
+        // No error and no match means it was already credited — that is a
+        // successful reconcile, not a failure.
+        return !error;
+      }
+
+      const interviewRequestId = meta.interview_request_id;
       if (!interviewRequestId) return false;
 
       await supabase

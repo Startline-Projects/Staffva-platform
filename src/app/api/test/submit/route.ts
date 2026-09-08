@@ -136,6 +136,12 @@ export async function POST(request: Request) {
     // Terminal, not just refused: without this, the stored answers sat at
     // 'submitted' and one POST /api/test/grade graded them anyway.
     await supabase.from("test_attempts").update({ status: "expired" }).eq("id", attemptId);
+    // Settle the purchase: the questions were served and the full window ran
+    // out, so the sitting was delivered. This is also what makes the error
+    // below honest — "start the test again" now means buying another sitting,
+    // and leaving the purchase claimed would instead have left the candidate
+    // holding an entitlement no screen would let them use.
+    await supabase.rpc("settle_assessment_entitlement", { p_attempt_id: attemptId });
     return NextResponse.json(
       { error: "Time expired for this attempt. Please start the test again.", expired: true },
       { status: 410 }
