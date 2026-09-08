@@ -88,7 +88,7 @@ function BrowseContent() {
   const [tier, setTier] = useState("any");
   const [usExperience, setUsExperience] = useState("");
   // lockStatus removed — availability comes from the candidate's own answer
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("complete");
   const [showFilters, setShowFilters] = useState(false);
   const [aiQuery, setAiQuery] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -257,7 +257,7 @@ function BrowseContent() {
     setAiQuery("");
     setAiError("");
     // lockStatus removed
-    setSort("newest");
+    setSort("complete");
     setPage(1);
     setShowAllSkills(false);
     router.replace("/browse");
@@ -455,7 +455,8 @@ function BrowseContent() {
                 )}
               </form>
               <select className="results-select" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
-                <option value="newest">Sort: Newest</option>
+                <option value="complete">Sort: Most complete</option>
+                <option value="newest">Newest</option>
                 <option value="rate_low">Rate: Low → High</option>
                 <option value="rate_high">Rate: High → Low</option>
                 <option value="earnings">Most earned</option>

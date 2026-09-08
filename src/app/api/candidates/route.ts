@@ -23,7 +23,10 @@ export async function GET(request: Request) {
   const tier = searchParams.get("tier");
   const usExperience = searchParams.get("usExperience");
   const skillsParam = searchParams.get("skills");
-  const sort = searchParams.get("sort") || "newest";
+  // Default: most complete profiles, photos first. Callers can still ask
+  // for any other order; "newest" remains available, it just isn't what a
+  // client lands on.
+  const sort = searchParams.get("sort") || "complete";
   const page = parseInt(searchParams.get("page") || "1");
   const limit = 24;
 
