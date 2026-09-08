@@ -194,12 +194,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
     // No subscription gate. It required subscription_status = 'active', but
-    // nothing in the app can start a subscription — /api/stripe/checkout has
-    // no callers and there is no billing page — so all 24 clients sit at
-    // NULL and every client message 403'd. Not one message has ever been
-    // sent. MessageButton also advertises "Free to join. Free to message. No
-    // subscription required." If messaging is meant to be paid, the paywall
-    // needs building first; until then the gate only blocks the product.
+    // nothing could ever start a subscription, so every client sat at NULL
+    // and every client message 403'd — not one was ever sent. The
+    // subscription is now fully retired (client vertical step 1: checkout
+    // route deleted, columns dropped in 00219). MessageButton advertises
+    // "Free to join. Free to message. No subscription required." If
+    // messaging is ever meant to be paid, the paywall gets built first.
     // The client may only write to their OWN thread.
     if (client.id !== clientId) {
       return NextResponse.json({ error: "Not your conversation" }, { status: 403 });

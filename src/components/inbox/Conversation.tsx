@@ -130,10 +130,10 @@ export default function Conversation({
         <h2 className="font-semibold text-text">{otherName}</h2>
         {isReadOnly && (
           <p className="text-xs text-amber-600">
-            {/* Was "Subscription lapsed — Resubscribe to reply." No client has
-                ever had a subscription: all 24 sit at NULL, the only writer of
-                that column is the Stripe webhook, and /api/stripe/checkout has
-                no callers. Nothing lapsed and there is nothing to resubscribe
+            {/* Was "Subscription lapsed — Resubscribe to reply." No client
+                ever had a subscription; it is fully retired as of the client
+                vertical's step 1 — checkout route deleted, columns dropped
+                (00219). Nothing lapsed and there is nothing to resubscribe
                 to. */}
             Replying isn&apos;t available on this account yet.
           </p>

@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { COUNTRIES } from "@/lib/atlasCountries";
+import {
+  SIGNUP_ROLE_CATEGORIES as SIGNUP_ROLE_CATEGORY_LIST,
+  CLIENT_REFERRAL_SOURCES as CLIENT_REFERRAL_SOURCE_LIST,
+  sanitizeHiringFor,
+} from "@/lib/signupCapture";
 
-const SIGNUP_ROLE_CATEGORIES = new Set([
-  "Paralegal", "Legal Assistant", "Bookkeeping/AP", "Admin", "VA", "Cold Caller",
-  "Sales", "SDR", "SEO", "Marketing", "Scheduling", "Customer Support",
-  "Medical", "E-Commerce", "Other",
-]);
+// Both vocabularies come from src/lib/signupCapture.ts so the pages and this
+// route cannot drift; the DB keeps frozen copies in migration 00219's CHECK
+// constraints and handle_new_user allowlists.
+const SIGNUP_ROLE_CATEGORIES = new Set(SIGNUP_ROLE_CATEGORY_LIST);
+const CLIENT_REFERRAL_SOURCES = new Set(CLIENT_REFERRAL_SOURCE_LIST.map((r) => r.value));
 const COUNTRY_NAMES = new Set(COUNTRIES.map((c) => c.name));
 
 function getAdminClient() {
@@ -34,6 +39,8 @@ export async function POST(request: Request) {
       ageConfirmed?: boolean;
       marketingOptIn?: boolean;
       referralCode?: string;
+      hiringFor?: string[];
+      referralSource?: string;
     };
   };
 
@@ -41,13 +48,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  // Signup capture is validated BEFORE any write, and its fields ride inside
-  // the create payload below. That makes the capture atomic with profile
-  // creation, and — because the upsert ignores duplicates — means this
-  // unauthenticated route can never modify an EXISTING profile's consent or
+  // NOTE on who actually writes what: since 00205 the handle_new_user
+  // trigger creates the profiles row (and the clients row for role
+  // 'client') inside auth.signUp itself, and since 00219 it persists the
+  // signup capture from raw_user_meta_data. When the trigger succeeded,
+  // both upserts below hit ON CONFLICT DO NOTHING — this route is the BELT
+  // for the trigger's swallowed-exception path, so its inserts carry the
+  // same capture fields. Because the upserts ignore duplicates, this
+  // unauthenticated route can never modify an EXISTING row's consent or
   // attribution fields (it could, briefly; review caught it).
   let signupFields: Record<string, unknown> = {};
-  if (role === "candidate" && signup) {
+  // Client-only capture, validated the same way and written onto the clients
+  // row below (the profiles columns are role-agnostic; these two aren't).
+  let clientSignupFields: Record<string, unknown> = {};
+  if ((role === "candidate" || role === "client") && signup) {
     if (signup.termsAccepted !== true || signup.ageConfirmed !== true) {
       return NextResponse.json(
         { error: "Terms agreement and age confirmation are required" },
@@ -55,18 +69,29 @@ export async function POST(request: Request) {
       );
     }
     const country = signup.country && COUNTRY_NAMES.has(signup.country) ? signup.country : null;
-    const roleCategory = signup.roleCategory && SIGNUP_ROLE_CATEGORIES.has(signup.roleCategory) ? signup.roleCategory : null;
-    const referral = (signup.referralCode || "").trim();
-    const referralCode = /^[A-Za-z0-9_-]{1,64}$/.test(referral) ? referral : null;
     const stamp = new Date().toISOString();
     signupFields = {
       signup_country: country,
-      signup_role_category: roleCategory,
       terms_accepted_at: stamp,
       age_confirmed_at: stamp,
       marketing_opt_in: !!signup.marketingOptIn,
-      referral_code: referralCode,
     };
+    if (role === "candidate") {
+      const roleCategory = signup.roleCategory && SIGNUP_ROLE_CATEGORIES.has(signup.roleCategory) ? signup.roleCategory : null;
+      const referral = (signup.referralCode || "").trim();
+      const referralCode = /^[A-Za-z0-9_-]{1,64}$/.test(referral) ? referral : null;
+      signupFields.signup_role_category = roleCategory;
+      signupFields.referral_code = referralCode;
+    } else {
+      const hiringFor = sanitizeHiringFor(signup.hiringFor);
+      clientSignupFields = {
+        hiring_for: hiringFor.length > 0 ? hiringFor : null,
+        referral_source:
+          signup.referralSource && CLIENT_REFERRAL_SOURCES.has(signup.referralSource)
+            ? signup.referralSource
+            : null,
+      };
+    }
   }
 
   const supabase = getAdminClient();
@@ -100,13 +125,31 @@ export async function POST(request: Request) {
           full_name: fullName || "",
           email,
           company_name: companyName || null,
+          ...clientSignupFields,
         },
         { onConflict: "user_id", ignoreDuplicates: true }
       );
 
     if (clientError) {
       console.error("ensure-profile: client upsert failed:", clientError);
-      // Non-fatal — profile was created
+    }
+
+    // A client account without a clients row cannot post jobs, send offers,
+    // or fund anything — swallowing that here let the signup page show
+    // success over a broken account (review caught it). The upsert error
+    // alone isn't the signal (DO NOTHING is a benign non-write when the
+    // trigger already created the row), so verify the row actually exists.
+    const { data: clientRow, error: checkError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (checkError || !clientRow) {
+      console.error("ensure-profile: clients row missing after upsert:", checkError);
+      return NextResponse.json(
+        { error: "Client record could not be created" },
+        { status: 500 }
+      );
     }
   }
 

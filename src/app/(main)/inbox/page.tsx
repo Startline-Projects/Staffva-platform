@@ -71,9 +71,9 @@ function InboxContent() {
   }
 
   // No subscription gate. The old one read clients.subscription_status —
-  // a column nothing in the app can ever set to 'active' (no billing page,
-  // no checkout callers) — so after a client's FIRST message their composer
-  // bricked forever with "Replying isn't available on this account yet."
+  // a column nothing could ever set to 'active' — so after a client's FIRST
+  // message their composer bricked forever with "Replying isn't available on
+  // this account yet." The column is gone as of 00219 (step 1).
   // The API enforces the real rules: clients message live candidates or
   // people they work with; candidates reply, never initiate.
   const isReadOnly = false;

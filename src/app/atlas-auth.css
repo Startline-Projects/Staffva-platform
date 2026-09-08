@@ -3606,3 +3606,27 @@
   color: var(--ink-mute);
   margin-bottom: 4px;
 }
+
+/* ── Hiring-for chips (client signup, Atlas proto step 1) ── */
+.lp-auth .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lp-auth .cat-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.lp-auth .cat-chip:hover { border-color: var(--ink-mute); }
+.lp-auth .cat-chip:focus-visible { outline: 2px solid rgba(14,14,12,.2); outline-offset: 2px; }
+.lp-auth .cat-chip.selected { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-auth .cat-chip-count {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-family: var(--font-mono);
+}
+.lp-auth .cat-chip-count.has-selection { color: var(--ink); }

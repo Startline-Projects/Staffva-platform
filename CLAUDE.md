@@ -37,7 +37,6 @@ npm run lint     # ESLint
 src/
 ├── app/
 │   ├── (admin)/          # Admin-only route group (role-gated in layout)
-│   ├── (auth)/           # Login, signup, reset-password
 │   ├── (main)/           # Protected app routes (apply, browse, hire, contracts…)
 │   ├── _landing/         # Non-routable landing page component parts
 │   ├── api/              # 140+ API route handlers
@@ -154,8 +153,8 @@ All routes live under `src/app/api/`. Key groups:
 | `/api/engagements/*` | 6 | Create, invite, milestones, periods, escrow release |
 | `/api/escrow/*` | 4 | Fund, release, auto-release, status |
 | `/api/disputes/*` | 3 | File, list, resolve |
-| `/api/stripe/*` | 5 | Checkout, webhook, Connect accounts, portal |
-| `/api/services/*` | 6 | Browse, packages, purchase, orders, AI pricing |
+| `/api/stripe/*` | 3 | Webhook, Connect accounts (checkout + portal retired with the subscription) |
+| `/api/services/*` | 6 | 404 tombstones — the services/giveaway surface is retired (pages deleted in client step 1) |
 | `/api/recruiter/*` | 15+ | Queue, approvals, notes, Google Calendar OAuth, reminders |
 | `/api/recruiting-manager/*` | 4 | Dashboard, approve, ban, notifications |
 | `/api/test/*` | 5 | Questions, submit, anti-cheat check/log, lockout |
@@ -236,7 +235,6 @@ SUPABASE_SERVICE_ROLE_KEY=          # Server-only — never expose to client
 STRIPE_SECRET_KEY=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_ID=
 
 # Email
 RESEND_API_KEY=

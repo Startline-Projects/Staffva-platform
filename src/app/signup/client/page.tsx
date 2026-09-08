@@ -4,24 +4,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StaffvaLogo from "@/components/landing/StaffvaLogo";
-import Asti, { AstiPointChip } from "@/components/landing/Asti";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/atlasCountries";
-import { SIGNUP_ROLE_CATEGORIES } from "@/lib/signupCapture";
+import { SIGNUP_ROLE_CATEGORIES, CLIENT_REFERRAL_SOURCES } from "@/lib/signupCapture";
 import { useTurnstile } from "@/components/auth/Turnstile";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
 
-/** Our real pipeline, told honestly on the left column. */
+/**
+ * The Atlas client signup (proto step 1), told honestly. On record, cut from
+ * the prototype: the fabricated testimonial ("Sarah Patel, Maya & Co."), the
+ * "2,800+ A-players" headcount, the "30 seconds" timing claims, and its three
+ * mutually contradictory step counts. The "What's ahead" list below matches
+ * D1 as locked: verification + card gate ESCROW FUNDING only — offers and
+ * contracts stay open to unverified clients.
+ */
 const AHEAD = [
-  "Verify your email & WhatsApp",
-  "Verify your ID",
-  "Take a proctored English assessment",
-  "Complete two AI interviews — behavioral & role-specific",
-  "Build your profile & record your intro — then you're live.",
+  "Verify your email",
+  "Browse the vetted talent pool",
+  "Message, interview, and send offers",
+  "Sign your contract",
+  "Verify your identity to fund escrow",
 ];
 
-/* ── The prototype's validators, verbatim ── */
+/* ── The prototype's validators, verbatim (same as candidate signup) ── */
 function emailValid(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 function nameValid(v: string) { return v.trim().length >= 2 && /\s/.test(v.trim()); }
 function evaluatePassword(val: string) {
@@ -57,7 +63,7 @@ const VALID_ICON = (
   </span>
 );
 
-export default function CandidateSignupPage() {
+export default function ClientSignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -66,8 +72,9 @@ export default function CandidateSignupPage() {
   const [country, setCountry] = useState<string>("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState("");
-  const [roleCategory, setRoleCategory] = useState("");
-  const [referral, setReferral] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [hiringFor, setHiringFor] = useState<string[]>([]);
+  const [referralSource, setReferralSource] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeAge, setAgreeAge] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
@@ -100,8 +107,7 @@ export default function CandidateSignupPage() {
   // are enforced by submit so their error copy (and the under-18 blocker)
   // can actually appear — a silently disabled button explains nothing.
   const fieldsComplete =
-    nameValid(fullName) && emailValid(email) && passwordValid(password) &&
-    !!country && !!roleCategory;
+    nameValid(fullName) && emailValid(email) && passwordValid(password) && !!country;
 
   // Close the country menu on outside click
   useEffect(() => {
@@ -143,13 +149,14 @@ export default function CandidateSignupPage() {
         setFieldState(name, ok ? "valid" : "invalid");
         return ok;
       }
-      case "role": {
-        const ok = !!roleCategory;
-        setFieldState(name, ok ? "valid" : "invalid");
-        return ok;
-      }
     }
     return false;
+  }
+
+  function toggleHiringChip(cat: string) {
+    setHiringFor((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -161,7 +168,6 @@ export default function CandidateSignupPage() {
       email: validate("email", true),
       password: validate("password", true),
       country: validate("country"),
-      role: validate("role"),
       terms: agreeTerms,
       age: agreeAge,
     };
@@ -189,18 +195,19 @@ export default function CandidateSignupPage() {
 
     // The capture fields ride in the signUp metadata because the DB's
     // handle_new_user trigger — not this page's later ensure-profile call —
-    // is what actually creates the profiles row (00205), and it persists
-    // the capture atomically (00219). ensure-profile is the belt.
+    // is what actually creates the profiles/clients rows (00205), and it
+    // persists the capture atomically (00219). ensure-profile is the belt.
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          role: "candidate",
+          role: "client",
           full_name: fullName.trim(),
+          company_name: companyName.trim() || null,
           signup_country: selectedCountry?.name || "",
-          signup_role_category: roleCategory,
-          referral_code: referral.trim() || null,
+          hiring_for: hiringFor,
+          referral_source: referralSource || null,
           terms_accepted: agreeTerms,
           age_confirmed: agreeAge,
           marketing_opt_in: marketingOptIn,
@@ -244,15 +251,16 @@ export default function CandidateSignupPage() {
         body: JSON.stringify({
           userId: signUpData.user.id,
           email,
-          role: "candidate",
+          role: "client",
           fullName: fullName.trim(),
+          companyName: companyName.trim() || null,
           signup: {
             country: selectedCountry?.name || "",
-            roleCategory,
+            hiringFor,
             termsAccepted: agreeTerms,
             ageConfirmed: agreeAge,
             marketingOptIn,
-            referralCode: referral,
+            referralSource,
           },
         }),
       });
@@ -305,8 +313,6 @@ export default function CandidateSignupPage() {
     }
   }
 
-
-
   const wrapClass = (name: string, extra = "") =>
     `field-wrap ${extra} ${states[name] === "valid" ? "is-valid" : states[name] === "invalid" ? "is-invalid" : ""}`;
   const rowClass = (name: string) =>
@@ -336,26 +342,23 @@ export default function CandidateSignupPage() {
         <div className="layout">
             {/* ── Left: context ── */}
             <aside className="context">
-              <span className="eyebrow">Join StaffVA · Candidate Application</span>
+              <span className="eyebrow">Hiring on StaffVA · Client Account</span>
               <h1 className="display">
                 Create your<br />
-                <span className="serif-italic underline-accent">candidate</span> account.
+                <span className="serif-italic underline-accent">client</span> account.
               </h1>
               <p className="lead">
-                StaffVA is a curated marketplace for vetted global talent. Starting your application takes about <strong>two minutes</strong>. Getting fully approved takes a few days — and every step is on your time.
+                StaffVA is a curated marketplace for vetted global talent. Signing up and browsing are <strong>free</strong> — you only pay when you fund an engagement.
               </p>
 
-              <div style={{ display: "flex", justifyContent: "center", margin: "8px 0 -6px" }}>
-                <Asti variant="idle" size={92} />
-              </div>
               <div className="ahead-card" aria-label="What's ahead">
                 <div className="label">What&apos;s ahead</div>
                 <ol className="ahead-list">
                   {AHEAD.map((step) => (<li key={step}>{step}</li>))}
                 </ol>
                 <div className="ahead-footer">
-                  <span>10 steps total</span>
-                  <span>~3–7 days</span>
+                  <span>Free to sign up and browse</span>
+                  <span>Pay when you fund</span>
                 </div>
               </div>
             </aside>
@@ -367,13 +370,13 @@ export default function CandidateSignupPage() {
                   <path d="M9 1.5 2.25 4.5v4.125c0 3.75 2.813 7.125 6.75 7.875 3.938-.75 6.75-4.125 6.75-7.875V4.5L9 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
                   <path d="m6.5 9 1.875 1.875L11.5 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span>Your application is free. Your data is encrypted. We only use it to verify you and match you with clients.</span>
+                <span>Free to sign up. Free to browse, message, and interview. You only pay when you fund an engagement — there&apos;s no subscription.</span>
               </div>
 
               <div className="form-card">
                 <div className="form-card-header">
-                  <h2 id="form-title">Tell us about yourself</h2>
-                  <span className="step-tag">Step 1 of 10</span>
+                  <h2 id="form-title">Create your account</h2>
+                  <span className="step-tag">Client account</span>
                 </div>
 
                 {alert && (
@@ -390,10 +393,10 @@ export default function CandidateSignupPage() {
                 )}
 
                 <form ref={formRef} onSubmit={handleSubmit} noValidate autoComplete="on">
-                  {/* Full legal name */}
+                  {/* Full name */}
                   <div className={`form-row ${rowClass("fullName")}`} data-field="fullName">
                     <label className="field-label" htmlFor="fullName">
-                      <span>Full legal name</span>
+                      <span>Full name</span>
                       <span className="req">Required</span>
                     </label>
                     <div className={wrapClass("fullName")}>
@@ -401,7 +404,7 @@ export default function CandidateSignupPage() {
                         id="fullName"
                         type="text"
                         className="input"
-                        placeholder="e.g. Maria Santos Reyes"
+                        placeholder="e.g. Jordan Avery"
                         autoComplete="name"
                         required
                         value={fullName}
@@ -410,17 +413,17 @@ export default function CandidateSignupPage() {
                       />
                       {VALID_ICON}
                     </div>
-                    <div className="field-hint-inline">Use the exact name on your government ID. You won&apos;t be able to change this later.</div>
+                    <div className="field-hint-inline">This is the name that appears on contracts you send to candidates.</div>
                     <div className="field-error-text" role="alert">
                       {ERR_ICON}
-                      <span className="err-msg">Please enter your full legal name (first and last).</span>
+                      <span className="err-msg">Please enter your full name (first and last).</span>
                     </div>
                   </div>
 
                   {/* Email */}
                   <div className={`form-row ${rowClass("email")}`} data-field="email">
                     <label className="field-label" htmlFor="email">
-                      <span>Email address</span>
+                      <span>Work email</span>
                       <span className="req">Required</span>
                     </label>
                     <div className={wrapClass("email")}>
@@ -428,7 +431,7 @@ export default function CandidateSignupPage() {
                         id="email"
                         type="email"
                         className="input"
-                        placeholder="you@example.com"
+                        placeholder="you@company.com"
                         autoComplete="email"
                         required
                         value={email}
@@ -495,11 +498,11 @@ export default function CandidateSignupPage() {
                     </div>
                   </div>
 
-                  {/* Country + Role */}
+                  {/* Country + Company */}
                   <div className="form-row split">
                     <div className={rowClass("country")} data-field="country">
                       <label className="field-label" htmlFor="countryTrigger">
-                        <span>Country of residence</span>
+                        <span>Country</span>
                         <span className="req">Required</span>
                       </label>
                       <div className={wrapClass("country")}>
@@ -526,7 +529,7 @@ export default function CandidateSignupPage() {
                             <span className="country-name">{selectedCountry?.name || "Select country…"}</span>
                           </button>
                           {countryOpen && (
-                            <div className="country-menu" role="listbox" aria-label="Country of residence">
+                            <div className="country-menu" role="listbox" aria-label="Country">
                               <div className="country-search-wrap">
                                 <input
                                   type="text"
@@ -571,48 +574,68 @@ export default function CandidateSignupPage() {
                       </div>
                     </div>
 
-                    <div className={rowClass("role")} data-field="role">
-                      <label className="field-label" htmlFor="roleCategory">
-                        <span>Applying for</span>
-                        <span className="req">Required</span>
+                    <div data-field="company">
+                      <label className="field-label" htmlFor="companyName">
+                        <span>Company</span>
+                        <span className="req">Optional</span>
                       </label>
-                      <div className={wrapClass("role")}>
-                        <select
-                          id="roleCategory"
-                          className={`select ${roleCategory ? "" : "empty"}`}
-                          required
-                          value={roleCategory}
-                          onChange={(e) => { setRoleCategory(e.target.value); setFieldState("role", e.target.value ? "valid" : "invalid"); }}
-                        >
-                          <option value="" disabled>Choose role category…</option>
-                          {SIGNUP_ROLE_CATEGORIES.map((r) => (<option key={r} value={r}>{r}</option>))}
-                        </select>
+                      <div className="field-wrap">
+                        <input
+                          id="companyName"
+                          type="text"
+                          className="input"
+                          placeholder="e.g. Avery & Co."
+                          autoComplete="organization"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                        />
                       </div>
-                      <div className="field-error-text" role="alert">
-                        {ERR_ICON}
-                        <span className="err-msg">Please choose a role category.</span>
-                      </div>
+                      <div className="field-hint-inline">Helps candidates know who they&apos;re talking to.</div>
                     </div>
                   </div>
 
-                  {/* Referral code */}
-                  <div className="form-row" data-field="referral">
-                    <label className="field-label" htmlFor="referral">
-                      <span>Referral or recruiter code</span>
+                  {/* Hiring-for chips */}
+                  <div className="form-row" data-field="hiringFor">
+                    <label className="field-label" id="hiringForLabel">
+                      <span>What are you hiring for?</span>
+                      <span className="req">Optional</span>
+                    </label>
+                    <div className="field-hint-inline" style={{ marginBottom: "8px" }}>Pick all that apply.</div>
+                    <div className="cat-chips" role="group" aria-labelledby="hiringForLabel">
+                      {SIGNUP_ROLE_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`cat-chip ${hiringFor.includes(cat) ? "selected" : ""}`}
+                          aria-pressed={hiringFor.includes(cat)}
+                          onClick={() => toggleHiringChip(cat)}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                    <div className={`cat-chip-count ${hiringFor.length > 0 ? "has-selection" : ""}`} aria-live="polite">
+                      {hiringFor.length === 0 ? "none selected" : `${hiringFor.length} selected`}
+                    </div>
+                  </div>
+
+                  {/* Referral source */}
+                  <div className="form-row" data-field="referralSource">
+                    <label className="field-label" htmlFor="referralSource">
+                      <span>How did you hear about StaffVA?</span>
                       <span className="req">Optional</span>
                     </label>
                     <div className="field-wrap">
-                      <input
-                        id="referral"
-                        type="text"
-                        className="input"
-                        placeholder="e.g. SVA-REC-XYZ"
-                        autoComplete="off"
-                        value={referral}
-                        onChange={(e) => setReferral(e.target.value)}
-                      />
+                      <select
+                        id="referralSource"
+                        className={`select ${referralSource ? "" : "empty"}`}
+                        value={referralSource}
+                        onChange={(e) => setReferralSource(e.target.value)}
+                      >
+                        <option value="">Choose one…</option>
+                        {CLIENT_REFERRAL_SOURCES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
+                      </select>
                     </div>
-                    <div className="field-hint-inline">If you were referred by a StaffVA recruiter or existing talent, add their code here.</div>
                   </div>
 
                   {/* Agreements */}
@@ -631,12 +654,12 @@ export default function CandidateSignupPage() {
                       <span className="check-box" aria-hidden></span>
                       <span>I confirm I am 18 years of age or older.</span>
                     </label>
-                    {checkErrors.age && <div className="check-row-error" style={{ display: "block" }}>You must be at least 18 to apply to StaffVA.</div>}
+                    {checkErrors.age && <div className="check-row-error" style={{ display: "block" }}>You must be at least 18 to hire on StaffVA.</div>}
 
                     <label className="check-row">
                       <input type="checkbox" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
                       <span className="check-box" aria-hidden></span>
-                      <span>Send me occasional product updates and new opportunities <em style={{ color: "var(--ink-mute)", fontStyle: "normal", fontSize: "12.5px" }}>(optional)</em></span>
+                      <span>Send me occasional product updates <em style={{ color: "var(--ink-mute)", fontStyle: "normal", fontSize: "12.5px" }}>(optional)</em></span>
                     </label>
                   </div>
 
@@ -653,25 +676,27 @@ export default function CandidateSignupPage() {
                     </button>
                     <div className="helper-row">
                       Have an account? <Link href="/login">Sign in instead</Link>
+                      <br />
+                      Looking for work? <Link href="/signup/candidate">Apply as a candidate</Link>
                     </div>
                   </div>
                 </form>
               </div>
 
-              <div className="trust-footer" role="status" aria-label="Account security features">
+              <div className="trust-footer" role="status" aria-label="Platform facts">
                 <span className="trust-item">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M3 5.5V4a3 3 0 0 1 6 0v1.5M2 5.5h8v4.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg>
                   Encrypted
                 </span>
                 <span className="trust-dot" aria-hidden></span>
                 <span className="trust-item">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.2" /><path d="M2 10c.5-1.8 2-3 4-3s3.5 1.2 4 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
-                  Identity-verified
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><rect x="1.5" y="2.5" width="9" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" /><path d="M1.5 5h9" stroke="currentColor" strokeWidth="1.2" /></svg>
+                  Payments via Stripe
                 </span>
                 <span className="trust-dot" aria-hidden></span>
                 <span className="trust-item">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="m2.5 6 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  Human-reviewed
+                  Vetted talent
                 </span>
               </div>
             </section>
@@ -683,16 +708,10 @@ export default function CandidateSignupPage() {
       {successOverlay && (
         <div className="success-overlay visible" role="dialog" aria-modal="true" aria-labelledby="successTitle">
           <div className="success-card">
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
-              <Asti variant="spin" size={96} />
-            </div>
             <h2 id="successTitle">Account created.</h2>
-            <div style={{ display: "flex", justifyContent: "center", margin: "10px 0 2px" }}>
-              <AstiPointChip label="+25 · account created" />
-            </div>
             <p>
               We sent a verification link to <strong>{email}</strong>.
-              Click it to continue your application.
+              Click it to start browsing talent.
             </p>
             <div className="success-routing">
               <span className="dot-pulse" aria-hidden></span>
@@ -710,7 +729,7 @@ export default function CandidateSignupPage() {
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.5" /><path d="M12 7v6M12 16v.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
             </div>
             <h3 id="blockerTitle">You need to be 18 or older</h3>
-            <p>StaffVA is a workplace platform and we can only accept applicants who are at least 18 years of age. If this was a mistake, please check the box and try again.</p>
+            <p>StaffVA is a workplace platform and we can only accept account holders who are at least 18 years of age. If this was a mistake, please check the box and try again.</p>
             <div className="blocker-actions">
               <button type="button" className="primary" onClick={() => setShowBlocker(false)}>Got it</button>
               <a href="mailto:support@staffva.com" className="ghost" style={{ padding: "10px 18px", display: "inline-flex", alignItems: "center", fontSize: "14px", fontWeight: 500, borderRadius: "999px", textDecoration: "none" }}>Contact support</a>

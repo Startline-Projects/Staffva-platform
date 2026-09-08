@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import { createClient } from "@/lib/supabase/client";
+import { useTurnstile } from "@/components/auth/Turnstile";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
 
@@ -21,6 +22,9 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [note, setNote] = useState("");
+  // Rendered only when a Turnstile site key is configured, so Supabase's
+  // project-wide captcha enforcement can include password resets.
+  const captcha = useTurnstile();
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -32,6 +36,12 @@ export default function ForgotPasswordPage() {
     e?.preventDefault();
     if (busy || cooldown > 0) return;
     if (!emailValid(email)) { setInvalid(true); return; }
+    // Solved token required when configured — unless the Cloudflare script
+    // failed to load; then the call proceeds tokenless and the server decides.
+    if (captcha.configured && !captcha.loadFailed && !captcha.tokenRef.current) {
+      setNote("Please complete the verification challenge below the form.");
+      return;
+    }
     setInvalid(false);
     setNote("");
     setBusy(true);
@@ -39,7 +49,10 @@ export default function ForgotPasswordPage() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin) + "/reset-password",
+        ...(captcha.tokenRef.current ? { captchaToken: captcha.tokenRef.current } : {}),
       });
+      // Tokens are single-use — the resend button reuses this same handler.
+      if (captcha.configured) captcha.reset();
       if (error) {
         setNote(
           error.status === 429
@@ -115,6 +128,7 @@ export default function ForgotPasswordPage() {
                     </div>
                   </div>
                   {note && <p className="state-fine-print" style={{ color: "var(--danger)" }}>{note}</p>}
+                  {captcha.configured && <div ref={captcha.containerRef} style={{ marginBottom: "16px" }} />}
                   <button type="submit" className={`btn-submit ${busy ? "loading" : ""}`} disabled={!email || busy || cooldown > 0}>
                     <span className="submit-label">{cooldown > 0 ? `Resend available in ${cooldownLabel}` : "Send reset link"}</span>
                     <span className="spinner" aria-hidden></span>
@@ -146,9 +160,17 @@ export default function ForgotPasswordPage() {
                       Resend available in <strong>{cooldownLabel}</strong>
                     </span>
                   ) : (
-                    <button type="button" className="state-action-btn" onClick={() => send()} disabled={busy}>
-                      Resend email
-                    </button>
+                    <>
+                      {/* The resend consumes a fresh token too, so the sent
+                          screen carries its own challenge once the cooldown
+                          clears. */}
+                      {captcha.configured && (
+                        <div ref={captcha.containerRef} style={{ margin: "0 auto 12px", display: "flex", justifyContent: "center" }} />
+                      )}
+                      <button type="button" className="state-action-btn" onClick={() => send()} disabled={busy}>
+                        Resend email
+                      </button>
+                    </>
                   )}
                 </div>
                 {note && <p className="state-fine-print" style={{ color: "var(--danger)" }}>{note}</p>}

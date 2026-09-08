@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import { createClient } from "@/lib/supabase/client";
+import { useTurnstile } from "@/components/auth/Turnstile";
 import "@/app/landing.css";
 import "@/app/atlas-auth.css";
 
@@ -66,6 +67,14 @@ function LoginContent() {
   const [otpBusy, setOtpBusy] = useState(false);
   const factorIdRef = useRef<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Cloudflare Turnstile — real vendor or no widget at all. Rendered on the
+  // password form whenever a site key is configured, so Supabase's
+  // project-wide captcha enforcement CAN be enabled (it rejects any
+  // sign-in without a token, not just repeated ones). The
+  // failed-attempt escalation stays what it already is: the honest
+  // lockout above, backed by real counters.
+  const captcha = useTurnstile();
 
   const verified = searchParams.get("verified");
   const authError = searchParams.get("error");
@@ -170,12 +179,27 @@ function LoginContent() {
     e.preventDefault();
     if (!email || !password || loading) return;
     setAlert(null);
+    // With a captcha configured, require a solved token — unless the
+    // Cloudflare script failed to load, in which case the call proceeds
+    // tokenless and the server decides.
+    if (captcha.configured && !captcha.loadFailed && !captcha.tokenRef.current) {
+      setAlert({ title: "One more thing.", body: "Please complete the verification challenge below the form." });
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        ...(captcha.tokenRef.current ? { options: { captchaToken: captcha.tokenRef.current } } : {}),
+      });
 
       if (signInError) {
+        // Turnstile tokens are single-use — this attempt consumed it, and
+        // the user stays on this form to retry. (Paths that leave the
+        // default state unmount the container, which cleans up on its own.)
+        if (captcha.configured) captcha.reset();
         const isRate = signInError.status === 429 || /rate limit/i.test(signInError.message);
         const nextAttempts = attempts + 1;
         setAttempts(nextAttempts);
@@ -227,6 +251,7 @@ function LoginContent() {
 
       await finishSignIn(data.user?.app_metadata?.role);
     } catch {
+      if (captcha.configured) captcha.reset();
       setAlert({ title: "Something went wrong on our side.", body: "Check your connection and try again." });
     } finally {
       setLoading(false);
@@ -412,6 +437,8 @@ function LoginContent() {
                     Forgot password?
                   </Link>
                 </div>
+
+                {captcha.configured && <div ref={captcha.containerRef} style={{ marginBottom: "16px" }} />}
 
                 <button type="submit" className={`btn-submit ${loading ? "loading" : ""}`} disabled={!canSubmit}>
                   <span className="submit-label">Sign in</span>

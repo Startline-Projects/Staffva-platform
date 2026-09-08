@@ -526,60 +526,15 @@ export async function POST(request: Request) {
       break;
     }
 
+    // The customer.subscription.* branch is gone with the rest of the retired
+    // $99/mo messaging subscription (client vertical step 1): checkout had no
+    // callers, the columns it wrote were dropped in migration 00219, and no
+    // client ever had a subscription. Unhandled events fall through harmlessly.
+
     // ---- Stripe Connect — account updated ----
     // Fires when a connected Express account's details change.
     // Requires this webhook endpoint to be configured for "Connect events"
     // in the Stripe Dashboard (same signing secret is used).
-
-    // ---- Client subscriptions ----
-    // Without these the paid-messaging gate could never open: nothing ever set
-    // clients.subscription_status, so every client failed the `=== "active"`
-    // check even after paying.
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object as Stripe.Subscription;
-
-      // Stripe marks the row canceled on deletion regardless of the status it
-      // reports; otherwise mirror Stripe's own status (active, trialing,
-      // past_due, unpaid, incomplete, ...).
-      const status =
-        event.type === "customer.subscription.deleted"
-          ? "canceled"
-          : subscription.status;
-
-      const periodEnd = (subscription as unknown as { current_period_end?: number })
-        .current_period_end;
-
-      const update: Record<string, unknown> = {
-        subscription_status: status,
-        stripe_subscription_id: subscription.id,
-        subscription_current_period_end: periodEnd
-          ? new Date(periodEnd * 1000).toISOString()
-          : null,
-      };
-
-      // Prefer the id we set in subscription_data.metadata at checkout; fall
-      // back to the customer id we already store on the client row.
-      const supabaseUserId = subscription.metadata?.supabase_user_id;
-      const customerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer?.id;
-
-      if (supabaseUserId) {
-        await supabase.from("clients").update(update).eq("user_id", supabaseUserId);
-      } else if (customerId) {
-        await supabase.from("clients").update(update).eq("stripe_customer_id", customerId);
-      } else {
-        console.error(
-          `[stripe webhook] ${event.type} ${subscription.id} — no supabase_user_id metadata and no customer id; cannot map to a client`
-        );
-      }
-
-      break;
-    }
-
     case "account.updated": {
       const account = event.data.object as Stripe.Account;
       const connectedAccountId = account.id;

@@ -168,6 +168,10 @@ export interface Client {
   email: string;
   company_name: string | null;
   stripe_customer_id: string | null;
+  /** Signup "hiring for" chips (browse pill labels + "Other"); 00219. */
+  hiring_for: string[] | null;
+  /** Signup "how did you hear about us" enum; 00219. */
+  referral_source: string | null;
 }
 
 export interface Engagement {
