@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { cookieDomainForHost } from "./cookieDomain";
+import { migrateSessionCookieScope } from "./cookieMigration";
+import { routeByHost } from "@/lib/englishTestHost";
 
 // Routes that require authentication.
 // "/verify" is the client twin of "/verify-id" and belongs here for the same
@@ -20,12 +23,35 @@ function dashboardForRole(role: string | undefined): string | null {
 }
 
 export async function updateSession(request: NextRequest) {
+  // Every response leaves through here so the one-time cookie-scope migration
+  // cannot be missed. It matters most on the paths that redirect: a candidate
+  // owing a second factor is redirected on every single request, so attaching
+  // the migration only to the pass-through response would leave exactly the
+  // people mid-sign-in stranded on host-only cookies for ever.
+  const finish = (res: NextResponse): NextResponse => {
+    migrateSessionCookieScope(request, res);
+    return res;
+  };
+
+  // Host routing runs FIRST. A request that is going to be redirected to
+  // another host should not pay for a getUser() round trip, and the
+  // assessment host's root rewrite has to happen before the route guards
+  // below reason about the pathname.
+  const hostRouted = routeByHost(request);
+  if (hostRouted) return hostRouted;
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Sessions are shared across staffva.com and its subdomains so the
+      // assessment host sees a signed-in, MFA-satisfied candidate. All three
+      // Supabase clients (browser, server, this one) must write the same
+      // scope, or a refresh in one of them creates a same-named cookie at a
+      // narrower scope that shadows the real session.
+      cookieOptions: { domain: cookieDomainForHost(request.headers.get("host")) },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -70,7 +96,7 @@ export async function updateSession(request: NextRequest) {
       // the OTP detour or the Stripe return lands on a page that never polls.
       url.searchParams.set("next", pathname + request.nextUrl.search);
     }
-    return NextResponse.redirect(url);
+    return finish(NextResponse.redirect(url));
   }
 
   // Redirect unauthenticated users away from protected routes
@@ -78,7 +104,7 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname + request.nextUrl.search);
-    return NextResponse.redirect(url);
+    return finish(NextResponse.redirect(url));
   }
 
   // Redirect authenticated users away from auth pages and the landing page —
@@ -90,7 +116,7 @@ export async function updateSession(request: NextRequest) {
     if (dest) {
       const url = request.nextUrl.clone();
       url.pathname = dest;
-      return NextResponse.redirect(url);
+      return finish(NextResponse.redirect(url));
     }
   }
 
@@ -121,10 +147,10 @@ export async function updateSession(request: NextRequest) {
       ) {
         const url = request.nextUrl.clone();
         url.pathname = "/apply/us-experience";
-        return NextResponse.redirect(url);
+        return finish(NextResponse.redirect(url));
       }
     }
   }
 
-  return supabaseResponse;
+  return finish(supabaseResponse);
 }

@@ -72,10 +72,22 @@ async function toClientQuestion(
     max_words: q.max_words ?? null,
   };
   if (q.section === "listening" && q.audio_url) {
-    const { data: signed } = await supabase.storage
+    const { data: signed, error: signErr } = await supabase.storage
       .from(RECORDINGS_BUCKET)
       .createSignedUrl(q.audio_url, AUDIO_URL_TTL_SECONDS);
     base.audio = signed?.signedUrl ?? null;
+    // A failed mint used to end here, as a silent null. The client renders
+    // the <audio> element only when a URL is present, so with null there is
+    // no element, no onError, and therefore no way for the candidate to
+    // report a failure they were never shown — while the play button stays
+    // enabled and the meter still promises "Plays left · 2". Grading then
+    // scores the part 0 and that zero counts in the denominator.
+    //
+    // The caller decides what to do (drop the item when dealing, flag the
+    // attempt when resuming); this just refuses to lose the fact.
+    if (signErr || !base.audio) {
+      base.audioMintFailed = true;
+    }
   }
   return base;
 }
@@ -223,6 +235,29 @@ export async function POST(request: Request) {
         served.map((s) => toClientQuestion(supabase, byId.get(s.qid)!, s))
       );
 
+      // Resuming and the prompt audio would not mint. The item is already in
+      // this attempt so it cannot be dropped — record it where GRADING can
+      // see it, on the attempt's server_flags. Not in open_answers.flags: the
+      // client overwrites that wholesale on submit, so a server note written
+      // there would be gone by the time it mattered.
+      const failedAudio = questions.filter((q) => q.audioMintFailed);
+      if (failedAudio.length > 0) {
+        const flags: Record<string, string> = {};
+        for (const q of failedAudio) flags[q.id as string] = "audio_failed";
+        await supabase
+          .from("test_attempts")
+          .update({ server_flags: { audio_failed: flags } })
+          .eq("id", openAttempt.id);
+        await supabase.from("vendor_failures").insert({
+          app: "platform",
+          vendor: "supabase_storage",
+          operation: "listening.signedUrl",
+          fatal: false,
+          message: `Could not mint listening prompt audio on resume of attempt ${openAttempt.id}; part excluded from scoring.`,
+          context: { attempt_id: openAttempt.id, candidate_id: candidateId },
+        });
+      }
+
       let passageText: string | null = null;
       if (openAttempt.passage_id) {
         const { data: p } = await supabase
@@ -338,7 +373,30 @@ export async function POST(request: Request) {
       supabase.from("english_test_questions").select(OPEN_COLUMNS).eq("section", "speaking").eq("active", true),
     ]);
     for (const picked of [pickRandom(readRows as QuestionRow[]), pickRandom(listenRows as QuestionRow[]), pickRandom(speakRows as QuestionRow[])]) {
-      if (picked) openRows.push(picked);
+      if (!picked) continue;
+      // Prove the listening audio can actually be delivered BEFORE committing
+      // the item to the attempt. An item dealt with a dead URL is an
+      // automatic zero the candidate cannot see coming, cannot report, and
+      // did nothing to earn. Not dealing it costs them nothing: the composite
+      // renormalizes over the parts that actually ran, exactly as it does
+      // when the vendor gate turns the section off.
+      if (picked.section === "listening" && picked.audio_url) {
+        const { data: probe, error: probeErr } = await supabase.storage
+          .from(RECORDINGS_BUCKET)
+          .createSignedUrl(picked.audio_url, AUDIO_URL_TTL_SECONDS);
+        if (probeErr || !probe?.signedUrl) {
+          await supabase.from("vendor_failures").insert({
+            app: "platform",
+            vendor: "supabase_storage",
+            operation: "listening.signedUrl",
+            fatal: false,
+            message: `Could not mint prompt audio for listening question ${picked.id}; item not dealt. ${probeErr?.message ?? "no url returned"}`,
+            context: { question_id: picked.id, candidate_id: candidateId },
+          });
+          continue;
+        }
+      }
+      openRows.push(picked);
     }
   }
   if (caps.writing) {

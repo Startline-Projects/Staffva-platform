@@ -8,6 +8,7 @@ import AtlasLiveHome, { type ActivityItem } from "@/components/candidate/portal/
 import EnglishResults from "@/components/candidate/portal/EnglishResults";
 import ViewInterviewResultsButton from "@/app/candidate/(portal)/dashboard/ViewInterviewResultsButton";
 import OptionalAssessments from "@/app/candidate/(portal)/dashboard/OptionalAssessments";
+import { englishTestUrl } from "@/lib/englishTestHost";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import { loadMyReviewState, openReviews } from "@/lib/reviewState";
@@ -212,15 +213,13 @@ export default async function CandidateDashboardPage() {
     // skills interview (paid). The interview app enforces that order, so the
     // card has to respect it — offering the $5 sitting to someone who has not
     // cleared Interview 1 sells a door that will not open.
-    const { count: skillsHistory } = await admin
-      .from("ai_interviews")
-      .select("*", { count: "exact", head: true })
-      .eq("candidate_id", live.id)
-      .eq("kind", "skills");
+    //
+    // Reuses hasSkillsHistory from above rather than re-counting: two reads of
+    // the same fact can disagree, and this one decides whether we take money.
     const needsInterview1 =
       candidate.interview1_passed !== true &&
       live.ai_interview_passed !== true &&
-      (skillsHistory ?? 0) === 0;
+      !hasSkillsHistory;
 
     // ── Atlas home data: stats + recent activity, one round of queries ──
     // Server component: "now" is request time by design. The purity rule is
@@ -545,7 +544,7 @@ export default async function CandidateDashboardPage() {
         ? "Grammar, reading, speaking and writing on one 24:30 clock, camera-proctored throughout — the room scan and monitoring run for the whole session."
         : "Grammar and reading comprehension on a 15-minute clock, camera-proctored throughout — the room scan and monitoring run for the whole session.",
       cta: candidate ? "Start the assessment" : "Start your application",
-      href: candidate ? "/assessment" : "/apply",
+      href: candidate ? englishTestUrl() : "/apply",
       minutes: assessmentFull ? "~25 min" : "~15 min",
       tips: ["You need a working camera, a microphone and a quiet room.", "Leaving fullscreen or switching tabs is flagged — close everything else first."],
     },

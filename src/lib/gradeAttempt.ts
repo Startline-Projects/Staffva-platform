@@ -73,7 +73,7 @@ export async function gradeAttempt(
     .or(
       `status.in.(submitted,grading_failed),and(status.eq.grading,grading_started_at.lt.${leaseCutoff})`
     )
-    .select("id, questions, open_answers, recordings, expires_at, submitted_at, created_at")
+    .select("id, questions, open_answers, recordings, expires_at, submitted_at, created_at, server_flags")
     .maybeSingle();
 
   if (!attempt) {
@@ -157,6 +157,9 @@ export async function gradeAttempt(
     };
     const recordings = (attempt.recordings || {}) as Record<string, string>;
     const flags = openAnswers.flags || {};
+    // Written by the deal/resume route, on a column the client cannot reach.
+    const serverAudioFailed =
+      ((attempt.server_flags as { audio_failed?: Record<string, string> } | null)?.audio_failed) || {};
 
     const { data: questions } = await supabase
       .from("english_test_questions")
@@ -240,6 +243,22 @@ export async function gradeAttempt(
       // it's only honored when no recording was submitted either — you
       // can't answer the question AND claim you never heard it.
       const path = recordings[s.eph];
+      // Two ways a listening prompt can be unplayable, and only one of them
+      // the candidate can tell us about. serverFlags is set by the deal/resume
+      // route when OUR signed-URL mint failed — in that case the client never
+      // rendered an <audio> element at all, so its onError could not fire and
+      // the candidate had no control to report anything with. Honouring only
+      // the candidate-reported flag scored those sittings 0.
+      //
+      // The server flag deliberately does NOT require `!path`: the candidate
+      // could not have recorded an answer to a prompt that never played, and
+      // requiring an absent recording would just re-close the hole.
+      if (q.section === "listening" && serverAudioFailed[s.eph] === "audio_failed") {
+        partScores.listening = null;
+        partNotes.listening =
+          "The prompt audio could not be delivered; part excluded from scoring.";
+        continue;
+      }
       if (q.section === "listening" && flags[s.eph] === "audio_failed" && !path) {
         partScores.listening = null;
         partNotes.listening =

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { priceLabel, type AssessmentKind } from "@/lib/assessmentPurchase";
+import { englishTestUrl } from "@/lib/englishTestHost";
 
 /**
  * The door to the optional assessments — and, now, the till.
@@ -242,9 +243,12 @@ export default function OptionalAssessments({
               </>
             ) : paidEnglish ? (
               <>
-                <Link href="/assessment" className="current-step-cta">
+                {/* The assessment lives on its own host now. A plain
+                    <Link> would client-side navigate and never leave
+                    staffva.com, so this is a real anchor. */}
+                <a href={englishTestUrl()} className="current-step-cta">
                   <span>Start your English assessment</span>
-                </Link>
+                </a>
                 <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-mute)" }}>
                   Paid — this is yours to take whenever you&apos;re ready.
                 </p>
