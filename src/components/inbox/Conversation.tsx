@@ -133,7 +133,7 @@ export default function Conversation({
             {/* Was "Subscription lapsed — Resubscribe to reply." No client
                 ever had a subscription; it is fully retired as of the client
                 vertical's step 1 — checkout route deleted, columns dropped
-                (00232). Nothing lapsed and there is nothing to resubscribe
+                (`client_signup_capture`). Nothing lapsed and there is nothing to resubscribe
                 to. */}
             Replying isn&apos;t available on this account yet.
           </p>

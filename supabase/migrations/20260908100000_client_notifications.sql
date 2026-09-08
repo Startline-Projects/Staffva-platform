@@ -1,4 +1,4 @@
--- 00230 — in-app notifications for clients (client vertical step 3).
+-- 20260908100000_client_notifications — in-app notifications for clients (client vertical step 3).
 --
 -- The client side has had no in-app notification of any kind. Every event
 -- that happens TO a client — a candidate counters their offer, accepts it,

@@ -15,7 +15,7 @@ import { maskContact } from "@/lib/contactMask";
  * step 17 — and the page says nothing else.
  *
  * ONE OF THOSE CHANGED: client identity verification now exists
- * (clients.id_verification_status, migration 00231 — client step 4). A
+ * (clients.id_verification_status, migration `client_verification` — client step 4). A
  * "Verified client" pill is therefore backed for the first time, but it is
  * NOT surfaced here yet, because most clients are unverified by design:
  * verification gates escrow funding only, so a candidate reading "not

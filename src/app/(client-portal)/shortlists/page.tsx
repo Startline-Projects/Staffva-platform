@@ -38,10 +38,10 @@ export default async function ShortlistsPage() {
     .maybeSingle();
   if (!client) redirect("/team");
 
-  // Migration 00233 creates these tables. Until it is applied the reads fail,
+  // Migration `client_shortlists` creates these tables. Until it is applied the reads fail,
   // and a 500 here would be a rail row that leads to a crash — so it degrades
   // to a plain "not available yet" instead, the same position /verify takes
-  // about 00231.
+  // about `client_verification`.
   const { data: listRows, error: listErr } = await admin
     .from("client_shortlists")
     .select("id, name, is_default, created_at, client_shortlist_members(candidate_id, added_at)")

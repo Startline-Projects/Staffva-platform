@@ -102,6 +102,53 @@ await requireRole("admin");             // throws redirect if wrong role
 
 All types live in `src/lib/types/database.ts`.
 
+### Migration naming — READ THIS BEFORE ADDING ONE
+
+**New migrations take a UTC timestamp prefix, never the next integer:**
+
+```
+20260908100300_client_shortlists.sql        ✅
+00234_client_shortlists.sql                 ❌
+```
+
+Get the prefix from `date -u +%Y%m%d%H%M%S`. Because `"0" < "2"`, every
+timestamped file sorts after every legacy `000NN` one, so the existing apply
+order is preserved and you never have to reason about it.
+
+Why: more than one agent works this repo at once, and the sequential scheme
+made them collide constantly — `00220`, `00221`, `00222`, `00223` and `00224`
+each ended up with two different files, because both sessions derived "the
+next number" from the same `ls`. Duplicate version prefixes leave the apply
+order undefined. Timestamps make a collision require two authors in the same
+second.
+
+**Do not renumber the legacy `000NN` files.** Several are already applied, and
+Supabase tracks applied migrations by version string — renaming an applied one
+makes the CLI treat it as new and re-run it.
+
+**Refer to a migration by NAME in code comments**, not by number:
+
+```ts
+// The verification columns arrive in migration `client_verification`.   ✅
+// The verification columns arrive in migration 00231.                   ❌
+```
+
+A number in a comment goes stale the moment anything is renumbered; the name
+does not.
+
+### Working alongside another agent in this repo
+
+Two Claude sessions frequently run here at once. Three rules:
+
+1. **Never `git add -A` or `git add -u`.** Stage explicit paths. A blanket add
+   sweeps the other session's in-progress files into your commit — this has
+   already happened four times.
+2. **Check `git log --oneline -1` before committing.** HEAD moves under you.
+3. **Prefer a worktree** for any multi-step piece of work:
+   `git worktree add ../staffva-<lane> -b feature/<lane>`. Separate directory,
+   separate index — the other session's files become invisible to your `git
+   add`, and its `git push` cannot carry your commits to `origin/main`.
+
 ### Core Tables
 
 | Table | Purpose |

@@ -10,7 +10,7 @@ function getAdminClient() {
 }
 
 /**
- * Named shortlists (client step 8, migration 00233).
+ * Named shortlists (client step 8, migration `client_shortlists`).
  *
  * GET    — the client's lists with member counts. `?candidateId=` adds a
  *          per-list `contains` flag; `?withMembers=1` returns the whole

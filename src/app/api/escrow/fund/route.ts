@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     // Verify engagement belongs to this client. The gate columns are read
     // SEPARATELY, on purpose: naming them in this embed means that before
-    // migration 00231 lands PostgREST answers 42703, `data` comes back null,
+    // migration `client_verification` lands PostgREST answers 42703, `data` comes back null,
     // and every funding attempt reports "Engagement not found" — a total
     // outage wearing a false diagnosis. Review caught it.
     const { data: engagement } = await admin

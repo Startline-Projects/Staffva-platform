@@ -202,7 +202,7 @@ export const CLIENT_COVERAGE_GAPS: readonly { event: string; where: string; step
   {
     event: "A candidate's review of the client was revealed",
     where: "src/app/api/reviews/route.ts",
-    step: "'review' is not even a valid client_notifications category yet (00230) — adding it " +
+    step: "'review' is not even a valid client_notifications category yet (`client_notifications`) — adding it " +
       "is part of the reviews surface work.",
   },
 ];

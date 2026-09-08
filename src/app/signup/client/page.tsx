@@ -196,7 +196,7 @@ export default function ClientSignupPage() {
     // The capture fields ride in the signUp metadata because the DB's
     // handle_new_user trigger — not this page's later ensure-profile call —
     // is what actually creates the profiles/clients rows (00205), and it
-    // persists the capture atomically (00232). ensure-profile is the belt.
+    // persists the capture atomically (`client_signup_capture`). ensure-profile is the belt.
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,

@@ -60,7 +60,7 @@ interface DashboardData {
     suggestions: Suggestion[];
     suggestionsAreTargeted: boolean;
     // `saved` is null when the shortlist tables could not be read (migration
-    // 00233 not yet applied) — a different thing from having saved nobody.
+    // `client_shortlists` not yet applied) — a different thing from having saved nobody.
     activity: { saved: number | null; conversations: number; upcomingInterviews: number; jobPosts: number };
   };
 }
