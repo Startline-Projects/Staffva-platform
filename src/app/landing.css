@@ -3774,10 +3774,18 @@
 /* ── Profile sub-nav (client step 7) ── */
 .lp .profile-subnav{
   position: sticky;
-  top: 0;
+  /* Below the site header, which is itself sticky at top:0 and 78px tall
+     with z-index 100 — parked at 0 this nav slid underneath it and was
+     invisible for the whole scroll. */
+  top: 78px;
   z-index: 20;
   background: var(--paper);
   border-bottom: 1px solid var(--line);
+}
+@media (max-width: 900px){
+  /* The header stops being sticky on narrow screens (landing.css ~1581), so
+     the sub-nav takes the top itself. */
+  .lp .profile-subnav{ top: 0; }
 }
 .lp .profile-subnav-inner{
   display: flex;
@@ -3805,8 +3813,12 @@
   font-size: 10px;
   opacity: .5;
 }
-/* Anchored headings must clear the sticky nav. */
-.lp .profile-main section[id]{ scroll-margin-top: 62px; }
+/* Anchored headings must clear BOTH sticky bars: 78px of site header plus
+   the 49px sub-nav, with a little air. */
+.lp .profile-main section[id]{ scroll-margin-top: 140px; }
+@media (max-width: 900px){
+  .lp .profile-main section[id]{ scroll-margin-top: 62px; }
+}
 
 .lp .sticky-footer-actions .sticky-secondary{
   background: transparent;

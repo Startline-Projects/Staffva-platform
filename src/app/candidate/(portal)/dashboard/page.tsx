@@ -5,6 +5,8 @@ import { getUser } from "@/lib/auth";
 import Asti, { AstiPointChip, AstiProgressRing } from "@/components/landing/Asti";
 import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
 import AtlasLiveHome, { type ActivityItem } from "@/components/candidate/portal/AtlasLiveHome";
+import EnglishResults from "@/components/candidate/portal/EnglishResults";
+import ViewInterviewResultsButton from "@/app/candidate/(portal)/dashboard/ViewInterviewResultsButton";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import { loadMyReviewState, openReviews } from "@/lib/reviewState";
@@ -76,6 +78,22 @@ export default async function CandidateDashboardPage() {
       .limit(1)
       .maybeSingle();
     englishParts = (lastAttempt?.part_scores as Record<string, number | null>) || null;
+  }
+
+  // The candidate's most recent SCORED interview, so the dashboard can offer
+  // a durable door to its feedback. Kind-blind on purpose: a behavioural
+  // round's feedback is just as much theirs to read as a skills round's.
+  let latestInterview: { id: string; kind: string; passed: boolean | null; overall_score: number | null } | null = null;
+  if (candidate) {
+    const { data: iv } = await admin
+      .from("ai_interviews")
+      .select("id, kind, passed, overall_score")
+      .eq("candidate_id", candidate.id)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    latestInterview = iv ?? null;
   }
 
   // Pre-split skills history — the grandfather signal, read exactly as the
@@ -322,7 +340,6 @@ export default async function CandidateDashboardPage() {
   // review or going live inside the window, so it's tracked as its own
   // node but the "current step" pointer skips it (the grace card below the
   // step card owns that conversation).
-  const assessmentsDone = englishDone && interview2Done;
   const idDueAt = candidate?.id_verification_due_at ? new Date(candidate.id_verification_due_at) : null;
   const idOverdue = !idDone && !!idDueAt && idDueAt.getTime() < now;
   const idDaysLeft = idDueAt ? Math.max(0, Math.ceil((idDueAt.getTime() - now) / 86400000)) : null;
@@ -706,49 +723,6 @@ export default async function CandidateDashboardPage() {
                     </span>
                   </span>
                 </div>
-                {englishParts && (
-                  <div className="feedback-block">
-                    <span className="feedback-block-label">Your last attempt</span>
-                    <h4>Where you landed</h4>
-                    <div className="score-row">
-                      {(
-                        [
-                          ["grammar", "Grammar"],
-                          ["comprehension", "Comprehension"],
-                          ["read_aloud", "Read-aloud"],
-                          ["listening", "Listening"],
-                          ["speaking", "Speaking"],
-                          ["writing", "Writing"],
-                        ] as const
-                      )
-                        .filter(([key]) => typeof englishParts![key] === "number")
-                        .map(([key, label]) => {
-                          const v = englishParts![key] as number;
-                          return (
-                            <span className="score-item" key={key}>
-                              <span className={`score-n${v >= 75 ? " strong" : v < 60 ? " weak" : ""}`}>{v}</span>
-                              <span className="score-lbl">{label}</span>
-                            </span>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-                <div className="resource-links">
-                  {[
-                    { title: "BBC Learning English", meta: "Lessons · Free", href: "https://www.bbc.co.uk/learningenglish" },
-                    { title: "Duolingo", meta: "App · Free", href: "https://www.duolingo.com" },
-                    { title: "ELSA Speak", meta: "Pronunciation · Freemium", href: "https://elsaspeak.com" },
-                  ].map((r) => (
-                    <a key={r.title} className="resource-link" href={r.href} target="_blank" rel="noopener noreferrer">
-                      <span className="resource-link-icon" aria-hidden>
-                        ↗
-                      </span>
-                      <span className="resource-link-title">{r.title}</span>
-                      <span className="resource-link-meta">{r.meta}</span>
-                    </a>
-                  ))}
-                </div>
               </>
             )}
             <div className="current-step-actions">
@@ -826,8 +800,39 @@ export default async function CandidateDashboardPage() {
           </div>
         </section>
 
-        {/* ── ID verification window ── */}
-        {assessmentsDone && !idDone && !terminal && candidate?.id_verification_status !== "manual_review" && (
+        {/* Everyone who has sat the assessment sees their result — not just
+            people mid-cooldown, which is where these numbers used to live. */}
+        <EnglishResults parts={englishParts} />
+
+        {/* The interview feedback page exists and is good; it simply had no
+            link. Reachable now from the account rather than from a 24-hour
+            token in a URL nobody kept. */}
+        {latestInterview && (
+          <section className="panel-card" style={{ marginTop: 18 }} aria-labelledby="ivResultTitle">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <h3 id="ivResultTitle" style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
+                Your {latestInterview.kind === "behavioral" ? "behavioural" : "skills"} interview
+              </h3>
+              {typeof latestInterview.overall_score === "number" && (
+                <span className="current-step-meta-chip">Scored {latestInterview.overall_score} / 100</span>
+              )}
+            </div>
+            <p style={{ marginTop: 8, fontSize: 13.5, color: "var(--ink-mute)" }}>
+              Five scored dimensions with feedback on each, what you did well,
+              and what to work on next.
+            </p>
+            <div style={{ marginTop: 12 }}>
+              <ViewInterviewResultsButton interviewId={latestInterview.id} />
+            </div>
+          </section>
+        )}
+
+        {/* ── ID verification window ──
+            Was gated on assessmentsDone. Since 00221 the 14-day clock starts
+            at GO-LIVE rather than at passing assessments, so that condition
+            would hide this card from exactly the candidates who now have a
+            deadline. Gate on the deadline itself. */}
+        {idDueAt && !idDone && !terminal && candidate?.id_verification_status !== "manual_review" && (
           <section className={`current-step-card active`} aria-label="Identity verification window">
             <div className="current-step-body">
               <div className="current-step-header">
