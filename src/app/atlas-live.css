@@ -2551,3 +2551,164 @@
    colour rule did. */
 .lp-dash .cd-engagement-status.st-paused { background: var(--cream-deep); color: var(--ink-mute); }
 .lp-dash .cd-engagement-status.st-payment_failed { background: rgba(194, 74, 26, 0.14); color: var(--danger); }
+
+/* ── My Shortlists (client step 8) ──────────────────────────────────────── */
+.lp-dash .sl-title { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--ink); }
+.lp-dash .sl-lead { font-size: 13.5px; color: var(--ink-mute); margin: 6px 0 20px; }
+.lp-dash .sl-error {
+  font-size: 13px;
+  color: var(--danger);
+  background: rgba(194, 65, 43, .08);
+  border: 1px solid rgba(194, 65, 43, .25);
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  margin-bottom: 16px;
+}
+.lp-dash .sl-newlist { display: flex; gap: 8px; margin-bottom: 24px; max-width: 380px; }
+.lp-dash .sl-newlist input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  color: var(--ink);
+}
+.lp-dash .sl-newlist .btn { font-size: 13px; padding: 8px 14px; white-space: nowrap; }
+
+.lp-dash .sl-empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 13.5px;
+}
+.lp-dash .sl-empty .btn { margin-top: 14px; }
+
+.lp-dash .sl-list { margin-bottom: 28px; }
+.lp-dash .sl-list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.lp-dash .sl-list-head h2 { font-size: 16px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.lp-dash .sl-default {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--ink-mute);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.lp-dash .sl-list-count { font-size: 12.5px; color: var(--ink-mute); margin-right: auto; }
+.lp-dash .sl-list-del {
+  font-size: 12px;
+  color: var(--ink-mute);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.lp-dash .sl-list-del:hover { color: var(--danger); border-color: var(--danger); }
+.lp-dash .sl-list-del:disabled { opacity: .5; cursor: default; }
+.lp-dash .sl-list-empty { font-size: 13px; color: var(--ink-mute); margin: 0 0 8px; }
+
+.lp-dash .sl-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.lp-dash .sl-person {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px;
+}
+.lp-dash .sl-person:hover { border-color: var(--ink-mute); }
+/* A withdrawn candidate stays legible but stops looking clickable — the row
+   is a record of who was saved, not an offer to hire them. */
+.lp-dash .sl-person.gone { background: var(--cream); }
+.lp-dash .sl-avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 50%;
+  background: var(--cream-deep) center / cover no-repeat;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-mute);
+}
+.lp-dash .sl-person-main { flex: 1; min-width: 0; }
+.lp-dash .sl-person-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.lp-dash .sl-person-role { font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-dash .sl-person-meta { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+.lp-dash .sl-person-avail { font-size: 11.5px; color: var(--ink-mute); margin-top: 4px; }
+.lp-dash .sl-person-gone { font-size: 11.5px; color: var(--danger); margin-top: 4px; }
+.lp-dash .sl-person-actions { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+.lp-dash .sl-person-view {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.lp-dash .sl-person-view:hover { background: var(--ink); color: var(--paper); }
+.lp-dash .sl-person-remove {
+  font-size: 12px;
+  color: var(--ink-mute);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.lp-dash .sl-person-remove:hover { color: var(--danger); }
+.lp-dash .sl-person-remove:disabled { opacity: .5; cursor: default; }
+
+.lp-dash .sl-section {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 34px 0 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.lp-dash .sl-searches { display: flex; flex-direction: column; gap: 10px; }
+.lp-dash .sl-search {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+}
+.lp-dash .sl-search-main { flex: 1; min-width: 220px; }
+.lp-dash .sl-search-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.lp-dash .sl-search-name:hover { text-decoration: underline; }
+.lp-dash .sl-search-sum { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+.lp-dash .sl-search-count { font-size: 12px; color: var(--ink-mute); margin-top: 5px; font-family: var(--font-mono); }
+.lp-dash .sl-search-unknown { font-style: italic; }
+.lp-dash .sl-search-new {
+  margin-left: 8px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--lime);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.lp-dash .sl-search-actions { display: flex; align-items: center; gap: 12px; }
+.lp-dash .sl-search-freq { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-mute); }
+.lp-dash .sl-search-freq select {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--ink);
+}

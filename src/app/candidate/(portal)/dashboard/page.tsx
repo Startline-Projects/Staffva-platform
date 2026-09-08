@@ -7,6 +7,7 @@ import LegacyDashboard from "@/app/(main)/candidate/dashboard/LegacyDashboard";
 import AtlasLiveHome, { type ActivityItem } from "@/components/candidate/portal/AtlasLiveHome";
 import EnglishResults from "@/components/candidate/portal/EnglishResults";
 import ViewInterviewResultsButton from "@/app/candidate/(portal)/dashboard/ViewInterviewResultsButton";
+import OptionalAssessments from "@/app/candidate/(portal)/dashboard/OptionalAssessments";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
 import { loadMyReviewState, openReviews } from "@/lib/reviewState";
@@ -56,7 +57,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -90,6 +91,10 @@ export default async function CandidateDashboardPage() {
       .select("id, kind, passed, overall_score")
       .eq("candidate_id", candidate.id)
       .eq("status", "completed")
+      // Only an interview that actually produced a scorecard: a
+      // completed-but-unscored row would get a card promising "five scored
+      // dimensions" and a results page that has none.
+      .not("overall_score", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -272,6 +277,41 @@ export default async function CandidateDashboardPage() {
             payout setup (with its focus-refetch), video intro, completeness,
             reputation. The #payouts anchor lives on the payout card itself,
             inside LegacyDashboard. */}
+        {/* Assessment feedback lives here too — approved candidates ARE the
+            population that now takes the optional assessments, so mounting
+            these only on the pre-approval dashboard put them in front of
+            nobody. Both no-op when there is nothing to show. */}
+        <EnglishResults parts={englishParts} />
+        {latestInterview && (
+          <section className="panel-card" style={{ marginTop: 18 }} aria-labelledby="ivResultTitleLive">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <h3 id="ivResultTitleLive" style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>
+                Your {latestInterview.kind === "behavioral" ? "behavioural" : "skills"} interview
+              </h3>
+              {typeof latestInterview.overall_score === "number" && (
+                <span className="current-step-meta-chip">Scored {latestInterview.overall_score} / 100</span>
+              )}
+            </div>
+            <p style={{ marginTop: 8, fontSize: 13.5, color: "var(--ink-mute)" }}>
+              Five scored dimensions with feedback on each, what you did well,
+              and what to work on next.
+            </p>
+            <div style={{ marginTop: 12 }}>
+              <ViewInterviewResultsButton interviewId={latestInterview.id} />
+            </div>
+          </section>
+        )}
+
+        {/* ── #6: the optional assessments need a door. Marking them optional
+            removed every CTA that led to them, so the model had no entry
+            point at all for a live candidate. ── */}
+        <OptionalAssessments
+          hasEnglish={candidate.english_mc_score !== null}
+          hasInterview={!!latestInterview}
+          englishLocked={!!candidate.retake_available_at && new Date(candidate.retake_available_at) > new Date()}
+          englishExhausted={candidate.english_attempts_exhausted === true}
+        />
+
         <LegacyDashboard variant="live" />
       </>
     );
@@ -294,7 +334,11 @@ export default async function CandidateDashboardPage() {
   // must describe the test the candidate will actually get.
   const assessmentFull = !!process.env.ANTHROPIC_API_KEY;
   const idDone = candidate?.id_verification_status === "passed";
-  const englishDone = (candidate?.english_mc_score ?? 0) >= 70 && (candidate?.english_comprehension_score ?? 0) >= 70;
+  // Done = you SAT it. A pass line made sense when English gated approval;
+  // now that it is optional, scoring 65 is a result to act on, not an
+  // unfinished step to nag about. The tier carries the quality signal.
+  const englishDone = candidate?.english_mc_score !== null && candidate?.english_mc_score !== undefined;
+
   // The two interviews are separate now (step 9). Interview 1 is
   // behavioral, Interview 2 is the skills exam whose verdict every
   // downstream gate still reads as ai_interview_passed.
@@ -359,7 +403,7 @@ export default async function CandidateDashboardPage() {
       xp: 100,
       state: englishDone ? "completed" : "upcoming",
       optional: true,
-      detail: englishDone ? undefined : "Optional — earns the Vetted badge and moves you up in client search",
+      detail: englishDone ? undefined : "Optional — puts an English tier on your profile that clients can filter and sort by",
     },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
@@ -407,9 +451,13 @@ export default async function CandidateDashboardPage() {
     if (firstOpen) firstOpen.state = "current";
   }
   const currentNode = nodes.find((n) => n.state === "current") || nodes[nodes.length - 1];
-  const completedCount = nodes.filter((n) => n.state === "completed").length;
-  const waivedCount = nodes.filter((n) => n.state === "waived").length;
-  const requiredTotal = nodes.length;
+  // Optional steps are not part of "how far through am I" — counting them
+  // made the tracker say "Step 4 of 10" when three of those ten are things
+  // the candidate never has to do.
+  const requiredNodes = nodes.filter((n) => !n.optional);
+  const requiredTotal = requiredNodes.length;
+  const completedCount = requiredNodes.filter((n) => n.state === "completed").length;
+  const waivedCount = requiredNodes.filter((n) => n.state === "waived").length;
   const xp = 25 /* account created */ + nodes.filter((n) => n.state === "completed").reduce((s, n) => s + n.xp, 0);
 
   // Per-node presentation for the current-step card.
@@ -596,7 +644,7 @@ export default async function CandidateDashboardPage() {
   // closed" must not be followed by "Your next attempt opens…".
   const englishLockoutOverride =
     englishLocked && currentNode.id === "english" && !!lockedUntil && !terminal && !actionRequired;
-  const currentIndex = nodes.findIndex((n) => n.id === currentNode.id);
+  const currentIndex = requiredNodes.findIndex((n) => n.id === currentNode.id);
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming" && !n.optional).slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
     whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",

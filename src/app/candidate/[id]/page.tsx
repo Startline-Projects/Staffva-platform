@@ -4,6 +4,7 @@ import { generateInterviewToken } from "@/lib/interviewToken";
 import Link from "next/link";
 import NotifyButton from "@/components/browse/NotifyButton";
 import ProfileSubNav from "@/components/candidate/ProfileSubNav";
+import ProfileSaveButton from "@/components/candidate/ProfileSaveButton";
 import InterviewScheduler from "@/components/booking/InterviewScheduler";
 import ProfileViewTracker from "@/components/ProfileViewTracker";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
@@ -1184,6 +1185,7 @@ export default async function CandidateProfilePage({
                 Message
               </Link>
               <a href="#schedule" className="btn btn-outline sticky-secondary">Schedule</a>
+              <ProfileSaveButton candidateId={candidate.id} candidateName={displayedName} />
               <Link href={`/hire/${candidate.id}/offer`} className="btn btn-lime">Hire {firstName}</Link>
             </div>
           </div>

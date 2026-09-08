@@ -5,6 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 import CandidatePreviewPanel from "@/components/browse/CandidatePreviewPanel";
 import CompareTray, { COMPARE_MAX, type CompareCandidate } from "@/components/browse/CompareTray";
+import SaveHeart from "@/components/browse/SaveHeart";
+import SaveSearchButton from "@/components/browse/SaveSearchButton";
+import ShortlistsProvider from "@/components/client/ShortlistsProvider";
 import AtlasNav from "@/components/landing/AtlasNav";
 import AtlasFooter from "@/components/landing/AtlasFooter";
 import LandingInteractive from "@/components/landing/LandingInteractive";
@@ -83,6 +86,10 @@ function BrowseContent() {
   const [candidates, setCandidates] = useState<CandidateResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Saving needs a `clients` row, and candidates and recruiters browse this
+  // same page — so the heart and "save this search" are gated on the role,
+  // not merely on being signed in.
+  const [isClient, setIsClient] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -265,6 +272,7 @@ function BrowseContent() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
+      setIsClient(session?.user?.app_metadata?.role === "client");
     }
     checkAuth();
   }, []);
@@ -346,6 +354,7 @@ function BrowseContent() {
   ].filter(Boolean).length;
 
   return (
+    <ShortlistsProvider enabled={isClient}>
     <div className="lp">
       {/* Same landing faces as the homepage — the inner app keeps its own fonts. */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
@@ -605,6 +614,25 @@ function BrowseContent() {
                   List
                 </button>
               </span>
+              {!loading && !fetchError && (
+                <SaveSearchButton
+                  enabled={isClient}
+                  matchCount={total}
+                  // The same shape the API counts with, so the "N match now"
+                  // in the popover and the total beside it are one number.
+                  filters={{
+                    search: search || null,
+                    role,
+                    country: country || null,
+                    minRate: minRate > 0 ? minRate : null,
+                    maxRate,
+                    availability: availability || null,
+                    tier,
+                    usExperience: usExperience || null,
+                    skills: skillFilters.length > 0 ? skillFilters : null,
+                  }}
+                />
+              )}
             </div>
 
             {fetchError ? (
@@ -682,6 +710,7 @@ function BrowseContent() {
                             />
                             <span>Compare</span>
                           </label>
+                          <SaveHeart candidateId={c.id} candidateName={c.display_name} />
                           <div className="result-photo" style={photoBg ? { backgroundImage: `url(${photoBg})`, backgroundSize: "cover", backgroundPosition: "center" } : { background: "linear-gradient(135deg, #2b4a3e 0%, #5a8b73 100%)" }}>
                             {!photoBg && initial && <div className="result-initial" aria-hidden>{initial}</div>}
                             <div className="result-avail"><span className={`avail-dot ${avail === "AVAILABLE NOW" ? "avail-now" : ""}`}></span>{avail}</div>
@@ -777,6 +806,7 @@ function BrowseContent() {
       />
       <LandingInteractive />
     </div>
+    </ShortlistsProvider>
   );
 }
 

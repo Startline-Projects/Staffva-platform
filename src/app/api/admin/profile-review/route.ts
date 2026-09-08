@@ -5,7 +5,6 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
 import { checkApprovalGates } from "@/lib/approvalGates";
-import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -76,6 +75,15 @@ export async function POST(req: NextRequest) {
         .update({
           admin_status: "approved",
           profile_went_live_at: new Date().toISOString(),
+          // The 14-day ID window starts AT GO-LIVE (00221). This route writes
+          // admin_status directly rather than calling promote_candidate_if_ready,
+          // so it has to start the same clock — otherwise a person-approved
+          // candidate is exempt from ID verification for ever while a
+          // self-promoted one is hidden on day 15. Same coalesce as the RPC:
+          // an existing stamp or a passed check wins.
+          id_verification_due_at: candidate.id_verification_status === "passed"
+            ? undefined
+            : new Date(Date.now() + 14 * 86400000).toISOString(),
         })
         .eq("id", candidateId)
         .neq("admin_status", "approved")

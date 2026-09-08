@@ -45,10 +45,25 @@ export default function EnglishResults({ parts }: { parts: EnglishPartScores | n
   if (scored.length === 0) return null;
 
   const overall = typeof parts.overall === "number" ? parts.overall : null;
-  // Weakest scored part first — the thing worth working on leads.
-  const weakest = [...scored].sort(
-    (a, b) => (parts[a[0]] as number) - (parts[b[0]] as number)
-  )[0];
+  // Only name a weakest section when there genuinely IS one: more than one
+  // part, a strict low, and something actually worth working on. Otherwise a
+  // straight-100 result would still be told where it was "lowest".
+  const ranked = [...scored].sort((a, b) => (parts[a[0]] as number) - (parts[b[0]] as number));
+  const lowest = ranked[0] ? (parts[ranked[0][0]] as number) : null;
+  const weakest =
+    ranked.length > 1 &&
+    lowest !== null &&
+    lowest < (parts[ranked[1][0]] as number) &&
+    lowest < 75
+      ? ranked[0]
+      : null;
+
+  // A part can have a grader note WITHOUT a score — "no recording was
+  // submitted for this part", which is precisely the thing a candidate needs
+  // told. Scoring drops it from the breakdown, so it would vanish silently.
+  const explained = PARTS.filter(
+    ([key]) => typeof parts[key] !== "number" && notes?.[key]
+  );
 
   return (
     <section className="panel-card" style={{ marginTop: 18 }} aria-labelledby="englishResultsTitle">
@@ -61,7 +76,10 @@ export default function EnglishResults({ parts }: { parts: EnglishPartScores | n
         )}
       </div>
 
-      <div className="score-row" style={{ marginTop: 12 }}>
+      {/* .feedback-block is what atlas-dash.css hangs the score-row layout
+          off; without it the public-profile `.lp .score-row` grid applies. */}
+      <div className="feedback-block" style={{ marginTop: 12 }}>
+      <div className="score-row">
         {scored.map(([key, label]) => {
           const v = parts[key] as number;
           return (
@@ -72,6 +90,17 @@ export default function EnglishResults({ parts }: { parts: EnglishPartScores | n
           );
         })}
       </div>
+      </div>
+
+      {explained.length > 0 && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+          {explained.map(([key, label]) => (
+            <p key={key} style={{ fontSize: 13.5, margin: 0, color: "var(--ink-mute)" }}>
+              <strong>{label}:</strong> {notes![key]} (not scored)
+            </p>
+          ))}
+        </div>
+      )}
 
       {notes && scored.some(([key]) => notes[key]) && (
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>

@@ -38,11 +38,13 @@ export default function ViewInterviewResultsButton({
         return;
       }
       const { token } = await res.json();
-      window.open(
+      const w = window.open(
         `https://interview.staffva.com/interview/results?id=${encodeURIComponent(interviewId)}&token=${encodeURIComponent(token)}`,
         "_blank",
         "noopener,noreferrer"
       );
+      // A blocked pop-up returns null and the button silently does nothing.
+      if (!w) setError("Your browser blocked the new tab. Allow pop-ups for staffva.com and try again.");
     } catch {
       setError("We couldn't reach the server. Check your connection and try again.");
     } finally {

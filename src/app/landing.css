@@ -1883,7 +1883,15 @@
   color: var(--ink-mute);
   margin-bottom: 16px;
   font-family: var(--font-mono);
+  /* The count text is an anonymous flex item; the controls that follow it
+     push to the right. `.view-toggle` is itself `display:flex`, so without
+     this the toggle broke to its own line and the save button to a third. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
+.lp .results-count .view-toggle{ margin-left: auto; }
 .lp .results-count strong{
   color: var(--ink);
   font-family: var(--font-body);
@@ -3682,6 +3690,161 @@
 .lp .result-compare.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .lp .result-compare input{ accent-color: var(--lime-deep); }
 
+/* ── Save to shortlist (client step 8) ──────────────────────────────────────
+   Top-RIGHT of the card; Compare owns the top-left. Unlike Compare this stays
+   visible once something is saved even without hover, because a filled heart
+   is a fact about the card and hiding it would make the same card look
+   different on touch, where nothing ever hovers. */
+.lp .result-save{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 999px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--line);
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.lp .result-card:hover .result-save,
+.lp .result-save:focus-within,
+.lp .result-save:has(.result-save-heart.on){ opacity: 1; }
+@media (hover: none){ .lp .result-save{ opacity: 1; } }
+.lp .result-save-heart,
+.lp .result-save-more{
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 5px 8px;
+}
+.lp .result-save-heart{ padding-right: 5px; }
+.lp .result-save-more{ padding-left: 3px; border-left: 1px solid var(--line); }
+.lp .result-save-heart:hover,
+.lp .result-save-more:hover{ color: var(--ink); }
+.lp .result-save-heart.on{ color: #d1385c; }
+
+.lp .result-save-menu{
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 226px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  text-align: left;
+  cursor: default;
+}
+.lp .result-save-menu-head{
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.lp .result-save-menu-empty{ font-size: 12px; color: var(--ink-mute); margin: 2px 0 8px; }
+.lp .result-save-menu-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.lp .result-save-menu-row:hover{ background: var(--cream); }
+.lp .result-save-menu-name{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp .result-save-menu-count{ font-size: 11px; color: var(--ink-mute); font-family: var(--font-mono); }
+.lp .result-save-menu-new{ display: flex; gap: 6px; margin-top: 8px; }
+.lp .result-save-menu-new input{
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.lp .result-save-menu-new button{
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+}
+.lp .result-save-menu-new button:disabled{ opacity: .45; cursor: not-allowed; }
+.lp .result-save-menu-err{ font-size: 11px; color: #b4342f; margin: 6px 0 0; }
+
+/* ── Save this search ─────────────────────────────────────────────────────── */
+.lp .save-search{ position: relative; display: inline-block; }
+.lp .save-search-btn{
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.lp .save-search-btn:hover{ border-color: var(--ink); color: var(--ink); }
+.lp .save-search-pop{
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 300px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-body);
+  text-align: left;
+}
+.lp .save-search-label{ display: block; font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.lp .save-search-pop input[type="text"]{
+  width: 100%;
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.lp .save-search-note{ font-size: 11.5px; color: var(--ink-mute); margin: 8px 0 0; line-height: 1.45; }
+.lp .save-search-freq{ display: flex; gap: 6px; margin-top: 10px; }
+.lp .save-search-freq label{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.lp .save-search-freq label.on{ border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.lp .save-search-freq input{ margin: 0; }
+.lp .save-search-err{ font-size: 11.5px; color: #b4342f; margin: 8px 0 0; }
+.lp .save-search-actions{ display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.lp .save-search-actions .btn{ font-size: 12px; padding: 6px 12px; }
+
 .lp .compare-bar-count{ font-size: 13px; font-weight: 500; white-space: nowrap; }
 .lp .compare-bar-names{ display: flex; gap: 6px; flex-wrap: wrap; }
 .lp .compare-bar-chip{
@@ -3850,3 +4013,23 @@
 /* Belt for the same problem: a long display name clips rather than overflows. */
 .lp .sticky-footer-text{ overflow: hidden; }
 .lp .sticky-footer-name{ overflow: hidden; text-overflow: ellipsis; }
+
+/* Save control in the profile's sticky action bar (client step 8). The menu
+   opens UPWARD — the bar is pinned to the bottom of the viewport, so a
+   downward menu would render off-screen. */
+.lp .profile-save { position: relative; display: inline-flex; gap: 4px; }
+.lp .profile-save-on { border-color: #d1385c; color: #d1385c; }
+.lp .profile-save-caret { padding-left: 10px; padding-right: 10px; }
+.lp .profile-save-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 236px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}

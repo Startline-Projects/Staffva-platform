@@ -21,9 +21,8 @@ import type { ClientPortalUser } from "./ClientPortalShell";
  * page beneath them, which would have told a client with a contract to sign
  * that contracts weren't built.
  *
- * Genuinely absent, and what unlocks it: My Shortlists (step 8 — today's
- * shortlists are per-job match lists reachable from a job post, not saved
- * lists).
+ * Nothing is locked any more: step 8 built /shortlists, which was the last
+ * row pointing at something that did not exist.
  *
  * Cut on record: Atlas's "My Talent Specialist" row. The owner's D5 retires
  * the specialist concept on both sides — clients get the Help Center in step
@@ -48,7 +47,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
       <ul className="dash-nav" role="list">
         <PortalNavItem href="/team" icon="dashboard" label="Dashboard" active={is("/team")} />
         <PortalNavItem href="/browse" icon="browse" label="Browse Talent" active={is("/browse")} />
-        <PortalNavItem href="#" icon="shortlists" label="My Shortlists" locked lockedTitle="Saved lists of candidates arrive soon" />
+        <PortalNavItem href="/shortlists" icon="shortlists" label="My Shortlists" active={is("/shortlists")} />
 
         <PortalNavSection label="Hiring" />
         <PortalNavItem href="/team#roles" icon="jobs" label="Jobs" mobileHide />

@@ -8,10 +8,13 @@
  * distinguishes those who took them. Three conditions were removed here:
  *   - english_mc_score >= 70
  *   - english_comprehension_score >= 70
- *   - interview_consent_at present — consent to an OPTIONAL activity cannot
- *     be a precondition for using the platform; it is still collected in the
- *     profile builder, and the interview flow takes its own consent before
- *     it records anything.
+ *   - interview_consent_at present. NOTE the column is badly named: the
+ *     checkbox it comes from is consent to SHOW YOUR VOICE RECORDINGS TO
+ *     CLIENTS, not consent to the AI interview (which takes its own consent
+ *     at interview time). The profile builder still requires it, correctly —
+ *     the recordings are mandatory profile content shown on browse. It is
+ *     dropped as an APPROVAL gate only, because approval now keys on the
+ *     profile columns and this is enforced where it is collected.
  * The skills-interview precondition below went with them.
  *
  * What remains is exactly "is this profile fit to show a client".

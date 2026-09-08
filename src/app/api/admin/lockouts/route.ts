@@ -40,7 +40,7 @@ export async function GET() {
   const { data: candidates } = await selectIn(candidateIds, (chunk) =>
     supabase
       .from("candidates")
-      .select("id, display_name, full_name, email, country, role_category, permanently_blocked")
+      .select("id, display_name, full_name, email, country, role_category, permanently_blocked, english_attempts_exhausted")
       .in("id", chunk)
   );
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   if (lockout?.candidate_id) {
     await supabase
       .from("candidates")
-      .update({ permanently_blocked: false, retake_available_at: null })
+      .update({ permanently_blocked: false, english_attempts_exhausted: false, retake_available_at: null })
       .eq("id", lockout.candidate_id);
   }
 

@@ -725,10 +725,15 @@ export default function AssessmentClient({
 
   function applyResult(data: {
     passed?: boolean;
-    candidate?: { permanently_blocked?: boolean; retake_available_at?: string | null };
+    candidate?: { permanently_blocked?: boolean; english_attempts_exhausted?: boolean; retake_available_at?: string | null };
   }) {
     setResultInfo({
-      blocked: data.candidate?.permanently_blocked === true,
+      // Exhaustion is what ends attempts now (00220); permanently_blocked is
+      // a staff action. Reading only the latter told an exhausted candidate a
+      // retake was coming while /assessment told them the stage was closed.
+      blocked:
+        data.candidate?.permanently_blocked === true ||
+        data.candidate?.english_attempts_exhausted === true,
       retakeAt: data.candidate?.retake_available_at || null,
     });
     setStage(data.passed ? "done_pass" : "done_fail");

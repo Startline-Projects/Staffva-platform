@@ -358,9 +358,9 @@ export async function GET() {
     const suggestionsAreTargeted = preferred.length > 0;
 
     // Activity counters for the explore state — each one a real count.
-    // saved_candidates is not queried: nothing in the product writes it, so
-    // the card it fed could only ever be 0. It returns with shortlists.
-    const [{ data: convoRows }, { count: jobPosts }] = await Promise.all([
+    // saved_candidates is STILL not queried: nothing writes it. Step 8's
+    // shortlists supersede it, and those are what the Saved card counts.
+    const [{ data: convoRows }, { count: jobPosts }, savedRows] = await Promise.all([
       // Distinct counterparties, so this cannot be a head-count. Bounded
       // rather than unbounded: pulling every message a client ever sent to
       // compute one integer is the kind of query that is fine at 3 rows and
@@ -370,7 +370,23 @@ export async function GET() {
         .from("job_posts")
         .select("id", { count: "exact", head: true })
         .eq("client_id", clientId),
+      // Distinct PEOPLE, not memberships — someone on three lists is one
+      // saved candidate, and "3 saved" for one person would be a lie the
+      // /shortlists page immediately contradicts.
+      admin
+        .from("client_shortlist_members")
+        .select("candidate_id, client_shortlists!inner(client_id)")
+        .eq("client_shortlists.client_id", clientId)
+        .limit(2000),
     ]);
+
+    // Migration 00223 may not be applied yet. A missing table must not take
+    // the whole dashboard down over one card, so the count goes null and the
+    // card is omitted rather than rendering a 0 that would read as "you have
+    // saved nobody".
+    const savedCount = savedRows.error
+      ? null
+      : new Set((savedRows.data || []).map((r) => r.candidate_id)).size;
 
     return NextResponse.json({
       verified,
@@ -440,6 +456,9 @@ export async function GET() {
           conversations: new Set((convoRows || []).map((m) => m.candidate_id)).size,
           upcomingInterviews: (upcomingInterviews || []).length,
           jobPosts: jobPosts ?? 0,
+          // null = we could not read it, which the card treats differently
+          // from zero.
+          saved: savedCount,
         },
       },
     });

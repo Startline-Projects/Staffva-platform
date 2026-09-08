@@ -156,10 +156,11 @@ export default function ApplyPage() {
       return;
     }
 
+    // "Complete" means the profile is finished — the same seven conditions
+    // 00221 and approvalGates.ts gate going live on. The English thresholds
+    // were removed here with them: leaving them made an OPTIONAL test the
+    // thing standing between a candidate and their own profile.
     const isFullyComplete =
-      candidate.english_mc_score !== null &&
-      candidate.english_mc_score >= 70 &&
-      (candidate.english_comprehension_score ?? 0) >= 70 &&
       !!candidate.voice_recording_1_url &&
       !!candidate.voice_recording_2_url &&
       !!candidate.profile_photo_url &&
@@ -167,7 +168,6 @@ export default function ApplyPage() {
       !!candidate.tagline &&
       !!candidate.bio &&
       !!candidate.payout_method &&
-      candidate.interview_consent !== false &&
       !!candidate.profile_completed_at;
 
     if (isFullyComplete) {
@@ -203,23 +203,21 @@ export default function ApplyPage() {
       return;
     }
 
-    // No test score yet → the assessment page owns everything from consent
-    // to grading. Failed → the dashboard owns the cooldown card, breakdown
-    // and retake date.
-    if (candidate.english_mc_score === null) {
-      router.replace("/assessment");
-      return;
-    }
+    // The English test is OPTIONAL (2026-09-08). It used to own this branch:
+    // a null score bounced to /assessment and a sub-70 score bounced to the
+    // dashboard, both BEFORE the recordings and profile steps below. Since
+    // /apply is the only route to those steps — and they write the seven
+    // columns that going live now depends on — that made an optional test a
+    // hard gate on being listed at all, and left the dashboard's "continue
+    // to recordings" CTA pointing into a redirect loop. The score is still
+    // read, but only to tell the profile screens what to show.
+    setTestPassed(
+      candidate.english_mc_score !== null &&
+        candidate.english_mc_score >= 70 &&
+        (candidate.english_comprehension_score ?? 0) >= 70
+    );
 
-    const testPassed = candidate.english_mc_score >= 70 && (candidate.english_comprehension_score ?? 0) >= 70;
-    setTestPassed(testPassed);
-
-    if (!testPassed) {
-      router.replace("/candidate/dashboard");
-      return;
-    }
-
-    // Test passed → check recordings
+    // Straight to whichever profile step is unfinished.
     if (candidate.voice_recording_1_url && candidate.voice_recording_2_url) {
       setStep("profile_builder");
       return;

@@ -854,7 +854,7 @@ export default function ProfileBuilder({
         return true;
       case 8:
         if (!interviewConsent) {
-          setError("Please agree to the interview consent to submit.");
+          setError("Please agree to share your voice recordings with clients to submit.");
           return false;
         }
         return true;
@@ -995,7 +995,7 @@ export default function ProfileBuilder({
     if (!validateStep()) return;
 
     if (!interviewConsent) {
-      setError("You must agree to the interview consent to submit your profile.");
+      setError("You must agree to share your voice recordings with clients to submit your profile.");
       return;
     }
 

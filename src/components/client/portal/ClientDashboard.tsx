@@ -59,7 +59,9 @@ interface DashboardData {
     poolCount: number;
     suggestions: Suggestion[];
     suggestionsAreTargeted: boolean;
-    activity: { saved: number; conversations: number; upcomingInterviews: number; jobPosts: number };
+    // `saved` is null when the shortlist tables could not be read (migration
+    // 00223 not yet applied) — a different thing from having saved nobody.
+    activity: { saved: number | null; conversations: number; upcomingInterviews: number; jobPosts: number };
   };
 }
 
@@ -445,9 +447,14 @@ export default function ClientDashboard() {
             </div>
             <div className="cd-activity-grid">
               {[
-                // No "Saved" card: saved_candidates has no writer anywhere
-                // in the product, so it could only ever read 0 and link to a
-                // page with no save control. It returns with shortlists.
+                // The Saved card returns with step 8's shortlists: it counts
+                // distinct people across the client's real lists and links to
+                // a page with a real save control. Omitted entirely — not
+                // rendered as 0 — when the count is null, which means the
+                // table could not be read rather than that nobody is saved.
+                ...(typeof data.explore.activity.saved === "number"
+                  ? [{ label: "Saved candidates", n: data.explore.activity.saved, href: "/shortlists" }]
+                  : []),
                 { label: "Conversations", n: data.explore.activity.conversations, href: "/inbox" },
                 {
                   label: "Upcoming interviews",
