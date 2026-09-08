@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { termsAreReproducible } from "@/lib/contractTerms";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 
 function getAdminClient() {
   return createClient(
@@ -302,6 +303,17 @@ export async function POST(req: NextRequest) {
         body: "Both sides have signed. The agreement stays on your contracts page whenever you need it.",
         route: `/candidate/contracts/${contractId}`,
         dedupeKey: `contract-executed-${contractId}`,
+      });
+      // The client's half. Their email for this comes from the generate-pdf
+      // site, reached by an internal fetch that can fail — the bell is
+      // written here, where the countersignature actually landed.
+      await notifyClient(admin, {
+        clientId: contract.client_id,
+        category: "contract",
+        title: "Your contract is fully executed",
+        body: "The candidate has countersigned. You can fund the first payment period now.",
+        route: "/team#engagements",
+        dedupeKey: `contract-executed-client-${contractId}`,
       });
 
       // Trigger PDF generation asynchronously

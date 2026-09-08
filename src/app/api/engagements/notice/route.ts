@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 import { sendEmail } from "@/lib/email";
 import { NOTICE_DAYS } from "@/lib/engagementLifecycle";
 
@@ -143,6 +144,16 @@ export async function POST(request: Request) {
       .select("email, full_name, company_name")
       .eq("id", engagement.client_id)
       .maybeSingle();
+    // A legally significant countdown just started; it belongs in the
+    // product as well as in their inbox.
+    await notifyClient(db, {
+      clientId: engagement.client_id,
+      category: "engagement",
+      title: "Your contractor has given 14 days' notice",
+      body: `The engagement ends ${endsLabel}. Work and pay continue until then, and money already in escrow follows the normal release process.`,
+      route: "/team#engagements",
+      dedupeKey: `notice-client-${engagementId}`,
+    });
     if (client?.email) {
       try {
         await sendEmail({

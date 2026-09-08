@@ -8,14 +8,10 @@ import PortalFrame from "@/components/portal/PortalFrame";
  * as the candidate shell — the sidebar rail, the topbar, the content column —
  * with the client's own rail and actions.
  *
- * Two slots the prototype fills that this shell deliberately leaves empty
- * for now, because faking either would be a control that lies:
- *   • the notifications bell — clients have no notifications table yet
- *     (client vertical step 3); a bell that can never light up is decoration.
- *   • the verification banner — client identity verification does not exist
- *     yet (step 4), and per the owner's D1 it will read "verify to fund",
- *     never "verify to hire".
- * Both arrive in their numbered steps.
+ * The notifications bell is live as of step 3 (client_notifications, 00220).
+ * The verification banner is still deliberately absent: client identity
+ * verification does not exist until step 4, and per the owner's D1 it will
+ * read "verify to fund", never "verify to hire".
  *
  * Also omitted on record: Atlas's global ⌘K search, which is display-only in
  * the prototype too — it has no handler there and no search backend here.

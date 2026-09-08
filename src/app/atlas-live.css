@@ -733,7 +733,11 @@
   display: none;
 }
 
-.lp-dash .dash-layout.live-mode .topbar-bell-wrap {
+/* The candidate rail shows the bell only in live mode (the prototype hides
+   it pre-approval). The client rail always has one: a client's account has
+   no "not yet live" phase. */
+.lp-dash .dash-layout.live-mode .topbar-bell-wrap,
+.lp-dash .dash-layout.client-rail .topbar-bell-wrap {
   display: block;
 }
 
@@ -2188,3 +2192,13 @@
    so without this the heading parks underneath it. 64px topbar + breathing
    room. */
 .lp-dash .dash-content [id] { scroll-margin-top: 88px; }
+
+/* The client bell's 'engagement' category (notice, pause, resume) — every
+   other category has a colour pair, and without this the rows announcing a
+   working relationship ending were the only ones rendering with an unstyled
+   chip, reading as the least important thing in the list. */
+.lp-dash .notif-icon.cat-engagement {
+  background: var(--cream);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}

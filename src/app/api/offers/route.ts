@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
+import { maskContact } from "@/lib/contactMask";
 import { executeOfferAccept } from "@/lib/acceptOffer";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -295,10 +297,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "This offer is no longer open." }, { status: 409 });
       }
 
-      // Notify client
+      // Notify client — bell first, because the mail depends on an API key
+      // and an address, and a declined proposal must not be something they
+      // only discover by reloading the dashboard.
       const clientInfo = offer.clients as { full_name: string; email: string } | null;
+      const { data: cand } = await supabase.from("candidates").select("display_name").eq("id", candidate.id).single();
+      await notifyClient(supabase, {
+        clientId: offer.client_id,
+        category: "offer",
+        // Candidate-editable display_name stays out of the title and rides
+        // masked in the body — the bell is the platform's own voice.
+        title: "Your proposal was declined",
+        body: `${maskContact(cand?.display_name || "The candidate")} declined. You can send revised terms, or keep looking.`,
+        route: "/team#offers",
+        dedupeKey: `offer-declined-${offerId}`,
+      });
       if (process.env.RESEND_API_KEY && clientInfo?.email) {
-        const { data: cand } = await supabase.from("candidates").select("display_name").eq("id", candidate.id).single();
         try {
           await sendEmail({
             from: "StaffVA <notifications@staffva.com>",

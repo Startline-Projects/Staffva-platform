@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { executeOfferAccept, type OfferForAccept } from "@/lib/acceptOffer";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 import { sendEmail } from "@/lib/email";
 import { containsContact } from "@/lib/contactMask";
 import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
@@ -203,6 +204,16 @@ export async function POST(request: Request) {
       });
     } else {
       const { data: client } = await db.from("clients").select("email").eq("id", offer.client_id).maybeSingle();
+      // The bell alongside the mail: the counter resets a 5-day expiry, so
+      // the client needs to see it inside the product, not only in an inbox.
+      await notifyClient(db, {
+        clientId: offer.client_id,
+        category: "offer",
+        title: "The candidate countered your proposal",
+        body: `$${hourlyRate}/hr · ${hoursPerWeek} hrs/week · respond within 5 days.`,
+        route: "/team#offers",
+        dedupeKey: `counter-client-${offerId}-${round}`,
+      });
       if (client?.email) {
         try {
           await sendEmail({

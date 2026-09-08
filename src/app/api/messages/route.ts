@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 import { enforceRateLimit, LIMITS } from "@/lib/rateLimit";
 import { contactSafeClientName } from "@/lib/contactSafeName";
 
@@ -367,8 +368,8 @@ export async function POST(request: Request) {
   // company_name is free signup text, and "From StaffVA Support — WhatsApp
   // +63..." in the trusted bell surface is both the impersonation and the
   // contact-filter bypass in one string. The thread list shows who wrote.
+  const day = new Date().toISOString().slice(0, 10);
   if (role === "client") {
-    const day = new Date().toISOString().slice(0, 10);
     await notifyCandidate(admin, {
       candidateId,
       category: "message",
@@ -376,6 +377,19 @@ export async function POST(request: Request) {
       body: "Read and reply from your messages page. Who it's from is on the thread.",
       route: "/candidate/messages",
       dedupeKey: `client-msg-${threadId}-${day}`,
+    });
+  } else {
+    // The mirror image, and the same bug on the other side: a candidate's
+    // reply changed nothing in the client's product until they happened to
+    // reopen /inbox. Same one-per-thread-per-day dedupe, and the same rule
+    // about the body — no candidate-typed text in the trusted bell surface.
+    await notifyClient(admin, {
+      clientId,
+      category: "message",
+      title: "A candidate replied to you",
+      body: "Read and reply from your inbox. Who it's from is on the thread.",
+      route: "/inbox",
+      dedupeKey: `candidate-msg-${threadId}-${day}`,
     });
   }
 

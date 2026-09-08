@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateContractHtml } from "@/lib/contracts";
 import { sendEmail } from "@/lib/email";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
+import { maskContact } from "@/lib/contactMask";
 
 /**
  * Everything that happens when an offer's CURRENT terms are accepted —
@@ -82,6 +84,18 @@ export async function executeOfferAccept(
 
     // The party who did NOT click accept is the one who needs to hear it.
     if (acceptedBy === "candidate") {
+      // A contract now waits on the client's signature — the bell says so
+      // inside the product, not only in their inbox.
+      await notifyClient(admin, {
+        clientId: offer.client_id,
+        category: "contract",
+        // Candidate-editable display_name stays out of the title, masked in
+        // the body — same rule the messages route established.
+        title: "Your proposal was accepted",
+        body: `${maskContact(candInfo?.display_name || "The candidate")} accepted. The agreement is drafted and waiting for your signature; escrow funding opens once both sides have signed.`,
+        route: "/team#engagements",
+        dedupeKey: `offer-accepted-${offer.id}`,
+      });
       if (process.env.RESEND_API_KEY && clientInfo?.email) {
         try {
           await sendEmail({

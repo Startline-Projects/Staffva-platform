@@ -20,6 +20,8 @@ const FROM = "StaffVA <notifications@staffva.com>";
 export interface BookingEmailData {
   bookingId: string;
   candidateId: string;
+  /** clients.id — the bell writer needs it, the way the emails need the address. */
+  clientId: string;
   startsAt: Date;
   durationMinutes: number;
   candidate: { name: string; email: string; tz: string };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import PortalSignOut from "@/components/portal/PortalSignOut";
+import PortalNotifBell from "@/components/portal/PortalNotifBell";
 import { useUnreadMessages } from "./UnreadMessages";
 import type { ClientPortalUser } from "./ClientPortalShell";
 
@@ -42,6 +43,11 @@ export default function ClientPortalTopbar({ user }: { user: ClientPortalUser })
       </div>
       <div className="topbar-actions">
         <Link href="/browse" className="topbar-cta">Hire Talent</Link>
+        <PortalNotifBell
+          endpoint="/api/client/notifications"
+          settingsRoute="/settings/notifications"
+          emptyText="Nothing yet. Replies, counters, signatures and approvals all land here."
+        />
         <Link
           href="/inbox"
           className="topbar-btn"

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 import { sendEmail } from "@/lib/email";
 import { PAUSE_AUTO_END_DAYS } from "@/lib/engagementLifecycle";
 
@@ -121,6 +122,14 @@ export async function POST(request: Request) {
       });
     } else {
       const { data: client } = await db.from("clients").select("email").eq("id", engagement.client_id).maybeSingle();
+      await notifyClient(db, {
+        clientId: engagement.client_id,
+        category: "engagement",
+        title: "Your contractor paused the engagement",
+        body: `No new payment periods accrue while it's paused. If it isn't resumed by ${autoEnd}, it ends automatically.`,
+        route: "/team#engagements",
+        dedupeKey: `paused-client-${engagementId}-${paused.paused_at}`,
+      });
       if (client?.email) {
         try {
           await sendEmail({
@@ -171,6 +180,13 @@ export async function POST(request: Request) {
     });
   } else {
     const { data: client } = await db.from("clients").select("email").eq("id", engagement.client_id).maybeSingle();
+    await notifyClient(db, {
+      clientId: engagement.client_id,
+      category: "engagement",
+      title: "Your contractor resumed the engagement",
+      body: "The pause is over — work and payment periods continue as before.",
+      route: "/team#engagements",
+    });
     if (client?.email) {
       try {
         await sendEmail({

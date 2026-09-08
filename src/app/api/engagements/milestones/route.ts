@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { notifyClient } from "@/lib/notifyClient";
+import { maskContact } from "@/lib/contactMask";
+import { sendEmail } from "@/lib/email";
 
 function getAdminClient() {
   return createClient(
@@ -13,7 +16,11 @@ function getAdminClient() {
  * POST /api/engagements/milestones
  *
  * Actions on milestones:
- * - mark_complete: Candidate marks a milestone as complete (starts 48h dispute window + 7d auto-release)
+ * - mark_complete: Candidate marks a milestone as complete. Two different
+ *   clocks start, and they are not the same deadline: the DISPUTE window
+ *   closes 48 hours later (api/disputes/file), while AUTO-RELEASE fires at
+ *   7 days (api/escrow/auto-release). Copy written against this must not
+ *   merge them.
  * - approve: Client approves and releases funds immediately
  */
 export async function POST(request: Request) {
@@ -76,6 +83,78 @@ export async function POST(request: Request) {
           auto_release_at: autoRelease.toISOString(),
         })
         .eq("id", milestoneId);
+
+      // Tell the client. Until now this reached them through NOTHING: a
+      // clock started against their money — the milestone releases on its
+      // own at auto_release_at — and the only way to find out was to reload
+      // the dashboard and notice a changed status. Fail-soft, so a
+      // notification problem cannot undo the candidate's action.
+      const [{ data: clientRow }, { data: candRow }] = await Promise.all([
+        admin
+          .from("clients")
+          .select("id, email, full_name")
+          .eq("id", milestone.engagements.client_id)
+          .maybeSingle(),
+        admin
+          .from("candidates")
+          .select("display_name, full_name")
+          .eq("id", candidate.id)
+          .maybeSingle(),
+      ]);
+      if (clientRow) {
+        // Candidate-editable name: masked before it reaches the bell, which
+        // is the platform's own trusted surface.
+        const who = maskContact(candRow?.display_name || candRow?.full_name || "Your contractor");
+        const amount = Number(milestone.amount_usd).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+        });
+        // Pinned to UTC like every other date this platform renders: the
+        // stored instant is the same either way, but an unpinned string on a
+        // non-UTC runtime names a date one day off from the one the cron
+        // will actually act on — on the message whose whole job is telling
+        // someone when their money moves.
+        const releaseOn = autoRelease.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "UTC",
+        });
+        await notifyClient(admin, {
+          clientId: clientRow.id,
+          category: "payment",
+          // No mention of disputing, deliberately: the dispute window closes
+          // at 48 hours (not the 7 days this date names — the first draft
+          // conflated them), and no dispute control exists in the client
+          // product at all. Telling someone they may object, on a deadline
+          // that has already passed, using a button that does not exist, is
+          // three false claims in one sentence. The gap is on record.
+          title: "A milestone was marked complete",
+          body: `${who} marked "${milestone.title}" ($${amount}) complete. Approve it to release the payment now; if you do nothing it releases automatically on ${releaseOn}.`,
+          route: "/team#engagements",
+          dedupeKey: `milestone-complete-${milestoneId}`,
+        });
+        if (clientRow.email) {
+          try {
+            await sendEmail(
+              {
+                from: "StaffVA <notifications@staffva.com>",
+                to: clientRow.email,
+                subject: `A milestone is ready for your approval — $${amount}`,
+                html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+                  <h2 style="color:#1C1B1A;">A milestone is ready for your approval</h2>
+                  <p style="color:#444;font-size:14px;">Hi ${clientRow.full_name || "there"},</p>
+                  <p style="color:#444;font-size:14px;line-height:1.6;">${who} marked <strong>${milestone.title}</strong> ($${amount}) complete.</p>
+                  <p style="color:#444;font-size:14px;line-height:1.6;">Approve it to release the payment straight away. If you do nothing, it releases automatically on <strong>${releaseOn}</strong>. If something looks wrong, reply to this email and we'll look into it before the release date.</p>
+                  <a href="https://staffva.com/team#engagements" style="display:inline-block;background:#fe6e3e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px;">Review the milestone</a>
+                </div>`,
+              },
+              { recipientKind: "client", emailType: "milestone_marked_complete" }
+            );
+          } catch (err) {
+            console.error("[milestones] client email failed:", err);
+          }
+        }
+      }
 
       return NextResponse.json({ success: true, action: "marked_complete" });
     }

@@ -36,6 +36,7 @@ export async function loadBookingEmailData(bookingId: string): Promise<BookingEm
   return {
     bookingId: b.id,
     candidateId: b.candidate_id,
+    clientId: b.client_id,
     startsAt: new Date(b.starts_at),
     durationMinutes: b.duration_minutes || 30,
     candidate: {
