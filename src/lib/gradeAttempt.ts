@@ -368,7 +368,10 @@ export async function gradeAttempt(
         const lockoutDays = getLockoutDays(attemptNumber);
 
         if (lockoutDays === null) {
-          updateData.permanently_blocked = true;
+          // Ladder spent. This ends TEST ATTEMPTS, not the person's listing —
+          // permanently_blocked would trip 00188's trigger and pull a live
+          // candidate out of the marketplace over an optional assessment.
+          updateData.english_attempts_exhausted = true;
           await supabase.from("english_test_lockouts").insert({
             identity_hash: identityRecord.identity_hash,
             candidate_id: candidateId,
@@ -415,9 +418,10 @@ export async function gradeAttempt(
           });
         }
       } else {
-        const permanentlyBlocked = retakeCount >= 5;
-        updateData.permanently_blocked = permanentlyBlocked;
-        if (!permanentlyBlocked) {
+        // Same rule on the no-identity-record path.
+        const exhausted = retakeCount >= 5;
+        updateData.english_attempts_exhausted = exhausted;
+        if (!exhausted) {
           const retakeDate = new Date();
           retakeDate.setDate(retakeDate.getDate() + 3);
           updateData.retake_available_at = retakeDate.toISOString();

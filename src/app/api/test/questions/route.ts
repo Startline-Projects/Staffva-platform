@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   // candidates without a verified identity had NO cooldown enforcement).
   const { data: candidateCheck } = await supabase
     .from("candidates")
-    .select("permanently_blocked, english_mc_score, english_comprehension_score, retake_available_at, admin_status, reapply_eligible_at")
+    .select("permanently_blocked, english_attempts_exhausted, english_mc_score, english_comprehension_score, retake_available_at, admin_status, reapply_eligible_at")
     .eq("id", candidateId)
     .single();
 
@@ -162,7 +162,9 @@ export async function POST(request: Request) {
       reapplyEligibleAt: candidateCheck.reapply_eligible_at ?? null,
     }, { status: 403 });
   }
-  if (candidateCheck?.permanently_blocked) {
+  // Both stop a sitting, for different reasons: exhausted = no attempts left;
+  // permanently_blocked = a person removed this account.
+  if (candidateCheck?.permanently_blocked || candidateCheck?.english_attempts_exhausted) {
     return NextResponse.json({
       error: "Permanently blocked",
       locked: true,

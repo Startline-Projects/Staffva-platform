@@ -3770,3 +3770,50 @@
   color: var(--ink-mute);
   margin-top: 2px;
 }
+
+/* ── Profile sub-nav (client step 7) ── */
+.lp .profile-subnav{
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.lp .profile-subnav-inner{
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.lp .profile-subnav-inner::-webkit-scrollbar{ display: none; }
+.lp .profile-subnav-item{
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color .15s ease, border-color .15s ease;
+}
+.lp .profile-subnav-item:hover{ color: var(--ink); }
+.lp .profile-subnav-item.active{ color: var(--ink); border-bottom-color: var(--ink); }
+.lp .profile-subnav-num{
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: .5;
+}
+/* Anchored headings must clear the sticky nav. */
+.lp .profile-main section[id]{ scroll-margin-top: 62px; }
+
+.lp .sticky-footer-actions .sticky-secondary{
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+@media (max-width: 640px){
+  /* On a phone the bar has room for one primary action. */
+  .lp .sticky-footer-actions .sticky-secondary{ display: none; }
+}

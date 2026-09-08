@@ -1229,3 +1229,22 @@
   font-weight: 500;
   margin-bottom: 8px;
 }
+
+/* Optional pipeline steps (2026-09-08): assessments raise ranking but do not
+   gate going live, so they read as available rather than pending. Muted, not
+   struck through — the point is "you may", not "you can't". */
+.lp-dash .pipeline-node[data-optional="true"] .node-circle {
+  border-style: dashed;
+  opacity: 0.75;
+}
+.lp-dash .pipeline-node[data-optional="true"].completed .node-circle {
+  border-style: solid;
+  opacity: 1;
+}
+.lp-dash .node-optional-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}

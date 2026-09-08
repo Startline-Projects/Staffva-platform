@@ -3,6 +3,7 @@ import { getUser } from "@/lib/auth";
 import { generateInterviewToken } from "@/lib/interviewToken";
 import Link from "next/link";
 import NotifyButton from "@/components/browse/NotifyButton";
+import ProfileSubNav from "@/components/candidate/ProfileSubNav";
 import InterviewScheduler from "@/components/booking/InterviewScheduler";
 import ProfileViewTracker from "@/components/ProfileViewTracker";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
@@ -785,13 +786,30 @@ export default async function CandidateProfilePage({
         </div>
       </section>
 
+      {/* ── Section nav ──
+          Built from what this profile actually has. Atlas hard-codes eight
+          entries for one fictional candidate who has all eight; a real
+          candidate with no portfolio and no reviews would otherwise get
+          links to empty anchors. */}
+      <ProfileSubNav
+        sections={[
+          ...(candidate.bio ? [{ id: "about", label: "Overview" }] : []),
+          ...(hasScorecard ? [{ id: "scorecard", label: "Scorecard" }] : []),
+          ...((portfolioItems || []).length > 0 ? [{ id: "samples", label: "Work samples" }] : []),
+          ...(workExperience.length > 0 ? [{ id: "history", label: "Experience" }] : []),
+          ...((reviews || []).length > 0 ? [{ id: "reviews", label: "Reviews" }] : []),
+          ...(skills.length > 0 || tools.length > 0 ? [{ id: "skills", label: "Skills" }] : []),
+          { id: "availability", label: "Availability" },
+        ]}
+      />
+
       {/* ── Main layout ── */}
       <div className="container profile-layout">
         <div className="profile-main">
 
           {/* About */}
           {candidate.bio && (
-            <section>
+            <section id="about">
               <h2>About</h2>
               <div className="about-body">
                 <p>{candidate.bio}</p>
@@ -801,7 +819,7 @@ export default async function CandidateProfilePage({
 
           {/* Scorecard — real screening numbers, gated for real */}
           {hasScorecard && (
-            <section>
+            <section id="scorecard">
               <h2>Scorecard</h2>
               {!canViewGated ? (
                 <div className="lock-note">
@@ -857,7 +875,7 @@ export default async function CandidateProfilePage({
 
           {/* Work samples — real portfolio uploads */}
           {(portfolioItems || []).length > 0 && (
-            <section>
+            <section id="samples">
               <h2>Work samples{canViewGated && <span className="count">{portfolioItems!.length} {portfolioItems!.length === 1 ? "item" : "items"}</span>}</h2>
               {canViewGated ? (
                 <div className="edu-grid">
@@ -882,7 +900,7 @@ export default async function CandidateProfilePage({
 
           {/* Work history */}
           {workExperience.length > 0 && (
-            <section>
+            <section id="history">
               <h2>Work history</h2>
               <div className="work-timeline">
                 {workExperience.map((entry, i) => {
@@ -912,7 +930,7 @@ export default async function CandidateProfilePage({
 
           {/* Reviews — real ones only */}
           {(reviews || []).length > 0 && (
-            <section>
+            <section id="reviews">
               <h2>Reviews <span className="count">{reviews!.length} {reviews!.length === 1 ? "review" : "reviews"} · from clients who hired via StaffVA</span></h2>
               <div className="reviews-aggregate">
                 <div>
@@ -942,7 +960,7 @@ export default async function CandidateProfilePage({
 
           {/* Skills & tools */}
           {(skills.length > 0 || tools.length > 0) && (
-            <section>
+            <section id="skills">
               <h2>Skills &amp; tools</h2>
               <div className="skills-cols">
                 {skills.length > 0 && (
@@ -970,7 +988,7 @@ export default async function CandidateProfilePage({
           )}
 
           {/* Availability + details */}
-          <section>
+          <section id="availability">
             <h2>Availability</h2>
             <div className="availability-block">
               <div className="availability-status">
@@ -1131,7 +1149,23 @@ export default async function CandidateProfilePage({
                 <div className="sticky-footer-rate">${Number(candidate.hourly_rate || 0)}/hr</div>
               </div>
             </div>
+            {/* Atlas's sticky bar carries the whole action set; ours carried
+                only Hire, so a client 900px down had to scroll back for
+                anything else. Message and Schedule are the two that were
+                already on the page and already work — Schedule jumps to the
+                scheduler rather than opening a second one.
+
+                Nothing here is locked. Atlas gates "Send Proposal" behind
+                verification; the owner's D1 gates FUNDING only, so sending
+                an offer stays open and there is no padlock to draw. */}
             <div className="sticky-footer-actions">
+              <Link
+                href={`/inbox?candidate=${candidate.id}${clientId ? `&client=${clientId}` : ""}`}
+                className="btn btn-outline sticky-secondary"
+              >
+                Message
+              </Link>
+              <a href="#availability" className="btn btn-outline sticky-secondary">Schedule</a>
               <Link href={`/hire/${candidate.id}/offer`} className="btn btn-lime">Hire {firstName}</Link>
             </div>
           </div>

@@ -26,6 +26,11 @@ interface PipelineNode {
   state: NodeState;
   xp: number;
   detail?: string;
+  /** Assessments (2026-09-08): they raise ranking and show you where to
+   *  improve, but they do not stand between you and going live. An optional
+   *  node never becomes "current", so the tracker never points at one as the
+   *  thing you must do next. */
+  optional?: boolean;
 }
 
 /**
@@ -331,12 +336,46 @@ export default async function CandidateDashboardPage() {
       state: phoneDone ? "completed" : phoneEnabled ? "upcoming" : "waived",
       detail: phoneDone || phoneEnabled ? undefined : "Coming soon — not required yet",
     },
-    { id: "english", label: "English", xp: 100, state: englishDone ? "completed" : "upcoming" },
+    {
+      id: "english",
+      label: "English",
+      xp: 100,
+      state: englishDone ? "completed" : "upcoming",
+      optional: true,
+      detail: englishDone ? undefined : "Optional — earns the Vetted badge and moves you up in client search",
+    },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
-    { id: "interview1", label: "Interview 1", xp: 100, state: interview1Done ? "completed" : "upcoming" },
-    { id: "interview2", label: "Interview 2", xp: 100, state: interview2Done ? "completed" : "upcoming" },
-    { id: "id", label: "Identity", xp: 50, state: idDone ? "completed" : "upcoming", detail: assessmentsDone ? "Verify within 14 days of finishing your assessments" : "Unlocks after your assessments" },
+    {
+      id: "interview1",
+      label: "Interview 1",
+      xp: 100,
+      state: interview1Done ? "completed" : "upcoming",
+      optional: true,
+      detail: interview1Done ? undefined : "Optional — a short behavioural round",
+    },
+    {
+      id: "interview2",
+      label: "Interview 2",
+      xp: 100,
+      state: interview2Done ? "completed" : "upcoming",
+      optional: true,
+      detail: interview2Done ? undefined : "Optional — passing it earns the Vetted badge clients filter on",
+    },
+    {
+      id: "id",
+      label: "Identity",
+      xp: 50,
+      state: idDone ? "completed" : "upcoming",
+      // The clock now starts when the profile goes live, not when assessments
+      // finish (00221) — so the old "unlocks after your assessments" copy
+      // described a trigger that no longer fires for most people.
+      detail: idDone
+        ? undefined
+        : idDueAt
+          ? "Verify within 14 days of going live"
+          : "Verify once your profile is live",
+    },
     { id: "review", label: "Review", xp: 50, state: underReview ? "current" : "upcoming" },
     { id: "live", label: "Live", xp: 0, state: "upcoming" },
   ];
@@ -345,7 +384,9 @@ export default async function CandidateDashboardPage() {
   // already owns it). Identity is skipped here — it runs on its own window
   // in parallel and gets its own card.
   if (!underReview) {
-    const firstOpen = nodes.find((n) => n.state !== "completed" && n.state !== "waived" && n.id !== "id");
+    const firstOpen = nodes.find(
+      (n) => n.state !== "completed" && n.state !== "waived" && !n.optional && n.id !== "id"
+    );
     if (firstOpen) firstOpen.state = "current";
   }
   const currentNode = nodes.find((n) => n.state === "current") || nodes[nodes.length - 1];
@@ -539,7 +580,7 @@ export default async function CandidateDashboardPage() {
   const englishLockoutOverride =
     englishLocked && currentNode.id === "english" && !!lockedUntil && !terminal && !actionRequired;
   const currentIndex = nodes.findIndex((n) => n.id === currentNode.id);
-  const upcomingPreview = nodes.filter((n) => n.state === "upcoming").slice(0, 3);
+  const upcomingPreview = nodes.filter((n) => n.state === "upcoming" && !n.optional).slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
     whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",
     id: "Upload a government ID within 14 days of finishing your assessments — after that, unverified profiles hide from clients.",
@@ -607,7 +648,8 @@ export default async function CandidateDashboardPage() {
                   key={n.id}
                   className={`pipeline-node ${n.state}`}
                   aria-current={n.state === "current" ? "step" : undefined}
-                  aria-label={`Step ${i + 1}, ${n.label}, ${n.state}`}
+                  aria-label={`Step ${i + 1}, ${n.label}, ${n.optional ? "optional, " : ""}${n.state}`}
+                  data-optional={n.optional ? "true" : undefined}
                   title={n.detail || undefined}
                 >
                   {n.state === "current" && (
@@ -621,7 +663,12 @@ export default async function CandidateDashboardPage() {
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5 5 9l4.5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </span>
                   </span>
-                  <span className="node-label">{n.label}</span>
+                  <span className="node-label">
+                    {n.label}
+                    {n.optional && n.state !== "completed" && (
+                      <span className="node-optional-tag"> · optional</span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ol>

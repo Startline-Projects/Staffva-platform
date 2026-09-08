@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
-import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
+import { checkApprovalGates } from "@/lib/approvalGates";
 import { notifyCandidate } from "@/lib/notifyCandidate";
 
 function getAdminClient() {
@@ -58,14 +58,6 @@ export async function POST(req: NextRequest) {
       // route and candidates/review were the two left that pushed a profile
       // live without them, which is how two candidates with no passed AI
       // interview went live.
-      const precondition = await checkApprovalPreconditions(admin, candidate);
-      if (!precondition.ok) {
-        return NextResponse.json(
-          { error: precondition.error },
-          { status: precondition.status }
-        );
-      }
-
       const { pass, failingConditions } = checkApprovalGates(candidate);
       if (!pass) {
         return NextResponse.json(

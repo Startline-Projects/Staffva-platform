@@ -22,7 +22,7 @@ export async function GET() {
   // Get candidate
   const { data: candidate } = await supabase
     .from("candidates")
-    .select("id, permanently_blocked, retake_count")
+    .select("id, permanently_blocked, english_attempts_exhausted, retake_count")
     .eq("user_id", user.id)
     .single();
 
@@ -30,7 +30,7 @@ export async function GET() {
     return NextResponse.json({ locked: false });
   }
 
-  if (candidate.permanently_blocked) {
+  if (candidate.permanently_blocked || candidate.english_attempts_exhausted) {
     return NextResponse.json({
       locked: true,
       permanent: true,

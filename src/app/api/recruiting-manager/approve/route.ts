@@ -3,7 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
-import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
+import { checkApprovalGates } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(
@@ -50,15 +50,7 @@ export async function POST(req: NextRequest) {
     // no recorded reason and no audit trail — the checks are simply absent. If a
     // deliberate override is wanted it should be explicit and recorded, not the
     // default behaviour of the higher-privilege route.
-    const precondition = await checkApprovalPreconditions(admin, candidate);
-    if (!precondition.ok) {
-      return NextResponse.json(
-        { error: precondition.error },
-        { status: precondition.status }
-      );
-    }
-
-    // 10-gate approval check (shared)
+    // Profile-completeness gates, shared (assessments optional since 2026-09-08)
     const { pass, failingConditions } = checkApprovalGates(candidate);
 
     if (!pass) {

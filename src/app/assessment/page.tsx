@@ -28,7 +28,7 @@ export default async function AssessmentPage() {
   const { data: candidate, error } = await admin
     .from("candidates")
     .select(
-      "id, english_mc_score, english_comprehension_score, english_written_tier, english_percentile, retake_available_at, permanently_blocked, retake_count"
+      "id, english_mc_score, english_comprehension_score, english_written_tier, english_percentile, retake_available_at, permanently_blocked, english_attempts_exhausted, retake_count"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -47,7 +47,7 @@ export default async function AssessmentPage() {
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   if (passed) mode = "passed";
-  else if (candidate.permanently_blocked) mode = "blocked";
+  else if (candidate.permanently_blocked || candidate.english_attempts_exhausted) mode = "blocked";
   else if (
     candidate.retake_available_at &&
     new Date(candidate.retake_available_at).getTime() > now

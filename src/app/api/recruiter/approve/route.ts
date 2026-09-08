@@ -3,7 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
 import { generateInsights } from "@/lib/generateInsights";
-import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
+import { checkApprovalGates } from "@/lib/approvalGates";
 
 function getAdminClient() {
   return createClient(
@@ -86,15 +86,7 @@ export async function POST(req: NextRequest) {
     // The shared version also fails closed if the AI-interview lookup itself
     // errors, which this inline copy did not — it destructured only `data`, so
     // a failed query looked identical to "no passing interview".
-    const precondition = await checkApprovalPreconditions(supabase, candidate);
-    if (!precondition.ok) {
-      return NextResponse.json(
-        { error: precondition.error },
-        { status: precondition.status }
-      );
-    }
-
-    // Run 10-gate approval check
+    // Profile-completeness gates (assessments are optional since 2026-09-08)
     const { pass, failingConditions } = checkApprovalGates(candidate);
 
     if (!pass) {

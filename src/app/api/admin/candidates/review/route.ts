@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { generateInsights } from "@/lib/generateInsights";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
-import { checkApprovalGates, checkApprovalPreconditions } from "@/lib/approvalGates";
+import { checkApprovalGates } from "@/lib/approvalGates";
 import {
   computeReapplyEligibleAt,
   recordStatusEvent,
@@ -144,14 +144,6 @@ export async function POST(request: Request) {
     // override should be explicit and recorded, not the silent default of the
     // highest-privilege route. Two candidates went live through here without
     // a passed AI interview.
-    const precondition = await checkApprovalPreconditions(supabase, candidate);
-    if (!precondition.ok) {
-      return NextResponse.json(
-        { error: precondition.error },
-        { status: precondition.status }
-      );
-    }
-
     const { pass, failingConditions } = checkApprovalGates(candidate);
     if (!pass) {
       return NextResponse.json(
