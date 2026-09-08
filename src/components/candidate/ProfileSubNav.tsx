@@ -97,7 +97,9 @@ export default function ProfileSubNav({
             key={s.id}
             href={`#${s.id}`}
             className={`profile-subnav-item${active === s.id ? " active" : ""}`}
-            aria-current={active === s.id ? "true" : undefined}
+            // "location" is the token for a position WITHIN a page;
+            // "page" means the current page in a site nav.
+            aria-current={active === s.id ? "location" : undefined}
           >
             <span className="profile-subnav-num" aria-hidden>
               {String(i + 1).padStart(2, "0")}

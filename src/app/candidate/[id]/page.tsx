@@ -791,11 +791,23 @@ export default async function CandidateProfilePage({
           entries for one fictional candidate who has all eight; a real
           candidate with no portfolio and no reviews would otherwise get
           links to empty anchors. */}
+      {/* Wrapper bounds the sticky nav: sticky travel is limited by the
+          PARENT box, and as a direct child of .lp the bar stayed pinned
+          across the site footer, still underlining a section a thousand
+          pixels above. */}
+      <div className="profile-nav-scope">
       <ProfileSubNav
         sections={[
           ...(candidate.bio ? [{ id: "about", label: "Overview" }] : []),
-          ...(hasScorecard ? [{ id: "scorecard", label: "Scorecard" }] : []),
-          ...((portfolioItems || []).length > 0 ? [{ id: "samples", label: "Work samples" }] : []),
+          // Scorecard and Work samples render for everyone but show a
+          // padlock unless canViewGated. Listing them for a viewer who will
+          // only meet the lock — a logged-out visitor, or one of our own
+          // recruiters, who is not in that predicate — makes the nav a
+          // promise the page does not keep.
+          ...(hasScorecard && canViewGated ? [{ id: "scorecard", label: "Scorecard" }] : []),
+          ...((portfolioItems || []).length > 0 && canViewGated
+            ? [{ id: "samples", label: "Work samples" }]
+            : []),
           ...(workExperience.length > 0 ? [{ id: "history", label: "Experience" }] : []),
           ...((reviews || []).length > 0 ? [{ id: "reviews", label: "Reviews" }] : []),
           ...(skills.length > 0 || tools.length > 0 ? [{ id: "skills", label: "Skills" }] : []),
@@ -1098,9 +1110,14 @@ export default async function CandidateProfilePage({
             </>
           )}
 
-          {/* Interview booking — the existing scheduler, unchanged */}
+          {/* Interview booking — the existing scheduler, unchanged.
+              The id is the target of the sticky bar's Schedule action: that
+              pointed at #availability, which is a status line in the main
+              column and contains no booking widget at all. Below 980px the
+              sidebar stacks under the main column, so the old link scrolled
+              past the scheduler entirely. */}
           {!isOwnProfile && !isCandidate && (
-            <div style={{ marginTop: "18px" }}>
+            <div id="schedule" style={{ marginTop: "18px", scrollMarginTop: "140px" }}>
               <InterviewScheduler
                 candidateId={candidate.id}
                 candidateFirstName={firstName}
@@ -1129,6 +1146,7 @@ export default async function CandidateProfilePage({
             </div>
           )}
         </aside>
+      </div>
       </div>
 
       <AtlasFooter />
@@ -1165,7 +1183,7 @@ export default async function CandidateProfilePage({
               >
                 Message
               </Link>
-              <a href="#availability" className="btn btn-outline sticky-secondary">Schedule</a>
+              <a href="#schedule" className="btn btn-outline sticky-secondary">Schedule</a>
               <Link href={`/hire/${candidate.id}/offer`} className="btn btn-lime">Hire {firstName}</Link>
             </div>
           </div>
