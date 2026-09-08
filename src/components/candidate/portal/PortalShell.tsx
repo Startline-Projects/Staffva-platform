@@ -1,24 +1,19 @@
 import PortalSidebar from "./PortalSidebar";
 import PortalTopbar from "./PortalTopbar";
-import "@/app/landing.css";
-import "@/app/atlas-auth.css";
-import "@/app/atlas-dash.css";
-import "@/app/atlas-live.css";
+import PortalFrame from "@/components/portal/PortalFrame";
 
 /**
- * The Atlas candidate dashboard shell — .dash-layout with the fixed sidebar
- * (bottom bar on mobile), the topbar with the notifications bell, and the
- * content column. One shell for BOTH phases: pre-approval shows the
- * Dashboard / My Application / Help rail, live mode swaps in the full rail
- * (Find work, Messages, Contracts, Reviews...). Every /candidate portal page
- * renders inside it via the (portal) route-group layout, which is what makes
- * the sidebar's active state and the bell identical across pages instead of
- * five slightly different navbars.
+ * The Atlas candidate dashboard shell — the shared PortalFrame (sidebar,
+ * topbar, content column, and the four stylesheets the chrome needs) wrapped
+ * around the candidate's own rail and topbar. One shell for BOTH phases:
+ * pre-approval shows the Dashboard / My Application / Help rail, live mode
+ * swaps in the full rail (Find work, Messages, Contracts, Reviews...). Every
+ * /candidate portal page renders inside it via the (portal) route-group
+ * layout, which is what makes the sidebar's active state and the bell
+ * identical across pages instead of five slightly different navbars.
  *
- * Styling rides on the same scoping the pipeline dashboard established:
- * tokens on .lp (landing.css), dashboard rules under .lp-dash (atlas-dash.css
- * for the pipeline, atlas-live.css for the shell + live home + bell — both
- * extracted from the Atlas prototype, not approximated).
+ * The client portal renders the same frame with its own rail — see
+ * src/components/client/portal/ClientPortalShell.tsx.
  */
 export interface PortalUser {
   /** Live = approved; everything else gets the pre-approval rail. */
@@ -43,19 +38,12 @@ export default function PortalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="lp lp-auth lp-dash">
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900&family=Geist:wght@300..900&family=Geist+Mono:wght@400..600&display=swap"
-        rel="stylesheet"
-      />
-      <div className={`dash-layout${user.mode === "live" ? " live-mode" : ""}`}>
-        <PortalSidebar user={user} />
-        <div className="dash-main">
-          <PortalTopbar user={user} />
-          <div className="dash-content">{children}</div>
-        </div>
-      </div>
-    </div>
+    <PortalFrame
+      layoutClass={user.mode === "live" ? "live-mode" : undefined}
+      sidebar={<PortalSidebar user={user} />}
+      topbar={<PortalTopbar user={user} />}
+    >
+      {children}
+    </PortalFrame>
   );
 }

@@ -193,6 +193,7 @@ export default function TeamPortalPage() {
   const [chartRange, setChartRange] = useState<"3M" | "6M" | "All">("6M");
   const [showPastEngagements, setShowPastEngagements] = useState(false);
   const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [offersFailed, setOffersFailed] = useState(false);
 
   useEffect(() => {
     loadEngagements();
@@ -200,6 +201,24 @@ export default function TeamPortalPage() {
     loadOffers();
     loadReviews();
   }, []);
+
+  // The portal rail deep-links to #interviews, #offers, #roles, #engagements
+  // and #escrow, but this page renders a loading gate first — at navigation
+  // time the target does not exist yet, so the browser scrolls nowhere and
+  // the rail row looks broken. Scroll once the sections are actually in the
+  // DOM. (scroll-margin-top in the stylesheet keeps the heading clear of the
+  // sticky topbar.)
+  useEffect(() => {
+    if (loading || !window.location.hash) return;
+    try {
+      // Any hash at all can arrive here, and querySelector throws on one
+      // that isn't a valid selector (#2024, say).
+      const el = document.querySelector(window.location.hash);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      /* not a selector we can resolve — leave the page where it is */
+    }
+  }, [loading]);
 
   async function loadReviews() {
     try {
@@ -212,12 +231,20 @@ export default function TeamPortalPage() {
   }
 
   async function loadOffers() {
+    // The Proposals section now always renders, so a swallowed failure would
+    // turn into "No proposals yet." over a client who has five — an empty
+    // state must never speak for a request that never answered.
     try {
       const res = await fetch("/api/offers");
       const data = await res.json();
-      if (res.ok) setOffers(data.offers || []);
+      if (!res.ok) {
+        setOffersFailed(true);
+        return;
+      }
+      setOffers(data.offers || []);
+      setOffersFailed(false);
     } catch {
-      /* the section simply doesn't render */
+      setOffersFailed(true);
     }
   }
 
@@ -442,15 +469,20 @@ export default function TeamPortalPage() {
   const maxPipeline = Math.max(pipeline.browsed, pipeline.messaged, pipeline.interviewed, pipeline.contracted, 1);
 
   if (loading) {
+    // No 100vh-minus-navbar sizing: inside the portal shell this page has no
+    // navbar above it, and the shell owns the viewport height.
     return (
-      <main className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-background">
+      <main className="flex min-h-[60vh] items-center justify-center">
         <p className="text-text/60">Loading your dashboard...</p>
       </main>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    // No max-width or padding of its own: the portal shell's .dash-content
+    // already centres this column and pads it. Keeping both nested the page
+    // inside two containers and squeezed the chart and stat grid.
+    <div>
       {/* A redirect-based payment (bank, wallet) returns here with Stripe's
           outcome in the URL — read it, say what happened, start the poll. */}
       <Suspense fallback={null}>
@@ -487,18 +519,13 @@ export default function TeamPortalPage() {
         </div>
       )}
 
-      {/* ═══ HEADER ═══ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-text">Dashboard</h1>
-          <p className="mt-0.5 text-sm text-text-muted">Your hiring activity and team overview</p>
-        </div>
-        <button
-          onClick={() => router.push("/browse")}
-          className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors min-h-[44px]"
-        >
-          Browse Talent
-        </button>
+      {/* ═══ HEADER ═══
+          No "Browse Talent" button here any more: inside the portal shell the
+          topbar already carries a Hire Talent call to action and the rail a
+          Browse Talent row, all three going to /browse. */}
+      <div>
+        <h1 className="text-2xl font-bold text-text">Dashboard</h1>
+        <p className="mt-0.5 text-sm text-text-muted">Your hiring activity and team overview</p>
       </div>
 
       {/* ═══ STAT CARDS ═══ */}
@@ -509,10 +536,30 @@ export default function TeamPortalPage() {
         <StatCard label="Total Platform Spend" value={`$${stats.totalSpend.toLocaleString()}`} icon={<DollarIcon />} />
       </div>
 
-      {/* ═══ UPCOMING INTERVIEWS (renders nothing when there are none) ═══ */}
-      <div className="mt-6 empty:mt-0">
-        <UpcomingInterviews />
-      </div>
+      {/* ═══ UPCOMING INTERVIEWS ═══
+          The portal rail deep-links here, so the section has to exist even
+          when there is nothing in it — an anchor that resolves to nothing
+          makes the rail item look broken. UpcomingInterviews still renders
+          nothing when empty; the empty line below speaks for it. */}
+      <section className="mt-6" id="interviews" aria-labelledby="interviewsHeading">
+        <h2 id="interviewsHeading" className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+          Interviews
+        </h2>
+        <div className="mt-4">
+          <UpcomingInterviews
+            headless
+            emptyState={
+              // Not "book one from any candidate's profile": booking needs
+              // the candidate to have published open times, and profiles
+              // without them offer a message instead. Say what is true.
+              <p className="rounded-xl border border-dashed border-gray-200 px-5 py-4 text-sm text-text/50">
+                No interviews scheduled. Candidates who have published open times show a
+                &ldquo;Schedule&rdquo; option on their profile.
+              </p>
+            }
+          />
+        </div>
+      </section>
 
       {/* ═══ CHART + PIPELINE ROW ═══ */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -615,12 +662,26 @@ export default function TeamPortalPage() {
         </div>
       )}
 
-      {/* ═══ OFFERS ═══ */}
-      {offers.length > 0 && (
-        <div className="mt-6" id="offers">
-          <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">
-            Offers ({offers.length})
-          </h2>
+      {/* ═══ OFFERS ═══
+          The rail's Proposals row deep-links to #offers, and /hire returns
+          here after sending one, so this section renders even when empty —
+          an anchor that lands on nothing looks like a broken link. */}
+      <section className="mt-6" id="offers" aria-labelledby="offersHeading">
+        <h2 id="offersHeading" className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+          Proposals{offers.length > 0 ? ` (${offers.length})` : ""}
+        </h2>
+        {offersFailed ? (
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            We couldn&apos;t load your proposals just now. Refresh to try again — nothing has been
+            lost.
+          </p>
+        ) : offers.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-gray-200 px-5 py-4 text-sm text-text/50">
+            No proposals yet. When you send one from a candidate&apos;s profile it appears here with
+            their reply and any counters.
+          </p>
+        ) : (
+          <>
           <div className="mt-4 space-y-2">
             {offers.map((o) => (
               <div
@@ -696,18 +757,50 @@ export default function TeamPortalPage() {
                 />
               </div>
             ))}
-        </div>
-      )}
+          </>
+        )}
+      </section>
 
-      {/* ═══ ROLE POSTS — the way back to a shortlist ═══ */}
-      <RolePosts />
-
-      {/* ═══ ACTIVE ENGAGEMENTS ═══ */}
-      {activeEngagements.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">
-            Active Hires ({activeEngagements.length})
+      {/* ═══ ROLE POSTS — the way back to a shortlist ═══
+          The rail's Jobs row lands here, so the section (and a way to post
+          one) exists even with nothing posted. RolePosts still renders
+          nothing when the client has no roles. */}
+      <section className="mt-6" id="roles" aria-labelledby="rolesHeading">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="rolesHeading" className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+            Your job posts
           </h2>
+          <Link href="/post-a-job" className="text-xs font-medium text-primary hover:underline">
+            Post a job →
+          </Link>
+        </div>
+        <div className="mt-4">
+          <RolePosts
+            headless
+            emptyState={
+              <p className="rounded-xl border border-dashed border-gray-200 px-5 py-4 text-sm text-text/50">
+                No job posts yet. Describe the role you need and we&apos;ll match candidates to it.
+              </p>
+            }
+          />
+        </div>
+      </section>
+
+      {/* ═══ ACTIVE ENGAGEMENTS ═══
+          Contracts, milestone approvals and reviews all live inside these
+          cards today, and three rail rows deep-link here, so the section
+          renders with or without hires. Steps 13/14/16 give each its own
+          page and the rows re-point. */}
+      <section className="mt-6" id="engagements" aria-labelledby="engagementsHeading">
+        <h2 id="engagementsHeading" className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+          Active Hires{activeEngagements.length > 0 ? ` (${activeEngagements.length})` : ""}
+        </h2>
+        {activeEngagements.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-gray-200 px-5 py-4 text-sm text-text/50">
+            No active hires yet. Once a candidate accepts a proposal, their contract, payment
+            periods, milestone approvals and reviews all live here.
+          </p>
+        ) : (
           <div className="mt-4 space-y-4">
             {activeEngagements.map((eng) => (
               <div key={eng.id} className="rounded-xl border border-gray-200 bg-card p-6">
@@ -967,13 +1060,15 @@ export default function TeamPortalPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </section>
 
-      {/* ═══ ESCROW STATUS ═══ */}
-      <div className="mt-6">
+      {/* ═══ ESCROW STATUS ═══
+          The rail's Billing row lands here. EscrowStatusPanel carries its own
+          empty state, so the anchor always resolves. */}
+      <section className="mt-6" id="escrow">
         <EscrowStatusPanel role="client" />
-      </div>
+      </section>
 
       {/* ═══ PAST ENGAGEMENTS ═══ */}
       {pastEngagements.length > 0 && (

@@ -8,6 +8,12 @@ import Link from "next/link";
  * stays candidate-visible for 45 days, but the client's only view of who
  * matched lived in sessionStorage: close the tab and the shortlist, and the
  * ability to invite anyone, were gone. This section is the way back in.
+ *
+ * `headless` lets the portal supply the section heading (its rail deep-links
+ * to #roles, so the section exists with or without posts); `emptyState` is
+ * shown only once the fetch has actually answered with nothing — an empty
+ * state that also speaks for a failed request is a false statement about
+ * the client's own data.
  */
 
 interface RolePost {
@@ -22,19 +28,29 @@ interface RolePost {
   visible_to_candidates: boolean;
 }
 
-export default function RolePosts() {
+export default function RolePosts({
+  headless,
+  emptyState,
+}: {
+  headless?: boolean;
+  emptyState?: React.ReactNode;
+} = {}) {
   const [posts, setPosts] = useState<RolePost[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const res = await fetch("/api/jobs/mine");
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setFailed(true);
+          return;
+        }
         const j = await res.json();
         if (!cancelled) setPosts(j.posts || []);
       } catch {
-        /* section stays hidden */
+        if (!cancelled) setFailed(true);
       }
     }
     const t = setTimeout(load, 0);
@@ -44,15 +60,26 @@ export default function RolePosts() {
     };
   }, []);
 
-  // Nothing posted -> nothing rendered; the post-a-job CTA lives elsewhere.
-  if (!posts || posts.length === 0) return null;
+  if (failed) {
+    return (
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+        We couldn&apos;t load your job posts just now. Refresh to try again.
+      </p>
+    );
+  }
+
+  // Still loading -> nothing (posts is null until the fetch answers).
+  if (!posts) return null;
+  if (posts.length === 0) return <>{emptyState ?? null}</>;
 
   return (
-    <div className="mt-6">
-      <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">
-        Your Role Posts ({posts.length})
-      </h2>
-      <div className="mt-4 space-y-3">
+    <div className={headless ? "" : "mt-6"}>
+      {!headless && (
+        <h2 className="text-sm font-semibold text-text/40 uppercase tracking-wider">
+          Your Role Posts ({posts.length})
+        </h2>
+      )}
+      <div className={headless ? "space-y-3" : "mt-4 space-y-3"}>
         {posts.map((p) => (
           <div
             key={p.id}
