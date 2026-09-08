@@ -16,11 +16,13 @@ import { useState } from "react";
  *  - The SKILLS INTERVIEW is what sets the Vetted badge clients see and
  *    filter on (see /api/candidates is_assessed, which reads
  *    candidates.ai_interview_passed).
- *  - The ENGLISH TEST does NOT set that badge and does not move you in the
- *    default completeness sort. It produces an English tier shown on your
- *    profile that clients can filter and sort by. Saying otherwise would be
- *    the exact copy-claims-what-code-doesn't defect this program keeps
- *    closing.
+ *  - The ENGLISH TEST does NOT set that badge. It produces an English tier
+ *    clients filter and sort by, and since 00224 it also adds 4-12 points to
+ *    search position depending on the tier.
+ *  - BOTH now move a candidate up the default order (00224: interview +25,
+ *    English +12/+8/+4 on top of a 100-point profile score). Before that
+ *    migration this card could not honestly say "rank higher" at all, which
+ *    is why it did not.
  */
 export default function OptionalAssessments({
   hasEnglish,
@@ -78,9 +80,10 @@ export default function OptionalAssessments({
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
               A structured, recorded interview about the work you do. Passing
               it earns the <strong>Vetted badge</strong> — the one clients can
-              see and filter on. It also counts for 40% of your reputation
-              score: without it that score is capped at 60, however good your
-              reviews are.
+              see and filter on, and it&apos;s the single biggest thing you can
+              do for your position in search. It also counts for 40% of your
+              reputation score: without it that score is capped at 60, however
+              good your reviews are.
             </p>
             <button type="button" className="current-step-cta" onClick={launchInterview} disabled={busy}>
               <span>{busy ? "Opening…" : "Take the skills interview"}</span>
@@ -93,8 +96,9 @@ export default function OptionalAssessments({
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>English assessment</p>
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
               Grammar, comprehension, and spoken and written sections. It puts
-              an English tier on your profile that clients can filter and sort
-              by, and it shows you which sections to work on.
+              an English tier on your profile that clients filter and sort by,
+              moves you up in search by how well you score, and shows you
+              which sections to work on.
             </p>
             {englishLocked ? (
               <span className="current-step-meta-chip">Retake not open yet</span>

@@ -394,6 +394,15 @@ function BrowseContent() {
                 <p className="browse-note">
                   The lime check means they passed StaffVA&apos;s skills interview. The rest haven&apos;t been assessed yet.
                 </p>
+                {/* Ordering is a claim about these people, so it is stated
+                    rather than left to be inferred — the same rule the Vetted
+                    badge follows. It matters more now that assessments move
+                    a candidate up (00224) and may later be paid for. */}
+                <p className="browse-note">
+                  Default order: profiles with a photo first, then by how
+                  complete the profile is and whether they&apos;ve taken our
+                  optional assessments. Sort or filter to order it your way.
+                </p>
               </div>
               <div className="browse-subactions">
                 <button className="mobile-filter-trigger" onClick={() => setShowFilters(!showFilters)}>
@@ -600,7 +609,7 @@ function BrowseContent() {
                 )}
               </form>
               <select className="results-select" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
-                <option value="complete">Sort: Most complete</option>
+                <option value="complete">Sort: Most complete &amp; assessed</option>
                 <option value="newest">Newest</option>
                 <option value="rate_low">Rate: Low → High</option>
                 <option value="rate_high">Rate: High → Low</option>

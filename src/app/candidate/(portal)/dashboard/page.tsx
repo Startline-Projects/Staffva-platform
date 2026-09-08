@@ -403,7 +403,7 @@ export default async function CandidateDashboardPage() {
       xp: 100,
       state: englishDone ? "completed" : "upcoming",
       optional: true,
-      detail: englishDone ? undefined : "Optional — puts an English tier on your profile that clients can filter and sort by",
+      detail: englishDone ? undefined : "Optional — adds an English tier clients filter on, and moves you up in search",
     },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
@@ -421,7 +421,7 @@ export default async function CandidateDashboardPage() {
       xp: 100,
       state: interview2Done ? "completed" : "upcoming",
       optional: true,
-      detail: interview2Done ? undefined : "Optional — passing it earns the Vetted badge clients filter on",
+      detail: interview2Done ? undefined : "Optional — the Vetted badge, and the biggest single lift to your search position",
     },
     {
       id: "id",
