@@ -58,7 +58,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
           active={is("/inbox")}
           badge={unread > 0 ? String(unread) : undefined}
         />
-        <PortalNavItem href="/team#interviews" icon="interviews" label="Interviews" mobileHide />
+        <PortalNavItem href="/interviews" icon="interviews" label="Interviews" active={is("/interviews")} mobileHide />
         <PortalNavItem href="/proposals" icon="proposals" label="Proposals" active={is("/proposals")} mobileHide />
 
         <PortalNavSection label="Engagements" />

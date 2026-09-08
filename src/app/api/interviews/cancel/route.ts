@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         // review caught the new sites reintroducing it.
         title: "An interview was cancelled",
         body: `${maskContact(emailData.candidate.name)} cancelled the ${when} interview. If they publish new times, you can book again from their profile.`,
-        route: "/team#interviews",
+        route: "/interviews",
         dedupeKey: `iv-cancelled-client-${bookingId}`,
       });
     }
