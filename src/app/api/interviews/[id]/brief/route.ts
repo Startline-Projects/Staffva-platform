@@ -86,8 +86,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .single(),
     admin
       .from("ai_interviews")
+      // ai_notes is excluded on purpose: it is the scoring engine's INTERNAL
+      // field (failed-verification claims, contradictions) and this object is
+      // handed to a model whose output the client reads. The other fourteen
+      // scorecard fields are the shareable ones and are plenty to brief from.
       .select(
-        "overall_score, passed, communication_score, communication_feedback, experience_depth_score, experience_depth_feedback, problem_solving_score, problem_solving_feedback, professionalism_score, professionalism_feedback, technical_knowledge_score, technical_knowledge_feedback, strengths, weaknesses, ai_notes"
+        "overall_score, passed, communication_score, communication_feedback, experience_depth_score, experience_depth_feedback, problem_solving_score, problem_solving_feedback, professionalism_score, professionalism_feedback, technical_knowledge_score, technical_knowledge_feedback, strengths, weaknesses"
       )
       .eq("kind", "skills")
       .eq("candidate_id", b.candidate_id)

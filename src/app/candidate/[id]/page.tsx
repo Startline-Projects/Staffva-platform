@@ -242,7 +242,7 @@ export default async function CandidateProfilePage({
   // Latest completed AI interview with scorecard fields
   const { data: aiInterview } = await supabase
     .from("ai_interviews")
-    .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed, badge_level, technical_knowledge_feedback, problem_solving_feedback, communication_feedback, experience_depth_feedback, professionalism_feedback, strengths, weaknesses, ai_notes")
+    .select("overall_score, technical_knowledge_score, problem_solving_score, communication_score, experience_depth_score, professionalism_score, status, passed, badge_level, technical_knowledge_feedback, problem_solving_feedback, communication_feedback, experience_depth_feedback, professionalism_feedback, strengths, weaknesses")
     .eq("kind", "skills")
     .eq("candidate_id", id)
     .eq("status", "completed")
@@ -367,11 +367,17 @@ export default async function CandidateProfilePage({
         { label: "Professionalism", score: Math.round((aiInterview.professionalism_score || 0) * 5), feedback: aiInterview.professionalism_feedback },
       ]
     : [];
+  // ai_notes is DELIBERATELY absent. The scoring prompt defines it as
+  // "internal observations — especially any claimed skill or tool that FAILED
+  // verification when probed, contradictions", i.e. the interviewer's private
+  // red-flag field. It was rendered here as "Screening notes" to every
+  // logged-in client account. strengths and weaknesses are the shareable
+  // halves — the candidate sees those on their own results page; ai_notes
+  // they never see, and neither should a buyer. Do not add it back.
   const textBlocks = interviewRows.length
     ? [
         { label: "Strengths", value: aiInterview!.strengths },
         { label: "Areas for improvement", value: aiInterview!.weaknesses },
-        { label: "Screening notes", value: aiInterview!.ai_notes },
       ].filter((b) => b.value)
     : [];
   const hasScorecard = candidate.admin_status === "approved" && (englishRows.length > 0 || interviewRows.length > 0);
