@@ -39,6 +39,21 @@ function getExperienceLevel(yearsStr: string): string {
   return mapping[yearsStr] || "mid";
 }
 
+/**
+ * ⚠️ This is the SECOND scorer on the platform and it does not agree with the
+ * first. @/lib/jobMatch scores a candidate against a stored job post (role 40,
+ * must-have 24, nice 9, budget 15, English 8, interview 8, US 5, availability
+ * 4, out of 113); this one scores against a sentence the model parsed (role
+ * 30, skills 25, experience 20, availability 15, English 10, interview 10, out
+ * of 100) and weighs no budget at all.
+ *
+ * So the same candidate can read "78% match" here and a different number on a
+ * job's match-results page, with nothing on either screen explaining why. The
+ * two are not trivially mergeable — this route has no rate range, no
+ * must/nice split, and an AI-guessed role — so they are left apart for now,
+ * on record rather than unnoticed. Whichever way that is resolved, it should
+ * end with one function, the way jobMatch replaced the inline copy.
+ */
 function calculateScore(
   candidate: Record<string, unknown>,
   extracted: ExtractedQuery

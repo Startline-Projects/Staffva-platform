@@ -1,9 +1,8 @@
 // src/app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { englishTierBonus } from "@/lib/englishTier";
+import { scoreCandidateForJob, type MatchCandidate } from "@/lib/jobMatch";
 import { validateDraft, type JobDraft } from "@/lib/jobDraft";
 import { containsContact, maskCandidateText } from "@/lib/contactMask";
-import { hasUsExperience } from "@/lib/usExperienceLabels";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -13,9 +12,6 @@ function getAdminClient() {
   );
 }
 
-// The maximum the structured scorer can award: 40 role + 24 must-have +
-// 9 nice-to-have + 15 rate + 8 english + 5 US + 4 availability.
-const MAX_MATCH_SCORE = 105;
 
 /** The columns the shortlist scores over. */
 interface PoolCandidate {
@@ -207,57 +203,24 @@ export async function POST(req: NextRequest) {
         visible = visible.concat((rows || []) as PoolCandidate[]);
       }
 
-      const norm = (arr: unknown): string[] =>
-        Array.isArray(arr) ? arr.map((x) => String(x).toLowerCase()) : [];
-
+      // Scored by the shared function in @/lib/jobMatch, which returns the
+      // per-criterion breakdown alongside the number. The scorer used to live
+      // inline here, which is how its denominator came to be wrong: a
+      // skills-interview bonus was added to the code and not to
+      // MAX_MATCH_SCORE, inflating every score by ~7.6%. The max is derived
+      // from the weights now.
       const matches = visible
-        .map((c) => {
-          let score = 0;
-          if (c.role_category?.toLowerCase() === d.role_category.toLowerCase()) score += 40;
-          // Must-have scores against SKILLS ONLY, matching
-          // job_skill_or_role_match in 00192. The gate and the score have to
-          // read the same vocabulary: crediting tools here while the gate
-          // ignores them would rank a candidate highly on "Slack" for a
-          // bookkeeping role they only reached on role category.
-          const candidateSkills = new Set(norm(c.skills));
-          let must = 0;
-          for (const skill of d.must_have_skills) {
-            if (candidateSkills.has(skill.toLowerCase())) must += 8;
-          }
-          score += Math.min(must, 24);
-          // Nice-to-have may still credit tools: it is a tie-breaker, not a
-          // qualification, and familiarity with a client's stack is real.
-          const candidateSkillsAndTools = new Set([...norm(c.skills), ...norm(c.tools)]);
-          let nice = 0;
-          for (const skill of d.nice_to_have_skills) {
-            if (candidateSkillsAndTools.has(skill.toLowerCase())) nice += 3;
-          }
-          score += Math.min(nice, 9);
-          if (d.rate_type === "hourly" && typeof c.hourly_rate === "number") {
-            if (c.hourly_rate <= (d.hourly_rate_max as number)) score += 15;
-            else if (c.hourly_rate <= (d.hourly_rate_max as number) * 1.2) score += 8;
-          } else {
-            score += 8;
-          }
-          score += englishTierBonus(c.english_written_tier as string | null, [8, 5, 3]);
-          // Same signal as browse (00224) and AI match, scaled to this
-          // scorer — so a shortlist does not disagree with the page the
-          // client just came from.
-          if ((c as { ai_interview_passed?: boolean | null }).ai_interview_passed === true) {
-            score += 8;
-          }
-          // The column is an enum whose "none" value is a truthy string, so
-          // every candidate scored this. The helper is already used by four
-          // other surfaces, including the badge on this very card — so a
-          // candidate could score the bonus and not get the badge.
-          if (hasUsExperience(c.us_client_experience as string | null)) score += 5;
-          if (c.availability_status === "available_now") score += 4;
-          // Raw scores max at 105 and the shortlist renders this as both
-          // `width: ${score}%` and "{score}% match" — so a strong match
-          // overflowed the bar and told a paying client "105% match".
-          const pct = Math.max(0, Math.min(100, Math.round((score / MAX_MATCH_SCORE) * 100)));
-          return { ...maskCandidateText(c), match_score: pct };
-        })
+        .map((c) => ({
+          ...maskCandidateText(c),
+          match_score: scoreCandidateForJob(c as MatchCandidate, {
+            role_category: d.role_category,
+            must_have_skills: d.must_have_skills,
+            nice_to_have_skills: d.nice_to_have_skills,
+            rate_type: d.rate_type,
+            hourly_rate_min: d.hourly_rate_min as number | null,
+            hourly_rate_max: d.hourly_rate_max as number | null,
+          }).score,
+        }))
         .sort((a, b) => b.match_score - a.match_score)
         .slice(0, 12);
 

@@ -1,65 +1,93 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { hasUsExperience } from "@/lib/usExperienceLabels";
+import type { MatchCriterion } from "@/lib/jobMatch";
+import "@/app/landing.css";
+
+type Pipeline = "passed" | "accepted" | "offer" | "interviewing" | "contacted" | "new";
 
 interface MatchedCandidate {
   id: string;
   display_name: string;
   country: string;
   role_category: string;
-  hourly_rate: number;
-  english_written_tier: string;
-  us_client_experience: string | null;
-  availability_status: string;
-  total_earnings_usd: number;
-  bio: string;
+  hourly_rate: number | null;
   profile_photo_url: string | null;
+  bio: string | null;
   match_score: number;
+  criteria: MatchCriterion[];
+  /** Set when the marketplace has withdrawn them; directory fields are blanked. */
+  withdrawn: string | null;
   invited_at?: string | null;
+  passed_at?: string | null;
+  pipeline: Pipeline;
 }
 
-interface JobPostResult {
-  jobPost: {
-    id: string;
-    role_category: string;
-    hours_per_week: string;
-    budget_range: string;
-    start_date: string;
-    description: string;
-  };
-  matches: MatchedCandidate[];
+interface JobPost {
+  id: string;
+  title: string | null;
+  role_category: string;
+  must_have_skills: string[] | null;
+  nice_to_have_skills: string[] | null;
+  rate_type: string | null;
+  hourly_rate_min: number | null;
+  hourly_rate_max: number | null;
+  hours_per_week_estimate: string | null;
+  duration_type: string | null;
+  duration_estimate: string | null;
+  published_at: string | null;
+  status: string;
 }
 
-function tierColor(tier: string) {
-  switch (tier) {
-    case "exceptional": return "bg-green-100 text-green-700";
-    case "proficient": return "bg-blue-100 text-blue-700";
-    case "competent": return "bg-gray-100 text-gray-600";
-    default: return "bg-gray-100 text-gray-600";
-  }
-}
+const PIPELINE_LABEL: Record<Pipeline, string> = {
+  new: "New",
+  contacted: "Contacted",
+  interviewing: "Interviewing",
+  offer: "Offer out",
+  // Distinct from "Offer out": an accepted offer is the opposite of one still
+  // outstanding, and collapsing the two told a client to chase a reply they
+  // had already had.
+  accepted: "Offer accepted",
+  passed: "Passed",
+};
 
+/**
+ * Match results (client step 9).
+ *
+ * The page Atlas calls "match results". Two things it deliberately does NOT
+ * do, both of which the prototype does:
+ *
+ *  - No Talent Specialist, and no "we'll source 1-2 more within 24-48 hours".
+ *    The owner retired the specialist (D5) and nobody sources off-platform.
+ *    Atlas repeats that promise five times on this one screen.
+ *  - No freeform "why we matched" prose. Atlas's asserts cross-record facts
+ *    ("her proposal landed this morning", "you're already negotiating with
+ *    Diego") that nothing checks. The criteria grid below says the same kind
+ *    of thing, except every row is a column we actually read.
+ *
+ * The score is recomputed live from the candidate's current row, so the
+ * number and the rows explaining it always agree.
+ */
 function ShortlistContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobId = searchParams.get("id");
-  const [result, setResult] = useState<JobPostResult | null>(null);
-  const [inviting, setInviting] = useState<string | null>(null);
-  const [invited, setInvited] = useState<Set<string>>(new Set());
-  const [inviteError, setInviteError] = useState<{ id: string; message: string } | null>(null);
 
+  const [jobPost, setJobPost] = useState<JobPost | null>(null);
+  const [matches, setMatches] = useState<MatchedCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Pipeline | "all">("all");
+  const [inviting, setInviting] = useState<string | null>(null);
+  const [invited, setInvited] = useState<Set<string>>(new Set());
+  const [busyPass, setBusyPass] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
+  const [signalsOk, setSignalsOk] = useState(true);
 
   useEffect(() => {
-    // From the DATABASE, not sessionStorage. The matches were persisted at
-    // publish all along; reading them only from browser storage meant a
-    // client who closed the tab could never again see who matched or invite
-    // anyone, while their post stayed candidate-visible for 45 days.
     let cancelled = false;
     async function load() {
       if (!jobId) {
@@ -69,186 +97,366 @@ function ShortlistContent() {
       try {
         const res = await fetch(`/api/jobs/shortlist?id=${encodeURIComponent(jobId)}`);
         // Every failure used to collapse into "No results found" plus a
-        // "Post a Role" CTA — steering a client with a LIVE post and a
-        // persisted shortlist into publishing a duplicate (which re-runs
-        // matching and re-notifies candidates) because their cookie expired.
+        // "Post a Role" CTA — steering a client with a LIVE post into
+        // publishing a duplicate because their cookie expired.
         if (res.status === 401) {
           router.replace(`/login?next=${encodeURIComponent(`/post-role/shortlist?id=${jobId}`)}`);
           return;
         }
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          if (!cancelled) setLoadError(body.error || "Could not load your shortlist.");
+          if (!cancelled) setLoadError(body.error || "Could not load your matches.");
           return;
         }
         const data = await res.json();
         if (cancelled) return;
-        setResult({ jobPost: data.jobPost, matches: data.matches });
+        setJobPost(data.jobPost);
+        setMatches(data.matches || []);
+        setSignalsOk(data.signalsOk !== false);
         setInvited(
-          new Set(
-            (data.matches as MatchedCandidate[])
-              .filter((m) => m.invited_at)
-              .map((m) => m.id)
-          )
+          new Set((data.matches as MatchedCandidate[]).filter((m) => m.invited_at).map((m) => m.id))
         );
       } catch {
-        /* the empty state renders */
+        if (!cancelled) setLoadError("Could not reach the server.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    const t = setTimeout(load, 0);
+    load();
     return () => {
       cancelled = true;
-      clearTimeout(t);
     };
   }, [jobId, router]);
 
-  async function handleInvite(candidateId: string, displayName: string) {
-    void displayName;
+  // Counts are computed from the rows on screen, every render. Atlas hardcodes
+  // its five pipeline numbers in HTML and never recomputes them, so its
+  // "Passed 0" stays 0 no matter what you do.
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: matches.length, new: 0, contacted: 0, interviewing: 0, offer: 0, passed: 0 };
+    for (const m of matches) c[m.pipeline] = (c[m.pipeline] || 0) + 1;
+    return c;
+  }, [matches]);
+
+  const visible = filter === "all" ? matches : matches.filter((m) => m.pipeline === filter);
+
+  async function handleInvite(candidateId: string) {
     setInviting(candidateId);
+    setActionError(null);
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !result) return;
-      // Only the two ids are sent now: the route reads everything the email
-      // shows from the stored job row, because four caller-supplied strings
-      // used to be interpolated unescaped into StaffVA-branded mail.
+      if (!session) {
+        // Returning silently here left the button dead with no explanation.
+        setActionError({ id: candidateId, message: "Your session expired — reload and try again." });
+        return;
+      }
       const res = await fetch("/api/jobs/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ job_post_id: jobId, candidate_id: candidateId }),
       });
       // fetch does not reject on 4xx/5xx, and this used to mark the candidate
-      // invited on the next line regardless — so a 404 ("not shortlisted for
-      // this role") or a 500 still rendered "✓ Invited".
+      // invited regardless — so a 404 still rendered "✓ Invited".
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setInviteError({ id: candidateId, message: body.error || "Could not send that invite." });
+        setActionError({ id: candidateId, message: body.error || "Could not send that invite." });
         return;
       }
-      setInviteError(null);
       setInvited((prev) => new Set(prev).add(candidateId));
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === candidateId && m.pipeline === "new" ? { ...m, pipeline: "contacted" } : m
+        )
+      );
     } catch {
-      setInviteError({ id: candidateId, message: "Could not reach the server." });
+      setActionError({ id: candidateId, message: "Could not reach the server." });
+    } finally {
+      setInviting(null);
     }
-    setInviting(null);
+  }
+
+  async function handlePass(candidateId: string, passed: boolean) {
+    setBusyPass(candidateId);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/jobs/shortlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobPostId: jobId, candidateId, passed }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError({ id: candidateId, message: body.error || "Could not save that." });
+        return;
+      }
+      // Un-passing returns them to a DERIVED state, which only the server can
+      // work out — so refetch rather than guessing "new".
+      const reload = await fetch(`/api/jobs/shortlist?id=${encodeURIComponent(jobId as string)}`);
+      if (!reload.ok) {
+        // The write LANDED; only the refresh failed. Saying nothing left the
+        // button reading "Pass" for a candidate who was already passed.
+        setActionError({ id: candidateId, message: "Saved, but the list didn't refresh. Reload to see it." });
+        return;
+      }
+      const data = await reload.json();
+      const fresh: MatchedCandidate[] = data.matches || [];
+      setMatches(fresh);
+      setSignalsOk(data.signalsOk !== false);
+      // Re-derived, not left stale: "✓ Invited" would otherwise disagree with
+      // the invited_at just fetched.
+      setInvited(new Set(fresh.filter((m) => m.invited_at).map((m) => m.id)));
+    } catch {
+      setActionError({ id: candidateId, message: "Could not reach the server." });
+    } finally {
+      setBusyPass(null);
+    }
   }
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="text-sm text-gray-500">Loading your shortlist…</p>
-      </div>
-    );
+    return <div className="mr-state">Loading your matches…</div>;
   }
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-xl font-bold text-[#1C1B1A]">Couldn&apos;t load your shortlist</h1>
-        <p className="mt-2 text-sm text-gray-500">{loadError}</p>
-        <p className="mt-1 text-sm text-gray-500">
-          Your post and its matches are safe — this is a loading problem, not a
-          missing shortlist.
+      <div className="mr-state">
+        <h1>Couldn&apos;t load your matches</h1>
+        <p>{loadError}</p>
+        <p className="mr-state-sub">
+          Your post and its matches are safe — this is a loading problem, not a missing shortlist.
         </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 inline-block rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B]"
-        >
-          Try again
-        </button>
+        <button className="btn btn-primary" onClick={() => window.location.reload()}>Try again</button>
       </div>
     );
   }
 
-  if (!result) {
+  if (!jobPost) {
+    // Two different situations. Asserting "it may have been removed" for a
+    // link that simply carried no id claims a deletion that never happened.
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-xl font-bold text-[#1C1B1A]">No results found</h1>
-        <p className="mt-2 text-sm text-gray-500">Try posting a new role to get matched candidates.</p>
-        <Link href="/post-role" className="mt-4 inline-block rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B]">Post a Role</Link>
+      <div className="mr-state">
+        <h1>{jobId ? "No role found" : "No role selected"}</h1>
+        <p>
+          {jobId
+            ? "We couldn't find that post. It may have been removed."
+            : "This page shows the matches for one job post. Open it from the post, or start a new one."}
+        </p>
+        <Link href="/post-a-job" className="btn btn-primary">Post a role</Link>
       </div>
     );
   }
 
-  const { jobPost, matches } = result;
+  // No invented $0 floor: the client never said zero, and the scorer's budget
+  // evidence is worded the same way when there is no minimum.
+  const rateLabel =
+    jobPost.rate_type === "hourly" && jobPost.hourly_rate_max != null
+      ? jobPost.hourly_rate_min != null
+        ? `$${jobPost.hourly_rate_min}–$${jobPost.hourly_rate_max}/hr`
+        : `Up to $${jobPost.hourly_rate_max}/hr`
+      : jobPost.rate_type === "fixed"
+        ? "Fixed price"
+        : "Not set";
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-[#FE6E3E]">Your Shortlist</span>
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">{matches.length} match{matches.length !== 1 ? "es" : ""}</span>
+    <div className="mr">
+      <div className="mr-head">
+        <div>
+          <div className="mr-eyebrow">Hiring on StaffVA · Matches</div>
+          <h1 className="mr-title">{jobPost.title || jobPost.role_category}</h1>
+          <p className="mr-lead">
+            {matches.length === 0
+              ? "Nobody on StaffVA matches this post yet."
+              : `${matches.length} ${matches.length === 1 ? "candidate" : "candidates"} matched, ranked by fit against your spec. Every score below breaks down into the checks that produced it.`}
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-[#1C1B1A]">Top candidates for {jobPost.role_category}</h1>
-        <p className="mt-1 text-sm text-gray-500">We matched these professionals to your requirements. Message them or send an invite to connect.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs font-medium text-[#FE6E3E]">{jobPost.role_category}</span>
-          <span className="rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-xs text-gray-600">{jobPost.hours_per_week}</span>
-          <span className="rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-xs text-gray-600">{jobPost.budget_range}</span>
-          <span className="rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-xs text-gray-600">Start: {jobPost.start_date}</span>
+        <div className="mr-head-actions">
+          <Link href="/post-a-job" className="btn btn-outline">Post another role</Link>
         </div>
       </div>
 
-      {matches.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-          <p className="text-gray-500">No candidates matched your exact criteria. Try broadening your requirements.</p>
-          <Link href={`/browse?role=${encodeURIComponent(jobPost.role_category)}`} className="mt-4 inline-block text-sm font-medium text-[#FE6E3E] hover:underline">Browse all {jobPost.role_category} professionals →</Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {matches.map((candidate, index) => (
-            <div key={candidate.id} className="rounded-lg border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-start gap-4">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-50 text-sm font-bold text-[#FE6E3E]">{index + 1}</div>
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100">
-                  {candidate.profile_photo_url ? (
-                    <img src={candidate.profile_photo_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-lg font-bold text-gray-400">{candidate.display_name?.charAt(0) || "?"}</div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold text-[#1C1B1A]">{candidate.display_name}</h3>
-                      <p className="text-sm text-gray-500">{candidate.country} · {candidate.role_category}</p>
-                    </div>
-                    <p className="text-lg font-bold text-[#FE6E3E]">${candidate.hourly_rate?.toLocaleString()}<span className="text-xs font-normal text-gray-400">/hr</span></p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {candidate.english_written_tier && <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${tierColor(candidate.english_written_tier)}`}>{candidate.english_written_tier}</span>}
-                    {hasUsExperience(candidate.us_client_experience) && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">US Experience</span>}
-                    {candidate.total_earnings_usd > 0 && <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600">${candidate.total_earnings_usd.toLocaleString()} earned</span>}
-                  </div>
-                  {candidate.bio && <p className="mt-2 text-sm text-gray-600 line-clamp-2">{candidate.bio}</p>}
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#FE6E3E]" style={{ width: `${candidate.match_score}%` }} /></div>
-                    <span className="text-xs font-medium text-gray-500">{candidate.match_score}% match</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-3 pl-[5.5rem]">
-                <Link href={`/candidate/${candidate.id}`} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors">View Profile</Link>
-                <Link href={`/inbox?candidate=${candidate.id}`} className="rounded-lg bg-[#FE6E3E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors">Message</Link>
-                <button onClick={() => handleInvite(candidate.id, candidate.display_name)} disabled={inviting === candidate.id || invited.has(candidate.id)} className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${invited.has(candidate.id) ? "border-green-200 bg-green-50 text-green-600 cursor-default" : "border-gray-200 text-[#1C1B1A] hover:border-[#FE6E3E] hover:text-[#FE6E3E]"} disabled:opacity-50`}>
-                  {invited.has(candidate.id) ? "✓ Invited" : inviting === candidate.id ? "Sending..." : "Invite to Role"}
-                </button>
-                {inviteError?.id === candidate.id && (
-                  <p className="mt-1 text-xs text-red-600">{inviteError.message}</p>
-                )}
-              </div>
+      <div className="mr-body">
+        <div className="mr-main">
+          {/* Counts recomputed from the rows on screen every render. */}
+          <div className="mr-pipeline" role="tablist" aria-label="Filter by stage">
+            {(["all", "new", "contacted", "interviewing", "offer", "passed"] as const).map((k) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={filter === k}
+                className={`mr-pipeline-cell${filter === k ? " active" : ""}`}
+                onClick={() => setFilter(k)}
+              >
+                <span className={`mr-pipeline-num${(counts[k] ?? 0) === 0 ? " zero" : ""}`}>{counts[k] ?? 0}</span>
+                <span className="mr-pipeline-lbl">{k === "all" ? "All matches" : PIPELINE_LABEL[k]}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mr-pipeline-note">
+            Stages describe where you are with each person overall — a message, interview or
+            offer counts even if it was for another role, because none of those records name a
+            job. &ldquo;Passed&rdquo; and an invite sent from this page are specific to this post.
+          </p>
+          {!signalsOk && (
+            // Better than showing everyone as "New", which would send a client
+            // to re-contact people they already have an offer out to.
+            <p className="mr-signals-warn">
+              We couldn&apos;t check every stage just now, so some cards may look earlier in the
+              process than they are. Match scores below are unaffected.
+            </p>
+          )}
+
+          {visible.length === 0 ? (
+            <div className="mr-empty">
+              {matches.length === 0 ? (
+                <>
+                  <p>No candidates matched this post.</p>
+                  <Link href={`/browse?role=${encodeURIComponent(jobPost.role_category)}`} className="btn btn-outline">
+                    Browse {jobPost.role_category} candidates
+                  </Link>
+                </>
+              ) : filter === "passed" ? (
+                <p>No passed candidates yet. Anyone you mark as a no shows up here, and you can bring them back.</p>
+              ) : (
+                <p>Nobody is at that stage yet.</p>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            visible.map((m) => (
+                <article key={m.id} className={`mr-card${m.passed_at ? " passed" : ""}${m.withdrawn ? " gone" : ""}`}>
+                  <div className="mr-card-top">
+                    <div
+                      className="mr-card-photo"
+                      style={m.profile_photo_url ? { backgroundImage: `url("${encodeURI(m.profile_photo_url)}")` } : undefined}
+                      aria-hidden
+                    >
+                      {!m.profile_photo_url && (m.display_name?.[0] || "?").toUpperCase()}
+                    </div>
+                    <div className="mr-card-id">
+                      <div className="mr-card-name">{m.display_name}</div>
+                      {m.withdrawn ? (
+                        <div className="mr-card-gone">{m.withdrawn}</div>
+                      ) : (
+                        <div className="mr-card-role">
+                          {[m.role_category, m.country, m.hourly_rate != null ? `$${m.hourly_rate}/hr` : null]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      )}
+                      <span className={`mr-card-status st-${m.pipeline}`}>{PIPELINE_LABEL[m.pipeline]}</span>
+                    </div>
+                    {!m.withdrawn && (
+                      <div className="mr-card-score">
+                        <div className="mr-card-score-num">{m.match_score}<span className="denom">/100</span></div>
+                        <div className="mr-card-score-bar"><span style={{ width: `${m.match_score}%` }} /></div>
+                        <div className="mr-card-score-label">Match score</div>
+                      </div>
+                    )}
+                  </div>
 
-      <div className="mt-8 text-center">
-        <Link href={`/browse?role=${encodeURIComponent(jobPost.role_category)}`} className="text-sm font-medium text-[#FE6E3E] hover:underline">Browse all {jobPost.role_category} professionals →</Link>
-      </div>
-      <div className="mt-4 text-center">
-        <button onClick={() => router.push("/post-role")} className="text-sm text-gray-500 hover:text-[#1C1B1A]">Post another role</button>
+                  {/* Every check, always. Truncating them left a headline the
+                      visible rows could not add up to — and the whole point of
+                      this grid is that the score reconciles. */}
+                  <div className="mr-card-criteria">
+                    {m.criteria.map((c) => (
+                      <div key={c.key} className={`mr-criterion ${c.verdict}`}>
+                        {/* The word, not just the colour: the mark alone left
+                            met/partial/miss indistinguishable without colour. */}
+                        <span className="mr-criterion-mark" aria-hidden />
+                        <span className="mr-criterion-body">
+                          <span className="mr-criterion-label">
+                            {c.label}
+                            <span className="sr-only">
+                              {c.verdict === "met" ? " — met" : c.verdict === "partial" ? " — partly met" : " — not met"}
+                            </span>
+                          </span>
+                          <span className="mr-criterion-evidence">{c.evidence}</span>
+                        </span>
+                        <span className="mr-criterion-pts">{c.points}/{c.maxPoints}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mr-card-actions">
+                    {!m.withdrawn && (
+                      <>
+                        <Link href={`/candidate/${m.id}`} className="btn btn-outline">View profile</Link>
+                        <Link href={`/inbox?candidate=${m.id}`} className="btn btn-outline">Message</Link>
+                      </>
+                    )}
+                    {!m.withdrawn && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleInvite(m.id)}
+                        disabled={inviting === m.id || invited.has(m.id)}
+                      >
+                        {invited.has(m.id) ? "✓ Invited" : inviting === m.id ? "Sending…" : "Invite to role"}
+                      </button>
+                    )}
+                    <button
+                      className="mr-pass"
+                      onClick={() => handlePass(m.id, !m.passed_at)}
+                      disabled={busyPass === m.id}
+                    >
+                      {busyPass === m.id ? "…" : m.passed_at ? "Undo pass" : "Pass"}
+                    </button>
+                  </div>
+                  {actionError?.id === m.id && <p className="mr-card-err">{actionError.message}</p>}
+                </article>
+            ))
+          )}
+        </div>
+
+        <aside className="mr-side">
+          <div className="mr-spec-card">
+            <div className="mr-spec-head">
+              <h2>Job spec</h2>
+              <span className={`mr-spec-status st-${jobPost.status}`}>{jobPost.status}</span>
+            </div>
+            <div className="mr-spec-rows">
+              <div><span>Role</span><span>{jobPost.role_category}</span></div>
+              <div><span>Budget</span><span>{rateLabel}</span></div>
+              {jobPost.hours_per_week_estimate && (
+                <div><span>Hours</span><span>{jobPost.hours_per_week_estimate}</span></div>
+              )}
+              {jobPost.duration_type && (
+                <div>
+                  <span>Length</span>
+                  <span>{jobPost.duration_type}{jobPost.duration_estimate ? ` · ${jobPost.duration_estimate}` : ""}</span>
+                </div>
+              )}
+              {jobPost.published_at && (
+                <div>
+                  <span>Posted</span>
+                  <span>{new Date(jobPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                </div>
+              )}
+            </div>
+            {(jobPost.must_have_skills || []).length > 0 && (
+              <>
+                <div className="mr-spec-sub">Must have</div>
+                <div className="mr-spec-chips">
+                  {(jobPost.must_have_skills || []).map((s) => <span key={s} className="skill-mini">{s}</span>)}
+                </div>
+              </>
+            )}
+            {(jobPost.nice_to_have_skills || []).length > 0 && (
+              <>
+                <div className="mr-spec-sub">Nice to have</div>
+                <div className="mr-spec-chips">
+                  {(jobPost.nice_to_have_skills || []).map((s) => <span key={s} className="skill-mini">{s}</span>)}
+                </div>
+              </>
+            )}
+            {/* Hours is shown here rather than as a scored criterion: the
+                column is free text ("about 20 hrs"), so a met/miss verdict on
+                it would be a parse dressed up as a fact. */}
+            <p className="mr-spec-note">
+              Every check on a card carries its own points, and they add up to the score beside
+              it. A check we can&apos;t make — budget on a fixed-price post, say — is left out
+              rather than guessed at, so it neither helps nor hurts. Hours aren&apos;t scored
+              either: the field is free text.
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
   );
@@ -256,8 +464,13 @@ function ShortlistContent() {
 
 export default function ShortlistPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" /></div>}>
-      <ShortlistContent />
-    </Suspense>
+    // `.lp` scopes the Atlas tokens these styles use. No nav or footer here:
+    // the (main) layout already renders the site Navbar, and adding Atlas's
+    // would put two on the page.
+    <div className="lp">
+      <Suspense fallback={<div className="mr-state">Loading…</div>}>
+        <ShortlistContent />
+      </Suspense>
+    </div>
   );
 }
