@@ -6,10 +6,14 @@
  * three portfolio samples is 12 — and that number does not ship here. Three
  * reasons, in order of how much they matter:
  *
- * 1. Nothing ranks on it. get_candidates_with_skills orders by hourly_rate,
- *    total_earnings_usd, english_percentile or created_at. A 95 and a 41 sit in
- *    identical positions in front of a client. Showing someone a number that
- *    changes nothing, and calling it "Strong", is a motivational fiction.
+ * 1. This list ranks nothing. NOTE (2026-09-07): browse now DOES order on a
+ *    completeness score — get_candidates_with_skills sorts photo-first, then
+ *    by the weights in 00219 — but that is a DIFFERENT calculation, mirrored
+ *    for the candidate in searchRanking.ts. Keep the two apart: this file
+ *    answers "is my application finished?", that one answers "why am I on
+ *    page 9?". Merging them would let a builder tweak silently reorder the
+ *    marketplace. What still holds: no number derived HERE decides anything,
+ *    and dressing this list up as a weighted score would imply otherwise.
  * 2. There is already a score, and it disagrees. reputation_score is weighted
  *    0-100 with tiers at 60/70/80/90, badges as Elite or Top Rated, and is fed
  *    verbatim to the model that writes client-facing copy. A candidate reading

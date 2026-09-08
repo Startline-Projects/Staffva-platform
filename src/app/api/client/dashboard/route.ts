@@ -57,7 +57,7 @@ export async function GET() {
     const firstName = (client.full_name || "").trim().split(/\s+/)[0] || "there";
 
     // Gate state and signup intent come from columns added by migrations
-    // 00219/00221, read separately and tolerantly: a dashboard must not 500
+    // 00222/00221, read separately and tolerantly: a dashboard must not 500
     // because a migration has not landed yet (the step-4 lesson). Unreadable
     // means "treat as not-yet-verified", which shows the explore dashboard —
     // the safe direction, since the funding gate itself lives server-side.

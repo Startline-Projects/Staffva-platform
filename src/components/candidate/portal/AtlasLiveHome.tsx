@@ -3,6 +3,8 @@ import AvailabilityBar from "./AvailabilityBar";
 import AvailabilityRateCard from "@/components/candidate/AvailabilityRateCard";
 import GoingLiveWelcome from "@/components/candidate/GoingLiveWelcome";
 import DashboardTour from "@/components/candidate/portal/DashboardTour";
+import ProfileRankNudge from "@/components/candidate/portal/ProfileRankNudge";
+import type { RankingInput } from "@/lib/searchRanking";
 import {
   computeVisibility,
   availabilityIsStale,
@@ -48,7 +50,7 @@ export default function AtlasLiveHome({
     availability_date?: string | null;
     going_live_ack_at?: string | null;
     tour_seen_at?: string | null;
-  };
+  } & RankingInput;
   firstName: string;
   pendingOfferCount: number;
   signableContractCount: number;
@@ -268,6 +270,12 @@ export default function AtlasLiveHome({
           ))}
         </ul>
       )}
+
+      {/* Ranking, not visibility — deliberately AFTER the block above. If a
+          candidate is hidden outright, that is the bigger problem and this
+          would be noise stacked on it; the component no-ops when they are
+          not searchable. */}
+      <ProfileRankNudge candidate={candidate} searchable={vis.searchable} />
 
       {/* ── Stats row ── */}
       <div className="live-stats-row" style={{ display: "grid" }}>

@@ -49,7 +49,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate

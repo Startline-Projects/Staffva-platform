@@ -578,7 +578,7 @@ export async function POST(request: Request) {
 
     // The customer.subscription.* branch is gone with the rest of the retired
     // $99/mo messaging subscription (client vertical step 1): checkout had no
-    // callers, the columns it wrote were dropped in migration 00219, and no
+    // callers, the columns it wrote were dropped in migration 00222, and no
     // client ever had a subscription. Unhandled events fall through harmlessly.
 
     // ---- Stripe Connect — account updated ----
