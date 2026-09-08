@@ -58,26 +58,34 @@ function len(v: unknown): number {
 /** Every scored item, ordered by what it is worth. */
 export function rankingItems(c: RankingInput): RankingItem[] {
   return [
-    { key: "photo", label: "A profile photo", points: 30, done: !!c.profile_photo_url },
+    { key: "photo", label: "A profile photo", points: 30, done: c.profile_photo_url != null },
     {
       key: "video",
       label: "A video introduction",
       points: 15,
       // Mirrors the SQL: an unapproved or missing video scores nothing.
-      done: c.video_intro_status === "approved" && !!c.video_intro_url,
+      done: c.video_intro_status === "approved" && c.video_intro_url != null,
     },
     {
       key: "bio",
       label: "An About section (80 characters or more)",
       points: 12,
-      done: !!c.bio && c.bio.trim().length >= 80,
+      // SQL is `length(btrim(bio)) >= 80`; btrim strips spaces only, while
+      // JS .trim() also strips tabs/newlines — so a bio padded with newlines
+      // could score here and not there. Match btrim.
+      done: !!c.bio && c.bio.replace(/^ +| +$/g, "").length >= 80,
     },
-    { key: "voice", label: "A voice recording", points: 10, done: !!c.voice_recording_1_url },
+    { key: "voice", label: "A voice recording", points: 10, done: c.voice_recording_1_url != null },
     { key: "skills", label: "At least 3 skills", points: 10, done: len(c.skills) >= 3 },
     { key: "work", label: "At least one past role", points: 8, done: len(c.work_experience) >= 1 },
-    { key: "tagline", label: "A headline", points: 5, done: !!c.tagline && c.tagline.trim() !== "" },
+    {
+      key: "tagline",
+      label: "A headline",
+      points: 5,
+      done: !!c.tagline && c.tagline.replace(/^ +| +$/g, "") !== "",
+    },
     { key: "tools", label: "At least one tool", points: 5, done: len(c.tools) >= 1 },
-    { key: "resume", label: "A résumé", points: 5, done: !!c.resume_url },
+    { key: "resume", label: "A résumé", points: 5, done: c.resume_url != null },
   ];
 }
 
@@ -85,6 +93,25 @@ export function rankingItems(c: RankingInput): RankingItem[] {
  *  the number they are actually ranked on. */
 export function rankingScore(c: RankingInput): number {
   return rankingItems(c).reduce((n, i) => n + (i.done ? i.points : 0), 0);
+}
+
+/**
+ * Was this object actually SELECTed with the ranking columns?
+ *
+ * PostgREST returns only the columns you ask for, and the Supabase client is
+ * untyped here, so a row missing them is not a type error — every score just
+ * computes 0. That shipped once: the approved-candidate dashboard passed a
+ * row with none of these keys and the nudge told people with complete
+ * profiles they were "0% complete". A starved input is a programming
+ * mistake, and it must not be indistinguishable from an empty profile.
+ */
+export function hasRankingColumns(c: RankingInput): boolean {
+  return (
+    "profile_photo_url" in c &&
+    "bio" in c &&
+    "resume_url" in c &&
+    "ai_interview_passed" in c
+  );
 }
 
 export function missingForRanking(c: RankingInput): RankingItem[] {
@@ -105,10 +132,14 @@ export function assessmentItems(c: RankingInput): RankingItem[] {
     },
     {
       key: "english",
-      // The points vary by tier, so the label says what was earned rather
-      // than implying a flat award.
-      label: tier ? `English tier: ${tier}` : "Sat the English assessment",
-      points: tierPoints || 12,
+      // The award is tiered (12/8/4) and a sub-70 result earns NOTHING, so
+      // the un-earned state must show the RANGE. It previously showed 12 —
+      // the exceptional-only award — as if sitting the test paid it, which
+      // is a number nobody is ranked on.
+      label: tier
+        ? `English tier: ${tier}`
+        : "Pass the English assessment (+4 to +12 by tier)",
+      points: tierPoints,
       done: tierPoints > 0,
     },
   ];

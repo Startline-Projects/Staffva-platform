@@ -150,7 +150,7 @@ export default async function CandidateDashboardPage() {
   if (candidate?.admin_status === "approved") {
     const { data: live, error: liveError } = await admin
       .from("candidates")
-      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category")
+      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category, profile_photo_url, ai_interview_passed, english_written_tier, video_intro_status, video_intro_url, voice_recording_1_url, bio, tagline, skills, tools, work_experience, resume_url")
       .eq("id", candidate.id)
       .single();
     // Dropping the portal on a failed read would leave a live candidate on a
@@ -403,7 +403,7 @@ export default async function CandidateDashboardPage() {
       xp: 100,
       state: englishDone ? "completed" : "upcoming",
       optional: true,
-      detail: englishDone ? undefined : "Optional — adds an English tier clients filter on, and moves you up in search",
+      detail: englishDone ? undefined : "Optional — pass it for an English tier clients filter on, and +4 to +12 in search",
     },
     { id: "recordings", label: "Recordings", xp: 50, state: recordingsDone ? "completed" : "upcoming" },
     { id: "profile", label: "Profile", xp: 50, state: profileDone ? "completed" : "upcoming" },
@@ -421,7 +421,7 @@ export default async function CandidateDashboardPage() {
       xp: 100,
       state: interview2Done ? "completed" : "upcoming",
       optional: true,
-      detail: interview2Done ? undefined : "Optional — the Vetted badge, and the biggest single lift to your search position",
+      detail: interview2Done ? undefined : "Optional — the Vetted badge, and the biggest lift any assessment gives (+25)",
     },
     {
       id: "id",

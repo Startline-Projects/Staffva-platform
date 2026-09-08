@@ -137,18 +137,27 @@ export async function GET() {
 
     let topMatches: { id: string; display_name: string; role_category: string; profile_photo_url: string | null; overall_score: number }[] = [];
 
+    let topMatchesBasis: "vetted" | "recent" = "vetted";
+
     if (poolIds.length > 0) {
-      // Get AI interview scores for pool
-      const { data: aiScores } = await selectIn(poolIds, (chunk) =>
+      // Ranked on the SAME vetting fact as browse, the badge and the
+      // approval gates: candidates.ai_interview_passed. Reading scores out of
+      // ai_interviews instead meant this panel saw one passing row after the
+      // re-verification reset parked 52 scored interviews at
+      // 'failed_technical', while 30 candidates are legitimately passed — so
+      // it near-always fell through to the "recently viewed" fallback and
+      // still called itself Top Matches.
+      const { data: vettedRows } = await selectIn(poolIds, (chunk) =>
         admin
-          .from("ai_interviews")
-          .select("candidate_id, overall_score")
-          .eq("kind", "skills")
-          .in("candidate_id", chunk)
-          .eq("status", "completed")
-          .eq("passed", true)
-          .order("overall_score", { ascending: false })
+          .from("candidates")
+          .select("id, ai_interview_score")
+          .in("id", chunk)
+          .eq("ai_interview_passed", true)
       );
+      const aiScores = (vettedRows || []).map((r) => ({
+        candidate_id: r.id as string,
+        overall_score: (r.ai_interview_score as number | null) ?? 0,
+      }));
 
       // Re-sort after merging. Each chunk comes back ordered within itself, but
       // the merged array is ordered by chunk, and the selection below takes a
@@ -164,7 +173,10 @@ export async function GET() {
       const seen = new Set<string>();
       const topCandidateIds: string[] = [];
       for (const ai of orderedScores) {
-        if (!seen.has(ai.candidate_id) && ai.overall_score) {
+        // No `&& ai.overall_score` guard: a passed candidate whose score
+        // column is null is still vetted, and excluding them would recreate
+        // the empty-panel problem this fix exists to solve.
+        if (!seen.has(ai.candidate_id)) {
           seen.add(ai.candidate_id);
           topCandidateIds.push(ai.candidate_id);
           if (topCandidateIds.length >= 4) break;
@@ -196,7 +208,9 @@ export async function GET() {
           .slice(0, 4);
       }
 
-      // If no AI scores, fall back to recently viewed candidates
+      // If nobody in the pool is vetted, fall back to recently viewed — but
+      // the response says so, because a recency list labelled "Top Matches"
+      // is a claim the data does not support.
       if (topMatches.length === 0 && poolIds.length > 0) {
         const { data: fallback } = await admin
           .from("candidates")
@@ -207,6 +221,7 @@ export async function GET() {
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
         topMatches = (fallback || []).map((c) => ({ ...c, overall_score: 0 }));
+        topMatchesBasis = "recent";
       }
     }
 
@@ -226,6 +241,7 @@ export async function GET() {
         contracted,
       },
       topMatches,
+      topMatchesBasis,
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);

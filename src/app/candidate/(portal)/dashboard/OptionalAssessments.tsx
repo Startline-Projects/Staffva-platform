@@ -80,10 +80,11 @@ export default function OptionalAssessments({
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
               A structured, recorded interview about the work you do. Passing
               it earns the <strong>Vetted badge</strong> — the one clients can
-              see and filter on, and it&apos;s the single biggest thing you can
-              do for your position in search. It also counts for 40% of your
-              reputation score: without it that score is capped at 60, however
-              good your reviews are.
+              see and filter on, and at +25 it&apos;s the biggest lift any
+              assessment gives you — second only to having a profile photo,
+              which sorts you above every profile without one. It also counts
+              for 40% of your reputation score: without it that score is
+              capped at 60, however good your reviews are.
             </p>
             <button type="button" className="current-step-cta" onClick={launchInterview} disabled={busy}>
               <span>{busy ? "Opening…" : "Take the skills interview"}</span>
@@ -95,10 +96,11 @@ export default function OptionalAssessments({
           <div>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>English assessment</p>
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
-              Grammar, comprehension, and spoken and written sections. It puts
-              an English tier on your profile that clients filter and sort by,
-              moves you up in search by how well you score, and shows you
-              which sections to work on.
+              Grammar, comprehension, and spoken and written sections. Pass
+              it and you get an English tier clients filter and sort by, plus
+              +4 to +12 in search depending on how well you score. Either way
+              it shows you which sections to work on — and a score below the
+              pass mark adds nothing and starts a retake cooldown.
             </p>
             {englishLocked ? (
               <span className="current-step-meta-chip">Retake not open yet</span>

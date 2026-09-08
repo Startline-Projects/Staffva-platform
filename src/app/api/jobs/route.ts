@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
         const { data: rows, error: poolErr } = await supabase
           .from("candidates")
           .select(
-            "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, us_client_experience, availability_status, total_earnings_usd, bio, profile_photo_url, skills, tools"
+            "id, full_name, display_name, country, role_category, years_experience, hourly_rate, english_written_tier, ai_interview_passed, us_client_experience, availability_status, total_earnings_usd, bio, profile_photo_url, skills, tools"
           )
           .in("id", eligibleIds.slice(i, i + CHUNK));
         if (poolErr) {
@@ -240,6 +240,12 @@ export async function POST(req: NextRequest) {
             score += 8;
           }
           score += englishTierBonus(c.english_written_tier as string | null, [8, 5, 3]);
+          // Same signal as browse (00224) and AI match, scaled to this
+          // scorer — so a shortlist does not disagree with the page the
+          // client just came from.
+          if ((c as { ai_interview_passed?: boolean | null }).ai_interview_passed === true) {
+            score += 8;
+          }
           // The column is an enum whose "none" value is a truthy string, so
           // every candidate scored this. The helper is already used by four
           // other surfaces, including the badge on this very card — so a

@@ -102,6 +102,15 @@ function calculateScore(
   // the grader has never written, so only the top tier ever scored here.
   score += englishTierBonus(candidate.english_written_tier as string | null, [10, 7, 5]);
 
+  // The skills interview is worth +25 in browse ordering (00224). Ignoring it
+  // here meant the same candidate ranked one way on /browse and another in AI
+  // match, with nothing explaining the difference — and it made the
+  // candidate-facing claim that passing lifts your position true on only one
+  // surface. Scaled to this scorer (10 of ~100, alongside English's 10).
+  if ((candidate as { ai_interview_passed?: boolean | null }).ai_interview_passed === true) {
+    score += 10;
+  }
+
   return Math.min(score, 100);
 }
 
@@ -201,7 +210,7 @@ export async function POST(req: NextRequest) {
     // function, which is how they came to disagree.
     const { data: candidates, error: poolError } = await admin
       .from("matchable_candidates")
-      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status");
+      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, ai_interview_passed, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status");
 
     if (poolError) {
       console.error("[match] pool query failed:", poolError.message);

@@ -190,6 +190,7 @@ export default function TeamPortalPage() {
   const [hiringActivity, setHiringActivity] = useState<HiringMonth[]>([]);
   const [pipeline, setPipeline] = useState<Pipeline>({ browsed: 0, messaged: 0, interviewed: 0, contracted: 0 });
   const [topMatches, setTopMatches] = useState<TopMatch[]>([]);
+  const [topMatchesBasis, setTopMatchesBasis] = useState<"vetted" | "recent">("vetted");
   const [chartRange, setChartRange] = useState<"3M" | "6M" | "All">("6M");
   const [showPastEngagements, setShowPastEngagements] = useState(false);
   const [offers, setOffers] = useState<OfferRow[]>([]);
@@ -267,6 +268,7 @@ export default function TeamPortalPage() {
         setHiringActivity(data.hiringActivity || []);
         setPipeline(data.pipeline || pipeline);
         setTopMatches(data.topMatches || []);
+        setTopMatchesBasis(data.topMatchesBasis === "recent" ? "recent" : "vetted");
         if (data.clientId) setClientId(data.clientId);
       }
     } catch { /* silent */ }
@@ -619,7 +621,17 @@ export default function TeamPortalPage() {
       {/* ═══ TOP MATCHES ═══ */}
       {topMatches.length > 0 && (
         <div className="mt-6 rounded-xl border border-border-light bg-card p-6">
-          <h2 className="text-sm font-semibold text-text mb-4">Top Matches</h2>
+          {/* The panel says which basis it used. A recency list titled "Top
+              Matches" is a claim the data does not support — the API now
+              reports whether these are vetted candidates or a fallback. */}
+          <h2 className="text-sm font-semibold text-text mb-1">
+            {topMatchesBasis === "recent" ? "Recently viewed" : "Top Matches"}
+          </h2>
+          <p className="mb-4 text-xs text-text/50">
+            {topMatchesBasis === "recent"
+              ? "Nobody in your pool has passed our skills interview yet, so these are profiles you looked at recently."
+              : "Candidates who passed StaffVA's skills interview, highest scored first."}
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {topMatches.map((c) => (
               <div key={c.id} className="flex items-center gap-3 rounded-lg border border-border-light p-3">

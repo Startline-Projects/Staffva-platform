@@ -400,8 +400,9 @@ function BrowseContent() {
                     a candidate up (00224) and may later be paid for. */}
                 <p className="browse-note">
                   Default order: profiles with a photo first, then by how
-                  complete the profile is and whether they&apos;ve taken our
-                  optional assessments. Sort or filter to order it your way.
+                  complete the profile is and whether they <em>passed</em> our
+                  optional assessments — taking one and not passing changes
+                  nothing. Sort or filter to order it your way.
                 </p>
               </div>
               <div className="browse-subactions">
@@ -614,7 +615,12 @@ function BrowseContent() {
                 <option value="rate_low">Rate: Low → High</option>
                 <option value="rate_high">Rate: High → Low</option>
                 <option value="earnings">Most earned</option>
-                <option value="tier">English level</option>
+                {/* Hidden while no candidate has a tier — the reset nulled
+                    them all, so this sort is a no-op today. Same signal the
+                    filter group already uses rather than a second source. */}
+                {facets?.tiersExistInPool !== false && (
+                  <option value="tier">English level</option>
+                )}
               </select>
             </div>
 

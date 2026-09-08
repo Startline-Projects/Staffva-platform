@@ -4,6 +4,7 @@ import {
   missingForRanking,
   assessmentItems,
   assessmentBonus,
+  hasRankingColumns,
   type RankingInput,
 } from "@/lib/searchRanking";
 
@@ -31,6 +32,11 @@ export default function ProfileRankNudge({
   searchable: boolean;
 }) {
   if (!searchable) return null;
+  // Say nothing rather than say zero. A row fetched without the ranking
+  // columns scores 0 on everything, which is indistinguishable from an empty
+  // profile — and telling someone with a full profile they are at 0% is
+  // worse than showing no card at all.
+  if (!hasRankingColumns(candidate)) return null;
 
   const score = rankingScore(candidate);
   const missing = missingForRanking(candidate);
@@ -89,7 +95,11 @@ export default function ProfileRankNudge({
           <ul className="mt-1.5 space-y-1">
             {assessmentsLeft.map((a) => (
               <li key={a.key} className="text-sm text-gray-600">
-                <span className="text-gray-400">·</span> {a.label} (+{a.points})
+                {/* points === 0 means the award is tiered and unearned; the
+                    label already carries the range, so printing "(+0)" would
+                    both look broken and understate it. */}
+                <span className="text-gray-400">·</span> {a.label}
+                {a.points > 0 ? ` (+${a.points})` : ""}
               </li>
             ))}
           </ul>
