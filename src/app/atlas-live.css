@@ -2723,3 +2723,124 @@
   background: var(--paper);
   color: var(--ink);
 }
+
+/* ── Proposals (client step 10) ─────────────────────────────────────────── */
+.lp-dash .pr-title { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--ink); }
+.lp-dash .pr-lead { font-size: 13.5px; color: var(--ink-mute); margin: 6px 0 20px; }
+.lp-dash .pr-error {
+  font-size: 13px; color: var(--danger);
+  background: rgba(194,65,43,.08); border: 1px solid rgba(194,65,43,.25);
+  border-radius: var(--r-md); padding: 9px 12px; margin-bottom: 16px;
+}
+.lp-dash .pr-empty {
+  border: 1px dashed var(--line); border-radius: var(--r-md);
+  padding: 40px 20px; text-align: center; color: var(--ink-mute); font-size: 13.5px;
+}
+.lp-dash .pr-empty .btn { margin-top: 14px; }
+
+.lp-dash .pr-body { display: grid; grid-template-columns: minmax(0,1fr) 260px; gap: 22px; align-items: start; }
+@media (max-width: 900px) { .lp-dash .pr-body { grid-template-columns: 1fr; } }
+
+.lp-dash .pr-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.lp-dash .pr-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 500;
+  padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); cursor: pointer;
+}
+.lp-dash .pr-tab:hover { border-color: var(--ink-mute); }
+.lp-dash .pr-tab.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-dash .pr-tab-count { font-family: var(--font-mono); font-size: 11px; opacity: .8; }
+.lp-dash .pr-tab-count.zero { opacity: .45; }
+
+.lp-dash .pr-card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 18px; margin-bottom: 14px;
+}
+.lp-dash .pr-card:hover { border-color: var(--ink-mute); }
+/* Only the ones waiting on the client are highlighted — everything glowing is
+   the same as nothing glowing. */
+.lp-dash .pr-card.yours { border-color: var(--lime-deep); box-shadow: 0 0 0 1px var(--lime-deep); }
+
+.lp-dash .pr-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.lp-dash .pr-avatar {
+  width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%;
+  background: var(--cream-deep) center / cover no-repeat;
+  display: grid; place-items: center; font-weight: 600; color: var(--ink-mute);
+}
+.lp-dash .pr-card-id { flex: 1; min-width: 0; }
+.lp-dash .pr-card-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.lp-dash .pr-card-sub { font-size: 12.5px; color: var(--ink-mute); }
+.lp-dash .pr-status {
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--cream-deep); color: var(--ink-soft); white-space: nowrap;
+}
+.lp-dash .pr-status.st-awaiting_you { background: var(--lime); color: var(--ink); }
+.lp-dash .pr-status.st-accepted { background: var(--lime-deep); color: var(--ink); }
+.lp-dash .pr-status.st-closed { background: transparent; border: 1px solid var(--line); color: var(--ink-mute); }
+
+.lp-dash .pr-terms {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px; padding: 12px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.lp-dash .pr-term { display: flex; flex-direction: column; gap: 2px; }
+.lp-dash .pr-term-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-mute); }
+.lp-dash .pr-term-value { font-size: 14px; font-weight: 600; color: var(--ink); }
+.lp-dash .pr-term-was { text-decoration: line-through; color: var(--ink-mute); font-weight: 400; margin-right: 6px; }
+/* Read from the CLIENT's side: the only numeric terms are rate and hours, and
+   both going UP costs them more. The first draft painted a rise lime and a
+   drop amber, congratulating the client on a more expensive counter. */
+.lp-dash .pr-term-value.changed-up::after { content: " ↑"; color: var(--amber); }
+.lp-dash .pr-term-value.changed-down::after { content: " ↓"; color: var(--lime-deep); }
+
+.lp-dash .pr-total { margin-top: 12px; }
+.lp-dash .pr-total-num { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--ink); }
+.lp-dash .pr-total-num span { font-size: 13px; color: var(--ink-mute); font-weight: 400; }
+.lp-dash .pr-total-note { display: block; font-size: 11.5px; color: var(--ink-mute); margin-top: 3px; line-height: 1.45; }
+
+.lp-dash .pr-history-toggle {
+  margin-top: 12px; font-size: 12px; font-weight: 600; color: var(--ink-soft);
+  background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline;
+}
+.lp-dash .pr-history-toggle:hover { color: var(--ink); }
+.lp-dash .pr-history { list-style: none; margin: 10px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+.lp-dash .pr-history li { display: flex; flex-direction: column; gap: 1px; padding: 7px 0; font-size: 12.5px; }
+.lp-dash .pr-history-who { font-weight: 600; color: var(--ink); }
+.lp-dash .pr-history-terms { color: var(--ink-soft); }
+.lp-dash .pr-history-msg { color: var(--ink-mute); font-style: italic; }
+.lp-dash .pr-history-when { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute); }
+.lp-dash .pr-history-note { font-size: 11.5px; color: var(--ink-mute); margin: 8px 0 0; line-height: 1.45; }
+
+.lp-dash .pr-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.lp-dash .pr-actions .btn { font-size: 12.5px; padding: 7px 14px; }
+
+.lp-dash .pr-side { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 12px; }
+.lp-dash .pr-side-card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 15px;
+}
+.lp-dash .pr-side-card h2 { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+.lp-dash .pr-side-rows div {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--line-soft);
+}
+.lp-dash .pr-side-rows div span:first-child { color: var(--ink-mute); }
+.lp-dash .pr-side-rows div span:last-child { font-family: var(--font-mono); color: var(--ink); font-weight: 600; }
+.lp-dash .pr-side-card.spend { background: var(--ink); border-color: var(--ink); }
+.lp-dash .pr-side-card.spend h2 { color: var(--paper); }
+.lp-dash .pr-spend-num { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--lime); }
+.lp-dash .pr-spend-num span { font-size: 13px; color: rgba(251,248,242,.6); font-weight: 400; }
+.lp-dash .pr-spend-note { font-size: 11.5px; color: rgba(251,248,242,.72); line-height: 1.5; margin-top: 8px; }
+.lp-dash .pr-card.gone { background: var(--cream); }
+.lp-dash .pr-card-gone { font-size: 12.5px; color: var(--danger); }
+.lp-dash .pr-note {
+  font-size: 12.5px; color: var(--ink-soft); font-style: italic;
+  border-left: 2px solid var(--line); padding-left: 10px; margin: 12px 0 0;
+}
+.lp-dash .pr-note span { font-style: normal; color: var(--ink-mute); font-size: 11.5px; }
+.lp-dash .pr-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.lp-dash .pr-meta span { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-mute); }
+.lp-dash .pr-meta span.soon { color: var(--danger); }
+.lp-dash .pr-card-err { font-size: 12px; color: var(--danger); margin: 8px 0 0; }
+.lp-dash .pr-status.st-awaiting_them { background: var(--cream-deep); color: var(--ink-soft); }

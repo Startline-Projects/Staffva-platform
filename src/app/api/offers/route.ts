@@ -334,9 +334,29 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══ Mark as viewed ═══
+  //
+  // "Viewed" is a claim about the CANDIDATE — the client's offers list renders
+  // it as "they opened your offer". This had no ownership check and no role
+  // check at all: a bare update by offer id, so any authenticated user could
+  // flip any offer from sent to viewed, and a client opening their own
+  // proposal stamped their own candidate as having read it. Now scoped to the
+  // candidate the offer was actually sent to.
   if (action === "mark_viewed") {
     const { offerId } = body;
-    await supabase.from("engagement_offers").update({ status: "viewed", viewed_at: new Date().toISOString() }).eq("id", offerId).eq("status", "sent");
+    if (typeof offerId !== "string") {
+      return NextResponse.json({ error: "offerId required" }, { status: 400 });
+    }
+    const { data: candidate } = await supabase
+      .from("candidates").select("id").eq("user_id", user.id).maybeSingle();
+    // Not an error for a client — they simply cannot mark their own offer read.
+    if (!candidate) return NextResponse.json({ success: false, ignored: true });
+
+    await supabase
+      .from("engagement_offers")
+      .update({ status: "viewed", viewed_at: new Date().toISOString() })
+      .eq("id", offerId)
+      .eq("candidate_id", candidate.id)
+      .eq("status", "sent");
     return NextResponse.json({ success: true });
   }
 

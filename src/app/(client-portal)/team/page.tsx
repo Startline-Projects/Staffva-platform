@@ -672,9 +672,12 @@ export default function TeamPortalPage() {
       )}
 
       {/* ═══ OFFERS ═══
-          The rail's Proposals row deep-links to #offers, and /hire returns
-          here after sending one, so this section renders even when empty —
-          an anchor that lands on nothing looks like a broken link. */}
+          The rail's Proposals row now points at /proposals (client step 10),
+          but /hire still returns here after sending one, and so do the offer
+          emails, the bell and the dashboard — so this section stays and still
+          renders when empty; an anchor that lands on nothing looks like a
+          broken link. Those senders should follow the rail to /proposals as
+          that surface settles, leaving one destination per object. */}
       <section className="mt-6" id="offers" aria-labelledby="offersHeading">
         <h2 id="offersHeading" className="text-sm font-semibold text-text/40 uppercase tracking-wider">
           Proposals{offers.length > 0 ? ` (${offers.length})` : ""}
