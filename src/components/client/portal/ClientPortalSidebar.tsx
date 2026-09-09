@@ -62,16 +62,18 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
         <PortalNavItem href="/proposals" icon="proposals" label="Proposals" active={is("/proposals")} mobileHide />
 
         <PortalNavSection label="Engagements" />
-        {/* Approvals and reviews still live inside the engagement cards —
-            two rows, one anchor — until steps 14 and 16 give each its own
-            page. Contracts moved out in step 13. */}
+        {/* Each of these got its own page: contracts 13, approvals 14,
+            billing 15, reviews 16 — so none of these rows anchor into /team
+            any more. The engagement cards on /team still render the SAME
+            <ReviewExchange> in context, which is deliberate: it is one
+            component reading one RPC, so the two places cannot disagree. */}
         <PortalNavItem href="/contracts" icon="contracts" label="Contracts" active={is("/contracts")} mobileHide />
         {/* Atlas calls this "Time & Approvals". There is no time to track —
             the owner's D2 keeps funded periods and rules out timesheets — so
             it is the approvals queue and says so. */}
         <PortalNavItem href="/approvals" icon="hours" label="Approvals" active={is("/approvals")} mobileHide />
         <PortalNavItem href="/billing" icon="billing" label="Billing" active={is("/billing")} mobileHide />
-        <PortalNavItem href="/team#engagements" icon="reviews" label="Reviews" mobileHide />
+        <PortalNavItem href="/reviews" icon="reviews" label="Reviews" active={is("/reviews")} mobileHide />
 
         <PortalNavSection label="Account" />
         {/* A permanent way back to verification. The banner is dismissible

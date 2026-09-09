@@ -3223,3 +3223,75 @@
 .lp-dash .bl-months strong { font-size: 13px; color: var(--ink); }
 .lp-dash .bl-months li > span span { font-size: 11.5px; color: var(--ink-mute); }
 .lp-dash .bl-months .btn { margin-top: 0; padding: 4px 10px; font-size: 11.5px; }
+
+/* ═══ REVIEWS (client portal, step 16) ═══
+   Atlas's .rv-* names, minus every class that backed a cut metric:
+   .rv-trust-card / .rv-trust-row / .rv-trust-bar-fill (invented Trust Score),
+   .rv-rep-stat (the five unbacked reputation stats), .rv-cat (per-category
+   stars — `reviews` stores one integer), .rv-card-rehire (no rehire column),
+   .rv-pending-stat-row (hours/approval-time metrics we do not keep). */
+.lp-dash .rv-head { margin-bottom: 18px; }
+.lp-dash .rv-title { font-family: var(--font-display); font-size: 30px; font-weight: 600; color: var(--ink); }
+.lp-dash .rv-lead { font-size: 13.5px; color: var(--ink-mute); margin-top: 6px; max-width: 62ch; }
+.lp-dash .rv-layout { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .lp-dash .rv-layout { grid-template-columns: minmax(0,1fr); } }
+.lp-dash .rv-side { position: sticky; top: 16px; display: grid; gap: 12px; }
+
+.lp-dash .rv-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.lp-dash .rv-tab {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--paper);
+  font-size: 12.5px; font-weight: 500; color: var(--ink-mute); cursor: pointer;
+}
+.lp-dash .rv-tab:hover { color: var(--ink); }
+.lp-dash .rv-tab.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-dash .rv-tab-count {
+  font-size: 11px; font-weight: 600; min-width: 18px; padding: 1px 5px;
+  border-radius: 999px; background: rgba(0,0,0,.07); color: inherit; text-align: center;
+}
+.lp-dash .rv-tab.active .rv-tab-count { background: rgba(255,255,255,.18); }
+
+.lp-dash .rv-list { display: grid; gap: 12px; }
+.lp-dash .rv-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; }
+.lp-dash .rv-card.open { border-color: var(--ink); }
+.lp-dash .rv-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.lp-dash .rv-card-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.lp-dash .rv-card-sub { font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+.lp-dash .rv-card-body { font-size: 13.5px; color: var(--ink); line-height: 1.55; margin-top: 10px; white-space: pre-wrap; }
+.lp-dash .rv-card-rating { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lp-dash .rv-stars { letter-spacing: 1px; color: rgba(0,0,0,.18); font-size: 14px; }
+.lp-dash .rv-stars .on { color: #E8A33D; }
+.lp-dash .rv-stars-num { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+
+.lp-dash .rv-empty {
+  border: 1px dashed var(--line); border-radius: var(--r-md);
+  padding: 26px 20px; text-align: center; background: var(--paper);
+}
+.lp-dash .rv-empty h3 { font-size: 14px; font-weight: 600; color: var(--ink); }
+.lp-dash .rv-empty p { font-size: 13px; color: var(--ink-mute); margin-top: 6px; max-width: 52ch; margin-inline: auto; line-height: 1.55; }
+
+.lp-dash .rv-pending-note { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); }
+.lp-dash .rv-pending-note h3 { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.lp-dash .rv-pending-note > p { font-size: 12.5px; color: var(--ink-mute); margin-top: 4px; }
+.lp-dash .rv-pending-note ul { margin-top: 10px; display: grid; gap: 6px; }
+.lp-dash .rv-pending-note li { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--ink); }
+.lp-dash .rv-muted { color: var(--ink-mute); }
+.lp-dash .rv-note { font-size: 12px; color: var(--ink-mute); margin-top: 10px; }
+.lp-dash .rv-note a, .lp-dash .rv-pending-note a { color: var(--ink); text-decoration: underline; }
+.lp-dash .rv-privacy {
+  font-size: 12.5px; color: var(--ink-mute); line-height: 1.55;
+  padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--ink);
+  border-radius: var(--r-sm); background: var(--paper);
+}
+
+.lp-dash .rv-rep { background: var(--ink); border-radius: var(--r-md); padding: 16px; color: var(--paper); }
+.lp-dash .rv-rep-eyebrow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: rgba(251,248,242,.62); }
+.lp-dash .rv-rep-num { display: block; font-family: var(--font-display); font-size: 34px; font-weight: 600; color: var(--lime); margin-top: 6px; line-height: 1.1; }
+.lp-dash .rv-rep-of { font-size: 17px; color: rgba(251,248,242,.55); }
+.lp-dash .rv-rep-note { font-size: 11.5px; color: rgba(251,248,242,.7); margin-top: 8px; line-height: 1.5; }
+.lp-dash .rv-rep .rv-stars { color: rgba(251,248,242,.25); }
+
+.lp-dash .rv-how { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; }
+.lp-dash .rv-how h3 { font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.lp-dash .rv-how ol { display: grid; gap: 7px; padding-left: 16px; list-style: decimal; }
+.lp-dash .rv-how li { font-size: 12px; color: var(--ink-mute); line-height: 1.5; }
