@@ -3402,3 +3402,6 @@
   letter-spacing: .06em; color: var(--ink-mute);
   padding: 4px 10px; border: 1px dashed var(--line); border-radius: 999px;
 }
+
+/* Transcript subscription (billing card + profile section) */
+.lp-dash .bl-plans { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

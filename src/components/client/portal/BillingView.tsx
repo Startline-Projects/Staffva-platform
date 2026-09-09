@@ -30,6 +30,12 @@ interface Billing {
   activity: Activity[];
   statements: Statement[];
   card: { brand: string | null; last4: string | null; exp: string | null } | null;
+  transcripts: {
+    active: boolean;
+    status: string;
+    until: string | null;
+    interval: string | null;
+  } | null;
   truncated?: boolean;
   cardReadable: boolean;
   signalsOk: boolean;
@@ -80,10 +86,47 @@ const monthLabel = (ym: string) =>
  * yet, which is the true state today: "$0 so far" must read as a fact, not as
  * a page that failed to load.
  */
+async function postForUrl(path: string, body?: unknown): Promise<string> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.url) throw new Error(j.error || "We couldn't open Stripe.");
+  return j.url as string;
+}
+
 export default function BillingView() {
   const [data, setData] = useState<Billing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [txBusy, setTxBusy] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
+
+  async function buyTranscripts(interval: "month" | "year") {
+    if (txBusy) return;
+    setTxBusy(true);
+    setTxError(null);
+    try {
+      window.location.href = await postForUrl("/api/client/transcripts/subscribe", { interval });
+    } catch (e) {
+      setTxError(e instanceof Error ? e.message : "We couldn't start checkout.");
+      setTxBusy(false);
+    }
+  }
+
+  async function manageTranscripts() {
+    if (txBusy) return;
+    setTxBusy(true);
+    setTxError(null);
+    try {
+      window.location.href = await postForUrl("/api/client/transcripts/manage");
+    } catch (e) {
+      setTxError(e instanceof Error ? e.message : "We couldn't open the billing portal.");
+      setTxBusy(false);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -256,6 +299,49 @@ export default function BillingView() {
         </div>
 
         <aside className="bl-side">
+          <div className="bl-card">
+            <h2>Interview transcripts</h2>
+            {data.transcripts?.active ? (
+              <>
+                <p className="bl-note">
+                  Active{data.transcripts.interval === "year" ? ", yearly" : ", monthly"}. You can
+                  read any candidate&apos;s screening interview from their profile.
+                </p>
+                {data.transcripts.until && (
+                  <p className="bl-note">
+                    {/* Says which it actually is. "Renews" on a cancelled
+                        subscription is a promise Stripe will not keep. */}
+                    {data.transcripts.status === "canceled"
+                      ? `Access ends ${day(data.transcripts.until)} — it won't renew.`
+                      : data.transcripts.status === "past_due"
+                        ? `A payment failed. Access ends ${day(data.transcripts.until)} unless the card is updated.`
+                        : `Renews ${day(data.transcripts.until)}.`}
+                  </p>
+                )}
+                <button className="btn btn-outline" onClick={manageTranscripts} disabled={txBusy}>
+                  {txBusy ? "Opening…" : "Manage or cancel"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="bl-note">
+                  Not subscribed. $10 a month or $50 a year lets you read the full screening
+                  interview for any candidate. The scores and feedback on a profile are free either
+                  way — this adds the transcript behind them.
+                </p>
+                <div className="bl-plans">
+                  <button className="btn btn-primary" onClick={() => buyTranscripts("month")} disabled={txBusy}>
+                    $10 / month
+                  </button>
+                  <button className="btn btn-outline" onClick={() => buyTranscripts("year")} disabled={txBusy}>
+                    $50 / year
+                  </button>
+                </div>
+              </>
+            )}
+            {txError && <p className="bl-error">{txError}</p>}
+          </div>
+
           <div className="bl-card">
             <h2>Payment method</h2>
             {!data.cardReadable ? (

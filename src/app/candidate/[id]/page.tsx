@@ -7,6 +7,7 @@ import ProfileSubNav from "@/components/candidate/ProfileSubNav";
 import ProfileSaveButton from "@/components/candidate/ProfileSaveButton";
 import InterviewScheduler from "@/components/booking/InterviewScheduler";
 import ProfileViewTracker from "@/components/ProfileViewTracker";
+import InterviewTranscript from "@/components/client/InterviewTranscript";
 import ApproveButton from "@/components/recruiting-manager/ApproveButton";
 import BanButton from "@/components/recruiting-manager/BanButton";
 import AtlasNav from "@/components/landing/AtlasNav";
@@ -885,6 +886,14 @@ export default async function CandidateProfilePage({
               )}
             </section>
           )}
+
+          {/* The transcript behind the scorecard — clients only, and paid.
+              Rendered for every client whether or not they subscribe: the
+              component asks the server, and the server decides. Not shown to
+              the candidate viewing their own profile, who reads their
+              interview on their results page, nor to staff, who have the
+              admin view. */}
+          {isClient && !isOwnProfile && <InterviewTranscript candidateId={candidate.id} />}
 
           {/* Work samples — real portfolio uploads */}
           {(portfolioItems || []).length > 0 && (

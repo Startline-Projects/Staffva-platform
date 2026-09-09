@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { maskContact } from "@/lib/contactMask";
 import { clampPeriod, milestoneClientCharge, periodClientCharge, ROW_CAP, type MoneyEngagement } from "@/lib/escrowMoney";
+import { hasTranscriptAccess, type AccessRow } from "@/lib/transcriptAccess";
 
 function admin() {
   return createClient(
@@ -46,7 +47,7 @@ export async function GET() {
   let cardReadable = true;
   const { data: cardRow, error: cardErr } = await db
     .from("clients")
-    .select("payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year")
+    .select("payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, transcript_access_status, transcript_access_until, transcript_access_interval")
     .eq("id", client.id)
     .maybeSingle();
   if (cardErr) cardReadable = false;
@@ -60,6 +61,18 @@ export async function GET() {
           : null,
     };
   }
+
+  // Read from the same row as the card, and through the SAME predicate the
+  // paywall itself uses — so the billing page cannot tell a client they are
+  // subscribed while the transcript route turns them away.
+  const transcripts = cardRow
+    ? {
+        active: hasTranscriptAccess(cardRow as unknown as AccessRow),
+        status: (cardRow.transcript_access_status as string) ?? "none",
+        until: (cardRow.transcript_access_until as string) ?? null,
+        interval: (cardRow.transcript_access_interval as string) ?? null,
+      }
+    : null;
 
   const { data: engRows, error: engErr } = await db
     .from("engagements")
@@ -89,6 +102,7 @@ export async function GET() {
       statements: [],
       card,
       cardReadable,
+      transcripts,
       signalsOk: true,
     });
   }
@@ -233,6 +247,7 @@ export async function GET() {
     .map(([month, v]) => ({ month, payments: v.count, total: Math.round(v.total * 100) / 100 }));
 
   return NextResponse.json({
+    transcripts,
     spend: {
       thisMonth: Math.round(thisMonth * 100) / 100,
       lifetime: Math.round(lifetime * 100) / 100,

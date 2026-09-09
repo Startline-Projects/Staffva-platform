@@ -297,10 +297,115 @@ export async function POST(request: Request) {
       break;
     }
 
+    // ---- Transcript-access subscription ----
+    //
+    // Three events, one column. transcript_access_until is the ONLY access
+    // gate (src/lib/transcriptAccess.ts), so each of these exists to keep that
+    // one timestamp equal to Stripe's current_period_end.
+    //
+    // checkout.session.completed fires once, at purchase. The renewals arrive
+    // months later as customer.subscription.updated with no session attached —
+    // which is why subscribe() stamps the metadata onto the SUBSCRIPTION as
+    // well as the session. Handling only the checkout event would give every
+    // client exactly one paid period and then silently cut them off while
+    // still billing them.
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const sub = event.data.object as Stripe.Subscription;
+      if (sub.metadata?.purpose !== "transcript_access") break;
+
+      const deleted = event.type === "customer.subscription.deleted";
+      // Stripe's status vocabulary is wider than ours; anything that is not
+      // plainly active or plainly retrying is recorded as canceled, and the
+      // period end decides access either way.
+      const status = deleted
+        ? "canceled"
+        : sub.status === "active" || sub.status === "trialing"
+          ? "active"
+          : sub.status === "past_due" || sub.status === "unpaid"
+            ? "past_due"
+            : "canceled";
+
+      // The period end is on the ITEM in current Stripe API versions, with the
+      // subscription-level field kept for older ones. Reading only the latter
+      // yields undefined on a new account and would write a null access window
+      // over a subscription that had just been paid for.
+      const periodEnd =
+        (sub as unknown as { current_period_end?: number }).current_period_end ??
+        sub.items?.data?.[0]?.current_period_end;
+
+      const patch: Record<string, unknown> = {
+        transcript_access_status: status,
+        transcript_stripe_subscription_id: sub.id,
+      };
+      // On deletion the window is left exactly as it was: they paid for the
+      // period, so they keep it. Cancelling stops the renewal, not the month.
+      if (!deleted && typeof periodEnd === "number") {
+        patch.transcript_access_until = new Date(periodEnd * 1000).toISOString();
+      }
+
+      const clientId = sub.metadata?.client_id;
+      const query = supabase.from("clients").update(patch);
+      const { data: updated, error: subErr } = clientId
+        ? await query.eq("id", clientId).select("id")
+        : await query.eq("transcript_stripe_subscription_id", sub.id).select("id");
+
+      if (subErr) {
+        console.error("[stripe/webhook] transcript subscription update failed:", subErr.message);
+        // 500 so Stripe retries. Swallowing it leaves a paying client locked
+        // out, or a cancelled one with access nobody is charging for.
+        return NextResponse.json({ error: "subscription update failed" }, { status: 500 });
+      }
+      if (!updated || updated.length === 0) {
+        console.error("[stripe/webhook] transcript subscription matched no client:", sub.id);
+      }
+      break;
+    }
+
     // ---- Interview checkout completed ----
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Transcript access is a subscription checkout and shares nothing with
+      // the interview-request branch below, which reads a different metadata
+      // set entirely.
+      if (session.metadata?.purpose === "transcript_access") {
+        const clientId = session.metadata?.client_id;
+        const subId = typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id;
+        if (!clientId || !subId) {
+          console.error("[stripe/webhook] transcript checkout missing client or subscription");
+          break;
+        }
+        // The session does not carry the period end, so it is read from the
+        // subscription rather than guessed at from "now + a month" — which
+        // would drift from what Stripe actually bills on every renewal.
+        const sub = await getStripe().subscriptions.retrieve(subId);
+        const periodEnd =
+          (sub as unknown as { current_period_end?: number }).current_period_end ??
+          sub.items?.data?.[0]?.current_period_end;
+        if (typeof periodEnd !== "number") {
+          console.error("[stripe/webhook] transcript subscription has no period end:", subId);
+          return NextResponse.json({ error: "no period end" }, { status: 500 });
+        }
+        const { error: onErr } = await supabase
+          .from("clients")
+          .update({
+            transcript_access_status: "active",
+            transcript_access_until: new Date(periodEnd * 1000).toISOString(),
+            transcript_access_interval: session.metadata?.interval === "year" ? "year" : "month",
+            transcript_stripe_subscription_id: subId,
+          })
+          .eq("id", clientId);
+        if (onErr) {
+          console.error("[stripe/webhook] granting transcript access failed:", onErr.message);
+          return NextResponse.json({ error: "grant failed" }, { status: 500 });
+        }
+        break;
+      }
+
       const interviewRequestId = session.metadata?.interview_request_id;
       const candidateId = session.metadata?.candidate_id;
       const clientId = session.metadata?.client_id;

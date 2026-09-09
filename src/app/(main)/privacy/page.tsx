@@ -50,7 +50,15 @@ export default function PrivacyPolicy() {
           <strong>AI interview</strong> — during the interview your spoken
           answers are processed to produce a transcript, and the transcript,
           scores and feedback are stored. The raw answer audio is processed for
-          transcription and is not retained afterwards.
+          transcription and is not retained afterwards.{" "}
+          <strong>
+            Clients who subscribe to transcript access can read the full
+            transcript of this interview on your profile
+          </strong>{" "}
+          — the questions asked and your answers, as transcribed. Your scores
+          and the written feedback on them are shown to signed-in clients
+          whether or not they subscribe. Our interviewer&apos;s internal
+          screening notes are never shown to clients.
         </li>
         <li>
           <strong>Proctored assessment recordings</strong> — assessment
