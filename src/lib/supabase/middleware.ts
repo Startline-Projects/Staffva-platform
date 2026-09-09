@@ -33,14 +33,29 @@ export async function updateSession(request: NextRequest) {
     return res;
   };
 
-  // Host routing runs FIRST. A request that is going to be redirected to
-  // another host should not pay for a getUser() round trip, and the
-  // assessment host's root rewrite has to happen before the route guards
-  // below reason about the pathname.
-  const hostRouted = routeByHost(request);
-  if (hostRouted) return hostRouted;
+  // Host routing runs FIRST, but only a REDIRECT gets to leave here. A
+  // redirect runs no page of ours, so it needs no guard.
+  //
+  // A rewrite must NOT short-circuit. Next runs middleware once and does not
+  // re-enter it for an internal rewrite, so returning one here would skip
+  // every guard below — session lookup, MFA-pending redirect, protected
+  // routes, the US-experience gate — for the root of the assessment host. The
+  // assessment page checks only role, so that URL would have been the single
+  // place in the product where a session owing a second factor is never
+  // challenged. Instead the rewritten path is carried through the guards and
+  // the rewrite is emitted at the end.
+  const hostRoute = routeByHost(request);
+  if (hostRoute?.kind === "redirect") return hostRoute.response;
 
-  let supabaseResponse = NextResponse.next({ request });
+  const rewriteUrl = hostRoute?.kind === "rewrite" ? hostRoute.url : null;
+  // One builder, used both here and inside the cookie setAll below — which
+  // rebuilds the response and would otherwise silently drop the rewrite.
+  const buildResponse = () =>
+    rewriteUrl
+      ? NextResponse.rewrite(rewriteUrl, { request })
+      : NextResponse.next({ request });
+
+  let supabaseResponse = buildResponse();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,7 +75,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = buildResponse();
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -73,7 +88,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
+  // The path the guards judge. On the assessment host's root this is
+  // "/assessment", not "/", so protectedRoutes and the MFA gate see the page
+  // that is actually about to render rather than the URL the browser typed.
+  const pathname = rewriteUrl ? rewriteUrl.pathname : request.nextUrl.pathname;
 
   // ── Two-step verification enforcement ──
   // A password sign-in yields a full aal1 session even when a TOTP factor is

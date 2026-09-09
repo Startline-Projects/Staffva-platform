@@ -86,7 +86,17 @@ export function migrateSessionCookieScope(
 
   const authCookies = request.cookies
     .getAll()
-    .filter((c) => c.name.startsWith(SUPABASE_COOKIE_PREFIX));
+    .filter((c) => c.name.startsWith(SUPABASE_COOKIE_PREFIX))
+    // Skip empties, or this resurrects a session Supabase is deleting RIGHT
+    // NOW. When it drops a session — an expired access token whose refresh
+    // fails, a revoked or rotated refresh token — its setAll writes the
+    // cookie with an empty value and Max-Age=0, and the middleware's adapter
+    // mirrors that into request.cookies as {value: ""} rather than removing
+    // the entry. This function runs afterwards and appends raw headers, so a
+    // blind re-issue lands AFTER Supabase's delete for the same name and wins,
+    // undoing it and pinning an empty cookie for a year. There is nothing to
+    // migrate in an empty value anyway.
+    .filter((c) => c.value !== "");
 
   for (const cookie of authCookies) {
     // 1. Expire the host-only twin. No Domain attribute means this targets

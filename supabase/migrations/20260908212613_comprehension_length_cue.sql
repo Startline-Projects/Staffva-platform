@@ -28,8 +28,18 @@
 -- position-independent giveaway such as the key being the only option with a
 -- distinct grammatical shape. Three sets were rejected and rewritten.
 --
--- After this migration no key is the strictly longest or strictly shortest
--- option in its item.
+-- After this migration no key is the strictly longest option anywhere in the
+-- bank: 0 of 35, down from 16, and the mean key-vs-distractor gap goes from
+-- +4.1 characters to -0.8.
+--
+-- Precisely, because the obvious stronger claim is not true: 4 of the 35 keys
+-- are the strictly SHORTEST option in their item. Those four are vocabulary
+-- items that were never in scope here — this migration touches only the 16
+-- that carried the longest-answer cue. That is below chance rather than a
+-- mirror-image exploit: 35 four-option items would give about 8.75
+-- shortest-key items at random, so "always pick the shortest" scores under
+-- the 25% baseline and at most 1 of 5 on any dealt passage. Worth a future
+-- pass for tidiness; it is not the defect this migration was written for.
 
 
 -- Why was the section missing from the file?

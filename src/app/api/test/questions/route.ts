@@ -93,6 +93,54 @@ async function toClientQuestion(
 }
 
 /**
+ * Record listening prompts whose audio we could not deliver.
+ *
+ * Writes to test_attempts.server_flags, NOT open_answers.flags: the client
+ * overwrites open_answers wholesale on submit, so a server note left there
+ * would be gone by the time grading read it. server_flags is the one place
+ * the client cannot reach.
+ *
+ * Merges rather than replaces. The attempt can pass through here more than
+ * once — a deal, then any number of resumes — and a wholesale write would
+ * drop a failure recorded on an earlier pass.
+ */
+async function recordAudioMintFailures(
+  supabase: ReturnType<typeof getAdminClient>,
+  attemptId: string,
+  candidateId: string,
+  questions: Record<string, unknown>[],
+  phase: "deal" | "resume"
+): Promise<void> {
+  const failed = questions.filter((q) => q.audioMintFailed);
+  if (failed.length === 0) return;
+
+  const { data: existing } = await supabase
+    .from("test_attempts")
+    .select("server_flags")
+    .eq("id", attemptId)
+    .maybeSingle();
+
+  const prior =
+    ((existing?.server_flags as { audio_failed?: Record<string, string> } | null)?.audio_failed) || {};
+  const audio_failed = { ...prior };
+  for (const q of failed) audio_failed[q.id as string] = "audio_failed";
+
+  await supabase
+    .from("test_attempts")
+    .update({ server_flags: { ...(existing?.server_flags as object | null), audio_failed } })
+    .eq("id", attemptId);
+
+  await supabase.from("vendor_failures").insert({
+    app: "platform",
+    vendor: "supabase_storage",
+    operation: "listening.signedUrl",
+    fatal: false,
+    message: `Could not mint listening prompt audio on ${phase} of attempt ${attemptId}; part excluded from scoring.`,
+    context: { attempt_id: attemptId, candidate_id: candidateId, phase },
+  });
+}
+
+/**
  * POST /api/test/questions — deal (or re-deal) a test attempt.
  *
  * The attempt is server-held state: which questions were served, under which
@@ -235,28 +283,7 @@ export async function POST(request: Request) {
         served.map((s) => toClientQuestion(supabase, byId.get(s.qid)!, s))
       );
 
-      // Resuming and the prompt audio would not mint. The item is already in
-      // this attempt so it cannot be dropped — record it where GRADING can
-      // see it, on the attempt's server_flags. Not in open_answers.flags: the
-      // client overwrites that wholesale on submit, so a server note written
-      // there would be gone by the time it mattered.
-      const failedAudio = questions.filter((q) => q.audioMintFailed);
-      if (failedAudio.length > 0) {
-        const flags: Record<string, string> = {};
-        for (const q of failedAudio) flags[q.id as string] = "audio_failed";
-        await supabase
-          .from("test_attempts")
-          .update({ server_flags: { audio_failed: flags } })
-          .eq("id", openAttempt.id);
-        await supabase.from("vendor_failures").insert({
-          app: "platform",
-          vendor: "supabase_storage",
-          operation: "listening.signedUrl",
-          fatal: false,
-          message: `Could not mint listening prompt audio on resume of attempt ${openAttempt.id}; part excluded from scoring.`,
-          context: { attempt_id: openAttempt.id, candidate_id: candidateId },
-        });
-      }
+      await recordAudioMintFailures(supabase, openAttempt.id, candidateId, questions, "resume");
 
       let passageText: string | null = null;
       if (openAttempt.passage_id) {
@@ -288,7 +315,7 @@ export async function POST(request: Request) {
   // "Live purchase" is paid, unsettled and unrefunded — NOT "unclaimed". A
   // purchase claimed by an attempt still belongs to the candidate; treating a
   // claim as spent is what previously showed a mid-test candidate a paywall.
-  const { data: entitlement } = await supabase
+  const { data: livePurchase } = await supabase
     .from("assessment_purchases")
     .select("id, attempt_id")
     .eq("candidate_id", candidateId)
@@ -296,6 +323,64 @@ export async function POST(request: Request) {
     .eq("status", "paid")
     .is("consumed_at", null)
     .is("refunded_at", null)
+    .maybeSingle();
+
+  // ═══ RESOLVE A CLAIM LEFT ON A DEAD ATTEMPT ═══
+  //
+  // Reaching this line means the resume branch above found nothing to resume,
+  // so the attempt this purchase is claimed by is no longer being sat. The
+  // claim has to be resolved before we deal, and resolving it is not optional:
+  //
+  // claim_assessment_entitlement matches only a purchase whose attempt_id is
+  // NULL or equal to the attempt being dealt, so a claim stuck on an
+  // abandoned attempt makes every future claim fail. The deal path treats a
+  // failed claim as "let the sitting stand" — the right call when the cause is
+  // a race, and a catastrophe here: abandon the test, wait for the clock to
+  // run out, deal again, for ever. One $5 would buy unlimited sittings.
+  //
+  // Which way it resolves depends on whose fault the dead attempt is:
+  //   * still open (unsubmitted, unexpired) — we only get here when the resume
+  //     branch REFUSED to serve it, which it does when a served question has
+  //     been deactivated underneath the candidate. That is our doing, so
+  //     release: they keep what they paid for and get a fresh hand.
+  //   * expired or finished — the questions were served and the window was
+  //     theirs. Settle it; the sitting was delivered.
+  if (livePurchase?.attempt_id) {
+    const { data: claimed } = await supabase
+      .from("test_attempts")
+      .select("id, submitted_at, expires_at")
+      .eq("id", livePurchase.attempt_id)
+      .maybeSingle();
+
+    const stillOpen =
+      claimed &&
+      claimed.submitted_at === null &&
+      new Date(claimed.expires_at).getTime() > Date.now();
+
+    if (stillOpen) {
+      await supabase.rpc("release_assessment_entitlement", {
+        p_candidate_id: candidateId,
+        p_kind: "english",
+        p_reason: "served_question_withdrawn",
+      });
+    } else {
+      await supabase.rpc("settle_assessment_entitlement", {
+        p_attempt_id: livePurchase.attempt_id,
+      });
+    }
+  }
+
+  // Re-read after resolving, and require an UNCLAIMED purchase: a settle above
+  // spends it, a release frees it, and only a free one can start a sitting.
+  const { data: entitlement } = await supabase
+    .from("assessment_purchases")
+    .select("id")
+    .eq("candidate_id", candidateId)
+    .eq("kind", "english")
+    .eq("status", "paid")
+    .is("consumed_at", null)
+    .is("refunded_at", null)
+    .is("attempt_id", null)
     .maybeSingle();
 
   if (!entitlement) {
@@ -486,6 +571,13 @@ export async function POST(request: Request) {
   const clientQuestions = await Promise.all(
     finalPairs.map((p) => toClientQuestion(supabase, p.q, p.sv))
   );
+
+  // The probe above proves the object CAN be signed; it does not carry the URL
+  // forward, so toClientQuestion signs it again and that second sign can fail
+  // on its own. Without this the fresh-deal path served an item with no audio,
+  // wrote no flag, and let grading score the part 0 — the exact hole the probe
+  // was added to close, one step further down.
+  await recordAudioMintFailures(supabase, attempt.id, candidateId, clientQuestions, "deal");
 
   return NextResponse.json({
     attemptId: attempt.id,

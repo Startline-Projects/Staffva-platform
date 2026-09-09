@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ENGLISH_TEST_HOST, PRIMARY_HOST, isEnglishTestHost } from "@/lib/supabase/cookieDomain";
+import { PRIMARY_HOST, isEnglishTestHost } from "@/lib/supabase/cookieDomain";
 
 /**
  * englishtest.staffva.com — the English assessment's own address.
@@ -29,6 +29,13 @@ const ENGLISH_TEST_PATHS = [
   // The test's own API surface. /api/test deals and grades the attempt;
   // /api/proctor takes the anti-cheat events; /api/assessments is the
   // purchase. Without these the page loads and then cannot do anything.
+  //
+  // These four are BELT AND BRACES, not the reason API calls work: the
+  // middleware matcher in src/middleware.ts excludes /api/ outright, so
+  // routeByHost never sees an API request and none is ever redirected away.
+  // They are listed so that if the matcher is ever widened, the test host does
+  // not start 307ing its own fetches to staffva.com — which would fail as
+  // cross-origin and break a sitting in progress.
   "/api/test",
   "/api/proctor",
   "/api/assessments",
@@ -37,7 +44,9 @@ const ENGLISH_TEST_PATHS = [
   "/auth",
   "/login",
   "/logout",
-  // Framework and static assets.
+  // Framework and static assets. /_next is likewise matcher-excluded for
+  // /_next/static and /_next/image; the prefix also covers the RSC and
+  // build-manifest routes that are not.
   "/_next",
   "/favicon.ico",
 ];
@@ -49,12 +58,26 @@ function servedHere(pathname: string): boolean {
 }
 
 /**
- * Host-level routing, applied before anything else in the middleware.
+ * What host routing decided about this request.
  *
- * Returns a response when the request belongs somewhere other than where it
- * arrived, or null to let the normal pipeline handle it.
+ * A rewrite is returned as a URL rather than a finished response, and that is
+ * load-bearing. A middleware rewrite does NOT re-enter middleware — Next runs
+ * the proxy step once, then filesystem routes — so returning the rewrite
+ * immediately would skip every guard that follows it: the session lookup, the
+ * MFA-pending redirect, the protected-route check, the US-experience gate.
+ * The assessment page does not re-implement those (it checks only role), so
+ * the root of the test host would have been the one URL in the product where
+ * an aal1 session that owes aal2 is not challenged.
+ *
+ * Handing back the URL instead lets the caller run every guard against the
+ * REWRITTEN pathname and only then emit the rewrite.
  */
-export function routeByHost(request: NextRequest): NextResponse | null {
+export type HostRoute =
+  | { kind: "redirect"; response: NextResponse }
+  | { kind: "rewrite"; url: URL }
+  | null;
+
+export function routeByHost(request: NextRequest): HostRoute {
   const host = request.headers.get("host");
   const { pathname, search } = request.nextUrl;
 
@@ -66,17 +89,22 @@ export function routeByHost(request: NextRequest): NextResponse | null {
     if (pathname === "/") {
       const url = request.nextUrl.clone();
       url.pathname = "/assessment";
-      return NextResponse.rewrite(url);
+      return { kind: "rewrite", url };
     }
 
     if (servedHere(pathname)) return null;
 
     // Anything else belongs on the marketplace. 307 preserves the method, so
     // a form post that somehow lands here is not silently downgraded to GET.
-    return NextResponse.redirect(
-      new URL(`https://${PRIMARY_HOST}${pathname}${search}`),
-      307
-    );
+    // Safe to return finished: a redirect runs no page and needs no guard —
+    // staffva.com will apply its own when the browser arrives there.
+    return {
+      kind: "redirect",
+      response: NextResponse.redirect(
+        new URL(`https://${PRIMARY_HOST}${pathname}${search}`),
+        307
+      ),
+    };
   }
 
   return null;
@@ -91,13 +119,22 @@ export function routeByHost(request: NextRequest): NextResponse | null {
  * which is worse than breaking, because nobody would notice the test host had
  * stopped being used.
  *
- * Falls back to the relative path when the assessment host is not configured,
- * so local development and preview deployments keep working unchanged.
+ * OPT-IN, and deliberately so. This returns the relative /assessment path
+ * until NEXT_PUBLIC_ENGLISH_TEST_URL is set, because code and DNS ship on
+ * different clocks: this deployment can land before englishtest.staffva.com
+ * has a domain on the project or a DNS record, and hard-coding the host for
+ * production would point every candidate's "Start your English assessment"
+ * button at a name that does not resolve. The failure would be total and
+ * would arrive at the exact moment the deploy went out.
+ *
+ * routeByHost above is already live either way — it costs nothing until
+ * requests actually arrive on that host — so the switch-over is one
+ * environment variable, not a code change. Note it is NEXT_PUBLIC_, which
+ * Next inlines at build time, so setting it needs a redeploy to take effect.
  */
 export function englishTestUrl(path = ""): string {
   if (process.env.NEXT_PUBLIC_ENGLISH_TEST_URL) {
     return `${process.env.NEXT_PUBLIC_ENGLISH_TEST_URL}${path}`;
   }
-  if (process.env.NODE_ENV !== "production") return `/assessment${path}`;
-  return `https://${ENGLISH_TEST_HOST}${path}`;
+  return `/assessment${path}`;
 }
