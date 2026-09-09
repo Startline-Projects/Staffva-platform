@@ -46,6 +46,18 @@ export interface ClientProfile {
   /** The contact person's FIRST name only — the candidate-facing convention. */
   contactFirstName: string | null;
   memberSince: string;
+  /**
+   * Written by the client, verified by nobody. Grouped under one key rather
+   * than spread among the derived stats so the page cannot accidentally
+   * present a headline with the same authority as a payment count — and so a
+   * reader of this type sees which half is which.
+   */
+  selfReported: {
+    headline: string | null;
+    bio: string | null;
+    websiteUrl: string | null;
+    timezone: string | null;
+  };
   stats: {
     totalHires: number;
     activeNow: number;
@@ -111,7 +123,7 @@ export async function loadClientProfileForCandidate(
 
   const { data: client, error } = await db
     .from("clients")
-    .select("full_name, company_name, created_at")
+    .select("full_name, company_name, created_at, headline, bio, website_url, timezone")
     .eq("id", clientId)
     .maybeSingle();
   // A relationship row pointing at a missing client is a data fault; the
@@ -218,6 +230,16 @@ export async function loadClientProfileForCandidate(
       // the trust page.
       contactFirstName: contactSafeFirstName(client.full_name),
       memberSince: client.created_at,
+      selfReported: {
+        // Through the contact filter, like the name. A bio is free text on a
+        // page the client cannot otherwise use to reach the candidate, so it
+        // is the obvious place to paste an email address and take the
+        // arrangement off-platform before there is a contract.
+        headline: client.headline ? maskContact(String(client.headline)) : null,
+        bio: client.bio ? maskContact(String(client.bio)) : null,
+        websiteUrl: (client.website_url as string | null) ?? null,
+        timezone: (client.timezone as string | null) ?? null,
+      },
       stats: {
         totalHires: engs.length,
         activeNow: engs.filter((e) => e.status === "active").length,

@@ -34,13 +34,19 @@ import { blockReasonFor, type ReviewState } from "@/lib/reviewEligibility";
  *  - The "verified stamp" and "From 2 verified reviews" — "verified" is never
  *    defined anywhere in the prototype.
  *
- * THE ONE CLAIM WE HAD TO INVERT: Atlas says these reviews "appear on your
- * public client profile" and that "candidates see them when deciding whether
- * to message back". On this platform the view is called
- * `client_reviews_private`, and it grants SELECT to postgres and service_role
- * ONLY — not to `anon`, not to `authenticated`. Candidate reviews go to
- * `candidate_reviews_public`, which anon can read. Reputation here is
- * one-directional, and the banner says so instead of promising the opposite.
+ * THE CLAIM WE HAD TO NARROW: Atlas says these reviews "appear on your public
+ * client profile" and that "candidates see them when deciding whether to
+ * message back". Half right here, and the half that is wrong is "public".
+ * `client_reviews_private` grants SELECT to postgres and service_role only —
+ * so nothing reads it from the browser — but src/lib/clientProfile.ts reads it
+ * with the service role behind a relationship gate, and shows it to a
+ * candidate this client has made an offer to, messaged or hired.
+ *
+ * So: not public, not StaffVA-only either. A first version of this banner said
+ * "only StaffVA can read them", which was false, and step 17's help article
+ * inherited the same sentence. Both now describe the actual audience.
+ * Candidate reviews DO go to `candidate_reviews_public`, which anon can read —
+ * that asymmetry is real and the banner keeps it.
  */
 
 function Stars({ n }: { n: number }) {
@@ -207,11 +213,13 @@ export default function ClientReviews({ states }: { states: ReviewState[] }) {
                   Candidates see them when deciding whether to message back."
                   The opposite is true here — see the file header. */}
               <p className="rv-privacy">
-                These are for you. Reviews written about a client live in a view that grants
-                access to StaffVA only — there is no public client profile, and candidates
-                browsing the platform cannot read them. It does not work the other way round: a
-                review you write about a candidate appears on their public profile once it
-                unseals, with your first name attached.
+                Reviews about you are not public. There is no public client page and candidates
+                browsing the platform cannot find you — but a candidate you have made an offer to,
+                messaged or hired can open your profile, and these reviews are on it. That is the
+                point of them: someone deciding whether to work for you can see how it went for
+                the last person. It does not work the other way round — a review you write about a
+                candidate goes on their public profile once it unseals, with your first name
+                attached.
               </p>
 
               {aboutYou.length === 0 ? (

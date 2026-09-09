@@ -289,7 +289,7 @@ export const ARTICLES: HelpArticle[] = [
         "Once the deadline has published a lone review, the other side can no longer write one. A review written after reading theirs would be a reply, not an account.",
       ]},
       { kind: "h", text: "Who can read them" },
-      { kind: "p", text: "This is not symmetrical, and you should know which way round it goes. A review you write about a candidate appears on their public profile once it unseals, with your first name attached. A review a candidate writes about you is visible to you and to StaffVA only — there is no public client profile, and candidates browsing the platform cannot read it." },
+      { kind: "p", text: "This is not symmetrical, and you should know which way round it goes. A review you write about a candidate appears on their PUBLIC profile once it unseals, with your first name attached — anyone can read it. A review a candidate writes about you is not public: there is no public client page and candidates browsing the platform cannot find you. It is shown to candidates you have already engaged — someone you have made an offer to, messaged or hired — on the profile page they can open about you." },
     ],
   },
   {

@@ -38,7 +38,8 @@ const CRUMBS: Array<[prefix: string, label: string]> = [
   ["/interviews", "Interviews"],
   ["/proposals", "Proposals"],
   ["/shortlists", "My Shortlists"],
-  ["/account", "Account Settings"],
+  ["/settings", "Settings"],
+  ["/account", "Settings"],
 ];
 
 export default function ClientPortalTopbar({ user }: { user: ClientPortalUser }) {

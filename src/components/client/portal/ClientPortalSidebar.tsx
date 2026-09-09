@@ -88,7 +88,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
           badge={user.needsVerification || user.needsCard ? "Todo" : undefined}
           mobileHide
         />
-        <PortalNavItem href="/account/security" icon="settings" label="Account Settings" active={is("/account")} mobileHide />
+        <PortalNavItem href="/settings" icon="settings" label="Settings" active={is("/settings") || is("/account")} mobileHide />
         {/* Was a mailto:. The Help Center answers the questions that were
             arriving by email; support@staffva.com is still the human channel
             and is on every page of it. */}

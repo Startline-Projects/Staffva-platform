@@ -100,6 +100,48 @@ export default async function ClientProfilePage({
         </div>
       </div>
 
+      {/* What the client says about themselves — step 18 gave them somewhere
+          to say it. Kept ABOVE the derived stats but visibly labelled as
+          self-reported, because the whole point of the section below is that
+          it is the half we can vouch for. */}
+      {(p.selfReported.headline || p.selfReported.bio || p.selfReported.websiteUrl ||
+        p.selfReported.timezone) && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            In their words
+          </h2>
+          {p.selfReported.headline && (
+            <p className="mt-3 text-sm font-medium text-[#1C1B1A]">{p.selfReported.headline}</p>
+          )}
+          {p.selfReported.bio && (
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+              {p.selfReported.bio}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            {p.selfReported.websiteUrl && (
+              // The server stores an http(s) URL or rejects it, so this can
+              // never render a javascript: href.
+              <a
+                className="text-[#FE6E3E] hover:underline"
+                href={p.selfReported.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+              >
+                {p.selfReported.websiteUrl.replace(/^https?:\/\//, "")}
+              </a>
+            )}
+            {p.selfReported.timezone && (
+              <span className="text-gray-600">Works {p.selfReported.timezone}</span>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Written by the client. StaffVA doesn&apos;t verify any of it — everything below this
+            line comes from our own records instead.
+          </p>
+        </section>
+      )}
+
       {/* Hiring activity */}
       <section className="mt-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
