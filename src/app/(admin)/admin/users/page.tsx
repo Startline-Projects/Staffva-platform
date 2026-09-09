@@ -92,8 +92,7 @@ export default async function AdminUsersPage({
         StaffVA keeps its people in three unrelated tables, so until now finding
         somebody meant already knowing which of four pages they were on. Search here
         works across all of them. Each row links to where that person is managed
-        today — for candidates that is still the review queue, because the admin
-        candidate record does not exist yet.
+        today — a full record for candidates, the owning list for everyone else.
       </p>
 
       {/* Tabs */}

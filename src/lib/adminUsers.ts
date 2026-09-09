@@ -151,12 +151,11 @@ export async function loadDirectory(
         meta: [c.role_category, c.country].filter(Boolean).join(" · ") || "—",
         status: candidateStatus(c.admin_status, Boolean(c.ban_pending_review)),
         joinedAt: c.created_at,
-        // There is no admin candidate record yet — that is step 5 — so the
-        // row points at the queue where a candidate is acted on today.
-        href: "/admin/candidates",
-        hrefLabel: "Review queue",
+        href: `/admin/candidates/${c.id}`,
+        hrefLabel: "Record",
         // The public page resolves only for approved candidates; for anyone
-        // else it falls through to an owner-only view and shows nothing.
+        // else it falls through to an owner-only view and shows nothing. The
+        // admin record above works for every candidate regardless.
         publicHref: c.admin_status === "approved" ? `/candidate/${c.id}` : null,
       })),
       total: count ?? 0,
