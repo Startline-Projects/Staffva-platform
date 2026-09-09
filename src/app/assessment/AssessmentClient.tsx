@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { PRIMARY_HOST } from "@/lib/supabase/cookieDomain";
 import { useRouter } from "next/navigation";
 import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import Asti, { AstiPointChip } from "@/components/landing/Asti";
@@ -1147,7 +1148,15 @@ export default function AssessmentClient({
       />
       <nav className="nav" id="nav">
         <div className="nav-inner">
-          <Link href="/" className="logo" aria-label="StaffVA — go to homepage">
+          {/* Absolute, not "/". On englishtest.staffva.com the root rewrites
+              straight back to this page, so a relative homepage link is a
+              loop — the one visible way off a proctored screen going nowhere.
+              PRIMARY_HOST is where the marketplace actually lives. */}
+          <Link
+            href={`https://${PRIMARY_HOST}/`}
+            className="logo"
+            aria-label="StaffVA — go to homepage"
+          >
             <StaffvaLogo />
           </Link>
           <div className="nav-right">

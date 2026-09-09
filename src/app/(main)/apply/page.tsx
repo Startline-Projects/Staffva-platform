@@ -182,9 +182,11 @@ export default function ApplyPage() {
     }
 
     // --- SESSION RESTORE LOGIC ---
-    // Flow: form here, then the Proctored English Assessment on its own
-    // Atlas page (/assessment, step 8), then back here for recordings and
-    // the profile. ID verification lives on /verify-id (step 7).
+    // Flow: form here, then the recordings, then the profile builder. The
+    // Proctored English Assessment used to sit in the middle of that chain;
+    // it is optional and paid now and lives on its own host, so it is not a
+    // step this restore logic can ever land on. ID verification lives on
+    // /verify-id (step 7).
 
     // An approved candidate has no application to continue, and must never be
     // routed onward from here.
@@ -231,8 +233,10 @@ export default function ApplyPage() {
     setStep("voice_recording_1");
   }
 
-  // Flow: form here → the assessment on /assessment (step 8) → back here
-  // for recordings and profile. /verify-id (step 7) owns the ID window.
+  // Flow: form here → recordings → profile builder. The English assessment is
+  // NOT in this chain any more: it became optional and paid, so the hand-off
+  // that used to sit between the form and the recordings would now drop a new
+  // applicant on a paywall. /verify-id (step 7) still owns the ID window.
   function handleFormComplete(data: CandidateData) {
     setCandidateData(data);
     // Straight on to the recordings — the first step of the profile that
