@@ -1,0 +1,656 @@
+/* Atlas ADMIN scope — the chrome the admin panel adds on top of the shared
+   portal shell.
+
+   The candidate and client portals load landing.css + atlas-auth.css +
+   atlas-dash.css + atlas-live.css through PortalFrame. Admin loads those four
+   and then this one, and the wrapper carries a fourth scope class, `.lp-admin`.
+
+   Two things live here and nowhere else:
+
+     1. Chrome the portals have no use for — collapsible nav groups, the
+        sidebar filter, counters, the role pill, the restricted/logged
+        treatment. New rules, prefixed `.lp-admin`.
+
+     2. Overrides of the portal shell. The portal rail carries ~8 destinations
+        and folds into a bottom bar on mobile; the admin rail carries 25 and
+        has to fold into a drawer. The portal content column is capped at
+        1040px for readability; admin tables need the whole viewport.
+
+   Overrides are written `.lp-admin.lp-dash …` — specificity (0,3,0) against
+   the portal's (0,2,0) — so they win on weight rather than on the order the
+   bundler happens to emit the stylesheets in. Do not "simplify" them to a
+   single class: that reintroduces a load-order dependency that only shows up
+   in a production build.
+
+   Source of truth for the visual language:
+   /Users/kass/Downloads/Atlas/atlas_admin_interface.html */
+
+/* ============ ADMIN-ONLY TOKENS ============
+   `.lp` carries the palette and `.lp-auth` adds --success/--danger-bg/
+   --shadow-card. These are the ones the admin views need that neither
+   defines. --restricted is deliberately deeper than --danger: --danger marks
+   a failure, --restricted marks a surface that is off-limits by policy. */
+.lp-admin {
+  --paper-deep: #F7F2E5;
+  --line-strong: #C4BCA9;
+  --amber-bg: #FCEFE3;
+  --navy-bg: #E8EBF1;
+  --danger-deep: #8B1A1A;
+
+  --restricted: #8B1A1A;
+  --restricted-bg: #F5E2DD;
+  --logged: #6B6860;
+  --logged-bg: rgba(14, 14, 12, 0.06);
+  --super: #6E3FE0;
+  --super-bg: #EFE9FB;
+}
+
+/* ============ LAYOUT ============ */
+.lp-admin.lp-dash .dash-layout {
+  grid-template-columns: 264px minmax(0, 1fr);
+}
+
+@media (max-width: 1080px) {
+  .lp-admin.lp-dash .dash-layout { grid-template-columns: 224px minmax(0, 1fr); }
+}
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.lp-admin.lp-dash .dash-main {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* The portal caps its content column and centres it. An admin table of 252
+   candidates cannot live in 1040px, and centring it leaves the filter row
+   floating away from the rail it belongs to. */
+.lp-admin.lp-dash .dash-content {
+  padding: 24px 28px 64px;
+  max-width: none;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-content { padding: 20px 18px 56px; }
+}
+
+/* ============ SIDEBAR ============ */
+/* One scroller, and it is the nav. The portal rail is short enough to let
+   the whole aside scroll; this one has to keep the logo, the filter and the
+   footer pinned while twenty-two rows move between them. */
+.lp-admin.lp-dash .dash-sidebar {
+  padding: 0;
+  font-size: 13.5px;
+  overflow: hidden;
+}
+
+/* Mobile: a drawer, not a bottom bar. The portal rail has eight destinations
+   and can spread them across the bottom edge; this one has twenty-five in
+   seven groups, so it slides in from the left and dims the page behind it. */
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: auto;
+    width: 284px;
+    max-width: 86vw;
+    height: 100vh;
+    padding: 0;
+    flex-direction: column;
+    border-top: 0;
+    border-right: 1px solid var(--line);
+    background: var(--paper);
+    backdrop-filter: none;
+    box-shadow: 4px 0 24px rgba(14, 14, 12, 0.12);
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1);
+    z-index: 80;
+  }
+
+  .lp-admin.lp-dash .dash-sidebar.open { transform: translateX(0); }
+}
+
+.lp-admin .admin-sidebar-header {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.lp-admin .admin-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.lp-admin .admin-logo-suffix {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--restricted);
+  background: var(--restricted-bg);
+  border-radius: 3px;
+  padding: 3px 6px 2px;
+  font-weight: 600;
+  align-self: center;
+}
+
+.lp-admin .admin-sidebar-close {
+  display: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  border-radius: var(--r-sm);
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lp-admin .admin-sidebar-close:hover { background: var(--cream-deep); color: var(--ink); }
+
+@media (max-width: 880px) {
+  .lp-admin .admin-sidebar-close { display: inline-flex; }
+}
+
+/* ----- Sidebar filter ----- */
+.lp-admin .admin-sidebar-search {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.lp-admin .admin-search-wrap { position: relative; }
+
+.lp-admin .admin-search-wrap > svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-mute);
+  pointer-events: none;
+}
+
+.lp-admin .admin-search-input {
+  width: 100%;
+  padding: 8px 34px 8px 32px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.lp-admin .admin-search-input::placeholder { color: var(--ink-mute); opacity: 0.6; }
+
+.lp-admin .admin-search-input:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: #fff;
+}
+
+.lp-admin .admin-search-kbd {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  background: var(--paper);
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.lp-admin .admin-search-input:focus ~ .admin-search-kbd { display: none; }
+
+.lp-admin .admin-search-empty {
+  padding: 18px 12px;
+  font-size: 12.5px;
+  color: var(--ink-mute);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ----- Nav ----- */
+.lp-admin.lp-dash .dash-nav {
+  padding: 6px 12px 14px;
+  gap: 2px;
+  overflow-y: auto;
+  /* Without this the nav refuses to shrink below its content and pushes the
+     footer off the bottom of the viewport instead of scrolling. */
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+.lp-admin .dash-nav::-webkit-scrollbar { width: 6px; }
+.lp-admin .dash-nav::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.lp-admin .dash-nav::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-nav {
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 6px 12px 14px;
+    gap: 2px;
+  }
+}
+
+.lp-admin .admin-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 12px;
+}
+
+.lp-admin .admin-nav-group:first-of-type { margin-top: 4px; }
+
+.lp-admin .admin-nav-group-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding: 8px 10px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  transition: color 0.15s ease;
+}
+
+.lp-admin .admin-nav-group-label:hover { color: var(--ink-soft); }
+
+.lp-admin .admin-group-chevron {
+  transition: transform 0.15s ease;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.lp-admin .admin-nav-group.collapsed .admin-group-chevron { transform: rotate(-90deg); }
+.lp-admin .admin-nav-group.collapsed .admin-nav-list { display: none; }
+
+.lp-admin .admin-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+}
+
+/* The admin rail is denser than the portal rail — twenty-five rows against
+   eight — so the row metrics come from the prototype, not from atlas-live. */
+.lp-admin.lp-dash .dash-nav-item {
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.lp-admin.lp-dash .dash-nav-item .nav-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--ink-mute);
+}
+
+.lp-admin.lp-dash .dash-nav-item:hover .nav-icon { color: inherit; }
+.lp-admin.lp-dash .dash-nav-item.active .nav-icon { color: var(--lime); }
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-nav-item {
+    flex-direction: row;
+    gap: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    letter-spacing: normal;
+    text-transform: none;
+    font-family: var(--font-body);
+    text-align: left;
+    border-radius: var(--r-sm);
+  }
+
+  .lp-admin.lp-dash .dash-nav-item.active { background: var(--ink); color: var(--paper); }
+  .lp-admin.lp-dash .dash-nav-item.active svg { color: var(--lime); }
+  .lp-admin.lp-dash .dash-nav-item.active::after { display: none; }
+}
+
+/* ----- Counters -----
+   A counter renders only when the number is known. `nav-counter` is the
+   neutral form; `warn` and `urgent` mark queues with a clock on them. */
+.lp-admin .dash-nav-item .nav-counter {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  background: var(--cream-deep);
+  color: var(--ink-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.lp-admin .dash-nav-item .nav-counter.warn { background: var(--amber); color: #fff; }
+.lp-admin .dash-nav-item .nav-counter.urgent { background: var(--danger); color: #fff; }
+
+.lp-admin .dash-nav-item.active .nav-counter,
+.lp-admin .dash-nav-item.active .nav-counter.warn,
+.lp-admin .dash-nav-item.active .nav-counter.urgent {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-nav-item .nav-counter { display: inline-block; }
+  .lp-admin.lp-dash .dash-nav-item .nav-badge { display: inline-block; }
+}
+
+/* ----- Sidebar footer ----- */
+/* Opaque on purpose: the nav scrolls right up to this edge, and a
+   transparent footer lets a half-scrolled row show through it as if the two
+   were overlapping. */
+.lp-admin.lp-dash .dash-sidebar-footer {
+  margin-top: 0;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--paper);
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-sidebar-footer { display: flex; }
+}
+
+.lp-admin .dash-sidebar-footer .admin-user-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The portal footer puts the name straight into the flex row, so it inherits
+   `flex: 1` and needs no display of its own. Here it sits inside a meta block
+   with the role under it — left inline, the two render on one line and the
+   role runs out past the sign-out button. */
+.lp-admin .dash-sidebar-footer .user-name {
+  display: block;
+  flex: none;
+  width: 100%;
+}
+
+.lp-admin .dash-sidebar-footer .admin-user-role {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-top: 1px;
+}
+
+.lp-admin .admin-signout {
+  border: 0;
+  background: none;
+  padding: 6px;
+  border-radius: var(--r-sm);
+  color: var(--ink-mute);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.lp-admin .admin-signout:hover { background: var(--cream-deep); color: var(--danger); }
+
+/* ----- Mobile scrim ----- */
+.lp-admin .admin-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 14, 12, 0.34);
+  z-index: 70;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 880px) {
+  .lp-admin .admin-sidebar-overlay.open { display: block; }
+}
+
+/* ============ TOPBAR ============ */
+.lp-admin.lp-dash .dash-topbar {
+  padding: 10px 28px;
+  gap: 16px;
+  justify-content: flex-start;
+  background: rgba(243, 238, 227, 0.92);
+  backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--line);
+  z-index: 60;
+}
+
+@media (max-width: 880px) {
+  .lp-admin.lp-dash .dash-topbar { padding: 10px 16px; gap: 10px; }
+}
+
+.lp-admin .admin-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lp-admin .admin-hamburger {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: none;
+  border-radius: var(--r-sm);
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lp-admin .admin-hamburger:hover { background: var(--cream-deep); color: var(--ink); }
+
+@media (max-width: 880px) {
+  .lp-admin .admin-hamburger { display: inline-flex; }
+}
+
+.lp-admin .admin-crumb {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-admin .admin-crumb-page { color: var(--ink); font-weight: 600; }
+
+.lp-admin .admin-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* The role pill is the answer to "what am I allowed to do here" — it names
+   the signed-in role rather than the person, because two admins share this
+   panel with different reach. */
+.lp-admin .admin-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.lp-admin .admin-role-pill[data-role="recruiting_manager"] { background: var(--navy); }
+
+.lp-admin .admin-role-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  flex-shrink: 0;
+  animation: admin-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes admin-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (max-width: 600px) {
+  .lp-admin .admin-role-pill { display: none; }
+}
+
+.lp-admin .admin-clock {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .lp-admin .admin-clock { display: none; }
+}
+
+.lp-admin .admin-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.lp-admin .admin-topbar-btn:hover { background: #fff; border-color: var(--line-strong); color: var(--ink); }
+
+.lp-admin .admin-topbar-btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.lp-admin .admin-topbar-btn.primary:hover { background: var(--ink-soft); border-color: var(--ink-soft); color: var(--paper); }
+
+@media (max-width: 880px) {
+  .lp-admin .admin-topbar-btn { display: none; }
+}
+
+/* ============ RESTRICTED / AUDIT CHROME ============
+   Two marks the admin views reuse everywhere. `restricted-pill` says the
+   surface is off-limits to anyone not signed in here; `audit-badge` sits
+   beside a control to say the action it performs is written down. */
+.lp-admin .restricted-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 13px 5px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lp-admin .restricted-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--restricted);
+  box-shadow: 0 0 0 3px rgba(139, 26, 26, 0.16);
+  animation: admin-pulse 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.lp-admin .audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px 3px 6px;
+  background: var(--logged-bg);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--logged);
+  font-weight: 500;
+}
+
+.lp-admin .audit-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--logged);
+  display: inline-block;
+}

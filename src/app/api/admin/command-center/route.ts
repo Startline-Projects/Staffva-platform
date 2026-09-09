@@ -51,6 +51,7 @@ export async function GET() {
     threadDataRes,
     talentSpecialistsRes,
     routeCandidatesRes,
+    pendingBansRes,
   ] = await Promise.all([
     // Live candidates
     admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", LIVE_STATUSES),
@@ -109,6 +110,9 @@ export async function GET() {
     admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
     // Route candidates (assignment_pending_review)
     admin.from("candidates").select("id, full_name, display_name, role_category, country, hourly_rate, created_at").eq("assignment_pending_review", true).limit(20),
+    // Bans a specialist has requested and an admin has not yet ruled on. The
+    // rail counts these because the page is the only place they surface.
+    admin.from("candidates").select("id", { count: "exact", head: true }).eq("ban_pending_review", true),
   ]);
 
   const liveCandidates = liveCandidatesRes.count || 0;
@@ -357,6 +361,7 @@ export async function GET() {
       talentPool: totalCandidates,
       triage: triageRes.count || 0,
       teamInbox: activeConversations,
+      pendingBans: pendingBansRes.count || 0,
     },
 
     // Route candidates
