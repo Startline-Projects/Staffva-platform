@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/Toast";
 
@@ -75,15 +76,12 @@ interface DashboardData {
   newEngThisWeek: number;
   platformFeeThisMonth: number;
   warmLeadsCount: number;
-  seminarDate: string;
   pipeline: Pipeline;
   pendingCandidates: PendingCandidate[];
   warmLeads: WarmLead[];
-  recruiterAlerts: {
-    needsRouting: number;
-  };
-  screening: { pending: number; processing: number; complete: number; failed: number; screenedToday: number };
-  identity: { lockouts: number; dupesWeek: number; flagged: number; verified: number };
+  recruiterAlerts: { needsRouting: number };
+  screening: { screenedToday: number };
+  identity: { lockouts: number; flagged: number; verified: number };
   pulse: {
     applicationsThisWeek: number;
     applicationsLastWeek: number;
@@ -98,9 +96,21 @@ interface DashboardData {
   clientsThisMonth: number;
   totalClients: number;
   talentPoolHealth: { liveCandidates: number; rolesBelow2: number };
-  badges: Record<string, number>;
   routeCandidates: RouteCandidate[];
   recruiters: { id: string; name: string }[];
+}
+
+type Priority = "urgent" | "today" | "week";
+
+interface Alert {
+  id: string;
+  priority: Priority;
+  title: string;
+  meta: string[];
+  sla?: { text: string; tone: "critical" | "warn" | "" };
+  actionLabel: string;
+  href?: string;
+  onAction?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -117,7 +127,15 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(days / 30)} month${Math.floor(days / 30) > 1 ? "s" : ""} ago`;
 }
 
-const MONO = "'DM Mono', monospace";
+const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+
+const PRIORITY_ORDER: Priority[] = ["urgent", "today", "week"];
+
+const ArrowIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 12h14M12 5l7 7-7 7" />
+  </svg>
+);
 
 // ═══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -127,28 +145,42 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Modal state
   const [modal, setModal] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [routeAssignments, setRouteAssignments] = useState<Record<string, string>>({});
   const [approveSearch, setApproveSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  /**
+   * A failed read and an empty platform are different answers, and the old
+   * dashboard could not tell them apart: it swallowed the error, left `data`
+   * null, and sat on "Loading command center…" forever. Anything that is not
+   * a usable payload is now an error the page states out loud.
+   */
   const loadData = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/command-center");
       if (res.status === 403) { router.replace("/recruiter"); return; }
-      const d = await res.json();
+      if (!res.ok) { setLoadError(`The command centre answered ${res.status}.`); setLoading(false); return; }
+      const d = (await res.json()) as DashboardData;
+      if (!d || typeof d.pipeline !== "object") { setLoadError("The command centre returned a payload this page cannot read."); setLoading(false); return; }
       setData(d);
-    } catch { /* silent */ }
+      setLoadError(null);
+    } catch {
+      setLoadError("Could not reach the command centre.");
+    }
     setLoading(false);
   }, [router]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Listen for topbar button events
+  // The topbar's Export and Approve buttons live in the shell and reach the
+  // page over this event. See AdminBar.
   useEffect(() => {
     function handleModal(e: Event) {
       const name = (e as CustomEvent).detail;
@@ -158,18 +190,23 @@ export default function AdminDashboard() {
     return () => window.removeEventListener("adc-open-modal", handleModal);
   }, []);
 
-  // ═══ AUDIO PLAYBACK ═══
+  // One <audio> for the page, so pressing pause actually pauses. The old row
+  // constructed a fresh Audio on every click and only ever flipped a label —
+  // a second click started a second overlapping playback.
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
+
   function playAudio(url: string | null, label: string) {
     if (!url) { showToast("No recording available"); return; }
-    if (playingAudio === url) { setPlayingAudio(null); return; }
-    setPlayingAudio(url);
+    audioRef.current?.pause();
+    if (playingAudio === url) { setPlayingAudio(null); audioRef.current = null; return; }
     const audio = new Audio(url);
-    audio.play().catch(() => showToast("Failed to play audio"));
+    audioRef.current = audio;
+    audio.play().catch(() => { showToast("Failed to play audio"); setPlayingAudio(null); });
     audio.onended = () => setPlayingAudio(null);
-    showToast(`▶ Playing ${label}...`);
+    setPlayingAudio(url);
+    showToast(`Playing ${label}…`);
   }
 
-  // ═══ APPROVE CANDIDATE ═══
   async function handleApprove(candidateId: string) {
     setActionLoading(candidateId);
     try {
@@ -179,25 +216,21 @@ export default function AdminDashboard() {
         body: JSON.stringify({ candidateId, action: "approve" }),
       });
       if (res.ok) {
-        showToast("✓ Candidate approved and live");
+        showToast("Candidate approved and live");
         await loadData();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         showToast(`Error: ${err.error || "Failed"}`);
       }
     } catch { showToast("Network error"); }
     setActionLoading(null);
   }
 
-  // ═══ APPROVE ALL PENDING ═══
   async function handleApproveAll() {
     if (!data) return;
-    for (const c of data.pendingCandidates) {
-      await handleApprove(c.id);
-    }
+    for (const c of data.pendingCandidates) await handleApprove(c.id);
   }
 
-  // ═══ SEND REVISION ═══
   async function handleRevision(candidateId: string) {
     const note = prompt("Enter revision feedback:");
     if (!note) return;
@@ -208,36 +241,30 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ candidateId, action: "revision_required", revisionNote: note }),
       });
-      if (res.ok) {
-        showToast("✓ Revision request sent");
-        await loadData();
-      }
+      if (res.ok) { showToast("Revision request sent"); await loadData(); }
     } catch { showToast("Network error"); }
     setActionLoading(null);
   }
 
-  // ═══ ROUTE CANDIDATES ═══
   async function handleSaveRoutes() {
     if (!data) return;
     const unassigned = data.routeCandidates.filter((c) => !routeAssignments[c.id]);
-    if (unassigned.length > 0) { showToast("⚠ Assign a specialist to all candidates"); return; }
+    if (unassigned.length > 0) { showToast("Assign a specialist to every candidate first"); return; }
 
     for (const c of data.routeCandidates) {
-      const recruiterId = routeAssignments[c.id];
       try {
         await fetch("/api/admin/candidates", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidateId: c.id, assigned_recruiter: recruiterId, assignment_pending_review: false }),
+          body: JSON.stringify({ candidateId: c.id, assigned_recruiter: routeAssignments[c.id], assignment_pending_review: false }),
         });
-      } catch { /* continue */ }
+      } catch { /* continue — the rest of the batch still deserves a try */ }
     }
-    showToast("✓ Candidates routed successfully");
+    showToast("Candidates routed");
     setModal(null);
     await loadData();
   }
 
-  // ═══ EXPORT CSV ═══
   function exportCSV(type: string) {
     if (!data) return;
     let csv = "";
@@ -245,7 +272,7 @@ export default function AdminDashboard() {
 
     if (type === "pipeline") {
       csv = "Stage,Count,Percentage\n";
-      const stages = [
+      const stages: [string, number][] = [
         ["Applied", data.pipeline.applied],
         ["English Pass", data.pipeline.englishPass],
         ["ID Verified", data.pipeline.idVerified],
@@ -253,7 +280,7 @@ export default function AdminDashboard() {
         ["AI Interview", data.pipeline.aiInterview],
         ["Profile Under Review", data.pipeline.pendingProfileReview],
         ["Live", data.pipeline.live],
-      ] as [string, number][];
+      ];
       for (const [label, count] of stages) {
         csv += `${label},${count},${data.pipeline.applied > 0 ? ((count / data.pipeline.applied) * 100).toFixed(1) : 0}%\n`;
       }
@@ -264,9 +291,7 @@ export default function AdminDashboard() {
         csv += `"${c.name}",${relativeTime(c.lastLogin)},"${c.browseActivity}",${c.activeEngagements},$${c.totalFees},"${new Date(c.joined).toLocaleDateString("en-US", { month: "short", year: "numeric" })}",${c.status}\n`;
       }
       filename = "client_health.csv";
-    } else {
-      return;
-    }
+    } else return;
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -275,39 +300,147 @@ export default function AdminDashboard() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    showToast(`✓ ${filename} exported`);
+    showToast(`${filename} exported`);
     setModal(null);
   }
 
-  // ═══ LOADING STATE ═══
-  if (loading || !data) {
+  // ═══ ALERTS ═══
+  // Every row is a real count from the command centre pointing at a surface
+  // that exists. Nothing is derived from a placeholder: `identity.dupesWeek`
+  // is hard-coded zero upstream (there is no duplicate-detection table) and
+  // the screening pending/processing/failed trio are placeholders too, so
+  // none of them appears here or anywhere else on this page.
+  const alerts: Alert[] = useMemo(() => {
+    if (!data) return [];
+    const list: Alert[] = [];
+
+    if (data.pipeline.pendingProfileReview > 0) {
+      const n = data.pipeline.pendingProfileReview;
+      list.push({
+        id: "profile-review",
+        priority: n >= 10 ? "urgent" : "today",
+        title: `${n} ${plural(n, "candidate")} waiting on a profile review`,
+        meta: ["Nobody goes live until these clear"],
+        sla: n >= 10 ? { text: "Backlog", tone: "critical" } : undefined,
+        actionLabel: "Review",
+        onAction: () => setModal("review"),
+      });
+    }
+
+    if (data.recruiterAlerts.needsRouting > 0) {
+      const n = data.recruiterAlerts.needsRouting;
+      list.push({
+        id: "routing",
+        priority: "urgent",
+        title: `${n} ${plural(n, "candidate")} ${plural(n, "has", "have")} no talent specialist`,
+        meta: ["Unrouted candidates sit in nobody's queue"],
+        sla: { text: "Unassigned", tone: "critical" },
+        actionLabel: "Route",
+        onAction: () => setModal("route"),
+      });
+    }
+
+    if (data.identity.flagged > 0) {
+      const n = data.identity.flagged;
+      list.push({
+        id: "flagged",
+        priority: "today",
+        title: `${n} ${plural(n, "candidate")} flagged Hold by screening`,
+        meta: ["Screening tag: Hold"],
+        sla: { text: "Needs a human", tone: "warn" },
+        actionLabel: "Open queue",
+        href: "/admin/candidates",
+      });
+    }
+
+    if (data.identity.lockouts > 0) {
+      const n = data.identity.lockouts;
+      list.push({
+        id: "lockouts",
+        priority: "week",
+        title: `${n} ${plural(n, "candidate")} locked out of the English test`,
+        meta: ["Blocked until the lockout expires or is lifted"],
+        actionLabel: "Open lockouts",
+        href: "/admin/lockouts",
+      });
+    }
+
+    if (data.warmLeadsCount > 0) {
+      const n = data.warmLeadsCount;
+      list.push({
+        id: "warm-leads",
+        priority: "week",
+        title: `${n} ${plural(n, "client")} browsed and never hired`,
+        meta: ["No active engagement, no recent visit"],
+        actionLabel: "See who",
+        onAction: () => setModal("followup"),
+      });
+    }
+
+    if (data.talentPoolHealth.rolesBelow2 > 0) {
+      const n = data.talentPoolHealth.rolesBelow2;
+      list.push({
+        id: "role-depth",
+        priority: "week",
+        title: `${n} ${plural(n, "role")} ${plural(n, "has", "have")} thin bench depth`,
+        meta: ["Fewer than 2 candidates in the pipeline per live candidate"],
+        actionLabel: "Open talent pool",
+        href: "/talent-pool",
+      });
+    }
+
+    return list.sort((a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority));
+  }, [data]);
+
+  const counts = useMemo(() => ({
+    all: alerts.length,
+    urgent: alerts.filter((a) => a.priority === "urgent").length,
+    today: alerts.filter((a) => a.priority === "today").length,
+    week: alerts.filter((a) => a.priority === "week").length,
+  }), [alerts]);
+
+  const shownAlerts = priorityFilter === "all" ? alerts : alerts.filter((a) => a.priority === priorityFilter);
+
+  // ═══ STATES ═══
+  if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "50vh" }}>
-        <p style={{ color: "#9C9A94" }}>Loading command center...</p>
+      <div className="adm-body">
+        <div className="adm-col">
+          <div className="adm-skeleton" style={{ height: 90, marginBottom: 26 }} />
+          <div className="adm-skeleton" style={{ height: 44, marginBottom: 14, width: 280 }} />
+          <div className="adm-skeleton" style={{ height: 68, marginBottom: 8 }} />
+          <div className="adm-skeleton" style={{ height: 68, marginBottom: 8 }} />
+          <div className="adm-skeleton" style={{ height: 68 }} />
+        </div>
       </div>
     );
   }
 
-  // ═══ COMPUTED VALUES ═══
-  const seminarDate = new Date(data.seminarDate);
-  const daysUntilSeminar = Math.max(0, Math.ceil((seminarDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-  const candidatesNeeded = Math.max(0, 100 - data.liveCandidates);
-  const showAlert = data.liveCandidates < 100;
+  if (loadError || !data) {
+    return (
+      <div className="adm-state error" role="alert">
+        <strong>The dashboard could not load.</strong>
+        <p style={{ marginTop: 8 }}>{loadError ?? "No data was returned."}</p>
+        <button className="adm-btn" style={{ marginTop: 16 }} onClick={() => { setLoading(true); setLoadError(null); loadData(); }}>
+          Try again
+        </button>
+      </div>
+    );
+  }
 
-  // Pipeline percentages
+  // ═══ COMPUTED ═══
   const pStages = [
-    { label: "Applied", count: data.pipeline.applied, color: "#E8E6E1" },
-    { label: "English Pass", count: data.pipeline.englishPass, color: "#D4E4F8" },
-    { label: "ID Verified", count: data.pipeline.idVerified, color: "#B5D4F4" },
-    { label: "Profile Built", count: data.pipeline.profileBuilt, color: "#85B7EB" },
-    { label: "AI Interview", count: data.pipeline.aiInterview, color: "#FDD4B8" },
-    { label: "Profile Under Review", count: data.pipeline.pendingProfileReview, color: "#F59E0B" },
-    { label: "Live ✓", count: data.pipeline.live, color: "#FE6E3E" },
+    { label: "Applied", count: data.pipeline.applied },
+    { label: "English pass", count: data.pipeline.englishPass },
+    { label: "ID verified", count: data.pipeline.idVerified },
+    { label: "Profile built", count: data.pipeline.profileBuilt },
+    { label: "AI interview", count: data.pipeline.aiInterview },
+    { label: "Under review", count: data.pipeline.pendingProfileReview, tone: "review" as const },
+    { label: "Live", count: data.pipeline.live, tone: "terminal" as const },
   ];
   const totalApplied = data.pipeline.applied || 1;
   const conversionPct = ((data.pipeline.live / totalApplied) * 100).toFixed(1);
 
-  // Biggest drop-off
   let biggestDrop = { from: "", to: "", fromPct: 0, toPct: 0, stuck: 0 };
   for (let i = 0; i < pStages.length - 1; i++) {
     const drop = pStages[i].count - pStages[i + 1].count;
@@ -322,512 +455,555 @@ export default function AdminDashboard() {
     }
   }
 
-  // MRR sparkline SVG
-  const sparkW = 160;
-  const sparkH = 28;
-  const sparkData = data.mrrSparkline.length > 1 ? data.mrrSparkline : [0, 0];
-  const sparkMax = Math.max(...sparkData, 1);
-  const sparkMin = Math.min(...sparkData);
-  const sparkRange = sparkMax - sparkMin || 1;
-  const sparkPoints = sparkData.map((v, i) => {
-    const x = (i / (sparkData.length - 1)) * sparkW;
-    const y = sparkH - ((v - sparkMin) / sparkRange) * (sparkH - 4) - 2;
-    return `${x},${y}`;
-  }).join(" ");
-  const lastSparkX = (sparkData.length - 1) / (sparkData.length - 1) * sparkW;
-  const lastSparkY = sparkH - ((sparkData[sparkData.length - 1] - sparkMin) / sparkRange) * (sparkH - 4) - 2;
+  const spark = data.mrrSparkline?.length ? data.mrrSparkline : [];
+  const sparkMax = Math.max(...spark, 1);
 
-  // ═══════════════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════════════
+  const today = new Date();
+  const dateLine = today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).toUpperCase();
+
+  const delta = (n: number) => (n > 0 ? "up" : n < 0 ? "down" : "flat");
+  const deltaText = (n: number) => (n > 0 ? `+${n}%` : n < 0 ? `${n}%` : "±0%");
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#1C1B1A" }}>
-
-      {/* ═══ ALERT BANNER ═══ */}
-      {showAlert && (
-        <div style={{ background: "#FFF8F0", border: "1px solid #FDD4B8", borderLeft: "3px solid #FE6E3E", borderRadius: 8, padding: "9px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 18, fontSize: 12.5, color: "#8B4A1A" }}>
-          <span>🔴</span>
-          <span><strong style={{ color: "#1C1B1A" }}>Seminar in {daysUntilSeminar} days.</strong> You need {candidatesNeeded} more approved profiles. Currently at {data.liveCandidates} of 100 target.</span>
-          <span
-            onClick={() => setModal("pipeline")}
-            style={{ marginLeft: "auto", fontSize: 12, fontWeight: 500, color: "#FE6E3E", cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 5 }}
-          >
-            View Pipeline →
-          </span>
-        </div>
-      )}
-
-      {/* ═══ SCORE BAND ═══ */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
-        {/* MRR Card (hero) */}
-        <div style={{ background: "#1C1B1A", border: "1px solid #1C1B1A", borderRadius: 10, padding: "16px 18px", overflow: "hidden" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.7, color: "rgba(255,255,255,0.4)", fontWeight: 500, marginBottom: 6 }}>Monthly Recurring Revenue</div>
-          <div style={{ fontFamily: MONO, fontSize: 32, fontWeight: 500, color: "#FE6E3E", lineHeight: 1, marginBottom: 6 }}>${data.mrr.toLocaleString()}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", display: "flex", alignItems: "center", gap: 5 }}>
-            {data.mrr > 0 ? <><span style={{ color: "#FE6E3E", fontWeight: 600 }}>↑</span> First dollar. Build from here.</> : <><span style={{ color: "#FE6E3E", fontWeight: 600 }}>→</span> First dollar pending</>}
-          </div>
-          <div style={{ marginTop: 10, height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: "#FE6E3E", borderRadius: 2, width: `${Math.min((data.mrr / 50000) * 100, 100)}%` }} />
-          </div>
-          <div style={{ marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.4)", display: "flex", justifyContent: "space-between" }}>
-            <span>$0</span><span>Target: $50K MRR</span>
-          </div>
-          <svg style={{ marginTop: 10 }} width="100%" height="28" viewBox={`0 0 ${sparkW} ${sparkH}`}>
-            <polyline points={sparkPoints} fill="none" stroke="rgba(254,110,62,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx={lastSparkX} cy={lastSparkY} r="3" fill="#FE6E3E" />
-          </svg>
-        </div>
-
-        {/* Candidates Live */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "16px 18px", borderLeft: data.liveCandidates < 100 ? "3px solid #E24B4A" : "1px solid #E8E6E1" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.7, color: "#9C9A94", fontWeight: 500, marginBottom: 6 }}>Candidates Live</div>
-          <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 500, color: "#1C1B1A", lineHeight: 1, marginBottom: 6 }}>{data.liveCandidates}</div>
-          <div style={{ fontSize: 11, color: "#9C9A94", display: "flex", alignItems: "center", gap: 5 }}>
-            {data.liveCandidates < 100
-              ? <><span style={{ color: "#E24B4A", fontWeight: 600 }}>{100 - data.liveCandidates} below</span> seminar target</>
-              : <><span style={{ color: "#3B9E5E", fontWeight: 600 }}>✓</span> Target reached</>}
-          </div>
-          <div style={{ marginTop: 10, height: 4, background: data.liveCandidates < 100 ? "#FEECEC" : "#EAF6EF", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: data.liveCandidates < 100 ? "#E24B4A" : "#3B9E5E", borderRadius: 2, width: `${Math.min((data.liveCandidates / 100) * 100, 100)}%` }} />
-          </div>
-          <div style={{ marginTop: 5, fontSize: 10, color: "#9C9A94", display: "flex", justifyContent: "space-between" }}>
-            <span>{data.liveCandidates}</span><span>Goal: 100</span>
-          </div>
-        </div>
-
-        {/* Active Engagements */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "16px 18px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.7, color: "#9C9A94", fontWeight: 500, marginBottom: 6 }}>Active Engagements</div>
-          <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 500, color: "#1C1B1A", lineHeight: 1, marginBottom: 6 }}>{data.activeEngagements}</div>
-          <div style={{ fontSize: 11, color: "#9C9A94", display: "flex", alignItems: "center", gap: 5 }}>
-            {data.newEngThisWeek > 0
-              ? <><span style={{ color: "#3B9E5E", fontWeight: 600 }}>↑ {data.newEngThisWeek}</span> this week</>
-              : <><span style={{ color: "#9C9A94", fontWeight: 600 }}>→</span> No new this week</>}
-          </div>
-          <div style={{ marginTop: 12, fontSize: 11, color: "#9C9A94" }}>
-            Platform fee collected: <span style={{ color: "#FE6E3E", fontFamily: MONO }}>${data.platformFeeThisMonth.toLocaleString()}</span>
-          </div>
-        </div>
-
-        {/* Warm Leads Going Cold */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "16px 18px", borderLeft: data.warmLeadsCount > 0 ? "3px solid #E24B4A" : "1px solid #E8E6E1" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.7, color: "#9C9A94", fontWeight: 500, marginBottom: 6 }}>Warm Leads Going Cold</div>
-          <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 500, color: "#1C1B1A", lineHeight: 1, marginBottom: 6 }}>{data.warmLeadsCount}</div>
-          <div style={{ fontSize: 11, color: "#9C9A94", display: "flex", alignItems: "center", gap: 5 }}>
-            {data.warmLeadsCount > 0
-              ? <span style={{ color: "#E24B4A", fontWeight: 600 }}>No contact in 14+ days</span>
-              : <span style={{ color: "#3B9E5E", fontWeight: 600 }}>All leads engaged</span>}
-          </div>
-          <div style={{ marginTop: 12, fontSize: 11, color: "#9C9A94" }}>Browsed profiles. Never hired.</div>
-        </div>
-      </div>
-
-      {/* ═══ ACTION CARDS ROW ═══ */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
-        {/* Ready to Review */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "15px 18px", borderLeft: "3px solid #E24B4A" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>🔴 Ready to Review</div>
-            <span style={{ fontSize: 10, color: "#9C9A94" }}>Admin action needed</span>
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 500, marginBottom: 4 }}>{data.pendingCandidates.length}</div>
-          <div style={{ fontSize: 11, color: "#9C9A94", lineHeight: 1.5, marginBottom: 12 }}>Candidates completed all steps and are waiting on your approval.</div>
-          <button onClick={() => setModal("review")} style={{ ...btnStyle, background: "#E24B4A", color: "#fff", padding: "5px 10px", fontSize: 11.5 }}>Review Now →</button>
-        </div>
-
-        {/* Follow Up Today */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "15px 18px", borderLeft: "3px solid #EF9F27" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>🟡 Follow Up Today</div>
-            <span style={{ fontSize: 10, color: "#9C9A94" }}>Conversion risk</span>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            {data.warmLeads.slice(0, 3).map((lead) => (
-              <div key={lead.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #F0EDE8", fontSize: 11.5 }}>
-                <div>
-                  <div style={{ fontWeight: 500 }}>{lead.name}</div>
-                  <div style={{ color: "#9C9A94", fontSize: 10.5 }}>{lead.activity}</div>
-                </div>
-                <span style={{ color: lead.isNew ? "#3B9E5E" : "#E24B4A", fontSize: 11, fontFamily: MONO }}>{lead.isNew ? "new" : `${lead.daysCold}d cold`}</span>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => setModal("followup")} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54", padding: "5px 10px", fontSize: 11.5 }}>View All {data.warmLeadsCount} →</button>
-        </div>
-
-        {/* Recruiter Alerts */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "15px 18px", borderLeft: "3px solid #3B8BD4" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>🔵 Recruiter Alerts</div>
-            <span style={{ fontSize: 10, color: "#9C9A94" }}>Needs routing</span>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            {data.recruiterAlerts.needsRouting > 0 && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F0EDE8", fontSize: 11.5 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF9F27", flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500 }}>{data.recruiterAlerts.needsRouting} candidates</span>
-                </div>
-                <span style={{ color: "#9C9A94", fontSize: 10.5 }}>Needs Routing badge</span>
-                <span onClick={() => setModal("route")} style={{ color: "#FE6E3E", fontSize: 11, fontWeight: 500, cursor: "pointer", padding: "3px 7px", borderRadius: 5 }}>Route →</span>
-              </div>
-            )}
-          </div>
-          <button onClick={() => router.push("/admin/recruiters")} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54", padding: "5px 10px", fontSize: 11.5 }}>Manage Team →</button>
-        </div>
-      </div>
-
-      {/* ═══ PIPELINE FUNNEL ═══ */}
-      <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "18px 20px", marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+    <div className="adm-body">
+      <div className="adm-col">
+        {/* ═══ HEADER ═══ */}
+        <header className="adm-page-header">
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Candidate Pipeline</div>
-            <div style={{ fontSize: 11, color: "#9C9A94" }}>{data.pipeline.applied} total applications · {data.pipeline.live} approved · {conversionPct}% conversion</div>
-          </div>
-          <span onClick={() => setModal("pipeline")} style={{ fontSize: 11, color: "#FE6E3E", cursor: "pointer", fontWeight: 500, padding: "4px 8px", borderRadius: 5 }}>Full Breakdown →</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8, alignItems: "end" }}>
-          {pStages.map((s, i) => {
-            const pct = totalApplied > 0 ? (s.count / totalApplied) * 100 : 0;
-            const barH = Math.max(4, (s.count / totalApplied) * 70);
-            const isLive = i === pStages.length - 1;
-            return (
-              <div key={s.label} style={{ textAlign: "center", cursor: "pointer" }} onClick={() => showToast(`${s.count} ${s.label.toLowerCase()} (${pct.toFixed(1)}%)`)}>
-                <div style={{ height: 70, display: "flex", alignItems: "flex-end", justifyContent: "center", marginBottom: 6 }}>
-                  <div style={{ width: "100%", borderRadius: "4px 4px 0 0", minHeight: 4, background: s.color, height: barH }} />
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 500, color: isLive ? "#FE6E3E" : "#1C1B1A", marginBottom: 3 }}>{s.count}</div>
-                <div style={{ fontSize: 9.5, color: isLive ? "#FE6E3E" : "#9C9A94", lineHeight: 1.3, fontWeight: isLive ? 600 : 400 }}>{s.label}</div>
-                <div style={{ fontSize: 9, color: "#B8B5AE", fontFamily: MONO, marginTop: 2 }}>{pct.toFixed(0)}%</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ═══ BOTTOM GRID ═══ */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
-        {/* AI Screening Queue */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>AI Screening Queue</div>
-              <div style={{ fontSize: 11, color: "#9C9A94" }}>Updates every 5 min · {data.screening.screenedToday} screened today</div>
+            <div className="adm-eyebrow">{dateLine}</div>
+            <h1>
+              Command <span className="adm-serif-italic">centre.</span>
+            </h1>
+            <div className="adm-subhead">
+              {alerts.length === 0
+                ? "Nothing needs you right now"
+                : `${alerts.length} ${plural(alerts.length, "item")} ${plural(alerts.length, "needs", "need")} your attention`}
+              <span className="sep">·</span>
+              {data.pipeline.live} live {plural(data.pipeline.live, "candidate")}
             </div>
-            <span onClick={() => { showToast("Refreshing screening queue..."); loadData(); }} style={{ fontSize: 11, color: "#FE6E3E", cursor: "pointer", fontWeight: 500, padding: "4px 8px", borderRadius: 5 }}>Refresh ↺</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-            {[
-              { label: "Pending", count: data.screening.pending, bg: "#FFF8F0", color: "#BA7517" },
-              { label: "Processing", count: data.screening.processing, bg: "#EEF5FF", color: "#185FA5" },
-              { label: "Complete", count: data.screening.complete, bg: "#F0FAF4", color: "#3B6D11" },
-              { label: "Failed", count: data.screening.failed, bg: "#FEF2F2", color: "#A32D2D" },
-            ].map((b) => (
-              <div key={b.label} style={{ borderRadius: 8, padding: "12px 10px", textAlign: "center", background: b.bg, cursor: "pointer" }} onClick={() => showToast(`${b.count} ${b.label.toLowerCase()}`)}>
-                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 500, color: b.color, marginBottom: 3 }}>{b.count}</div>
-                <div style={{ fontSize: 10, color: "#9C9A94", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5 }}>{b.label}</div>
-              </div>
-            ))}
+        </header>
+
+        {/* ═══ ALERTS ═══ */}
+        <section className="adm-section">
+          <div className="adm-section-head">
+            <h2>
+              Needs your attention
+              {alerts.length > 0 && <span className="count">{alerts.length} open</span>}
+            </h2>
           </div>
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Identity & Lockouts</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-              {[
-                { label: "Lockouts", count: data.identity.lockouts, color: "#1C1B1A" },
-                { label: "Dupes/wk", count: data.identity.dupesWeek, color: "#1C1B1A" },
-                { label: "Flagged", count: data.identity.flagged, color: "#1C1B1A" },
-                { label: "Verified", count: data.identity.verified, color: "#3B9E5E" },
-              ].map((c) => (
-                <div key={c.label} style={{ textAlign: "center", cursor: "pointer" }} onClick={() => showToast(`${c.count} ${c.label.toLowerCase()}`)}>
-                  <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 500, color: c.color, marginBottom: 3 }}>{c.count}</div>
-                  <div style={{ fontSize: 10, color: "#9C9A94" }}>{c.label}</div>
-                </div>
+
+          {alerts.length > 0 && (
+            <div className="alerts-filter-row" role="tablist" aria-label="Filter alerts by priority">
+              {(["all", "urgent", "today", "week"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="tab"
+                  aria-selected={priorityFilter === p}
+                  className={`alerts-filter${priorityFilter === p ? " active" : ""}`}
+                  data-priority={p === "all" ? undefined : p}
+                  onClick={() => setPriorityFilter(p)}
+                >
+                  {p !== "all" && <span className="filter-dot" aria-hidden="true" />}
+                  {p === "all" ? "All" : p === "week" ? "This week" : p}
+                  <span className="filter-count">{counts[p]}</span>
+                </button>
               ))}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Platform Pulse */}
-        <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Platform Pulse</div>
-            <div style={{ fontSize: 11, color: "#9C9A94" }}>This week vs last week</div>
+          {shownAlerts.length > 0 ? (
+            <div className="alerts-list">
+              {shownAlerts.map((a) => (
+                <AlertCard key={a.id} alert={a} />
+              ))}
+            </div>
+          ) : (
+            <div className="alerts-empty">
+              <div className="empty-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m5 13 4 4L19 7" />
+                </svg>
+              </div>
+              <h3>{alerts.length === 0 ? "Queue is clear" : "Nothing at this priority"}</h3>
+              <p>
+                {alerts.length === 0
+                  ? "No profile reviews, no unrouted candidates, no lockouts, no cold clients."
+                  : "Other priorities still have open items — switch the filter above."}
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ STAT BAND ═══ */}
+        <section className="adm-section">
+          <div className="adm-section-head">
+            <h2>Platform</h2>
+            <button type="button" className="adm-section-action" onClick={() => setModal("export")}>Export data →</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
-            <PulseBox label="Applications / wk" value={data.pulse.applicationsThisWeek} trend={data.pulse.appChangePercent} onClick={() => showToast(`${data.pulse.applicationsThisWeek} applications this week`)} />
-            <PulseBox label="New Clients / wk" value={data.pulse.clientsThisWeek} trend={data.pulse.clientWeekChange} onClick={() => showToast(`${data.pulse.clientsThisWeek} new clients this week`)} />
-            {data.pulse.activeConversations === 0 ? (
-              <div onClick={() => setModal("followup")} style={{ padding: 12, background: "#FEF8F8", borderRadius: 8, cursor: "pointer", border: "1px solid #FDDEDE" }}>
-                <div style={{ fontSize: 10, color: "#9C9A94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Active Conversations</div>
-                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 500, color: "#E24B4A" }}>0</div>
-                <div style={{ fontSize: 10, color: "#E24B4A", fontWeight: 600 }}>→ Start outreach now</div>
+          <div className="stat-grid">
+            <div className="stat-cell">
+              <div className="stat-label">Platform fees · active</div>
+              <div className="stat-value"><span className="currency-prefix">$</span>{data.mrr.toLocaleString()}</div>
+              {spark.length > 1 && (
+                <div className="stat-spark" aria-hidden="true">
+                  {spark.map((v, i) => (
+                    <span key={i} className={`bar${v === sparkMax && v > 0 ? " peak" : ""}`} style={{ height: `${Math.max(4, (v / sparkMax) * 100)}%` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Live candidates</div>
+              <div className="stat-value">{data.liveCandidates.toLocaleString()}</div>
+              <div className="stat-detail">
+                <strong>{data.pipeline.applied.toLocaleString()}</strong> applied · <strong>{conversionPct}%</strong> reach live
+              </div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Active engagements</div>
+              <div className="stat-value">{data.activeEngagements.toLocaleString()}</div>
+              <div className="stat-detail">
+                <strong>{data.newEngThisWeek}</strong> started this week
+              </div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Clients</div>
+              <div className="stat-value">
+                {data.totalClients.toLocaleString()}
+                <span className={`delta ${delta(data.pulse.clientWeekChange)}`}>{deltaText(data.pulse.clientWeekChange)}</span>
+              </div>
+              <div className="stat-detail">
+                <strong>{data.clientsThisMonth}</strong> joined this month
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ PIPELINE ═══ */}
+        <section className="adm-section">
+          <div className="adm-section-head">
+            <h2>
+              Candidate pipeline
+              <span className="count">{conversionPct}% conversion</span>
+            </h2>
+            <button type="button" className="adm-section-action" onClick={() => setModal("pipeline")}>Full breakdown →</button>
+          </div>
+          <div className="adm-panel">
+            <div className="adm-panel-body">
+              <div className="adm-funnel">
+                {pStages.map((s) => (
+                  <div key={s.label} className="adm-funnel-row">
+                    <span className="adm-funnel-label">{s.label}</span>
+                    <div className="adm-funnel-track">
+                      <div
+                        className={`adm-funnel-fill${s.tone ? ` ${s.tone}` : ""}`}
+                        style={{ width: `${totalApplied > 0 ? (s.count / totalApplied) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="adm-funnel-count">{s.count.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+              {biggestDrop.stuck > 0 && (
+                <p className="adm-funnel-note">
+                  Biggest drop-off: <strong>{biggestDrop.from} → {biggestDrop.to}</strong> ({biggestDrop.fromPct}% → {biggestDrop.toPct}%).{" "}
+                  {biggestDrop.stuck.toLocaleString()} {plural(biggestDrop.stuck, "candidate")} cleared {biggestDrop.from.toLowerCase()} and stopped there.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ SCREENING + PULSE ═══ */}
+        <section className="adm-section">
+          <div className="adm-grid-2">
+            <div className="adm-panel">
+              <div className="adm-panel-header">Screening</div>
+              <div className="adm-panel-body">
+                <div className="adm-metric-grid">
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">Screened today</div>
+                    <div className="adm-metric-value">{data.screening.screenedToday.toLocaleString()}</div>
+                  </div>
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">Flagged · hold</div>
+                    <div className="adm-metric-value">{data.identity.flagged.toLocaleString()}</div>
+                  </div>
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">ID verified</div>
+                    <div className="adm-metric-value">{data.identity.verified.toLocaleString()}</div>
+                  </div>
+                  <Link href="/admin/lockouts" className="adm-metric" style={{ display: "block", textDecoration: "none" }}>
+                    <div className="adm-metric-label">Test lockouts</div>
+                    <div className="adm-metric-value">{data.identity.lockouts.toLocaleString()}</div>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="adm-panel">
+              <div className="adm-panel-header">This week</div>
+              <div className="adm-panel-body">
+                <div className="adm-metric-grid">
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">Applications</div>
+                    <div className="adm-metric-value">{data.pulse.applicationsThisWeek}</div>
+                    <div className={`adm-metric-trend ${delta(data.pulse.appChangePercent)}`}>
+                      {deltaText(data.pulse.appChangePercent)} vs last week
+                    </div>
+                  </div>
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">New clients</div>
+                    <div className="adm-metric-value">{data.pulse.clientsThisWeek}</div>
+                    <div className={`adm-metric-trend ${delta(data.pulse.clientWeekChange)}`}>
+                      {deltaText(data.pulse.clientWeekChange)} vs last week
+                    </div>
+                  </div>
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">Live conversations</div>
+                    <div className="adm-metric-value">{data.pulse.activeConversations}</div>
+                  </div>
+                  <div className="adm-metric static">
+                    <div className="adm-metric-label">New candidates · month</div>
+                    <div className="adm-metric-value">{data.pulse.newCandidatesMonth}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ CLIENT HEALTH ═══ */}
+        <section className="adm-section">
+          <div className="adm-section-head">
+            <h2>
+              Client health
+              <span className="count">{data.clientHealth.length} shown</span>
+            </h2>
+            <Link href="/admin/clients" className="adm-section-action">All clients →</Link>
+          </div>
+          <div className="adm-panel">
+            {data.clientHealth.length > 0 ? (
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead>
+                    <tr>
+                      <th>Client</th>
+                      <th>Last seen</th>
+                      <th>Browsing</th>
+                      <th style={{ textAlign: "right" }}>Engagements</th>
+                      <th style={{ textAlign: "right" }}>Fees</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.clientHealth.map((c) => (
+                      <tr key={c.id}>
+                        <td className="name">{c.name}</td>
+                        <td className="num">{relativeTime(c.lastLogin)}</td>
+                        <td>{c.browseActivity}</td>
+                        <td className="num" style={{ textAlign: "right" }}>{c.activeEngagements}</td>
+                        <td className="num" style={{ textAlign: "right" }}>${c.totalFees.toLocaleString()}</td>
+                        <td>
+                          <span className={`adm-pill ${c.status === "active" ? "ok" : "cold"}`}>{c.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <PulseBox label="Active Conversations" value={data.pulse.activeConversations} trend={0} onClick={() => showToast(`${data.pulse.activeConversations} active conversations`)} />
-            )}
-            <div style={{ padding: 12, background: "#F7F5F2", borderRadius: 8, cursor: "pointer" }} onClick={() => showToast(`${data.pulse.newCandidatesMonth} new candidates this month`)}>
-              <div style={{ fontSize: 10, color: "#9C9A94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>New Candidates / mo</div>
-              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 500 }}>{data.pulse.newCandidatesMonth}</div>
-              <div style={{ fontSize: 10, color: data.pulse.newCandidatesMonth > 50 ? "#3B9E5E" : "#9C9A94", fontWeight: 600 }}>
-                {data.pulse.newCandidatesMonth > 50 ? "↑ Strong pipeline" : "→ Building"}
+              <div className="adm-panel-body" style={{ color: "var(--ink-mute)", fontSize: 13 }}>
+                No clients have signed up yet.
               </div>
-            </div>
+            )}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* ═══ CLIENT HEALTH TABLE ═══ */}
-      <div style={{ background: "#fff", border: "1px solid #E8E6E1", borderRadius: 10, padding: "18px 20px", marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Client Health</div>
-            <div style={{ fontSize: 11, color: "#9C9A94" }}>{data.clientsThisMonth} clients this month</div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FFF8F0", border: "1px solid #FDD4B8", borderRadius: 7, padding: "6px 10px", fontSize: 12 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF9F27", flexShrink: 0 }} />
-              <span style={{ color: "#8B4A1A" }}><strong>{data.talentPoolHealth.liveCandidates} live candidates</strong> · {data.talentPoolHealth.rolesBelow2} roles below healthy ratio</span>
-            </div>
-            <span onClick={() => router.push("/admin/clients")} style={{ fontSize: 11, color: "#FE6E3E", cursor: "pointer", fontWeight: 500, padding: "4px 8px", borderRadius: 5 }}>View All →</span>
+      {/* ═══ RAIL ═══ */}
+      <aside className="adm-rail" aria-label="Quick actions and today's numbers">
+        <div className="rail-block">
+          <div className="rail-block-header">Quick actions</div>
+          <div className="rail-block-body">
+            <button type="button" className="quick-action" onClick={() => setModal("review")}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" /></svg>
+              <span className="qa-label">Review profiles</span>
+              <span className="audit-badge">Logged</span>
+            </button>
+            <button type="button" className="quick-action" onClick={() => setModal("route")}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l2.5-7 5 14 2.5-7h4" /></svg>
+              <span className="qa-label">Route candidates</span>
+            </button>
+            <button type="button" className="quick-action" onClick={() => setModal("export")}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 20h16" /></svg>
+              <span className="qa-label">Export CSV</span>
+            </button>
           </div>
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              {["Client", "Last Login", "Browse Activity", "Engagements", "Total Fees", "Joined", "Status", ""].map((h) => (
-                <th key={h} style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 600, color: "#9C9A94", padding: "0 0 8px", textAlign: "left", borderBottom: "1px solid #F0EDE8" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.clientHealth.slice(0, 10).map((c) => (
-              <tr key={c.id} onClick={() => showToast(`Opening ${c.name}'s client profile...`)} style={{ borderBottom: "1px solid #F7F5F2", cursor: "pointer" }}>
-                <td style={{ padding: "9px 0", fontSize: 12 }}>
-                  <div style={{ fontWeight: 500 }}>{c.name}</div>
-                  <div style={{ fontSize: 10.5, color: "#9C9A94" }}>{c.email}</div>
-                </td>
-                <td style={{ padding: "9px 0", fontSize: 12, color: "#9C9A94" }}>{relativeTime(c.lastLogin)}</td>
-                <td style={{ padding: "9px 0", fontSize: 11, color: c.browseActivity.includes("No") ? "#9C9A94" : "#1C1B1A" }}>{c.browseActivity}</td>
-                <td style={{ padding: "9px 0", fontFamily: MONO, fontSize: 12, color: c.activeEngagements > 0 ? "#1C1B1A" : "#9C9A94" }}>{c.activeEngagements}</td>
-                <td style={{ padding: "9px 0", fontFamily: MONO, fontSize: 12, color: c.totalFees > 0 ? "#FE6E3E" : "#9C9A94" }}>${c.totalFees.toLocaleString()}</td>
-                <td style={{ padding: "9px 0", fontFamily: MONO, fontSize: 11, color: "#9C9A94" }}>{new Date(c.joined).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</td>
-                <td style={{ padding: "9px 0" }}>
-                  <span style={{
-                    display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, letterSpacing: 0.3,
-                    background: c.status === "active" ? "#EAF6EF" : "#F2F1EE",
-                    color: c.status === "active" ? "#2A7A48" : "#9C9A94",
-                  }}>{c.status === "active" ? "Active" : "Inactive"}</span>
-                </td>
-                <td style={{ padding: "9px 0" }}>
-                  <span
-                    onClick={(e) => { e.stopPropagation(); showToast(c.status === "active" ? `Following up with ${c.name}` : `Browse link copied for ${c.name}`); }}
-                    style={{ color: "#FE6E3E", fontSize: 11, fontWeight: 500, cursor: "pointer", padding: "3px 7px", borderRadius: 5 }}
-                  >
-                    {c.status === "active" ? "Follow up" : "Send browse link"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+        <div className="rail-block">
+          <div className="rail-block-header">Today at a glance</div>
+          <div className="rail-glance-body">
+            <div className="rail-glance-row">
+              <span className="k">Awaiting review</span>
+              <span className={`v${data.pipeline.pendingProfileReview > 0 ? " warn" : ""}`}>{data.pipeline.pendingProfileReview}</span>
+            </div>
+            <div className="rail-glance-row">
+              <span className="k">Unrouted</span>
+              <span className={`v${data.recruiterAlerts.needsRouting > 0 ? " bad" : ""}`}>{data.recruiterAlerts.needsRouting}</span>
+            </div>
+            <div className="rail-glance-row">
+              <span className="k">Screened today</span>
+              <span className="v">{data.screening.screenedToday}</span>
+            </div>
+            <div className="rail-glance-row">
+              <span className="k">Flagged · hold</span>
+              <span className={`v${data.identity.flagged > 0 ? " warn" : ""}`}>{data.identity.flagged}</span>
+            </div>
+            <div className="rail-glance-row">
+              <span className="k">Test lockouts</span>
+              <span className="v">{data.identity.lockouts}</span>
+            </div>
+            <div className="rail-glance-row">
+              <span className="k">Cold clients</span>
+              <span className="v">{data.warmLeadsCount}</span>
+            </div>
+          </div>
+        </div>
+      </aside>
 
       {/* ═══════════════════════════════════════════════════════════════
           MODALS
          ═══════════════════════════════════════════════════════════════ */}
 
-      {/* REVIEW MODAL */}
       {modal === "review" && (
-        <ModalShell title="🔴 Candidates Ready to Review" onClose={() => setModal(null)}
+        <ModalShell
+          title="Candidates ready to review"
+          onClose={() => setModal(null)}
+          wide
           footer={
             <>
-              <button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Close</button>
-              <button onClick={() => { if (data.pendingCandidates[0]) handleRevision(data.pendingCandidates[0].id); }} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54", fontSize: 11.5 }}>Send Revision</button>
-              <button onClick={handleApproveAll} style={{ ...btnStyle, background: "#E24B4A", color: "#fff" }}>
-                Approve {data.pendingCandidates.length > 1 ? `All ${data.pendingCandidates.length}` : ""} →
+              <button className="adm-btn" onClick={() => setModal(null)}>Close</button>
+              <button
+                className="adm-btn"
+                disabled={data.pendingCandidates.length === 0 || actionLoading !== null}
+                onClick={() => { if (data.pendingCandidates[0]) handleRevision(data.pendingCandidates[0].id); }}
+              >
+                Send revision
+              </button>
+              <button
+                className="adm-btn primary"
+                disabled={data.pendingCandidates.length === 0 || actionLoading !== null}
+                onClick={handleApproveAll}
+              >
+                {actionLoading ? "Approving…" : `Approve ${data.pendingCandidates.length > 1 ? `all ${data.pendingCandidates.length}` : ""}`}
               </button>
             </>
           }
         >
           {data.pendingCandidates.map((c) => (
-            <div key={c.id} style={{ border: "1px solid #E8E6E1", borderRadius: 10, padding: 16, marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#FE6E3E", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 600, fontSize: 16, flexShrink: 0, overflow: "hidden" }}>
-                  {c.profile_photo_url ? <img src={c.profile_photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (c.full_name || c.display_name || "?")[0]}
+            <div key={c.id} className="adm-cand">
+              <div className="adm-cand-head">
+                <div className="adm-cand-avatar">
+                  {c.profile_photo_url
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={c.profile_photo_url} alt="" />
+                    : (c.full_name || c.display_name || "?")[0]}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{c.full_name || c.display_name}</div>
-                  <div style={{ fontSize: 11.5, color: "#9C9A94", marginTop: 2 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="adm-cand-name">{c.full_name || c.display_name}</div>
+                  <div className="adm-cand-meta">
                     {c.role_category} · {c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr
                   </div>
                 </div>
               </div>
-              {/* Badges */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                {c.english_written_tier && <Badge bg="#EAF6EF" color="#2A7A48">English: {c.english_written_tier}</Badge>}
-                {c.ai_interview_score > 0 && <Badge bg="#EEF5FF" color="#185FA5">AI Score: {c.ai_interview_score}/100</Badge>}
-                <Badge bg="#FFF0EA" color="#C04A15">ID: {c.id_verification_status === "passed" ? "Verified" : c.id_verification_status}</Badge>
-                {c.years_experience > 0 && <Badge bg="#F2F1EE" color="#5C5A54">{c.years_experience} yrs experience</Badge>}
+
+              <div className="adm-badges">
+                {c.english_written_tier && <span className="adm-badge good">English: {c.english_written_tier}</span>}
+                {c.ai_interview_score > 0 && <span className="adm-badge info">AI {c.ai_interview_score}/100</span>}
+                <span className={`adm-badge ${c.id_verification_status === "passed" ? "good" : "warm"}`}>
+                  ID: {c.id_verification_status === "passed" ? "verified" : c.id_verification_status || "none"}
+                </span>
+                {c.years_experience > 0 && <span className="adm-badge">{c.years_experience} yrs</span>}
               </div>
-              {/* Scores */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
-                <ScoreBox label="Grammar" value={`${c.english_mc_score || 0}%`} />
-                <ScoreBox label="Comprehension" value={`${c.english_comprehension_score || 0}%`} />
-                <ScoreBox label="AI Interview" value={`${c.ai_interview_score || 0}`} />
+
+              <div className="adm-scores">
+                <div className="adm-score"><div className="adm-score-v">{c.english_mc_score || 0}%</div><div className="adm-score-k">Grammar</div></div>
+                <div className="adm-score"><div className="adm-score-v">{c.english_comprehension_score || 0}%</div><div className="adm-score-k">Comprehension</div></div>
+                <div className="adm-score"><div className="adm-score-v">{c.ai_interview_score || 0}</div><div className="adm-score-k">AI interview</div></div>
               </div>
-              {/* Audio */}
-              <AudioRow label="Oral Reading Recording" url={c.voice_recording_1_url} playing={playingAudio} onPlay={(url) => playAudio(url, "oral reading")} />
-              <AudioRow label="Self Introduction" url={c.voice_recording_2_url} playing={playingAudio} onPlay={(url) => playAudio(url, "self introduction")} />
+
+              <AudioRow label="Oral reading" url={c.voice_recording_1_url} playing={playingAudio} onPlay={(u) => playAudio(u, "oral reading")} />
+              <AudioRow label="Self introduction" url={c.voice_recording_2_url} playing={playingAudio} onPlay={(u) => playAudio(u, "self introduction")} />
             </div>
           ))}
           {data.pendingCandidates.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#9C9A94" }}>No candidates pending review.</div>
+            <p className="adm-modal-lead" style={{ marginBottom: 0 }}>No candidates are pending review.</p>
           )}
         </ModalShell>
       )}
 
-      {/* FOLLOW-UP MODAL */}
       {modal === "followup" && (
-        <ModalShell title="🟡 Warm Leads Going Cold" onClose={() => setModal(null)}
-          footer={
-            <>
-              <button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Close</button>
-              <button onClick={() => { showToast(`✓ Browse links sent to all ${data.warmLeads.length} clients`); setModal(null); }} style={{ ...btnStyle, background: "#FE6E3E", color: "#fff" }}>Send to All {data.warmLeads.length} →</button>
-            </>
-          }
+        <ModalShell
+          title="Clients who browsed and never hired"
+          onClose={() => setModal(null)}
+          footer={<button className="adm-btn" onClick={() => setModal(null)}>Close</button>}
         >
-          <div style={{ fontSize: 12, color: "#9C9A94", marginBottom: 14 }}>These clients browsed the platform but never hired. Reach out personally — not a mass email.</div>
+          <p className="adm-modal-lead">
+            These clients signed up and looked around but have no active engagement. Reach out from their
+            profile — there is no outreach endpoint wired to this screen yet, so nothing here sends mail.
+          </p>
           {data.warmLeads.map((lead) => (
-            <div key={lead.id} style={{ border: "1px solid #E8E6E1", borderRadius: 9, padding: "13px 16px", marginBottom: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{lead.name}</div>
-              <div style={{ fontSize: 11.5, color: "#9C9A94", marginBottom: 10 }}>{lead.activity} · {lead.isNew ? "New client" : `${lead.daysCold} days with no engagement`}</div>
-              <div style={{ display: "flex", gap: 7 }}>
-                <button onClick={() => showToast(`✓ Browse link sent to ${lead.name}`)} style={{ ...btnStyle, background: "#FE6E3E", color: "#fff", padding: "5px 10px", fontSize: 11.5 }}>Send Browse Link</button>
-                <button onClick={() => showToast("Opening message thread...")} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54", padding: "5px 10px", fontSize: 11.5 }}>Message</button>
+            <div key={lead.id} className="adm-row">
+              <div style={{ minWidth: 0 }}>
+                <div className="adm-row-name">{lead.name}</div>
+                <div className="adm-row-meta">
+                  {lead.activity} · {lead.isNew ? "new client" : `${lead.daysCold} days quiet`}
+                </div>
               </div>
+              <Link href="/admin/clients" className="adm-btn">Open client</Link>
             </div>
           ))}
+          {data.warmLeads.length === 0 && <p className="adm-modal-lead" style={{ marginBottom: 0 }}>No cold clients right now.</p>}
         </ModalShell>
       )}
 
-      {/* PIPELINE MODAL */}
       {modal === "pipeline" && (
-        <ModalShell title="📊 Full Pipeline Breakdown" onClose={() => setModal(null)}
-          footer={
-            <>
-              <button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Close</button>
-              <button onClick={() => { showToast(`✓ Nudge emails queued for ${biggestDrop.stuck} candidates`); setModal(null); }} style={{ ...btnStyle, background: "#FE6E3E", color: "#fff" }}>Send Nudge Emails →</button>
-            </>
-          }
+        <ModalShell
+          title="Full pipeline breakdown"
+          onClose={() => setModal(null)}
+          footer={<button className="adm-btn" onClick={() => setModal(null)}>Close</button>}
         >
-          <div style={{ background: "#FFF8F0", border: "1px solid #FDD4B8", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 12.5, color: "#8B4A1A" }}>
-            <strong>Seminar target: 100 live candidates.</strong> You need to approve {candidatesNeeded} more in {daysUntilSeminar} days.
-          </div>
-          {pStages.map((s) => {
-            const pct = totalApplied > 0 ? (s.count / totalApplied) * 100 : 0;
-            const isLive = s.label === "Live ✓";
-            return (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #F0EDE8" }}>
-                <div style={{ fontSize: 12, width: 110, flexShrink: 0, color: isLive ? "#FE6E3E" : "#1C1B1A", fontWeight: isLive ? 600 : 400 }}>{s.label}</div>
-                <div style={{ flex: 1, background: "#F0EDE8", borderRadius: 4, overflow: "hidden", height: 8 }}>
-                  <div style={{ height: 8, borderRadius: 4, width: `${pct}%`, background: s.color, transition: "width 0.4s" }} />
+          <div className="adm-funnel">
+            {pStages.map((s) => {
+              const pct = totalApplied > 0 ? (s.count / totalApplied) * 100 : 0;
+              return (
+                <div key={s.label} className="adm-funnel-row">
+                  <span className="adm-funnel-label">{s.label}</span>
+                  <div className="adm-funnel-track">
+                    <div className={`adm-funnel-fill${s.tone ? ` ${s.tone}` : ""}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="adm-funnel-count">{s.count.toLocaleString()}</span>
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 500, width: 30, flexShrink: 0, color: isLive ? "#FE6E3E" : "#1C1B1A" }}>{s.count}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: "#9C9A94", width: 36, textAlign: "right", flexShrink: 0 }}>{pct.toFixed(1)}%</div>
-              </div>
-            );
-          })}
-          <div style={{ marginTop: 16, padding: "12px 14px", background: "#F7F5F2", borderRadius: 8, fontSize: 12, color: "#5C5A54", lineHeight: 1.6 }}>
-            <strong>Biggest drop-off:</strong> {biggestDrop.from} → {biggestDrop.to} ({biggestDrop.fromPct}% → {biggestDrop.toPct}%). {biggestDrop.stuck} candidates have completed {biggestDrop.from.toLowerCase()} but not started {biggestDrop.to.toLowerCase()}. Nudge emails to this cohort would move the needle fastest.
+              );
+            })}
           </div>
+          {biggestDrop.stuck > 0 && (
+            <p className="adm-funnel-note">
+              <strong>Biggest drop-off:</strong> {biggestDrop.from} → {biggestDrop.to} ({biggestDrop.fromPct}% → {biggestDrop.toPct}%).{" "}
+              {biggestDrop.stuck.toLocaleString()} {plural(biggestDrop.stuck, "candidate")} completed {biggestDrop.from.toLowerCase()} and never started {biggestDrop.to.toLowerCase()}.
+            </p>
+          )}
         </ModalShell>
       )}
 
-      {/* ROUTE MODAL */}
       {modal === "route" && (
-        <ModalShell title="Route Candidates to Specialists" onClose={() => setModal(null)} width={440}
+        <ModalShell
+          title="Route candidates to specialists"
+          onClose={() => setModal(null)}
           footer={
             <>
-              <button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Cancel</button>
-              <button onClick={handleSaveRoutes} style={{ ...btnStyle, background: "#FE6E3E", color: "#fff" }}>Save Assignments →</button>
+              <button className="adm-btn" onClick={() => setModal(null)}>Cancel</button>
+              <button className="adm-btn primary" disabled={data.routeCandidates.length === 0} onClick={handleSaveRoutes}>
+                Save assignments
+              </button>
             </>
           }
         >
-          <div style={{ fontSize: 12, color: "#9C9A94", marginBottom: 14 }}>{data.routeCandidates.length} candidates selected &quot;Other&quot; as their role category and need manual routing.</div>
+          <p className="adm-modal-lead">
+            {data.routeCandidates.length} {plural(data.routeCandidates.length, "candidate")} {plural(data.routeCandidates.length, "is", "are")} waiting on a specialist.
+          </p>
           {data.routeCandidates.map((c) => (
-            <div key={c.id} style={{ border: "1px solid #E8E6E1", borderRadius: 9, padding: "13px 16px", marginBottom: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{c.full_name || c.display_name} — &quot;Other: {c.role_category}&quot;</div>
-              <div style={{ fontSize: 11.5, color: "#9C9A94", marginBottom: 10 }}>Applied {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr</div>
+            <div key={c.id} className="adm-cand">
+              <div className="adm-cand-name">{c.full_name || c.display_name}</div>
+              <div className="adm-cand-meta" style={{ marginBottom: 10 }}>
+                {c.role_category} · applied {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {c.country || "—"}
+              </div>
+              <label className="adm-field-label" htmlFor={`route-${c.id}`}>Talent specialist</label>
               <select
+                id={`route-${c.id}`}
+                className="adm-select"
                 value={routeAssignments[c.id] || ""}
                 onChange={(e) => setRouteAssignments((p) => ({ ...p, [c.id]: e.target.value }))}
-                style={{ width: "100%", padding: "5px 8px", border: "1px solid #E2DFD8", borderRadius: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 11.5, color: "#1C1B1A", background: "#fff" }}
               >
-                <option value="">— Assign to Talent Specialist —</option>
+                <option value="">— Assign —</option>
                 {data.recruiters.map((r) => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
           ))}
+          {data.routeCandidates.length === 0 && <p className="adm-modal-lead" style={{ marginBottom: 0 }}>Nothing is waiting to be routed.</p>}
         </ModalShell>
       )}
 
-      {/* EXPORT MODAL */}
       {modal === "export" && (
-        <ModalShell title="Export Dashboard Data" onClose={() => setModal(null)} width={400}
-          footer={<button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Cancel</button>}
+        <ModalShell
+          title="Export dashboard data"
+          onClose={() => setModal(null)}
+          footer={<button className="adm-btn" onClick={() => setModal(null)}>Cancel</button>}
         >
           {[
-            { type: "pipeline", icon: "📊", bg: "#EEF5FF", title: "Candidate Pipeline CSV", desc: `All ${data.pipeline.applied} candidates with stage, scores, and status` },
-            { type: "clients", icon: "📋", bg: "#F0FAF4", title: "Client Health Report", desc: `All ${data.totalClients} clients with login, browse activity, and fees` },
+            { type: "pipeline", title: "Candidate pipeline", desc: `${data.pipeline.applied.toLocaleString()} candidates by stage` },
+            { type: "clients", title: "Client health", desc: `${data.clientHealth.length} clients with activity and fees` },
           ].map((opt) => (
-            <div key={opt.type} onClick={() => exportCSV(opt.type)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: "1px solid #E8E6E1", borderRadius: 9, marginBottom: 8, cursor: "pointer", transition: "all 0.12s" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, background: opt.bg, flexShrink: 0 }}>{opt.icon}</div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: 13 }}>{opt.title}</div>
-                <div style={{ fontSize: 11, color: "#9C9A94" }}>{opt.desc}</div>
-              </div>
-            </div>
+            <button key={opt.type} type="button" className="adm-audio" onClick={() => exportCSV(opt.type)}>
+              <span className="adm-audio-btn" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 20h16" /></svg>
+              </span>
+              <span>
+                <span className="adm-audio-label">{opt.title}</span>
+                <span className="adm-audio-sub" style={{ display: "block" }}>{opt.desc}</span>
+              </span>
+            </button>
           ))}
         </ModalShell>
       )}
 
-      {/* QUICK APPROVE MODAL */}
       {modal === "approve" && (
-        <ModalShell title="Quick Approve Candidate" onClose={() => setModal(null)} width={380}
+        <ModalShell
+          title="Quick approve"
+          onClose={() => setModal(null)}
           footer={
             <>
-              <button onClick={() => setModal(null)} style={{ ...btnStyle, background: "transparent", border: "1px solid #E2DFD8", color: "#5C5A54" }}>Cancel</button>
-              <button onClick={() => { setModal("review"); }} style={{ ...btnStyle, background: "#FE6E3E", color: "#fff" }}>Go to Review Queue →</button>
+              <button className="adm-btn" onClick={() => setModal(null)}>Cancel</button>
+              <button className="adm-btn primary" onClick={() => setModal("review")}>Open review queue</button>
             </>
           }
         >
-          <div style={{ fontSize: 12.5, color: "#5C5A54", marginBottom: 14, lineHeight: 1.6 }}>Search for a candidate in the pending review queue to approve directly from the dashboard.</div>
+          <p className="adm-modal-lead">Find someone already in the review queue and approve them from here.</p>
           <input
             type="text"
-            placeholder="Search by name or email..."
+            className="adm-input"
+            placeholder="Search by name…"
             value={approveSearch}
             onChange={(e) => setApproveSearch(e.target.value)}
-            style={{ width: "100%", padding: "9px 12px", border: "1px solid #E2DFD8", borderRadius: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#1C1B1A", marginBottom: 12, boxSizing: "border-box" }}
           />
-          {approveSearch.length > 1 && (
-            <div>
-              {data.pendingCandidates
-                .filter((c) => (c.full_name || c.display_name || "").toLowerCase().includes(approveSearch.toLowerCase()))
+          <div style={{ marginTop: 12 }}>
+            {approveSearch.trim().length > 1 &&
+              data.pendingCandidates
+                .filter((c) => (c.full_name || c.display_name || "").toLowerCase().includes(approveSearch.trim().toLowerCase()))
                 .map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => { setModal("review"); }}
-                    style={{ border: "1px solid #E8E6E1", borderRadius: 9, padding: "13px 16px", marginBottom: 10, cursor: "pointer" }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{c.full_name || c.display_name} — {c.role_category}</div>
-                    <div style={{ fontSize: 11.5, color: "#9C9A94" }}>{c.country || "—"} · ${(c.hourly_rate || 0).toLocaleString()}/hr · AI Score {c.ai_interview_score || 0} · Ready to approve</div>
+                  <div key={c.id} className="adm-row">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="adm-row-name">{c.full_name || c.display_name}</div>
+                      <div className="adm-row-meta">
+                        {c.role_category} · {c.country || "—"} · AI {c.ai_interview_score || 0}
+                      </div>
+                    </div>
+                    <button className="adm-btn primary" disabled={actionLoading === c.id} onClick={() => handleApprove(c.id)}>
+                      {actionLoading === c.id ? "Approving…" : "Approve"}
+                    </button>
                   </div>
                 ))}
-            </div>
-          )}
+            {approveSearch.trim().length > 1 &&
+              data.pendingCandidates.filter((c) => (c.full_name || c.display_name || "").toLowerCase().includes(approveSearch.trim().toLowerCase())).length === 0 && (
+                <p className="adm-modal-lead" style={{ marginBottom: 0 }}>Nobody in the review queue matches that.</p>
+              )}
+          </div>
         </ModalShell>
       )}
     </div>
@@ -838,21 +1014,57 @@ export default function AdminDashboard() {
 // SUB-COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
 
-const btnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 13px",
-  borderRadius: 7,
-  fontFamily: "'DM Sans', sans-serif",
-  fontSize: 12,
-  fontWeight: 500,
-  cursor: "pointer",
-  border: "none",
-  transition: "all 0.15s",
-};
+function AlertCard({ alert }: { alert: Alert }) {
+  const body = (
+    <>
+      <span className="alert-priority-tag">{alert.priority === "week" ? "This week" : alert.priority}</span>
+      <span className="alert-content">
+        <span className="alert-title" style={{ display: "block" }}>{alert.title}</span>
+        <span className="alert-detail">
+          {alert.meta.map((m, i) => (
+            <span key={i}>
+              {i > 0 && <span className="meta-sep"> · </span>}
+              {m}
+            </span>
+          ))}
+          {alert.sla && <span className={`sla ${alert.sla.tone}`}>{alert.sla.text}</span>}
+        </span>
+      </span>
+      <span className="alert-action">
+        {alert.actionLabel}
+        <ArrowIcon />
+      </span>
+    </>
+  );
 
-function ModalShell({ title, onClose, children, footer, width }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
+  if (alert.href) {
+    return (
+      <Link href={alert.href} className="alert-card" data-priority={alert.priority}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className="alert-card" data-priority={alert.priority} onClick={alert.onAction}>
+      {body}
+    </button>
+  );
+}
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+  footer,
+  wide,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  wide?: boolean;
+}) {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", handleKey);
@@ -860,58 +1072,45 @@ function ModalShell({ title, onClose, children, footer, width }: { title: string
   }, [onClose]);
 
   return (
-    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(28,27,26,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(2px)" }}>
-      <div style={{ background: "#fff", borderRadius: 14, width: width || 520, maxWidth: "94vw", maxHeight: "82vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
-        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid #F0EDE8", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2DFD8", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#9C9A94" }}>×</button>
+    <div
+      className="adm-modal-scrim"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className={`adm-modal${wide ? " wide" : ""}`}>
+        <div className="adm-modal-head">
+          <h2 className="adm-modal-title">{title}</h2>
+          <button type="button" className="adm-modal-close" onClick={onClose} aria-label="Close">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
         </div>
-        <div style={{ padding: "20px 22px", overflowY: "auto", flex: 1 }}>{children}</div>
-        {footer && (
-          <div style={{ padding: "14px 22px", borderTop: "1px solid #F0EDE8", display: "flex", gap: 8, justifyContent: "flex-end", flexShrink: 0 }}>
-            {footer}
-          </div>
-        )}
+        <div className="adm-modal-body">{children}</div>
+        {footer && <div className="adm-modal-foot">{footer}</div>}
       </div>
     </div>
   );
 }
 
-function Badge({ bg, color, children }: { bg: string; color: string; children: React.ReactNode }) {
-  return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 6, fontSize: 10.5, fontWeight: 500, background: bg, color }}>{children}</span>;
-}
-
-function ScoreBox({ label, value }: { label: string; value: string }) {
+function AudioRow({
+  label,
+  url,
+  playing,
+  onPlay,
+}: {
+  label: string;
+  url: string | null;
+  playing: string | null;
+  onPlay: (url: string | null) => void;
+}) {
   return (
-    <div style={{ background: "#F7F5F2", borderRadius: 8, padding: 10, textAlign: "center" }}>
-      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 500, color: "#1C1B1A" }}>{value}</div>
-      <div style={{ fontSize: 10, color: "#9C9A94", marginTop: 2 }}>{label}</div>
-    </div>
-  );
-}
-
-function AudioRow({ label, url, playing, onPlay }: { label: string; url: string | null; playing: string | null; onPlay: (url: string | null) => void }) {
-  return (
-    <div onClick={() => onPlay(url)} style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F5F2", borderRadius: 8, padding: "10px 14px", marginBottom: 12, cursor: "pointer", transition: "background 0.12s" }}>
-      <button style={{ width: 32, height: 32, borderRadius: "50%", background: "#FE6E3E", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, flexShrink: 0, border: "none", cursor: "pointer" }}>
-        {playing === url ? "⏸" : "▶"}
-      </button>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 10.5, color: "#9C9A94" }}>Tap to play</div>
-      </div>
-    </div>
-  );
-}
-
-function PulseBox({ label, value, trend, onClick }: { label: string; value: number; trend: number; onClick: () => void }) {
-  return (
-    <div onClick={onClick} style={{ padding: 12, background: "#F7F5F2", borderRadius: 8, cursor: "pointer", transition: "background 0.12s" }}>
-      <div style={{ fontSize: 10, color: "#9C9A94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 500, color: "#1C1B1A" }}>{value}</div>
-      <div style={{ fontSize: 10, fontWeight: 600, color: trend >= 0 ? "#3B9E5E" : "#E24B4A" }}>
-        {trend >= 0 ? `↑ ${Math.abs(trend)}%` : `↓ ${Math.abs(trend)}%`} vs last wk
-      </div>
-    </div>
+    <button type="button" className="adm-audio" disabled={!url} onClick={() => onPlay(url)}>
+      <span className="adm-audio-btn" aria-hidden="true">{playing === url ? "❚❚" : "▶"}</span>
+      <span>
+        <span className="adm-audio-label" style={{ display: "block" }}>{label}</span>
+        <span className="adm-audio-sub">{url ? (playing === url ? "Playing — tap to stop" : "Tap to play") : "Not recorded"}</span>
+      </span>
+    </button>
   );
 }

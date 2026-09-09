@@ -241,7 +241,10 @@ export async function GET() {
     .limit(20);
 
   // ═══ SCREENING STATS ═══
-  const { data: screeningToday } = await admin
+  // `head: true` means the rows never come back — only the count does. Reading
+  // `.data.length` off it (what this did) is always 0, so "screened today" has
+  // been reporting zero since the widget shipped.
+  const { count: screenedTodayCount } = await admin
     .from("screening_log")
     .select("id", { count: "exact", head: true })
     .gte("created_at", new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString());
@@ -304,9 +307,6 @@ export async function GET() {
     platformFeeThisMonth,
     warmLeadsCount: warmLeads.length,
 
-    // Seminar
-    seminarDate: "2026-04-19",
-
     // Pipeline
     pipeline,
 
@@ -318,19 +318,20 @@ export async function GET() {
       needsRouting: triageRes.count || 0,
     },
 
-    // Screening
+    // Screening. `pending`/`processing`/`failed` used to ship as hard-coded
+    // zeroes and `complete` as the total candidate count under a label that
+    // did not mean that — the dashboard rendered all four as if they were
+    // measurements. Only the real number is returned now; anything that wants
+    // queue depth should read ScreeningQueueWidget's own endpoint.
     screening: {
-      pending: 0, // Will be filled by ScreeningQueueWidget's own API
-      processing: 0,
-      complete: totalCandidates,
-      failed: 0,
-      screenedToday: screeningToday?.length || 0,
+      screenedToday: screenedTodayCount || 0,
     },
 
-    // Identity
+    // Identity. `dupesWeek` used to be returned as a hard zero with a comment
+    // saying there is no duplicate-detection table — a rendered metric that
+    // could only ever say "0 duplicates". Dropped rather than displayed.
     identity: {
       lockouts: lockoutsRes.count || 0,
-      dupesWeek: 0, // No duplicate detection table yet
       flagged: flaggedRes.count || 0,
       verified: verifiedRes.count || 0,
     },
