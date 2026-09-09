@@ -158,13 +158,17 @@ export default function AdminRail({
         </nav>
 
         <div className="dash-sidebar-footer">
-          <span className="avatar-mini" aria-hidden="true">{initials(userName, userEmail)}</span>
-          <span className="admin-user-meta">
-            <span className="user-name">{userName}</span>
-            <span className="admin-user-role">
-              {isRecruitingManager ? "Recruiting Manager" : "Administrator"}
+          {/* The footer is the only way into your own profile — there is no rail
+              row for it, because it is not a section of the panel. */}
+          <Link href="/admin/profile" className="admin-user-link">
+            <span className="avatar-mini" aria-hidden="true">{initials(userName, userEmail)}</span>
+            <span className="admin-user-meta">
+              <span className="user-name">{userName}</span>
+              <span className="admin-user-role">
+                {isRecruitingManager ? "Recruiting Manager" : "Administrator"}
+              </span>
             </span>
-          </span>
+          </Link>
           <form action="/auth/signout" method="POST">
             <button type="submit" className="admin-signout" aria-label="Sign out" title="Sign out">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

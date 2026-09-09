@@ -96,6 +96,14 @@ const ICON = {
   team: ic(<><path d="M3 5.5h18v11a1.5 1.5 0 0 1-1.5 1.5H8l-5 4z" /><path d="M7.5 10h9M7.5 13.2h5.5" /></>),
 } as const;
 
+/** Reached from the rail footer rather than a rail row, but the topbar still
+ *  has to be able to name it — see `pageTitle`. */
+export const ADMIN_PROFILE_ROW: AdminNavRow = {
+  label: "My profile",
+  href: "/admin/profile",
+  icon: ICON.profile,
+};
+
 export const ADMIN_NAV_TOP: AdminNavRow = {
   label: "Dashboard",
   href: "/admin",
@@ -124,7 +132,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Talent Pool", href: "/talent-pool", icon: ICON.pool, counter: "talentPool" },
       { label: "Clients", href: "/admin/clients", icon: ICON.client, counter: "clients", adminOnly: true },
       { label: "Talent Specialists", href: "/admin/recruiters", icon: ICON.specialist },
-      { label: "Managers & Admins", icon: ICON.admins, step: 3 },
+      { label: "Managers & Admins", href: "/admin/staff", icon: ICON.admins },
     ],
   },
   {
@@ -194,7 +202,7 @@ export function isRowActive(row: AdminNavRow, pathname: string, search: string):
 
 /** The crumb the topbar shows. Falls back to the section, never to nothing. */
 export function pageTitle(pathname: string, search: string): string {
-  const rows = [ADMIN_NAV_TOP, ...ADMIN_NAV.flatMap((g) => g.rows)];
+  const rows = [ADMIN_NAV_TOP, ADMIN_PROFILE_ROW, ...ADMIN_NAV.flatMap((g) => g.rows)];
   const hit = rows.find((r) => isRowActive(r, pathname, search));
   return hit?.label ?? "Admin";
 }
