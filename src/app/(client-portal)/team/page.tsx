@@ -1161,12 +1161,18 @@ export default function TeamPortalPage() {
               <p className="text-xs text-text/50">Platform capabilities, deliverables &amp; service terms</p>
             </div>
           </div>
+          {/* The Download button pointed at /StaffVA_Scope_v6_5.docx, which is
+              not in public/ — it 404'd for every client who ever clicked it,
+              and named a version two revisions behind the copies in
+              data-room/ (v6_6, v6_7). Publishing a scope-of-services document
+              to a public URL, and deciding which revision is current, are the
+              owner's calls, not a bug fix. Until then the card asks rather
+              than pretending. */}
           <a
-            href="/StaffVA_Scope_v6_5.docx"
-            download
+            href="mailto:support@staffva.com?subject=Scope%20of%20Services"
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-text hover:bg-gray-100 transition-colors whitespace-nowrap"
           >
-            Download
+            Request a copy
           </a>
         </div>
       </div>
