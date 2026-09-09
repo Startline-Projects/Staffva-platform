@@ -3295,3 +3295,63 @@
 .lp-dash .rv-how h3 { font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
 .lp-dash .rv-how ol { display: grid; gap: 7px; padding-left: 16px; list-style: decimal; }
 .lp-dash .rv-how li { font-size: 12px; color: var(--ink-mute); line-height: 1.5; }
+
+/* ═══ HELP CENTER (client portal, step 17) ═══
+   Atlas's .hc-* names, minus the classes behind cut features: .hc-popular-*
+   ("what other clients are reading" — no view analytics), .hc-status-card
+   (no status page, no uptime measurement), .hc-contact-row.specialist
+   (owner decision D5), .hc-helpful-* (nothing stores the answer), .hc-toc. */
+.lp-dash .hc-hero { margin-bottom: 22px; max-width: 62ch; }
+.lp-dash .hc-title { font-family: var(--font-display); font-size: 30px; font-weight: 600; color: var(--ink); }
+.lp-dash .hc-lead { font-size: 13.5px; color: var(--ink-mute); margin-top: 6px; }
+.lp-dash .hc-search-wrap { margin-top: 14px; }
+.lp-dash .hc-search {
+  width: 100%; padding: 11px 14px; font-size: 13.5px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+.lp-dash .hc-search:focus { outline: none; border-color: var(--ink); }
+
+.lp-dash .hc-cats { display: grid; gap: 22px; }
+.lp-dash .hc-cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.lp-dash .hc-cat-head h2 { font-size: 15px; font-weight: 600; color: var(--ink); }
+.lp-dash .hc-cat-count { font-size: 11.5px; color: var(--ink-mute); }
+.lp-dash .hc-cat-desc { font-size: 12.5px; color: var(--ink-mute); margin-top: 2px; }
+
+.lp-dash .hc-list { display: grid; gap: 8px; margin-top: 10px; }
+.lp-dash .hc-row {
+  display: grid; gap: 2px; padding: 11px 14px; text-decoration: none;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+.lp-dash .hc-row:hover { border-color: var(--ink); }
+.lp-dash .hc-row-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.lp-dash .hc-row-sub { font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+
+.lp-dash .hc-results-meta { font-size: 12px; color: var(--ink-mute); margin-bottom: 8px; }
+.lp-dash .hc-empty { padding: 20px; border: 1px dashed var(--line); border-radius: var(--r-md); background: var(--paper); }
+.lp-dash .hc-empty p { font-size: 13px; color: var(--ink); line-height: 1.55; }
+.lp-dash .hc-note { font-size: 12.5px; color: var(--ink-mute); margin-top: 8px; }
+.lp-dash .hc-empty a, .lp-dash .hc-contact a { color: var(--ink); text-decoration: underline; }
+
+.lp-dash .hc-contact { margin-top: 26px; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); }
+.lp-dash .hc-contact h2 { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.lp-dash .hc-contact p { font-size: 12.5px; color: var(--ink-mute); margin-top: 5px; line-height: 1.55; }
+
+.lp-dash .hc-a { max-width: 68ch; }
+.lp-dash .hc-a-crumb { font-size: 12px; color: var(--ink-mute); margin-bottom: 10px; }
+.lp-dash .hc-a-crumb a { color: var(--ink-mute); text-decoration: underline; }
+.lp-dash .hc-a-title { font-family: var(--font-display); font-size: 27px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+.lp-dash .hc-a-lead { font-size: 14px; color: var(--ink-mute); margin-top: 8px; line-height: 1.55; }
+.lp-dash .hc-a-body { margin-top: 20px; }
+.lp-dash .hc-a-h { font-size: 15px; font-weight: 600; color: var(--ink); margin-top: 22px; }
+.lp-dash .hc-a-p { font-size: 13.5px; color: var(--ink); line-height: 1.65; margin-top: 10px; }
+.lp-dash .hc-a-ul, .lp-dash .hc-a-ol { margin-top: 10px; padding-left: 20px; display: grid; gap: 6px; }
+.lp-dash .hc-a-ul { list-style: disc; }
+.lp-dash .hc-a-ol { list-style: decimal; }
+.lp-dash .hc-a-ul li, .lp-dash .hc-a-ol li { font-size: 13.5px; color: var(--ink); line-height: 1.6; }
+.lp-dash .hc-a-note {
+  font-size: 13px; color: var(--ink); line-height: 1.6; margin-top: 14px;
+  padding: 12px 14px; background: var(--paper);
+  border: 1px solid var(--line); border-left: 3px solid var(--ink); border-radius: var(--r-sm);
+}
+.lp-dash .hc-a-related { margin-top: 28px; }
+.lp-dash .hc-a-related h2 { font-size: 13.5px; font-weight: 600; color: var(--ink); }

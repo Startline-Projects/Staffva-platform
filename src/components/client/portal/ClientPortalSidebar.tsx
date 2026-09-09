@@ -89,7 +89,10 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
           mobileHide
         />
         <PortalNavItem href="/account/security" icon="settings" label="Account Settings" active={is("/account")} mobileHide />
-        <PortalNavItem href="mailto:support@staffva.com" icon="help" label="Help" mobileHide />
+        {/* Was a mailto:. The Help Center answers the questions that were
+            arriving by email; support@staffva.com is still the human channel
+            and is on every page of it. */}
+        <PortalNavItem href="/help" icon="help" label="Help" active={is("/help")} mobileHide />
       </ul>
       <div className="dash-sidebar-footer">
         <div className="avatar-mini" aria-hidden="true">{user.initial}</div>
