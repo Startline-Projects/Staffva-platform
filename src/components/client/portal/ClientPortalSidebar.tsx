@@ -69,7 +69,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
         {/* Atlas calls this "Time & Approvals". There is no time to track —
             the owner's D2 keeps funded periods and rules out timesheets — so
             it is the approvals queue and says so. */}
-        <PortalNavItem href="/team#engagements" icon="hours" label="Approvals" mobileHide />
+        <PortalNavItem href="/approvals" icon="hours" label="Approvals" active={is("/approvals")} mobileHide />
         <PortalNavItem href="/team#escrow" icon="billing" label="Billing" mobileHide />
         <PortalNavItem href="/team#engagements" icon="reviews" label="Reviews" mobileHide />
 

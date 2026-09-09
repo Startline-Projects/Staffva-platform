@@ -31,6 +31,7 @@ const CRUMBS: Array<[prefix: string, label: string]> = [
   // rather than the "Dashboard" fallback during the redirect frame.
   ["/inbox", "Messages"],
   ["/contracts", "Contracts"],
+  ["/approvals", "Approvals"],
   ["/interviews", "Interviews"],
   ["/proposals", "Proposals"],
   ["/shortlists", "My Shortlists"],

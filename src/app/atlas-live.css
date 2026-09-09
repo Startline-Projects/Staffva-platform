@@ -3102,3 +3102,55 @@
 .lp-dash .ct-status.st-ending,
 .lp-dash .ct-status.st-awaiting_countersign { background: var(--amber); color: var(--paper); }
 .lp-dash .ct-status.st-blocked { background: rgba(194,65,43,.14); color: var(--danger); }
+
+/* ── Approvals (client step 14) ─────────────────────────────────────────── */
+.lp-dash .ap-title { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--ink); }
+.lp-dash .ap-lead { font-size: 13.5px; color: var(--ink-mute); margin: 6px 0 18px; max-width: 60ch; }
+.lp-dash .ap-error {
+  font-size: 13px; color: var(--danger);
+  background: rgba(194,65,43,.08); border: 1px solid rgba(194,65,43,.25);
+  border-radius: var(--r-md); padding: 9px 12px; margin-bottom: 16px;
+}
+/* The one place verification legitimately gates something (D1). */
+.lp-dash .ap-gate {
+  font-size: 12.5px; color: var(--ink-soft); line-height: 1.5;
+  background: var(--cream-deep); border-radius: var(--r-md);
+  padding: 10px 13px; margin-bottom: 16px;
+}
+.lp-dash .ap-gate a { font-weight: 600; color: var(--ink); text-decoration: underline; }
+.lp-dash .ap-empty {
+  border: 1px dashed var(--line); border-radius: var(--r-md);
+  padding: 40px 20px; text-align: center; color: var(--ink-mute); font-size: 13.5px;
+}
+.lp-dash .ap-empty .btn { margin-top: 14px; }
+.lp-dash .ap-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.lp-dash .ap-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 500; padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); cursor: pointer;
+}
+.lp-dash .ap-tab.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-dash .ap-tab-count { font-family: var(--font-mono); font-size: 11px; opacity: .8; }
+.lp-dash .ap-tab-count.zero { opacity: .45; }
+
+.lp-dash .ap-card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px;
+}
+.lp-dash .ap-card-top { display: flex; align-items: flex-start; gap: 14px; }
+.lp-dash .ap-card-id { flex: 1; min-width: 0; }
+.lp-dash .ap-card-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.lp-dash .ap-card-sub { font-size: 12.5px; color: var(--ink-mute); }
+.lp-dash .ap-card-money { text-align: right; }
+.lp-dash .ap-amount { display: block; font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--ink); }
+.lp-dash .ap-amount-sub { display: block; font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
+.lp-dash .ap-note { font-size: 12.5px; color: var(--ink-soft); margin: 10px 0 0; }
+.lp-dash .ap-clocks {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);
+}
+.lp-dash .ap-clocks span { font-size: 12px; color: var(--ink-soft); }
+.lp-dash .ap-clocks span.closed { color: var(--ink-mute); }
+.lp-dash .ap-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.lp-dash .ap-actions .btn { font-size: 12.5px; padding: 6px 13px; }
+.lp-dash .ap-card-err { font-size: 12px; color: var(--danger); margin: 8px 0 0; }
