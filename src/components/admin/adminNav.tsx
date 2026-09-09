@@ -129,7 +129,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     id: "directory",
     label: "Directory",
     rows: [
-      { label: "Talent Pool", href: "/talent-pool", icon: ICON.pool, counter: "talentPool" },
+      { label: "All users", href: "/admin/users", icon: ICON.pool },
+      { label: "Talent Pool", href: "/talent-pool", icon: ICON.report, counter: "talentPool" },
       { label: "Clients", href: "/admin/clients", icon: ICON.client, counter: "clients", adminOnly: true },
       { label: "Talent Specialists", href: "/admin/recruiters", icon: ICON.specialist },
       { label: "Managers & Admins", href: "/admin/staff", icon: ICON.admins },
