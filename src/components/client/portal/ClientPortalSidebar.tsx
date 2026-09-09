@@ -70,7 +70,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
             the owner's D2 keeps funded periods and rules out timesheets — so
             it is the approvals queue and says so. */}
         <PortalNavItem href="/approvals" icon="hours" label="Approvals" active={is("/approvals")} mobileHide />
-        <PortalNavItem href="/team#escrow" icon="billing" label="Billing" mobileHide />
+        <PortalNavItem href="/billing" icon="billing" label="Billing" active={is("/billing")} mobileHide />
         <PortalNavItem href="/team#engagements" icon="reviews" label="Reviews" mobileHide />
 
         <PortalNavSection label="Account" />

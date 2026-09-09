@@ -306,8 +306,14 @@ export default function ClientDashboard() {
           <section className="cd-section">
             <div className="cd-section-head">
               <h2>Spend</h2>
-              <Link href="/team#escrow" className="cd-section-link">
-                Escrow →
+              {/* The Spend header goes to /billing — the page that now holds
+                  escrow, history and statements. The "fund a period" and
+                  "approve a milestone" rows below still go to /approvals,
+                  which is where those DECISIONS are made; a blanket repoint
+                  moved them here once and sent clients to a read-only page to
+                  do something. */}
+              <Link href="/billing" className="cd-section-link">
+                Billing →
               </Link>
             </div>
             <div className="cd-spend">

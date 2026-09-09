@@ -32,6 +32,7 @@ const CRUMBS: Array<[prefix: string, label: string]> = [
   ["/inbox", "Messages"],
   ["/contracts", "Contracts"],
   ["/approvals", "Approvals"],
+  ["/billing", "Billing"],
   ["/interviews", "Interviews"],
   ["/proposals", "Proposals"],
   ["/shortlists", "My Shortlists"],

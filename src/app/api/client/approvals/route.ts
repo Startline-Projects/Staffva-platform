@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { maskContact } from "@/lib/contactMask";
+import { clampPeriod, milestoneClientCharge, periodClientCharge } from "@/lib/escrowMoney";
 
 function admin() {
   return createClient(
@@ -127,41 +128,21 @@ export async function GET() {
     const status = p.status as string;
     if (status === "released" || status === "refunded") continue;
 
-    // hourlyBasis must match the fund route EXACTLY — it is
-    // `payment_cycle == null && weekly_hours != null` there, not just the
-    // absence of a cycle. Where they disagreed, the button printed
-    // amount_usd × 1.1 while Stripe charged client_total_usd, an unrelated
-    // figure derived from a rate rather than from this period.
-    const hourlyBasis = e.payment_cycle == null && e.weekly_hours != null;
-
-    // Notice CLAMPS a period that straddles the end date: the fund route
-    // rewrites period_end to ends_at and scales amount_usd by the fraction
-    // before charging. Without mirroring that, the card printed the full
-    // month's figure and its own date range, and both were wrong the instant
-    // the button was clicked.
-    let candidateAmount = Number(p.amount_usd);
-    let effectiveEnd = p.period_end as string | null;
-    let clamped = false;
-    let unfundable = false;
-    if (e.ends_at && p.period_start && p.period_end) {
-      const endsMs = new Date(e.ends_at as string).getTime();
-      const startMs = new Date(`${p.period_start}T00:00:00Z`).getTime();
-      const endMs = new Date(`${p.period_end}T00:00:00Z`).getTime();
-      if (startMs >= endsMs) {
-        // fund() 409s outright here — the engagement is over before this
-        // period begins.
-        unfundable = true;
-      } else if (endMs > endsMs) {
-        const fraction = (endsMs - startMs) / (endMs - startMs);
-        candidateAmount = Math.round(Number(p.amount_usd) * fraction * 100) / 100;
-        effectiveEnd = new Date(endsMs).toISOString().split("T")[0];
-        clamped = true;
-      }
-    }
-
-    const clientCharge = hourlyBasis
-      ? Math.round(candidateAmount * 1.1 * 100) / 100
-      : Number(e.client_total_usd ?? 0);
+    // Basis, clamp and arithmetic all come from @/lib/escrowMoney, which the
+    // billing page uses too — the charged figure is stored nowhere, so every
+    // surface re-derives it and any surface deriving it differently is lying
+    // about money.
+    const clamp = clampPeriod(
+      p.period_start as string | null,
+      p.period_end as string | null,
+      Number(p.amount_usd),
+      e
+    );
+    const candidateAmount = clamp.candidateAmount;
+    const effectiveEnd = clamp.effectiveEnd;
+    const clamped = clamp.clamped;
+    const unfundable = clamp.startsAfterEnd;
+    const clientChargeUsd = periodClientCharge(candidateAmount, e);
 
     // The dispute window keys on the EFFECTIVE end, the same value fund
     // writes back to the row.
@@ -189,7 +170,7 @@ export async function GET() {
       title: `${p.period_start} to ${effectiveEnd}`,
       status,
       candidateAmount,
-      clientCharge,
+      clientCharge: clientChargeUsd,
       // Both surfaced so the card can explain a shortened period rather than
       // quietly printing a smaller number than the client expected.
       clamped,
@@ -220,12 +201,10 @@ export async function GET() {
       title: (m.title as string) || "Milestone",
       status,
       candidateAmount: Number(m.amount_usd),
-      // Milestones are funded up front at the fee-inclusive amount. The
-      // arithmetic mirrors fund()'s EXACT expression — `a + a*0.1` rounded
-      // once — not `a * 1.1`: the two differ by a cent on ~1.2% of values
-      // (0.15 + 0.015 = 0.16499999999999998 vs 0.165), always with the
-      // printed figure a cent above the charge.
-      clientCharge: Math.round((Number(m.amount_usd) + Number(m.amount_usd) * 0.1) * 100) / 100,
+      // fund's MILESTONE branch is `a + a*0.1`, which is not the same float
+      // as the period branch's `a * 1.1`. Its own function, so nobody can
+      // "simplify" the two together again.
+      clientCharge: milestoneClientCharge(Number(m.amount_usd)),
       fundedAt: m.funded_at,
       markedCompleteAt: m.marked_complete_at,
       // SEVEN days.
