@@ -93,7 +93,7 @@ export async function executeOfferAccept(
         // the body — same rule the messages route established.
         title: "Your proposal was accepted",
         body: `${maskContact(candInfo?.display_name || "The candidate")} accepted. The agreement is drafted and waiting for your signature; escrow funding opens once both sides have signed.`,
-        route: "/team#engagements",
+        route: "/contracts",
         dedupeKey: `offer-accepted-${offer.id}`,
       });
       if (process.env.RESEND_API_KEY && clientInfo?.email) {

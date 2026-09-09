@@ -30,6 +30,10 @@ const CRUMBS: Array<[prefix: string, label: string]> = [
   // Kept so a client who arrives on the legacy path still reads "Messages"
   // rather than the "Dashboard" fallback during the redirect frame.
   ["/inbox", "Messages"],
+  ["/contracts", "Contracts"],
+  ["/interviews", "Interviews"],
+  ["/proposals", "Proposals"],
+  ["/shortlists", "My Shortlists"],
   ["/account", "Account Settings"],
 ];
 

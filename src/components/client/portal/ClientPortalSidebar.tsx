@@ -62,10 +62,10 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
         <PortalNavItem href="/proposals" icon="proposals" label="Proposals" active={is("/proposals")} mobileHide />
 
         <PortalNavSection label="Engagements" />
-        {/* Contracts, approvals and reviews all live inside the engagement
-            cards today — one section, three ways in, until steps 13/14/16
-            give each its own page. */}
-        <PortalNavItem href="/team#engagements" icon="contracts" label="Contracts" mobileHide />
+        {/* Approvals and reviews still live inside the engagement cards —
+            two rows, one anchor — until steps 14 and 16 give each its own
+            page. Contracts moved out in step 13. */}
+        <PortalNavItem href="/contracts" icon="contracts" label="Contracts" active={is("/contracts")} mobileHide />
         {/* Atlas calls this "Time & Approvals". There is no time to track —
             the owner's D2 keeps funded periods and rules out timesheets — so
             it is the approvals queue and says so. */}

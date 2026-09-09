@@ -66,7 +66,7 @@ export const CLIENT_NOTIFICATIONS: readonly ClientNotificationRow[] = [
     type: "contract_executed",
     event: "The candidate countersigned; the agreement is executed",
     bell: "contract",
-    inApp: "/team#engagements",
+    inApp: "/contracts",
     note:
       "The bell is written at the SIGNING site, not the email's site: the email comes from " +
       "generate-pdf, reached by an internal fetch behind CRON_SECRET that can fail.",

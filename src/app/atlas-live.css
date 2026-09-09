@@ -2988,3 +2988,117 @@
 /* The extracted rule styles round icon buttons; these are text links. */
 .lp-dash .msg-chat-header-actions .btn { font-size: 12px; padding: 5px 11px; white-space: nowrap; }
 .lp-dash .msg-chat-header-meta { min-width: 0; }
+
+/* ── Contracts (client step 13) ─────────────────────────────────────────── */
+.lp-dash .ct-title { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--ink); }
+.lp-dash .ct-lead { font-size: 13.5px; color: var(--ink-mute); margin: 6px 0 20px; max-width: 60ch; }
+.lp-dash .ct-error {
+  font-size: 13px; color: var(--danger);
+  background: rgba(194,65,43,.08); border: 1px solid rgba(194,65,43,.25);
+  border-radius: var(--r-md); padding: 9px 12px; margin-bottom: 16px;
+}
+.lp-dash .ct-empty {
+  border: 1px dashed var(--line); border-radius: var(--r-md);
+  padding: 40px 20px; text-align: center; color: var(--ink-mute); font-size: 13.5px;
+}
+.lp-dash .ct-empty .btn { margin-top: 14px; }
+
+.lp-dash .ct-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.lp-dash .ct-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.lp-dash .ct-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 500; padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); cursor: pointer;
+}
+.lp-dash .ct-tab.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.lp-dash .ct-tab-count { font-family: var(--font-mono); font-size: 11px; opacity: .8; }
+.lp-dash .ct-tab-count.zero { opacity: .45; }
+.lp-dash .ct-search {
+  margin-left: auto; min-width: 200px;
+  font-size: 12.5px; padding: 7px 11px;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--paper); color: var(--ink);
+}
+
+.lp-dash .ct-card {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px;
+}
+.lp-dash .ct-card.st-paused, .lp-dash .ct-card.st-ended { background: var(--cream); }
+.lp-dash .ct-card.st-awaiting_signature { border-color: var(--lime-deep); box-shadow: 0 0 0 1px var(--lime-deep); }
+.lp-dash .ct-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.lp-dash .ct-avatar {
+  width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%;
+  background: var(--cream-deep) center / cover no-repeat;
+  display: grid; place-items: center; font-weight: 600; color: var(--ink-mute);
+}
+.lp-dash .ct-card-id { flex: 1; min-width: 0; }
+.lp-dash .ct-card-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.lp-dash .ct-card-sub { font-size: 12.5px; color: var(--ink-mute); }
+.lp-dash .ct-status {
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--cream-deep); color: var(--ink-soft); white-space: nowrap;
+}
+.lp-dash .ct-status.st-active { background: var(--lime-deep); color: var(--ink); }
+.lp-dash .ct-status.st-awaiting_signature { background: var(--lime); color: var(--ink); }
+.lp-dash .ct-status.st-ended { background: transparent; border: 1px solid var(--line); color: var(--ink-mute); }
+
+.lp-dash .ct-terms {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px; padding: 12px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.lp-dash .ct-terms div { display: flex; flex-direction: column; gap: 2px; }
+.lp-dash .ct-terms span:first-child { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-mute); }
+.lp-dash .ct-terms span:last-child { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.lp-dash .ct-note { font-size: 12.5px; color: var(--ink-soft); margin: 12px 0 0; }
+.lp-dash .ct-pause {
+  margin-top: 12px; padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--cream-deep); font-size: 12.5px; color: var(--ink-soft);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.lp-dash .ct-pause .warn { color: var(--danger); }
+.lp-dash .ct-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.lp-dash .ct-actions .btn { font-size: 12.5px; padding: 6px 13px; }
+.lp-dash .ct-hint { font-size: 12px; color: var(--ink-mute); }
+.lp-dash .ct-card-err { font-size: 12px; color: var(--danger); margin: 8px 0 0; }
+
+.lp-dash .ct-modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(14,14,12,.45);
+  display: grid; place-items: center; padding: 20px;
+}
+.lp-dash .ct-modal {
+  width: 100%; max-width: 460px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 22px;
+  max-height: 90vh; overflow-y: auto;
+}
+.lp-dash .ct-modal h2 { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--ink); }
+.lp-dash .ct-modal-lead { font-size: 13px; color: var(--ink-soft); margin: 8px 0 0; line-height: 1.5; }
+.lp-dash .ct-modal-warn {
+  font-size: 12.5px; color: var(--danger); margin: 10px 0 0; line-height: 1.5;
+  background: rgba(194,65,43,.07); border-radius: var(--r-sm); padding: 8px 10px;
+}
+.lp-dash .ct-modal-reasons { border: 0; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lp-dash .ct-modal-reasons legend { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.lp-dash .ct-modal-reasons label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--ink-soft); cursor: pointer;
+}
+.lp-dash .ct-modal-reasons label.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.lp-dash .ct-modal-input {
+  width: 100%; font-size: 13px; padding: 8px 10px; margin-top: 8px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--paper); color: var(--ink);
+}
+.lp-dash .ct-modal-field { display: block; margin-top: 16px; }
+.lp-dash .ct-modal-field > span { font-size: 12px; font-weight: 600; color: var(--ink); }
+.lp-dash .ct-modal-field small { display: block; font-size: 11.5px; color: var(--ink-mute); margin-top: 5px; line-height: 1.45; }
+.lp-dash .ct-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.lp-dash .ct-status.st-paused { background: var(--cream-deep); color: var(--ink-mute); }
+.lp-dash .ct-status.st-ending,
+.lp-dash .ct-status.st-awaiting_countersign { background: var(--amber); color: var(--paper); }
+.lp-dash .ct-status.st-blocked { background: rgba(194,65,43,.14); color: var(--danger); }

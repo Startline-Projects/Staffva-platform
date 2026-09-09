@@ -60,6 +60,7 @@ async function run(request: Request) {
     .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 
   let completed = 0;
+  let failures = 0;
   for (const e of due) {
     // CAS per row: a concurrent run or a manual release cannot double-fire
     // the notifications. A pause-out additionally fences on paused_at still
@@ -68,13 +69,37 @@ async function run(request: Request) {
     // engagement its pauser just brought back.
     let flip = db
       .from("engagements")
-      .update({ status: "completed", paused_at: null, paused_by: null })
+      // ALL the pause columns, not just the two original ones.
+      // engagements_pause_reason_scope requires reason/expected/note to be
+      // null whenever paused_at is — so clearing only paused_at made this
+      // UPDATE violate the constraint and match zero rows, which the
+      // `continue` below then read as "someone else got there first". Every
+      // pause taken from the contracts modal carries a reason, so without
+      // this the 30-day auto-end silently stopped firing for all of them:
+      // both parties told in writing that the agreement ends on a date, and
+      // nothing ending.
+      .update({
+        status: "completed",
+        paused_at: null,
+        paused_by: null,
+        pause_reason: null,
+        pause_resume_expected: null,
+        pause_note: null,
+      })
       .eq("id", e.id)
       .in("status", ["active", "payment_failed"]);
     if (e.cause === "pause") {
       flip = flip.not("paused_at", "is", null).lte("paused_at", pauseCutoff);
     }
-    const { data: flipped } = await flip.select("id").maybeSingle();
+    const { data: flipped, error: flipErr } = await flip.select("id").maybeSingle();
+    // A refused write is NOT "someone else got there first". Discarding the
+    // error is how a constraint violation became an invisible no-op that
+    // returned HTTP 200 with completed: 0.
+    if (flipErr) {
+      console.error(`[engagement-notice-complete] flip failed for ${e.id}:`, flipErr.message);
+      failures++;
+      continue;
+    }
     if (!flipped) continue;
     completed++;
 
@@ -130,6 +155,16 @@ async function run(request: Request) {
     }
   }
 
+  // Non-2xx while any flip is failing, so the cron dashboard goes red
+  // instead of reporting a successful run that ended nothing. An engagement
+  // whose termination date has passed and did not terminate is exactly the
+  // failure this job exists to prevent.
+  if (failures > 0) {
+    return NextResponse.json(
+      { due: due.length, completed, failures, error: `${failures} engagement(s) due but not completed` },
+      { status: 503 }
+    );
+  }
   return NextResponse.json({ due: due.length, completed });
 }
 

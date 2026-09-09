@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
+import { maskContact } from "@/lib/contactMask";
 import { notifyClient } from "@/lib/notifyClient";
 import { sendEmail } from "@/lib/email";
 import { PAUSE_AUTO_END_DAYS } from "@/lib/engagementLifecycle";
@@ -40,6 +41,33 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const { action, engagementId } = body as { action?: string; engagementId?: string };
+
+  // The two fields Atlas collects and discards. Optional — pausing must not
+  // become a form — but stored when given.
+  const PAUSE_REASONS = ["slow_season", "vacation", "project_pivot", "other"] as const;
+  const rawReason = (body as { reason?: unknown }).reason;
+  const pauseReason =
+    typeof rawReason === "string" && (PAUSE_REASONS as readonly string[]).includes(rawReason)
+      ? rawReason
+      : null;
+  const rawNote = (body as { note?: unknown }).note;
+  // Client-only, and only alongside 'other'. A candidate has no UI for this,
+  // and a candidate-written note rendered on the client's contract card would
+  // be a free-text channel that sidesteps the messages route's contact
+  // refusal entirely.
+  const pauseNote =
+    role === "client" && pauseReason === "other" && typeof rawNote === "string" && rawNote.trim()
+      ? rawNote.trim().slice(0, 300)
+      : null;
+  const rawExpected = (body as { resumeExpected?: unknown }).resumeExpected;
+  // A plain YYYY-MM-DD, and only if it is actually ahead of us — a date in
+  // the past is not an expectation, it is a typo, and it would render as
+  // "expected back 3 March" beside a pause that started today.
+  const resumeExpected =
+    typeof rawExpected === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawExpected) &&
+    new Date(`${rawExpected}T23:59:59Z`).getTime() > Date.now()
+      ? rawExpected
+      : null;
   if (!engagementId || !/^[0-9a-f-]{36}$/i.test(engagementId)) {
     return NextResponse.json({ error: "engagementId required" }, { status: 400 });
   }
@@ -97,7 +125,13 @@ export async function POST(request: Request) {
     }
     const { data: paused } = await db
       .from("engagements")
-      .update({ paused_at: new Date().toISOString(), paused_by: role })
+      .update({
+        paused_at: new Date().toISOString(),
+        paused_by: role,
+        pause_reason: pauseReason,
+        pause_resume_expected: resumeExpected,
+        pause_note: pauseNote,
+      })
       .eq("id", engagementId)
       .eq("status", "active")
       .is("paused_at", null)
@@ -112,11 +146,37 @@ export async function POST(request: Request) {
     ).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
     if (role === "client") {
+      // The reason and the expected return, when given. Phrased as what the
+      // client SAID, because that is what it is — nothing resumes on its own,
+      // and the auto-END date is the only automatic thing here.
+      const REASON_TEXT: Record<string, string> = {
+        slow_season: "a slow season",
+        vacation: "time off",
+        project_pivot: "a change of plan",
+        other: "another reason",
+      };
+      // The note goes WITH the reason. "A short note for them" that reaches
+      // them through no channel is the collect-and-discard this step exists
+      // to fix. Masked: it is free text crossing between the two parties.
+      const why = pauseReason
+        ? pauseNote
+          ? ` They said: “${maskContact(pauseNote)}”.`
+          : ` They gave the reason: ${REASON_TEXT[pauseReason]}.`
+        : "";
+      // If the plan lands AFTER the auto-end, say so — checking that is the
+      // reason for storing the date at all, and the two sentences side by
+      // side ("back in November" / "ends in October") otherwise just
+      // contradict each other.
+      const expectedMs = resumeExpected ? new Date(`${resumeExpected}T00:00:00Z`).getTime() : 0;
+      const autoEndMs = new Date(paused.paused_at).getTime() + PAUSE_AUTO_END_DAYS * 86_400_000;
+      const expect = resumeExpected
+        ? ` They expect to restart around ${new Date(`${resumeExpected}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })} — what they told us, not an automatic restart.${expectedMs > autoEndMs ? " That is after the automatic end date below, so the agreement would need to be re-signed." : ""}`
+        : "";
       await notifyCandidate(db, {
         candidateId: engagement.candidate_id,
         category: "contract",
         title: "The client paused your engagement",
-        body: `Work and new payment periods stop while it's paused. If it isn't resumed by ${autoEnd}, it ends automatically. You can give 14 days' notice at any time.`,
+        body: `Work and new payment periods stop while it's paused.${why}${expect} If it isn't resumed by ${autoEnd}, it ends automatically. You can give 14 days' notice at any time.`,
         route: "/candidate/contracts",
         dedupeKey: `paused-${engagementId}-${paused.paused_at}`,
       });
@@ -127,7 +187,7 @@ export async function POST(request: Request) {
         category: "engagement",
         title: "Your contractor paused the engagement",
         body: `No new payment periods accrue while it's paused. If it isn't resumed by ${autoEnd}, it ends automatically.`,
-        route: "/team#engagements",
+        route: "/contracts",
         dedupeKey: `paused-client-${engagementId}-${paused.paused_at}`,
       });
       if (client?.email) {
@@ -159,7 +219,17 @@ export async function POST(request: Request) {
   }
   const { data: resumed } = await db
     .from("engagements")
-    .update({ paused_at: null, paused_by: null, last_resumed_at: new Date().toISOString() })
+    // Cleared together: these describe the pause that just ended, and the
+    // engagements_pause_reason_scope constraint refuses to keep them without
+    // a paused_at anyway.
+    .update({
+      paused_at: null,
+      paused_by: null,
+      pause_reason: null,
+      pause_resume_expected: null,
+      pause_note: null,
+      last_resumed_at: new Date().toISOString(),
+    })
     .eq("id", engagementId)
     .eq("status", "active")
     .eq("paused_by", role)
@@ -185,7 +255,7 @@ export async function POST(request: Request) {
       category: "engagement",
       title: "Your contractor resumed the engagement",
       body: "The pause is over — work and payment periods continue as before.",
-      route: "/team#engagements",
+      route: "/contracts",
     });
     if (client?.email) {
       try {

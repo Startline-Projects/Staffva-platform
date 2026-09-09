@@ -140,7 +140,7 @@ export async function GET() {
         title: "A contract is waiting for your signature",
         detail: `${cand || "A candidate"} accepted — the agreement is drafted`,
         cta: "Review and sign",
-        href: "/team#engagements",
+        href: "/contracts",
         at: c.created_at,
         severity: "contract",
       });
@@ -168,7 +168,7 @@ export async function GET() {
           title: "A payment period needs funding",
           detail: `$${Number(p.amount_usd).toFixed(2)} · ${p.period_start} to ${p.period_end}`,
           cta: "Fund it",
-          href: "/team#engagements",
+          href: "/team#escrow",
           at: p.period_start,
           severity: "warm",
         });
@@ -306,7 +306,7 @@ export async function GET() {
         recent.push({
           text: `Engagement with ${who} started.`,
           at: e.created_at,
-          href: "/team#engagements",
+          href: "/contracts",
         });
       }
     }

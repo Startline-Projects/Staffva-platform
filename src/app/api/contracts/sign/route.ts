@@ -312,7 +312,7 @@ export async function POST(req: NextRequest) {
         category: "contract",
         title: "Your contract is fully executed",
         body: "The candidate has countersigned. You can fund the first payment period now.",
-        route: "/team#engagements",
+        route: "/contracts",
         dedupeKey: `contract-executed-client-${contractId}`,
       });
 
