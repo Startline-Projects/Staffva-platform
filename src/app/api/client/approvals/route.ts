@@ -65,8 +65,19 @@ export async function GET() {
   const engIds = engs.map((e) => e.id);
 
   if (engIds.length === 0) {
-    return NextResponse.json({ items: [], signalsOk: true });
+    return NextResponse.json({ items: [], signalsOk: true, truncated: false });
   }
+
+  // escrow/fund refuses without a FULLY EXECUTED contract. Every one of the
+  // live engagements is still pending a signature, so without this the page
+  // offers Fund buttons that all 409 — and names verification, which is not
+  // the reason.
+  const { data: executedRows } = await db
+    .from("engagement_contracts")
+    .select("engagement_id")
+    .in("engagement_id", engIds)
+    .eq("status", "fully_executed");
+  const executedEng = new Set((executedRows ?? []).map((r) => r.engagement_id as string));
 
   const [periodsRes, milestonesRes, disputesRes] = await Promise.all([
     db.from("payment_periods")
@@ -155,6 +166,22 @@ export async function GET() {
     // The dispute window keys on the EFFECTIVE end, the same value fund
     // writes back to the row.
     const periodEndMs = effectiveEnd ? new Date(`${effectiveEnd}T00:00:00Z`).getTime() : null;
+
+    // Every reason escrow/fund would refuse, in the order it checks them, so
+    // the card can say which one applies instead of offering a button that
+    // 409s. A pre-pause period IS fundable — fund allows it deliberately, or
+    // a 30-day pause-out would leave already-worked time permanently unpaid.
+    const startMs2 = p.period_start ? new Date(`${p.period_start}T00:00:00Z`).getTime() : 0;
+    const fundBlock =
+      e.status !== "active" && e.status !== "payment_failed"
+        ? "This engagement has ended, so there is nothing left to fund."
+        : !executedEng.has(e.id)
+          ? "The agreement isn't signed by both sides yet — funding opens once it is."
+          : unfundable
+            ? "This period starts after the engagement ends, so there is nothing to fund."
+            : e.paused_at && startMs2 >= new Date(e.paused_at).getTime()
+              ? "This period starts after the pause, so it can't be funded until the engagement resumes."
+              : null;
     items.push({
       kind: "period",
       id: p.id,
@@ -166,7 +193,7 @@ export async function GET() {
       // Both surfaced so the card can explain a shortened period rather than
       // quietly printing a smaller number than the client expected.
       clamped,
-      unfundable,
+      fundBlock,
       fundedAt: p.funded_at,
       // Period: dispute closes exactly when it auto-releases, so ONE date.
       autoReleaseAt: p.auto_release_at,
@@ -208,6 +235,16 @@ export async function GET() {
       disputeClosesAt: markedMs ? new Date(markedMs + H48).toISOString() : null,
       disputeFiled: disputedMilestone.has(m.id),
       paused: !!e.paused_at,
+      // Milestones are funded BEFORE the work, so a pause blocks them
+      // outright — there is no pre-pause work to pay for.
+      fundBlock:
+        e.status !== "active" && e.status !== "payment_failed"
+          ? "This engagement has ended, so there is nothing left to fund."
+          : !executedEng.has(e.id)
+            ? "The agreement isn't signed by both sides yet — funding opens once it is."
+            : e.paused_at
+              ? "The engagement is paused, so new milestones can't be funded until it resumes."
+              : null,
       candidate: e.candidates
         ? { id: e.candidates.id, name: maskContact(String(e.candidates.display_name ?? "")) || "Candidate" }
         : null,

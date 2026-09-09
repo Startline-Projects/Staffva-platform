@@ -38,11 +38,16 @@ export default async function ApprovalsPage() {
   let canFund = false;
   const { data: gate, error: gateErr } = await admin
     .from("clients")
-    .select("id_verification_status, payment_method_last4")
+    .select("id_verification_status, payment_method_id")
     .eq("id", base.id)
     .maybeSingle();
   if (!gateErr && gate) {
-    canFund = gate.id_verification_status === "passed" && !!gate.payment_method_last4;
+    // payment_method_ID, not last4 — that is the column escrow/fund, the
+    // portal layout and the dashboard all read. last4 is written as
+    // `cardDetails?.last4 ?? null` and can be null with a perfectly good
+    // payment method attached, which would disable Fund for someone who can
+    // pay. One fact, one column.
+    canFund = gate.id_verification_status === "passed" && !!gate.payment_method_id;
   }
 
   return <ApprovalsView canFund={canFund} gateReadable={!gateErr} />;

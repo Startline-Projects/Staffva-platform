@@ -21,10 +21,10 @@ interface Item {
   disputeClosesAt: string | null;
   disputeFiled: boolean;
   paused: boolean;
+  /** Why this cannot be funded right now, or null. Mirrors escrow/fund. */
+  fundBlock: string | null;
   /** The period was shortened by notice; amount and end date are the clamped ones. */
   clamped?: boolean;
-  /** Notice ends before this period starts — funding it 409s. */
-  unfundable?: boolean;
   candidate: { id?: string; name: string } | null;
 }
 
@@ -60,6 +60,17 @@ function until(iso: string, now: number): string {
  * Step 3's copy already conflated these once and told clients they could
  * dispute until a date that had passed five days before. Each item carries
  * both dates from its own columns.
+ *
+ * Atlas elements dropped beyond the timesheets, on record:
+ *  - the "Approved (8)" history subview and its receipts. Everything here is
+ *    forward-looking; released items are filtered out. Step 15's billing
+ *    surface owns paid history, and splitting it across two pages would give
+ *    the same money two homes.
+ *  - the side panel (period card, auto-approval card, escrow totals) — again
+ *    step 15's, and all of it derivable there from the same rows.
+ *  - the approve toast and the dispute reason chips: the reason chips would
+ *    be a taxonomy nothing reads, since the dispute record has one free-text
+ *    statement per side.
  *
  * Atlas's version of this screen is timesheets: 23 hours across five days,
  * editable hour cells, "Days worked 5 of 5". D2 rules that out — there is no
@@ -228,9 +239,11 @@ export default function ApprovalsView({
     <section className="ap">
       <h1 className="ap-title">Approvals</h1>
       <p className="ap-lead">
-        {items.length === 0
-          ? "Nothing waiting on you. Payment periods and milestones appear here as they come due."
-          : "Money decisions waiting on you — what to fund, and what to release."}
+        {items.length === 0 && !signalsOk
+          ? "We couldn't load this queue, so we can't tell you what's waiting."
+          : items.length === 0
+            ? "Nothing waiting on you. Payment periods and milestones appear here as they come due."
+            : "Money decisions waiting on you — what to fund, and what to release."}
       </p>
 
       {!signalsOk && (
@@ -264,7 +277,7 @@ export default function ApprovalsView({
         </p>
       )}
 
-      {items.length === 0 ? (
+      {items.length === 0 && !signalsOk ? null : items.length === 0 ? (
         <div className="ap-empty">
           <p>Nothing is waiting on you.</p>
           <Link href="/contracts" className="btn btn-outline">Your contracts</Link>
@@ -325,24 +338,19 @@ export default function ApprovalsView({
                     </div>
                   </div>
 
-                  {i.clamped && (
+                  {i.clamped && !i.fundBlock && (
                     <p className="ap-note">
                       Notice ends this engagement mid-period, so this one is shortened — the dates
                       and amount above are the shortened ones, and that is what would be charged.
                     </p>
                   )}
 
-                  {i.unfundable && (
-                    <p className="ap-note">
-                      This period starts after the engagement ends, so there is nothing to fund.
-                    </p>
-                  )}
-
-                  {i.paused && (
-                    <p className="ap-note">
-                      This engagement is paused. Milestones can&apos;t be funded while it is;
-                      periods that were already funded still release as normal.
-                    </p>
+                  {i.fundBlock && i.status === "pending" && (
+                    // The reason, from the same checks escrow/fund runs.
+                    // A blanket "paused" note used to explain the two rules
+                    // that did NOT apply to the row in front of the reader
+                    // and omit the one that did.
+                    <p className="ap-note">{i.fundBlock}</p>
                   )}
 
                   {/* The two clocks, never merged. */}
@@ -374,14 +382,23 @@ export default function ApprovalsView({
                     {i.status === "pending" && (
                       <button
                         className="btn btn-primary"
-                        disabled={!canFund || i.paused || !!i.unfundable}
+                        disabled={!canFund || !!i.fundBlock}
                         onClick={() => setPaying(i)}
-                        title={!canFund ? "Verify your identity and add a card to fund" : undefined}
+                        title={
+                          !canFund
+                            ? "Verify your identity and add a card to fund"
+                            : i.fundBlock ?? undefined
+                        }
                       >
-                        {busy === key ? "Working…" : `Fund ${money(i.clientCharge)}`}
+                        {`Fund ${money(i.clientCharge)}`}
                       </button>
                     )}
-                    {i.kind === "milestone" && i.status === "candidate_marked_complete" && (
+                    {/* Periods too: escrow/release handles a funded period,
+                        and Atlas's primary action is "Approve & release" on
+                        exactly that. Withholding a working control would be
+                        the dead-control rule in reverse. */}
+                    {((i.kind === "milestone" && i.status === "candidate_marked_complete") ||
+                      (i.kind === "period" && i.status === "funded")) && (
                       <button
                         className="btn btn-primary"
                         disabled={busy === key}
@@ -434,8 +451,15 @@ export default function ApprovalsView({
           >
             <h2>Dispute this payment?</h2>
             <p className="ct-modal-lead">
-              Filing holds the money in escrow while StaffVA reviews it.{" "}
-              {disputing.candidate?.name || "The contractor"} is told, and gets to respond.
+              Filing holds the money in escrow while StaffVA reviews it, and{" "}
+              {disputing.candidate?.name || "your contractor"} is told it is on hold.
+              {/* NOT "and gets to respond": there is no candidate-facing
+                  dispute UI, and once you have filed, the duplicate guard
+                  blocks them from filing their own — so their side reaches
+                  StaffVA only if we ask for it. Promising a two-sided process
+                  the product cannot run would be the worst possible place to
+                  do it. */}{" "}
+              StaffVA may contact them for their side before deciding.
             </p>
             <p className="ct-modal-lead">
               Most problems are quicker to settle in a message first — a dispute is a formal

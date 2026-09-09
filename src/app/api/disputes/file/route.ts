@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { notifyCandidate } from "@/lib/notifyCandidate";
+import { notifyClient } from "@/lib/notifyClient";
 
 function getAdminClient() {
   return createClient(
@@ -220,6 +222,39 @@ export async function POST(request: Request) {
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    // TELL THE OTHER SIDE. Filing freezes the money — the row is excluded
+    // from both escrow/release and escrow/auto-release — and until now the
+    // other party learned that through nothing at all: no notification, no
+    // email, no trigger. A payment silently stops arriving and the person
+    // owed it has no way to find out why. Fail-soft: a notification problem
+    // must not undo a filing that has already committed.
+    try {
+      if (filedBy === "client") {
+        await notifyCandidate(admin, {
+          candidateId: engagement.candidate_id,
+          category: "contract",
+          title: "A payment is on hold",
+          // No candidate-authored text and no client text either: the
+          // statement is the client's account of a disagreement and belongs
+          // in the review, not in the other party's chrome.
+          body: `The client has disputed a payment of $${amountInEscrow.toFixed(2)}. It stays in escrow while StaffVA reviews it. We may contact you for your side.`,
+          route: "/candidate/contracts",
+          dedupeKey: `dispute-${dispute.id}`,
+        });
+      } else {
+        await notifyClient(admin, {
+          clientId: engagement.client_id,
+          category: "engagement",
+          title: "A payment is on hold",
+          body: `Your contractor has disputed a payment of $${amountInEscrow.toFixed(2)}. It stays in escrow while StaffVA reviews it.`,
+          route: "/approvals",
+          dedupeKey: `dispute-${dispute.id}`,
+        });
+      }
+    } catch (notifyErr) {
+      console.error("[disputes/file] filed but could not notify:", notifyErr);
     }
 
     return NextResponse.json({ dispute });

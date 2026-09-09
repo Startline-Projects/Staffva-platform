@@ -3154,3 +3154,14 @@
 .lp-dash .ap-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .lp-dash .ap-actions .btn { font-size: 12.5px; padding: 6px 13px; }
 .lp-dash .ap-card-err { font-size: 12px; color: var(--danger); margin: 8px 0 0; }
+/* A disabled money button must LOOK disabled. .lp .btn has no :disabled rule,
+   so a blocked "Fund $5.50" rendered as a full-strength primary — the client
+   could not tell a live control from a refused one. */
+.lp-dash .ap-actions .btn:disabled,
+.lp-dash .ct-actions .btn:disabled,
+.lp-dash .pr-actions .btn:disabled,
+.lp-dash .iv-actions .btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
