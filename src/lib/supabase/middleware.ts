@@ -11,6 +11,33 @@ import { routeByHost } from "@/lib/englishTestHost";
 // never polls for the result.
 const protectedRoutes = ["/apply", "/inbox", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
 
+/**
+ * Match a route prefix on SEGMENT boundaries, not raw characters.
+ *
+ * `pathname.startsWith(route)` looked equivalent and was not. "/verify" in the
+ * list above means the client twin of /verify-id — but as a bare prefix it
+ * also swallowed /verify-email, and that page has to be reachable by
+ * someone with no session, because the sign-in flow deliberately signs them
+ * out before sending them there:
+ *
+ *   login → email_verified is false → supabase.auth.signOut()
+ *         → router.push("/verify-email")
+ *         → middleware sees a protected route and no user
+ *         → redirect to /login
+ *
+ * A closed loop. Every account with an unverified email could neither sign in
+ * nor reach the one page that resends the verification link, and from the
+ * outside the login button simply did nothing.
+ *
+ * Segment matching also closes the rest of the class: "/team" no longer
+ * matches "/teams-pricing", "/hire" no longer matches "/hiring-guide". Only
+ * /verify-email changes protection today — every other route matches exactly
+ * as before, /verify-id and /verify-phone included, because both are listed
+ * in their own right.
+ */
+const matchesRoute = (pathname: string, route: string): boolean =>
+  pathname === route || pathname.startsWith(`${route}/`);
+
 // Routes only for unauthenticated users
 const authRoutes = ["/login", "/signup"];
 
@@ -109,7 +136,7 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("mfa", "1");
-    if (protectedRoutes.some((route) => pathname.startsWith(route))) {
+    if (protectedRoutes.some((route) => matchesRoute(pathname, route))) {
       // Carry the query too — /verify-id?id_check=returning must survive
       // the OTP detour or the Stripe return lands on a page that never polls.
       url.searchParams.set("next", pathname + request.nextUrl.search);
@@ -118,7 +145,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Redirect unauthenticated users away from protected routes
-  if (!user && protectedRoutes.some((route) => pathname.startsWith(route))) {
+  if (!user && protectedRoutes.some((route) => matchesRoute(pathname, route))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname + request.nextUrl.search);
