@@ -342,14 +342,25 @@ export default function AdminDashboard() {
 
     if (data.identity.flagged > 0) {
       const n = data.identity.flagged;
+      const pool = data.pipeline.applied || 0;
+      const share = pool > 0 ? Math.round((n / pool) * 100) : 0;
+      // The share is in the title on purpose. This tag currently sits on 97%
+      // of the platform, which is a statement about the tag rather than a
+      // queue of 245 people to look at — and "245 candidates flagged" without
+      // the denominator reads like the second.
+      const dominant = pool > 0 && n / pool > 0.5;
       list.push({
         id: "flagged",
-        priority: "today",
-        title: `${n} ${plural(n, "candidate")} flagged Hold by screening`,
-        meta: ["Screening tag: Hold"],
-        sla: { text: "Needs a human", tone: "warn" },
-        actionLabel: "Open queue",
-        href: "/admin/candidates",
+        priority: dominant ? "week" : "today",
+        title: dominant
+          ? `Screening has tagged ${share}% of candidates Hold (${n.toLocaleString()} of ${pool.toLocaleString()})`
+          : `${n} ${plural(n, "candidate")} flagged Hold by screening`,
+        meta: dominant
+          ? ["A tag on most of the pool is not sorting anything — worth re-running rather than working through"]
+          : ["Screening tag: Hold"],
+        sla: dominant ? undefined : { text: "Needs a human", tone: "warn" },
+        actionLabel: "See the split",
+        href: dominant ? "/admin/reports?d=cand_screening" : "/admin/candidates",
       });
     }
 

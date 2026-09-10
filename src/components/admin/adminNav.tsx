@@ -145,7 +145,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Disputes", href: "/admin/disputes", icon: ICON.dispute },
       { label: "Reviews", href: "/admin/reviews", icon: ICON.review },
       { label: "Unanswered Messages", href: "/admin/messages", icon: ICON.message },
-      { label: "Reports", icon: ICON.report, step: 10 },
+      { label: "Reports", href: "/admin/reports", icon: ICON.report },
     ],
   },
   {

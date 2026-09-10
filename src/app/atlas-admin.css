@@ -2707,3 +2707,38 @@
 }
 
 .lp-admin .rev-reach { font-size: 12.5px; color: var(--ink-mute); flex: 1; min-width: 220px; line-height: 1.45; }
+
+/* ----- Reports (step 10) ----- */
+.lp-admin .rep-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 24px;
+}
+
+.lp-admin .rep-field { min-width: 160px; }
+.lp-admin .rep-field:first-child { flex: 1; min-width: 260px; }
+.lp-admin .rep-actions { display: flex; gap: 8px; }
+
+.lp-admin .rep-bar-track {
+  height: 16px;
+  background: var(--cream-deep);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.lp-admin .rep-bar-fill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: var(--r-sm);
+  min-width: 2px;
+  transition: width 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.lp-admin .rep-bar-fill.missing { background: var(--line-strong); }
