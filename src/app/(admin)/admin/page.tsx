@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/Toast";
+import { countByPriority, deriveAlerts, type DerivedAlert } from "@/lib/adminAlerts";
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPES
@@ -100,18 +101,8 @@ interface DashboardData {
   recruiters: { id: string; name: string }[];
 }
 
+/** The shape lives in `src/lib/adminAlerts.ts`; this is only the filter's own union. */
 type Priority = "urgent" | "today" | "week";
-
-interface Alert {
-  id: string;
-  priority: Priority;
-  title: string;
-  meta: string[];
-  sla?: { text: string; tone: "critical" | "warn" | "" };
-  actionLabel: string;
-  href?: string;
-  onAction?: () => void;
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // HELPERS
@@ -129,7 +120,6 @@ function relativeTime(dateStr: string): string {
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
-const PRIORITY_ORDER: Priority[] = ["urgent", "today", "week"];
 
 const ArrowIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -150,6 +140,9 @@ export default function AdminDashboard() {
 
   const [modal, setModal] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
+  const [extra, setExtra] = useState<{ pendingBans: number; openDisputes: number; vendorsDown: string[] }>({
+    pendingBans: 0, openDisputes: 0, vendorsDown: [],
+  });
   const [routeAssignments, setRouteAssignments] = useState<Record<string, string>>({});
   const [approveSearch, setApproveSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -178,6 +171,28 @@ export default function AdminDashboard() {
   }, [router]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Vendor state and open disputes are not in the command-centre payload, and
+  // both belong in the alert list. One extra light call rather than widening
+  // an endpoint that already runs thirty queries.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/alerts")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d) return;
+        const rows = (d.alerts ?? []) as DerivedAlert[];
+        setExtra({
+          pendingBans: rows.some((a) => a.id === "pending-bans")
+            ? Number(rows.find((a) => a.id === "pending-bans")!.title.match(/^\d+/)?.[0] ?? 0) : 0,
+          openDisputes: rows.some((a) => a.id === "disputes")
+            ? Number(rows.find((a) => a.id === "disputes")!.title.match(/^\d+/)?.[0] ?? 0) : 0,
+          vendorsDown: rows.filter((a) => a.id.startsWith("vendor-")).map((a) => a.id.replace("vendor-", "")),
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // The topbar's Export and Approve buttons live in the shell and reach the
   // page over this event. See AdminBar.
@@ -305,110 +320,31 @@ export default function AdminDashboard() {
   }
 
   // ═══ ALERTS ═══
-  // Every row is a real count from the command centre pointing at a surface
-  // that exists. Nothing is derived from a placeholder: `identity.dupesWeek`
-  // is hard-coded zero upstream (there is no duplicate-detection table) and
-  // the screening pending/processing/failed trio are placeholders too, so
-  // none of them appears here or anywhere else on this page.
-  const alerts: Alert[] = useMemo(() => {
+  // Derived in `src/lib/adminAlerts.ts`, shared with the topbar bell. Two
+  // copies of "what counts as urgent" would have drifted the first time
+  // either changed, and the bell has to answer the same question from every
+  // other page in the panel.
+  //
+  // The vendor and dispute rows come from the bell's own endpoint rather than
+  // the command centre, which does not report either — so the dashboard asks
+  // for them alongside its own payload.
+  const alerts: DerivedAlert[] = useMemo(() => {
     if (!data) return [];
-    const list: Alert[] = [];
+    return deriveAlerts({
+      totalCandidates: data.pipeline.applied,
+      pendingProfileReview: data.pipeline.pendingProfileReview,
+      needsRouting: data.recruiterAlerts.needsRouting,
+      screeningHold: data.identity.flagged,
+      testLockouts: data.identity.lockouts,
+      coldClients: data.warmLeadsCount,
+      thinRoles: data.talentPoolHealth.rolesBelow2,
+      pendingBans: extra.pendingBans,
+      openDisputes: extra.openDisputes,
+      vendorsDown: extra.vendorsDown,
+    });
+  }, [data, extra]);
 
-    if (data.pipeline.pendingProfileReview > 0) {
-      const n = data.pipeline.pendingProfileReview;
-      list.push({
-        id: "profile-review",
-        priority: n >= 10 ? "urgent" : "today",
-        title: `${n} ${plural(n, "candidate")} waiting on a profile review`,
-        meta: ["Nobody goes live until these clear"],
-        sla: n >= 10 ? { text: "Backlog", tone: "critical" } : undefined,
-        actionLabel: "Review",
-        onAction: () => setModal("review"),
-      });
-    }
-
-    if (data.recruiterAlerts.needsRouting > 0) {
-      const n = data.recruiterAlerts.needsRouting;
-      list.push({
-        id: "routing",
-        priority: "urgent",
-        title: `${n} ${plural(n, "candidate")} ${plural(n, "has", "have")} no talent specialist`,
-        meta: ["Unrouted candidates sit in nobody's queue"],
-        sla: { text: "Unassigned", tone: "critical" },
-        actionLabel: "Route",
-        onAction: () => setModal("route"),
-      });
-    }
-
-    if (data.identity.flagged > 0) {
-      const n = data.identity.flagged;
-      const pool = data.pipeline.applied || 0;
-      const share = pool > 0 ? Math.round((n / pool) * 100) : 0;
-      // The share is in the title on purpose. This tag currently sits on 97%
-      // of the platform, which is a statement about the tag rather than a
-      // queue of 245 people to look at — and "245 candidates flagged" without
-      // the denominator reads like the second.
-      const dominant = pool > 0 && n / pool > 0.5;
-      list.push({
-        id: "flagged",
-        priority: dominant ? "week" : "today",
-        title: dominant
-          ? `Screening has tagged ${share}% of candidates Hold (${n.toLocaleString()} of ${pool.toLocaleString()})`
-          : `${n} ${plural(n, "candidate")} flagged Hold by screening`,
-        meta: dominant
-          ? ["A tag on most of the pool is not sorting anything — worth re-running rather than working through"]
-          : ["Screening tag: Hold"],
-        sla: dominant ? undefined : { text: "Needs a human", tone: "warn" },
-        actionLabel: "See the split",
-        href: dominant ? "/admin/reports?d=cand_screening" : "/admin/candidates",
-      });
-    }
-
-    if (data.identity.lockouts > 0) {
-      const n = data.identity.lockouts;
-      list.push({
-        id: "lockouts",
-        priority: "week",
-        title: `${n} ${plural(n, "candidate")} locked out of the English test`,
-        meta: ["Blocked until the lockout expires or is lifted"],
-        actionLabel: "Open lockouts",
-        href: "/admin/lockouts",
-      });
-    }
-
-    if (data.warmLeadsCount > 0) {
-      const n = data.warmLeadsCount;
-      list.push({
-        id: "warm-leads",
-        priority: "week",
-        title: `${n} ${plural(n, "client")} browsed and never hired`,
-        meta: ["No active engagement, no recent visit"],
-        actionLabel: "See who",
-        onAction: () => setModal("followup"),
-      });
-    }
-
-    if (data.talentPoolHealth.rolesBelow2 > 0) {
-      const n = data.talentPoolHealth.rolesBelow2;
-      list.push({
-        id: "role-depth",
-        priority: "week",
-        title: `${n} ${plural(n, "role")} ${plural(n, "has", "have")} thin bench depth`,
-        meta: ["Fewer than 2 candidates in the pipeline per live candidate"],
-        actionLabel: "Open talent pool",
-        href: "/talent-pool",
-      });
-    }
-
-    return list.sort((a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority));
-  }, [data]);
-
-  const counts = useMemo(() => ({
-    all: alerts.length,
-    urgent: alerts.filter((a) => a.priority === "urgent").length,
-    today: alerts.filter((a) => a.priority === "today").length,
-    week: alerts.filter((a) => a.priority === "week").length,
-  }), [alerts]);
+  const counts = useMemo(() => countByPriority(alerts), [alerts]);
 
   const shownAlerts = priorityFilter === "all" ? alerts : alerts.filter((a) => a.priority === priorityFilter);
 
@@ -527,7 +463,7 @@ export default function AdminDashboard() {
           {shownAlerts.length > 0 ? (
             <div className="alerts-list">
               {shownAlerts.map((a) => (
-                <AlertCard key={a.id} alert={a} />
+                <AlertCard key={a.id} alert={a} onModal={setModal} />
               ))}
             </div>
           ) : (
@@ -1025,7 +961,7 @@ export default function AdminDashboard() {
 // SUB-COMPONENTS
 // ═══════════════════════════════════════════════════════════════════
 
-function AlertCard({ alert }: { alert: Alert }) {
+function AlertCard({ alert, onModal }: { alert: DerivedAlert; onModal: (name: string) => void }) {
   const body = (
     <>
       <span className="alert-priority-tag">{alert.priority === "week" ? "This week" : alert.priority}</span>
@@ -1056,8 +992,15 @@ function AlertCard({ alert }: { alert: Alert }) {
     );
   }
 
+  // A row that names a modal opens it here; the bell, which has no modals,
+  // follows the same row's `bellHref` instead.
   return (
-    <button type="button" className="alert-card" data-priority={alert.priority} onClick={alert.onAction}>
+    <button
+      type="button"
+      className="alert-card"
+      data-priority={alert.priority}
+      onClick={() => alert.modal && onModal(alert.modal)}
+    >
       {body}
     </button>
   );

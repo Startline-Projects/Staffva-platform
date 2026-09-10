@@ -4,6 +4,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { pageTitle } from "./adminNav";
 import { useAdminDrawer } from "./AdminDrawer";
+import AdminAttentionBell from "./AdminAttentionBell";
 
 /**
  * The admin topbar.
@@ -105,6 +106,8 @@ export default function AdminBar({ isRecruitingManager }: { isRecruitingManager:
           <span className="admin-role-dot" aria-hidden="true" />
           {isRecruitingManager ? "Recruiting Mgr" : "Admin"}
         </span>
+
+        <AdminAttentionBell />
 
         <span className="admin-clock" suppressHydrationWarning>{time}</span>
 
