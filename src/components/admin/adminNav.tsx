@@ -141,6 +141,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Operations",
     rows: [
       { label: "Engagements", href: "/admin/engagements", icon: ICON.engagement },
+      { label: "Job postings", href: "/admin/jobs", icon: ICON.client },
       { label: "Disputes", href: "/admin/disputes", icon: ICON.dispute },
       { label: "Reviews", href: "/admin/reviews", icon: ICON.review },
       { label: "Unanswered Messages", href: "/admin/messages", icon: ICON.message },

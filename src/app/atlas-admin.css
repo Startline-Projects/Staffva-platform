@@ -2614,3 +2614,45 @@
   width: 100%;
   margin-top: 2px;
 }
+
+/* ----- Dispute queue (step 8) ----- */
+.lp-admin .dispute-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  transition: background 0.12s ease;
+}
+
+.lp-admin .dispute-head:hover { background: var(--paper-deep); }
+.lp-admin .dispute-head-main { flex: 1; min-width: 0; }
+.lp-admin .dispute-title { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.lp-admin .dispute-meta {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  margin-top: 3px;
+}
+
+.lp-admin .dispute-amount {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-admin .dispute-body { padding: 0 18px 18px; border-top: 1px solid var(--line-soft); padding-top: 16px; }
+
+@media (max-width: 640px) {
+  .lp-admin .dispute-head { flex-wrap: wrap; }
+}
