@@ -66,7 +66,7 @@ function serviceClient() {
  * before they reach the query string. `%` and `_` are left alone: they are
  * ilike wildcards, which is a reasonable thing for a person to type.
  */
-function safeSearch(q: string): string {
+export function safeSearch(q: string): string {
   return q.replace(/[,()\\"]/g, " ").trim().slice(0, 120);
 }
 

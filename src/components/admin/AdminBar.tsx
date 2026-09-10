@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { pageTitle } from "./adminNav";
 import { useAdminDrawer } from "./AdminDrawer";
 
@@ -20,9 +20,11 @@ function emitDashboardModal(name: string) {
 
 export default function AdminBar({ isRecruitingManager }: { isRecruitingManager: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
   const search = useSearchParams().toString();
   const { open, toggle } = useAdminDrawer();
   const [time, setTime] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Rendered empty on the server and filled in on the client: a clock in the
   // initial HTML is a guaranteed hydration mismatch.
@@ -34,6 +36,23 @@ export default function AdminBar({ isRecruitingManager }: { isRecruitingManager:
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
+
+  // ⌘K / Ctrl-K opens search. The rail already owns "/" for its own filter,
+  // so the two shortcuts do not collide.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      if (searchRef.current) {
+        searchRef.current.focus();
+        searchRef.current.select();
+      } else {
+        router.push("/admin/search");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   const title = pageTitle(pathname, search);
   const isDashboard = pathname === "/admin";
@@ -58,6 +77,20 @@ export default function AdminBar({ isRecruitingManager }: { isRecruitingManager:
           <span className="admin-crumb-page">{title}</span>
         </span>
       </div>
+
+      <form method="get" action="/admin/search" className="topbar-search" role="search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7.5" /><path d="m21 21-4.3-4.3" />
+        </svg>
+        <input
+          ref={searchRef}
+          type="text"
+          name="q"
+          placeholder="Search anyone, anything, or an id…"
+          aria-label="Search everything"
+        />
+        <span className="topbar-search-kbd" aria-hidden="true">⌘K</span>
+      </form>
 
       <div className="admin-topbar-right">
         <span className="restricted-pill" title="Staff-only surface">

@@ -2742,3 +2742,85 @@
 }
 
 .lp-admin .rep-bar-fill.missing { background: var(--line-strong); }
+
+/* ----- Global search (step 14) ----- */
+.lp-admin .search-hit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+
+.lp-admin .search-hit:last-child { border-bottom: 0; }
+.lp-admin .search-hit:hover { background: var(--paper-deep); }
+.lp-admin .search-hit svg { color: var(--ink-mute); flex-shrink: 0; transition: transform 0.15s ease; }
+.lp-admin .search-hit:hover svg { transform: translateX(2px); color: var(--ink); }
+
+.lp-admin .search-hit-main { flex: 1; min-width: 0; }
+.lp-admin .search-hit-title { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.lp-admin .search-hit-sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Topbar search */
+.lp-admin .topbar-search {
+  position: relative;
+  flex: 1;
+  max-width: 380px;
+  min-width: 0;
+}
+
+.lp-admin .topbar-search > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-mute);
+  pointer-events: none;
+}
+
+.lp-admin .topbar-search input {
+  width: 100%;
+  padding: 8px 46px 8px 32px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.lp-admin .topbar-search input::placeholder { color: var(--ink-mute); opacity: 0.75; }
+.lp-admin .topbar-search input:focus { outline: none; border-color: var(--ink); background: #fff; }
+
+.lp-admin .topbar-search-kbd {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  background: var(--cream);
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.lp-admin .topbar-search input:focus ~ .topbar-search-kbd { display: none; }
+
+@media (max-width: 900px) { .lp-admin .topbar-search { display: none; } }
