@@ -181,8 +181,8 @@ export async function loadDirectory(
         // one, the row says what it knows: this is a client account.
         status: { label: "Client", tone: "mute" as const },
         joinedAt: c.created_at,
-        href: "/admin/clients",
-        hrefLabel: "Client list",
+        href: `/admin/clients/${c.id}`,
+        hrefLabel: "Record",
         publicHref: null,
       })),
       total: count ?? 0,
@@ -219,8 +219,10 @@ export async function loadDirectory(
           ? { label: "Active", tone: "ok" as const }
           : { label: "Inactive", tone: "warn" as const },
       joinedAt: p.created_at,
-      href: population === "specialists" ? "/admin/recruiters" : "/admin/staff",
-      hrefLabel: population === "specialists" ? "Specialists" : "Managers & admins",
+      // Specialists and managers both have a record; the staff page is a
+      // roster, so admins-and-managers rows still point at the list.
+      href: population === "specialists" ? `/admin/recruiters/${p.id}` : "/admin/staff",
+      hrefLabel: population === "specialists" ? "Record" : "Managers & admins",
       publicHref: null,
     })),
     total: count ?? 0,

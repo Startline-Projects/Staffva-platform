@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface Client {
@@ -84,7 +85,9 @@ export default function ClientManagementPage() {
               {clients.map((client) => (
                 <tr key={client.id}>
                   <td className="py-3 pr-4">
-                    <p className="font-medium text-text">{client.full_name}</p>
+                    <Link href={`/admin/clients/${client.id}`} className="font-medium text-text hover:underline">
+                      {client.full_name}
+                    </Link>
                     <p className="text-xs text-text/40">{client.email}</p>
                   </td>
                   <td className="py-3 pr-4 text-text/60">

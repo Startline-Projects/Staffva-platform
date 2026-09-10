@@ -137,7 +137,9 @@ export default function AdminRecruitersPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-[#1C1B1A] text-sm">{r.full_name}</p>
+                      <Link href={`/admin/recruiters/${r.id}`} className="font-semibold text-[#1C1B1A] text-sm hover:underline">
+                        {r.full_name}
+                      </Link>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.role === "recruiting_manager" ? "bg-purple-100 text-purple-700" : "bg-orange-50 text-[#FE6E3E]"}`}>
                         {r.role === "recruiting_manager" ? "Manager" : "Talent Specialist"}
                       </span>
