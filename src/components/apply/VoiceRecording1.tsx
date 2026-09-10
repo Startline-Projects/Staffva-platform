@@ -156,74 +156,103 @@ export default function VoiceRecording1({ candidateId, onComplete }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-[#1C1B1A]">
-        Oral Reading Assessment
-      </h1>
-
-      {phase === "ready" && (
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500 leading-relaxed">
-            When you are ready to begin, click <strong>Start Recording</strong>. The passage will appear and your recording will start at the same time.
-          </p>
-
-          <button
-            onClick={startRecording}
-            className="mt-8 w-full rounded-full bg-[#FE6E3E] px-4 py-3.5 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-          >
-            Start Recording
-          </button>
-
-          <p className="mt-4 text-xs text-gray-400">
-            Minimum 15 seconds, maximum 90 seconds. Read clearly at a natural pace.
-          </p>
+      <div className="form-card">
+        <div className="form-card-header">
+          <h1 className="state-title">Oral Reading Assessment</h1>
+          <span className="step-tag">Recording 1 of 2</span>
         </div>
-      )}
 
-      {/* The upload blocks the advance, so the candidate has to be told it is
-          happening — but only once recording has actually stopped. Rendered
-          unconditionally it sat next to a live "Recording…" and a working Stop
-          button, which reads as two contradictory things at once. */}
-      {uploading && phase !== "recording" && (
-        <p className="mt-4 text-center text-sm text-text/60">
-          Saving your recording…
-        </p>
-      )}
-
-      {phase === "recording" && (
-        <div className="mt-8 text-center">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-red-100">
-            <div className="h-4 w-4 animate-pulse rounded-full bg-red-600" />
-          </div>
-          <p className="mt-4 text-lg font-semibold text-[#1C1B1A]">
-            Recording... {formatTime(recordingTime)} / {formatTime(MAX_RECORDING_TIME)}
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            Read the passage clearly at a natural pace.
-          </p>
-          <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <p className="text-sm leading-relaxed text-gray-700">{ORAL_PASSAGE}</p>
-          </div>
-          {recordingTime >= MIN_RECORDING_SECONDS && (
-            <button
-              onClick={stopRecording}
-              className="mt-6 rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors"
-            >
-              Stop Recording
-            </button>
-          )}
-          {recordingTime < MIN_RECORDING_SECONDS && (
-            <p className="mt-4 text-xs text-gray-400">
-              Minimum {MIN_RECORDING_SECONDS} seconds required ({MIN_RECORDING_SECONDS - recordingTime}s remaining)
+        {phase === "ready" && (
+          <div className="state-centered">
+            <p className="state-subtitle">
+              When you are ready to begin, click <strong>Start Recording</strong>. The passage will appear and your recording will start at the same time.
             </p>
-          )}
-        </div>
-      )}
 
-      {error && (
-        <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
+            <button onClick={startRecording} className="btn-submit">
+              <span className="submit-label">Start Recording</span>
+              <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            <p className="helper-row">
+              Minimum 15 seconds, maximum 90 seconds. Read clearly at a natural pace.
+            </p>
+          </div>
+        )}
+
+        {/* The upload blocks the advance, so the candidate has to be told it is
+            happening — but only once recording has actually stopped. Rendered
+            unconditionally it sat next to a live "Recording…" and a working Stop
+            button, which reads as two contradictory things at once. */}
+        {uploading && phase !== "recording" && (
+          <p className="helper-row">
+            Saving your recording…
+          </p>
+        )}
+
+        {phase === "recording" && (
+          <div className="state-centered">
+            {/* The Atlas record affordance: the pulsing ring is the state, not a
+                control — the only control is the Stop button below, and it stays
+                gated on MIN_RECORDING_SECONDS exactly as before. */}
+            <div className="mic-record-area on-paper">
+              <div className="mic-record-btn recording" aria-hidden>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                  <rect x="9" y="9" width="10" height="10" rx="2" fill="currentColor" />
+                </svg>
+              </div>
+              <div className="mic-waveform" aria-hidden>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+
+            <div className="countdown-display">
+              <span className="countdown-time">{formatTime(recordingTime)}</span>
+              <span className="countdown-label">
+                Recording · Max {formatTime(MAX_RECORDING_TIME)}
+              </span>
+            </div>
+
+            <p className="state-subtitle">
+              Read the passage clearly at a natural pace.
+            </p>
+
+            <div className="read-aloud-card text-left">
+              <p>{ORAL_PASSAGE}</p>
+            </div>
+
+            {recordingTime >= MIN_RECORDING_SECONDS && (
+              <button onClick={stopRecording} className="state-action-btn mt-6">
+                Stop Recording
+              </button>
+            )}
+            {recordingTime < MIN_RECORDING_SECONDS && (
+              <p className="attempts-hint">
+                Minimum {MIN_RECORDING_SECONDS} seconds required ({MIN_RECORDING_SECONDS - recordingTime}s remaining)
+              </p>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="form-alert visible mt-6">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+              <circle cx="9" cy="9" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M9 5.25v4.5M9 12.375v.375" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <div>{error}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

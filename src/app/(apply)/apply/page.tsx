@@ -353,24 +353,36 @@ export default function ApplyPage() {
 
   if (step === "loading") {
     return (
-      <main className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-background">
-        <p className="text-text/60">Loading your application...</p>
+      <main className="flex min-h-[50vh] items-center justify-center">
+        <p className="state-subtitle" style={{ marginBottom: 0 }}>Loading your application...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-background">
+    <main>
       {/* Progress bar */}
       {step !== "complete" && step !== "test_result" && step !== "anticheat_lockout" && (
-        <div className="mx-auto max-w-3xl px-6 pt-6">
-          <div className="flex items-center gap-1">
-            {/* Three steps, not four. "English Test" sat in the middle of
-                this bar from when it was required — now that it is optional
-                and paid, showing it here told every applicant they had an
-                unfinished mandatory stage they had never been asked to do,
-                and made the bar disagree with the flow they were actually
-                walking. The recordings are the second step now. */}
+        <div className="mx-auto max-w-3xl">
+          {/* Atlas pipeline tracker. The label type (mono, uppercase, ink-mute
+              with the reached step in ink) comes from .pipeline-step-indicator,
+              the same indicator verify-email, /verify-id and /assessment use, so
+              the flow reads as one product; the rail states borrow the
+              dashboard pipeline's own three colours — lime for cleared, ink for
+              where you are, hairline for what is still ahead. The legacy bar
+              painted these in --color-primary, the red that Atlas reserves for
+              genuine errors.
+
+              Three steps, not four. "English Test" sat in the middle of
+              this bar from when it was required — now that it is optional
+              and paid, showing it here told every applicant they had an
+              unfinished mandatory stage they had never been asked to do,
+              and made the bar disagree with the flow they were actually
+              walking. The recordings are the second step now. */}
+          <div
+            className="pipeline-step-indicator"
+            style={{ display: "flex", width: "100%", gap: "10px", alignItems: "flex-start" }}
+          >
             {["application_form", "voice_recording_1", "profile_builder"].map((s, i) => {
               const stepOrder = ["application_form", "voice_recording_1", "voice_recording_2", "profile_builder"];
               const currentIndex = stepOrder.indexOf(step);
@@ -380,10 +392,19 @@ export default function ApplyPage() {
                 || (s === "voice_recording_1" && step === "voice_recording_2");
               return (
                 <div key={s} className="flex-1">
-                  <div className={`h-1.5 rounded-full ${isComplete ? "bg-primary" : isCurrent ? "bg-primary/50" : "bg-gray-200"}`} />
-                  <p className="mt-1 text-[10px] text-text/40 text-center">
+                  <div
+                    className="h-[3px] rounded-full"
+                    style={{
+                      background: isComplete
+                        ? "var(--lime-deep)"
+                        : isCurrent
+                          ? "var(--ink)"
+                          : "var(--line)",
+                    }}
+                  />
+                  <span className={`mt-2 block text-center${isComplete || isCurrent ? " step-num" : ""}`}>
                     {["Application", "Recordings", "Profile"][i]}
-                  </p>
+                  </span>
                 </div>
               );
             })}
@@ -495,26 +516,34 @@ function AnticheatlockoutScreen({ lockoutUntil }: { lockoutUntil: string }) {
   });
 
   return (
-    <div className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-background px-6">
-      <div className="mx-auto max-w-md text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-          <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <div className="flex min-h-[60vh] items-center justify-center">
+      {/* A lockout IS a genuine error state, so this is the one place on the
+          flow that keeps a red accent — but through Atlas's own --danger
+          tokens (.state-icon-xl.danger) rather than Tailwind's red-100/600.
+          The "N days" figure moves into .countdown-display, which is how the
+          rest of the Atlas surface renders a wait. */}
+      <div className="signin-layout state-centered" style={{ maxWidth: "440px" }}>
+        <div className="state-icon-xl danger">
+          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-text">Your assessment is currently paused</h1>
-        <p className="mt-4 text-sm leading-relaxed text-text/60">
+        <h1 className="state-title">
+          Your assessment is currently <span className="serif-italic">paused</span>
+        </h1>
+        <p className="state-subtitle">
           You left the test screen during your English assessment, which is not permitted.
         </p>
-        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-6 py-5">
-          <p className="text-sm text-text/70">
-            You may return on <strong className="text-text">{formattedDate}</strong>.
-            When you return your assessment will restart from the beginning.
-          </p>
-          <p className="mt-3 text-2xl font-bold text-red-600">
-            {daysRemaining} {daysRemaining === 1 ? "day" : "days"} remaining
-          </p>
+        <div className="countdown-display">
+          <span className="countdown-time">{daysRemaining}</span>
+          <span className="countdown-label">
+            {daysRemaining === 1 ? "day" : "days"} remaining
+          </span>
         </div>
+        <p className="state-fine-print">
+          You may return on <strong>{formattedDate}</strong>.
+          When you return your assessment will restart from the beginning.
+        </p>
       </div>
     </div>
   );

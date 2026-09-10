@@ -410,13 +410,13 @@ function WorkEntryTagInput({ placeholder, onAdd, disabled }: {
             commit();
           }
         }}
-        className="block w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+        className="input disabled:opacity-50"
       />
       <button
         type="button"
         onClick={commit}
         disabled={disabled || !value.trim()}
-        className="shrink-0 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary"
+        className="cat-chip shrink-0 disabled:opacity-30"
       >
         Add
       </button>
@@ -1195,35 +1195,37 @@ export default function ProfileBuilder({
         touchedRef.current = true;
       }}
     >
-      <h1 className="text-2xl font-bold text-text">Build Your Profile</h1>
-      <p className="mt-1 text-sm text-text/60">
+      <h1 className="display text-[34px] text-[#0E0E0C]">
+        Build Your <span className="serif-italic">Profile</span>
+      </h1>
+      <p className="mt-3 text-sm text-[#2B2A26]">
         Complete your profile so clients can find and hire you.
       </p>
 
       {/* Say so. Fields filling themselves with no explanation reads as a bug,
           and a candidate who does not know their work was kept will redo it. */}
       {draftRestored && (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-          <p className="text-sm text-text/70">
+        <div className="ahead-card mt-5">
+          <p className="text-sm text-[#2B2A26]">
             We picked up where you left off. Everything you had filled in is still here.
           </p>
         </div>
       )}
 
       {/* Step indicators */}
-      <div className="mt-8 flex items-center gap-1">
+      <div className="mt-8 flex items-center gap-1.5">
         {stepLabels.map((label, i) => (
           <div key={label} className="flex-1">
             <div
-              className={`h-2 rounded-full transition-colors ${
-                i + 1 <= currentStep ? "bg-primary" : "bg-gray-200"
+              className={`h-1.5 rounded-full transition-colors ${
+                i + 1 <= currentStep ? "bg-[#D6F24D]" : "bg-[#E4DDCE]"
               }`}
             />
             <p
-              className={`mt-1 text-xs ${
+              className={`mt-2 text-[10px] uppercase tracking-[0.1em] ${
                 i + 1 === currentStep
-                  ? "font-semibold text-primary"
-                  : "text-text/40"
+                  ? "font-semibold text-[#0E0E0C]"
+                  : "text-[#6B6860]"
               }`}
             >
               {label}
@@ -1233,7 +1235,7 @@ export default function ProfileBuilder({
       </div>
 
       {error && (
-        <p className="mt-4 text-sm font-medium text-red-600">{error}</p>
+        <p className="form-alert visible mt-6">{error}</p>
       )}
 
       <div className="mt-8">
@@ -1241,16 +1243,16 @@ export default function ProfileBuilder({
         {currentStep === 1 && (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-text">
-                Profile Photo <span className="text-red-500">*</span>
+              <label className="pb-section-label block text-sm font-semibold text-text">
+                Profile Photo <span className="req">*</span>
               </label>
-              <p className="text-xs text-text/50">
+              <p className="field-hint-inline">
                 Min 200×200px. JPG or PNG. Max 5MB. Will be cropped to a square.
               </p>
-              <div className="mt-3 flex items-center gap-6">
+              <div className="mt-4 flex items-center gap-6">
                 <div
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition-colors hover:border-primary"
+                  className="flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[#D9D2C3] bg-[#F3EEE3] transition-colors hover:border-[#0E0E0C]"
                 >
                   {photoPreview ? (
                     <img
@@ -1260,11 +1262,11 @@ export default function ProfileBuilder({
                     />
                   ) : (
                     <div className="text-center">
-                      <svg className="mx-auto h-8 w-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <svg className="mx-auto h-8 w-8 text-[#B9B2A2]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
                       </svg>
-                      <p className="mt-1 text-[10px] text-gray-400">Upload</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#6B6860]">Upload</p>
                     </div>
                   )}
                 </div>
@@ -1272,12 +1274,12 @@ export default function ProfileBuilder({
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-text hover:bg-gray-50"
+                    className="state-action-btn"
                   >
                     {photoPreview ? "Change Photo" : "Upload Your Photo"}
                   </button>
                   {photoPreview && (
-                    <p className="mt-1 text-xs text-green-600">Photo ready — cropped to square</p>
+                    <p className="mt-2 text-xs text-[#2E7D54]">Photo ready — cropped to square</p>
                   )}
                 </div>
                 <input
@@ -1291,11 +1293,11 @@ export default function ProfileBuilder({
 
               {/* Cropper modal */}
               {showCropper && rawImageUrl && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={cancelCrop}>
-                  <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-lg font-semibold text-text mb-2">Crop Your Photo</h3>
-                    <p className="text-xs text-text/50 mb-4">Drag the image to position it within the circle. Use the slider to zoom.</p>
-                    <div className="flex items-center justify-center rounded-lg bg-gray-900 p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0E0E0C]/60 p-4" onClick={cancelCrop}>
+                  <div className="form-card w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="display text-[22px] text-[#0E0E0C] mb-2">Crop Your Photo</h3>
+                    <p className="field-hint-inline mb-4">Drag the image to position it within the circle. Use the slider to zoom.</p>
+                    <div className="flex items-center justify-center rounded-[10px] bg-[#0E0E0C] p-4">
                       <div
                         className="relative overflow-hidden select-none"
                         style={{ width: 280, height: 280, cursor: isDragging ? "grabbing" : "grab" }}
@@ -1331,7 +1333,7 @@ export default function ProfileBuilder({
                       </div>
                     </div>
                     <div className="mt-4 flex items-center gap-3">
-                      <svg className="h-4 w-4 text-text/40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <svg className="h-4 w-4 text-[#6B6860]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
                       </svg>
                       <input
@@ -1343,17 +1345,19 @@ export default function ProfileBuilder({
                         onChange={(e) => setCropZoom(parseFloat(e.target.value))}
                         className="flex-1 accent-primary"
                       />
-                      <svg className="h-4 w-4 text-text/40" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <svg className="h-4 w-4 text-[#6B6860]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
                       </svg>
                     </div>
-                    <div className="mt-4 flex gap-2 justify-end">
-                      <button onClick={cancelCrop} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-text hover:bg-gray-50">
+                    <div className="mt-5 flex items-center gap-3 justify-end">
+                      <button onClick={cancelCrop} className="state-action-btn">
                         Cancel
                       </button>
-                      <button onClick={applyCrop} className="rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                        Crop & Save
-                      </button>
+                      <div className="w-40">
+                        <button onClick={applyCrop} className="btn-submit">
+                          Crop & Save
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1361,13 +1365,13 @@ export default function ProfileBuilder({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text">
-                Display Name
+              <label className="field-label">
+                <span>Display Name</span>
               </label>
-              <p className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-text/70">
+              <p className="input">
                 {displayName}
               </p>
-              <p className="mt-1 text-xs text-text/40">
+              <p className="field-hint-inline">
                 Auto-generated for privacy. Clients see first name + last initial.
               </p>
             </div>
@@ -1376,10 +1380,11 @@ export default function ProfileBuilder({
                 title. role_category stays the taxonomy value that drives
                 routing and the Interview 2 task; this is what the candidate
                 calls themselves, shown on the profile. */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="roleTitle" className="block text-sm font-medium text-text">
-                  Your job title <span className="text-red-500">*</span>
+            <div className="form-row split">
+              <div className="form-col">
+                <label htmlFor="roleTitle" className="field-label">
+                  <span>Your job title</span>
+                  <span className="req">*</span>
                 </label>
                 <input
                   id="roleTitle"
@@ -1388,17 +1393,17 @@ export default function ProfileBuilder({
                   onChange={(e) => setRoleTitle(e.target.value)}
                   placeholder="e.g. Executive Assistant"
                   maxLength={80}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="input"
                 />
-                <p className="mt-1 text-xs text-text/40">
+                <p className="field-hint-inline">
                   How you&apos;d describe yourself. We match you to work as{" "}
                   {/^[AEIOU]/i.test(candidateData.role_category || "") ? "an" : "a"}{" "}
                   {candidateData.role_category}.
                 </p>
               </div>
-              <div>
-                <label htmlFor="city" className="block text-sm font-medium text-text">
-                  City
+              <div className="form-col">
+                <label htmlFor="city" className="field-label">
+                  <span>City</span>
                 </label>
                 <input
                   id="city"
@@ -1407,9 +1412,9 @@ export default function ProfileBuilder({
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="e.g. Cebu City"
                   maxLength={80}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="input"
                 />
-                <p className="mt-1 text-xs text-text/40">
+                <p className="field-hint-inline">
                   Optional. Clients see {candidateData.country || "your country"}; your city
                   helps us match you on time-zone overlap.
                 </p>
@@ -1417,8 +1422,9 @@ export default function ProfileBuilder({
             </div>
 
             <div>
-              <label htmlFor="tagline" className="block text-sm font-medium text-text">
-                Tagline <span className="text-red-500">*</span>
+              <label htmlFor="tagline" className="field-label">
+                <span>Tagline</span>
+                <span className="req">*</span>
               </label>
               <input
                 id="tagline"
@@ -1427,14 +1433,15 @@ export default function ProfileBuilder({
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
                 placeholder="e.g. Paralegal with 5 years US client experience"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                className="input"
               />
-              <p className="mt-1 text-xs text-text/40">{tagline.length}/80</p>
+              <p className="field-hint-inline">{tagline.length}/80</p>
             </div>
 
             <div>
-              <label htmlFor="rate" className="block text-sm font-medium text-text">
-                Hourly Rate (USD) <span className="text-red-500">*</span>
+              <label htmlFor="rate" className="field-label">
+                <span>Hourly Rate (USD)</span>
+                <span className="req">*</span>
               </label>
               <input
                 id="rate"
@@ -1442,9 +1449,9 @@ export default function ProfileBuilder({
                 min={3}
                 value={hourlyRate || ""}
                 onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                className="input"
               />
-              <p className="mt-1 text-xs text-gray-400">Minimum $3/hr. Clients see this rate on your profile.</p>
+              <p className="field-hint-inline">Minimum $3/hr. Clients see this rate on your profile.</p>
             </div>
           </div>
         )}
@@ -1453,8 +1460,9 @@ export default function ProfileBuilder({
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <label htmlFor="bio" className="block text-sm font-medium text-text">
-                About You <span className="text-red-500">*</span>
+              <label htmlFor="bio" className="field-label">
+                <span>About You</span>
+                <span className="req">*</span>
               </label>
               <textarea
                 id="bio"
@@ -1463,9 +1471,9 @@ export default function ProfileBuilder({
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell clients about your background and what you bring to the role."
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                className="input resize-y"
               />
-              <p className="mt-1 text-xs text-text/40">{bio.length}/300</p>
+              <p className="field-hint-inline">{bio.length}/300</p>
             </div>
           </div>
         )}
@@ -1477,13 +1485,13 @@ export default function ProfileBuilder({
                 facet reads candidates.skills and this builder never wrote it —
                 roleSkills was computed and then never rendered. */}
             <div>
-              <h3 className="text-sm font-medium text-text">
-                Skills <span className="text-red-500">*</span>
+              <h3 className="pb-section-label text-sm font-semibold text-text">
+                Skills <span className="req">*</span>
               </h3>
-              <p className="text-xs text-text/50">
+              <p className="field-hint-inline">
                 Pick the ones you&apos;d be comfortable being hired for. Clients filter on these.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="cat-chips mt-4">
                 {roleSkills.map((skill) => {
                   const on = selectedSkills.includes(skill);
                   return (
@@ -1498,11 +1506,7 @@ export default function ProfileBuilder({
                             : [...selectedSkills, skill]
                         )
                       }
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        on
-                          ? "border-primary bg-primary text-white"
-                          : "border-gray-300 bg-white text-text/70 hover:border-primary"
-                      }`}
+                      className={`cat-chip ${on ? "selected" : ""}`}
                     >
                       {skill}
                     </button>
@@ -1511,17 +1515,17 @@ export default function ProfileBuilder({
               </div>
               {roleSkills.length === 0 && (
                 <div className="mt-2">
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="cat-chips mb-3">
                     {selectedSkills.map((sk) => (
                       <span
                         key={sk}
-                        className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
+                        className="cat-chip selected inline-flex items-center gap-1.5"
                       >
                         {sk}
                         <button
                           type="button"
                           onClick={() => setSelectedSkills(selectedSkills.filter((x) => x !== sk))}
-                          className="text-green-500 hover:text-green-700"
+                          className="opacity-60 hover:opacity-100"
                         >
                           ×
                         </button>
@@ -1542,21 +1546,21 @@ export default function ProfileBuilder({
                   />
                 </div>
               )}
-              <p className="mt-2 text-xs text-text/40">
+              <p className="field-hint-inline mt-3">
                 {selectedSkills.length} selected. Clients filter by individual skills, so
                 each one you add is another search you can turn up in.
               </p>
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-text">
-                Tools & Software <span className="text-red-500">*</span>
+              <h3 className="pb-section-label text-sm font-semibold text-text">
+                Tools & Software <span className="req">*</span>
               </h3>
-              <p className="text-xs text-text/50">
+              <p className="field-hint-inline">
                 Select up to 8 tools you actively use. ({selectedTools.length}/8 selected)
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="cat-chips">
               {roleTools.map((tool) => {
                 const selected = selectedTools.includes(tool);
                 return (
@@ -1564,11 +1568,7 @@ export default function ProfileBuilder({
                     key={tool}
                     type="button"
                     onClick={() => toggleTool(tool)}
-                    className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                      selected
-                        ? "border-primary bg-primary text-white"
-                        : "border-gray-300 bg-white text-text hover:border-primary hover:text-primary"
-                    } ${
+                    className={`cat-chip ${selected ? "selected" : ""} ${
                       !selected && selectedTools.length >= 8
                         ? "cursor-not-allowed opacity-40"
                         : ""
@@ -1586,25 +1586,25 @@ export default function ProfileBuilder({
         {currentStep === 4 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-medium text-text">
-                Work Experience <span className="text-red-500">*</span>
+              <h3 className="pb-section-label text-sm font-semibold text-text">
+                Work Experience <span className="req">*</span>
               </h3>
-              <p className="text-xs text-text/50">Add up to 3 entries.</p>
+              <p className="field-hint-inline">Add up to 3 entries.</p>
             </div>
             {workEntries.map((entry, i) => (
               <div
                 key={i}
-                className="rounded-lg border border-gray-200 bg-white p-5 space-y-4"
+                className="form-card space-y-4"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-text">
+                  <span className="eyebrow">
                     Entry {i + 1}
                   </span>
                   {workEntries.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeWorkEntry(i)}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="linklike text-xs"
                     >
                       Remove
                     </button>
@@ -1619,9 +1619,9 @@ export default function ProfileBuilder({
                     onChange={(e) =>
                       updateWorkEntry(i, "company_name", e.target.value)
                     }
-                    className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                    className="input"
                   />
-                  <label className="block text-xs text-text/50 mt-1">Company / Business Name <span className="text-red-500">*</span></label>
+                  <label className="pb-section-label field-hint-inline block">Company / Business Name <span className="req">*</span></label>
                 </div>
                 <input
                   type="text"
@@ -1630,7 +1630,7 @@ export default function ProfileBuilder({
                   onChange={(e) =>
                     updateWorkEntry(i, "role_title", e.target.value)
                   }
-                  className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="input"
                 />
                 <div className="relative">
                   <select
@@ -1643,16 +1643,13 @@ export default function ProfileBuilder({
                         return updated;
                       });
                     }}
-                    className="relative z-10 block w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-3 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="select relative z-10"
                   >
                     <option value="">Select industry</option>
                     {INDUSTRIES.map((ind) => (
                       <option key={ind} value={ind}>{ind}</option>
                     ))}
                   </select>
-                  <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                  </svg>
                 </div>
                 {entry.industry === "Other" && (
                   <input
@@ -1661,7 +1658,7 @@ export default function ProfileBuilder({
                     onChange={(e) => updateWorkEntry(i, "industry_other", e.target.value)}
                     placeholder="Type your industry"
                     maxLength={100}
-                    className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                    className="input"
                   />
                 )}
                 {/* Start Date */}
@@ -1674,7 +1671,7 @@ export default function ProfileBuilder({
                         const year = entry.start_date?.split("-")[0] || "";
                         updateWorkEntry(i, "start_date", year ? `${year}-${e.target.value}` : `-${e.target.value}`);
                       }}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="input"
                     >
                       <option value="">Month</option>
                       {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, idx) => (
@@ -1687,7 +1684,7 @@ export default function ProfileBuilder({
                         const month = entry.start_date?.split("-")[1] || "01";
                         updateWorkEntry(i, "start_date", `${e.target.value}-${month}`);
                       }}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="input"
                     >
                       <option value="">Year</option>
                       {Array.from({ length: new Date().getFullYear() - 1969 }, (_, j) => new Date().getFullYear() - j).map((y) => (
@@ -1717,7 +1714,7 @@ export default function ProfileBuilder({
                           const year = entry.end_date?.split("-")[0] || "";
                           updateWorkEntry(i, "end_date", year ? `${year}-${e.target.value}` : `-${e.target.value}`);
                         }}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                        className="input"
                       >
                         <option value="">Month</option>
                         {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, idx) => (
@@ -1730,7 +1727,7 @@ export default function ProfileBuilder({
                           const month = entry.end_date?.split("-")[1] || "01";
                           updateWorkEntry(i, "end_date", `${e.target.value}-${month}`);
                         }}
-                        className="block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                        className="input"
                       >
                         <option value="">Year</option>
                         {Array.from({ length: new Date().getFullYear() - 1969 }, (_, j) => new Date().getFullYear() - j).map((y) => (
@@ -1746,7 +1743,7 @@ export default function ProfileBuilder({
                   placeholder="One sentence description (max 120 characters)"
                   value={entry.description}
                   onChange={(e) => updateWorkEntry(i, "description", e.target.value)}
-                  className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="input"
                 />
                 <p className="text-right text-xs text-text/40">{entry.description.length}/120</p>
 
@@ -1755,7 +1752,7 @@ export default function ProfileBuilder({
                   <label className="block text-xs font-medium text-text/70 mb-1">Tools used in this role (up to 5)</label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {entry.tools_used.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                      <span key={t} className="cat-chip selected">
                         {t}
                         <button type="button" onClick={() => removeWorkEntryTag(i, "tools_used", t)} className="text-primary/60 hover:text-primary">×</button>
                       </span>
@@ -1800,7 +1797,7 @@ export default function ProfileBuilder({
               <button
                 type="button"
                 onClick={addWorkEntry}
-                className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-primary hover:text-primary transition-colors"
+                className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
               >
                 + Add Work Experience
               </button>
@@ -1828,7 +1825,7 @@ export default function ProfileBuilder({
                   setResumeFile(file || null);
                   setError("");
                 }}
-                className="mt-2 block w-full text-sm text-text/70 file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
+                className="mt-2 block w-full text-sm text-text/70 file:mr-4 file:rounded-lg file:border-0 file:bg-[rgba(14,14,12,.06)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ink)] hover:file:bg-[rgba(14,14,12,.1)]"
               />
               {resumeFile && (
                 <p className="mt-1 text-xs text-green-600">
@@ -1875,7 +1872,7 @@ export default function ProfileBuilder({
                         };
                         setPortfolioItems(updated);
                       }}
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="input"
                     />
                   </div>
                   <button
@@ -1901,7 +1898,7 @@ export default function ProfileBuilder({
                 <button
                   type="button"
                   onClick={addPortfolioItem}
-                  className="mt-3 w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-primary hover:text-primary transition-colors"
+                  className="mt-3 w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
                 >
                   + Add Portfolio Item &mdash; choose a PDF or image
                 </button>
@@ -1916,7 +1913,7 @@ export default function ProfileBuilder({
                 id="payout"
                 value={payoutMethod}
                 onChange={(e) => setPayoutMethod(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                className="input"
               >
                 <option value="">Select payout method</option>
                 <option value="payoneer">Payoneer</option>
@@ -1946,7 +1943,7 @@ export default function ProfileBuilder({
                   max={60}
                   value={hoursPerWeek}
                   onChange={(e) => setHoursPerWeek(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="input"
                 />
                 <p className="mt-1 text-xs text-text/40">
                   What you&apos;re looking for, not what you&apos;re already booked for.
@@ -1963,7 +1960,7 @@ export default function ProfileBuilder({
                   onChange={(e) => setWorkingHours(e.target.value)}
                   placeholder="e.g. 8am-1pm PHT, flexible for US mornings"
                   maxLength={120}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="input"
                 />
                 <p className="mt-1 text-xs text-text/40">
                   Most clients are in US time zones. Say what overlap you can offer.
@@ -2022,7 +2019,7 @@ export default function ProfileBuilder({
                   value={availabilityDate}
                   onChange={(e) => setAvailabilityDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="ml-12 w-auto rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="input"
                 />
               )}
 
@@ -2084,7 +2081,7 @@ export default function ProfileBuilder({
                       type="text"
                       placeholder="School or university"
                       aria-label={`School or university, education ${i + 1}`}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="input"
                       value={e.school}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2096,7 +2093,7 @@ export default function ProfileBuilder({
                       type="text"
                       placeholder="Qualification"
                       aria-label={`Qualification, education ${i + 1}`}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="input"
                       value={e.qualification}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2108,7 +2105,7 @@ export default function ProfileBuilder({
                       type="text"
                       placeholder="Field of study"
                       aria-label={`Field of study, education ${i + 1}`}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="input"
                       value={e.field}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2121,7 +2118,7 @@ export default function ProfileBuilder({
                       placeholder="Year finished"
                       aria-label={`Year finished, education ${i + 1}`}
                       inputMode="numeric"
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="input"
                       value={e.year}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2141,7 +2138,7 @@ export default function ProfileBuilder({
                       { school: "", qualification: "", field: "", year: "" },
                     ])
                   }
-                  className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-primary hover:text-primary transition-colors"
+                  className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
                 >
                   + Add education
                 </button>
@@ -2216,7 +2213,7 @@ export default function ProfileBuilder({
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-primary transition-all"
+                  className="h-full rounded-full bg-[var(--lime)] transition-all"
                   style={{ width: `${completeness.percent}%` }}
                 />
               </div>
@@ -2256,7 +2253,7 @@ export default function ProfileBuilder({
                   type="checkbox"
                   checked={interviewConsent}
                   onChange={(e) => setInterviewConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#FE6E3E] focus:ring-[#FE6E3E]"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--ink)] focus:ring-[var(--ink)]"
                 />
                 <div>
                   <span className="text-sm text-[#1C1B1A]/70 leading-relaxed">
@@ -2278,7 +2275,7 @@ export default function ProfileBuilder({
           <button
             type="button"
             onClick={prevStep}
-            className="rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+            className="state-action-btn"
           >
             Back
           </button>
@@ -2290,7 +2287,7 @@ export default function ProfileBuilder({
           <button
             type="button"
             onClick={nextStep}
-            className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
+            className="btn-submit"
           >
             Continue
           </button>
@@ -2302,7 +2299,7 @@ export default function ProfileBuilder({
             aria-describedby={
               currentStep === LAST_STEP && !interviewConsent ? "submit-blocked" : undefined
             }
-            className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+            className="btn-submit"
           >
             {saving ? "Submitting..." : "Submit Profile"}
           </button>

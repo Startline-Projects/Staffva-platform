@@ -5,7 +5,7 @@ import { COUNTRIES } from "@/lib/atlasCountries";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
 import { createClient } from "@/lib/supabase/client";
-import type { CandidateData } from "@/app/(main)/apply/page";
+import type { CandidateData } from "@/app/(apply)/apply/page";
 
 // Countries come from the shared list, not a second one kept here.
 //
@@ -181,54 +181,41 @@ function SearchableRoleSelect({ value, onChange }: { value: string; onChange: (v
   }, [highlightIndex]);
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* Trigger button */}
+    <div ref={containerRef} className={`country-wrap ${open ? "open" : ""}`}>
+      {/* Trigger button — the Atlas picker trigger; the chevron is ::after and
+          rotates from .country-wrap.open, so there is no inline icon here. */}
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`mt-1 flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm text-left focus:outline-none focus:ring-1 ${
-          open ? "border-primary ring-1 ring-primary" : "border-gray-300"
-        } ${value ? "text-text" : "text-gray-400"}`}
+        className={`country-trigger ${value ? "" : "empty"}`}
       >
-        <span className="truncate">{value || "Select your role"}</span>
-        <svg className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-        </svg>
+        <span className="country-name">{value || "Select your role"}</span>
       </button>
 
-      {/* Backdrop for mobile */}
-      {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
+      {/* Backdrop for mobile — sits UNDER the menu (z-30) now that the menu is
+          the Atlas anchored dropdown rather than a z-50 bottom sheet. */}
+      {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
 
-      {/* Dropdown / bottom sheet */}
+      {/* Dropdown */}
       {open && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-white shadow-2xl lg:absolute lg:top-full lg:bottom-auto lg:left-0 lg:right-0 lg:mt-1 lg:rounded-xl lg:border lg:border-gray-200"
-          style={{ maxHeight: "min(85vh, 85dvh)", height: "auto" }}
-          onKeyDown={handleKeyDown}
-        >
-          {/* Mobile drag handle — pinned */}
-          <div className="flex justify-center pt-3 pb-1 lg:hidden shrink-0">
-            <div className="h-1 w-10 rounded-full bg-gray-300" />
-          </div>
-
+        <div className="country-menu" onKeyDown={handleKeyDown}>
           {/* Search input — pinned */}
-          <div className="px-3 pb-2 pt-1 shrink-0">
+          <div className="country-search-wrap">
             <input
               ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search roles..."
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-text placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="country-search"
             />
           </div>
 
-          {/* Role list — only scrollable element */}
-          <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain px-1 pb-3 lg:max-h-[260px]">
+          {/* Role list — only scrollable element. One child element per
+              filtered item: the highlight effect indexes listRef children. */}
+          <div ref={listRef} className="country-list">
             {filtered.length === 0 ? (
-              <div className="px-4 py-6 text-center">
-                <p className="text-sm text-gray-400">No roles found — try a different search.</p>
-              </div>
+              <div className="country-empty">No roles found — try a different search.</div>
             ) : (
               (() => {
                 let currentGroup = "";
@@ -238,13 +225,13 @@ function SearchableRoleSelect({ value, onChange }: { value: string; onChange: (v
                   return (
                     <div key={`${item.group}-${item.role}`}>
                       {showGroup && (
-                        <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{item.group}</p>
+                        <p className="eyebrow px-3 pt-3 pb-1">{item.group}</p>
                       )}
                       <button
                         type="button"
                         onClick={() => { onChange(item.role); setOpen(false); setSearch(""); }}
-                        className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                          i === highlightIndex ? "bg-primary/10 text-primary" : value === item.role ? "bg-gray-100 text-text font-medium" : "text-text hover:bg-gray-50"
+                        className={`country-option w-full ${
+                          i === highlightIndex ? "focused" : value === item.role ? "selected" : ""
                         }`}
                       >
                         {item.role}
@@ -277,11 +264,11 @@ function TagInput({ tags, setTags, max, placeholder, suggestions }: {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5 mb-2">
+      <div className="cat-chips mb-2">
         {tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+          <span key={tag} className="cat-chip selected">
             {tag}
-            <button type="button" onClick={() => setTags(tags.filter((t) => t !== tag))} className="text-primary/60 hover:text-primary">×</button>
+            <button type="button" onClick={() => setTags(tags.filter((t) => t !== tag))} className="ml-2 opacity-60 hover:opacity-100">×</button>
           </span>
         ))}
       </div>
@@ -304,53 +291,47 @@ function TagInput({ tags, setTags, max, placeholder, suggestions }: {
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(input); } if (e.key === "Backspace" && !input && tags.length) setTags(tags.slice(0, -1)); }}
           placeholder={tags.length >= max ? `Max ${max} reached` : placeholder}
           disabled={tags.length >= max}
-          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
+          className="input"
         />
         <button
           type="button"
           onClick={() => addTag(input)}
           disabled={!input.trim() || tags.length >= max}
-          className="shrink-0 rounded-lg border border-primary px-4 py-3 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary"
+          className="state-action-btn shrink-0 disabled:opacity-30"
         >
           Add
         </button>
       </div>
       {suggestions && suggestions.length > 0 && tags.length < max && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="cat-chips mt-2">
           {suggestions.filter((s) => !tags.includes(s)).slice(0, 6).map((s) => (
-            <button key={s} type="button" onClick={() => addTag(s)} className="rounded-full border border-gray-200 px-2 py-0.5 text-[10px] text-text-muted hover:border-primary hover:text-primary transition-colors">
+            <button key={s} type="button" onClick={() => addTag(s)} className="cat-chip">
               + {s}
             </button>
           ))}
         </div>
       )}
-      <p className="mt-1 text-xs text-gray-400">{tags.length}/{max}</p>
+      <p className={`cat-chip-count ${tags.length > 0 ? "has-selection" : ""}`}>{tags.length}/{max}</p>
     </div>
   );
 }
 
 // ─── Progress Bar ───
+// The numbered circles and the coloured rail were the legacy indicator. Atlas
+// says the same thing in the mono pipeline line the rest of the flow already
+// uses (verify-id, verify-phone, assessment): the step you are on and the ones
+// behind you in ink, the ones ahead muted, dots between.
+const STAGE_LABELS = ["Get Started", "Your Profile", "Rate & Availability"];
+
 function ProgressBar({ current, total }: { current: number; total: number }) {
   return (
-    <div className="mb-8">
-      <div className="flex justify-between mb-2">
-        {Array.from({ length: total }).map((_, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-              i < current ? "bg-primary text-white" : i === current ? "bg-primary/20 text-primary border-2 border-primary" : "bg-gray-100 text-gray-400"
-            }`}>
-              {i < current ? "✓" : i + 1}
-            </div>
-            <span className={`text-xs hidden sm:inline ${i <= current ? "text-text font-medium" : "text-gray-400"}`}>
-              {["Get Started", "Your Profile", "Rate & Availability"][i]}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-gray-100">
-        <div className="h-1.5 rounded-full bg-primary transition-all duration-500" style={{ width: `${((current) / total) * 100}%` }} />
-      </div>
-    </div>
+    <span className="pipeline-step-indicator flex-wrap justify-center">
+      <span className="step-num">Step {current + 1} of {total}</span>
+      {STAGE_LABELS.flatMap((label, i) => [
+        <span key={`sep-${i}`} className="pipe-sep" aria-hidden />,
+        <span key={label} className={i <= current ? "step-num" : undefined}>{label}</span>,
+      ])}
+    </span>
   );
 }
 
@@ -360,6 +341,23 @@ interface Props {
   initialStage?: number;
   existingCandidate?: CandidateData | null;
 }
+
+
+/* The two icons the Atlas form idiom expects, matching src/app/signup/candidate
+   verbatim: .form-alert leads with a warning glyph, and .btn-submit carries an
+   .arrow that the stylesheet slides on hover. */
+const ALERT_ICON = (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <circle cx="9" cy="9" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M9 5.25v4.5M9 12.375v.375" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const SUBMIT_ARROW = (
+  <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function ApplicationForm({ onComplete, initialStage = 0, existingCandidate }: Props) {
   const [stage, setStage] = useState(initialStage >= 1 && initialStage < 3 ? initialStage : 0);
@@ -666,64 +664,94 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
   // ═══ STAGE 1: GET STARTED ═══
   if (stage === 0) {
     return (
-      <div className="mx-auto max-w-xl px-6 py-8">
-        <ProgressBar current={0} total={3} />
-        <h1 className="text-2xl font-bold text-text">Get Started</h1>
-        <p className="mt-1 text-sm text-text/60">Tell us who you are. This takes under a minute.</p>
+      <div className="page page-narrow">
+        <div className="signin-layout" style={{ maxWidth: "560px" }}>
+          <header className="signin-header">
+            <ProgressBar current={0} total={3} />
+            <h1 className="display">Get <span className="serif-italic">Started</span></h1>
+            <p className="lead">Tell us who you are. This takes under a minute.</p>
+          </header>
 
-        <form onSubmit={handleStage1} className="mt-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text">First Name <span className="text-red-500">*</span></label>
-              <input required maxLength={50} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Maria" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text">Last Name <span className="text-red-500">*</span></label>
-              <input required maxLength={50} value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. Santos" />
-            </div>
+          <div className="form-card">
+            <form onSubmit={handleStage1}>
+              <div className="form-row split">
+                <div>
+                  <label className="field-label">
+                    <span>First Name</span>
+                    <span className="req">Required</span>
+                  </label>
+                  <input required maxLength={50} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="input" placeholder="e.g. Maria" />
+                </div>
+                <div>
+                  <label className="field-label">
+                    <span>Last Name</span>
+                    <span className="req">Required</span>
+                  </label>
+                  <input required maxLength={50} value={lastName} onChange={(e) => setLastName(e.target.value)} className="input" placeholder="e.g. Santos" />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <label className="field-label"><span>Email</span></label>
+                <input type="email" value={email} disabled className="input" />
+              </div>
+
+              <div className="form-row">
+                <label className="field-label">
+                  <span>Country of Residence</span>
+                  <span className="req">Required</span>
+                </label>
+                <select required value={country} onChange={(e) => setCountry(e.target.value)} className={`select ${country ? "" : "empty"}`}>
+                  <option value="">Select country</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <label className="field-label">
+                  <span>Primary Role</span>
+                  <span className="req">Required</span>
+                </label>
+                <SearchableRoleSelect value={roleCategory} onChange={(v) => { setRoleCategory(v); if (v !== "Other") setCustomRoleDescription(""); }} />
+              </div>
+
+              {roleCategory === "Other" && (
+                <div className="form-row">
+                  <label className="field-label">
+                    <span>Describe Your Role</span>
+                    <span className="req">Required</span>
+                  </label>
+                  <input
+                    required
+                    maxLength={100}
+                    value={customRoleDescription}
+                    onChange={(e) => setCustomRoleDescription(e.target.value)}
+                    className="input"
+                    placeholder="e.g. Grant Writer, Podcast Editor"
+                  />
+                  <p className="field-hint-inline">{customRoleDescription.length}/100</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="form-alert visible" role="alert">
+                  {ALERT_ICON}
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="form-submit-row">
+                <button type="submit" disabled={loading} className={`btn-submit ${loading ? "loading" : ""}`}>
+                  <span className="submit-label">{loading ? "Creating your account..." : "Continue"}</span>
+                  {SUBMIT_ARROW}
+                  <span className="spinner" aria-hidden />
+                </button>
+              </div>
+            </form>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text">Email</label>
-            <input type="email" value={email} disabled className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-text/60" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text">Country of Residence <span className="text-red-500">*</span></label>
-            <select required value={country} onChange={(e) => setCountry(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
-              <option value="">Select country</option>
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text">Primary Role <span className="text-red-500">*</span></label>
-            <SearchableRoleSelect value={roleCategory} onChange={(v) => { setRoleCategory(v); if (v !== "Other") setCustomRoleDescription(""); }} />
-          </div>
-
-          {roleCategory === "Other" && (
-            <div>
-              <label className="block text-sm font-medium text-text">Describe Your Role <span className="text-red-500">*</span></label>
-              <input
-                required
-                maxLength={100}
-                value={customRoleDescription}
-                onChange={(e) => setCustomRoleDescription(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="e.g. Grant Writer, Podcast Editor"
-              />
-              <p className="mt-1 text-xs text-gray-400">{customRoleDescription.length}/100</p>
-            </div>
-          )}
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors disabled:opacity-50">
-            {loading ? "Creating your account..." : "Continue"}
-          </button>
-        </form>
+        </div>
       </div>
     );
   }
@@ -739,7 +767,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
         <form onSubmit={handleStage2} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-text">Years of Experience <span className="text-red-500">*</span></label>
-            <select required value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
+            <select required value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} className="input">
               <option value="">Select</option>
               {EXPERIENCE_OPTIONS.map((o) => <option key={o} value={o}>{o} years</option>)}
             </select>
@@ -747,7 +775,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
           <div>
             <label className="block text-sm font-medium text-text">Short Bio <span className="text-red-500">*</span></label>
-            <textarea required maxLength={400} rows={4} value={bio} onChange={(e) => setBio(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Describe your background, key strengths, and what you bring to a client." />
+            <textarea required maxLength={400} rows={4} value={bio} onChange={(e) => setBio(e.target.value)} className="input" placeholder="Describe your background, key strengths, and what you bring to a client." />
             <p className="mt-1 text-xs text-gray-400">{bio.length}/400</p>
           </div>
 
@@ -777,7 +805,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
             {usExperienceYesNo === "yes" && (
               <div className="mt-3">
                 <label className="block text-xs font-medium text-text/60 mb-1.5">How long have you worked with US clients?</label>
-                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
+                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="input">
                   <option value="">Select duration...</option>
                   {US_EXPERIENCE_DURATION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -788,7 +816,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
             {usExperienceYesNo === "no" && (
               <div className="mt-3">
                 <label className="block text-xs font-medium text-text/60 mb-1.5">Tell us a bit more</label>
-                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
+                <select value={usExperience} onChange={(e) => setUsExperience(e.target.value)} className="input">
                   <option value="">Select an option...</option>
                   {US_EXPERIENCE_NO_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -800,12 +828,12 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
           <div>
             <label className="block text-sm font-medium text-text">LinkedIn URL <span className="text-text/40">(optional)</span></label>
-            <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="https://linkedin.com/in/yourprofile" />
+            <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} className="input" placeholder="https://linkedin.com/in/yourprofile" />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors disabled:opacity-50">
+          <button type="submit" disabled={loading} className={`btn-submit ${loading ? "loading" : ""}`}>
             {loading ? "Saving..." : "Continue"}
           </button>
         </form>
@@ -824,7 +852,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
         <form onSubmit={handleStage3} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-text">Hourly Rate (USD) <span className="text-red-500">*</span></label>
-            <input type="number" required min={3} max={500} value={hourlyRate || ""} onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary" placeholder="e.g. 15" />
+            <input type="number" required min={3} max={500} value={hourlyRate || ""} onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)} className="input" placeholder="e.g. 15" />
             <p className="mt-1 text-xs text-gray-400">Minimum $3/hr. Clients see this rate on your profile.</p>
           </div>
 
@@ -835,7 +863,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary-dark transition-colors disabled:opacity-50">
+          <button type="submit" disabled={loading} className={`btn-submit ${loading ? "loading" : ""}`}>
             {loading ? "Saving..." : "Complete & Continue to Verification"}
           </button>
         </form>

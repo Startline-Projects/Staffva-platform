@@ -30,23 +30,19 @@ interface Props {
 // It closes over nothing: DISCUSSION_POINTS is a module constant.
 function DiscussionPointsCard() {
   return (
-    <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-6 text-left">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-        Cover these points:
-      </p>
-      <ol className="space-y-2 text-sm text-gray-600">
+    <div className="mt-6 text-left">
+      <span className="feedback-block-label">Cover these points:</span>
+      {/* .rules-list numbers each item from a CSS counter, so the point number
+          is still shown — it is no longer a hand-rendered span. */}
+      <ol className="rules-list">
         {DISCUSSION_POINTS.map((point) => (
-          <li key={point.num} className="flex gap-2">
-            <span className="font-semibold text-[#FE6E3E] shrink-0">
-              {point.num}.
-            </span>
-            <span
-              dangerouslySetInnerHTML={{
-                __html: point.text
-                  .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"),
-              }}
-            />
-          </li>
+          <li
+            key={point.num}
+            dangerouslySetInnerHTML={{
+              __html: point.text
+                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"),
+            }}
+          />
         ))}
       </ol>
     </div>
@@ -195,91 +191,108 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-[#1C1B1A]">
-        Voice Recording 2: Self Introduction
-      </h1>
+      <div className="form-card">
+        <div className="form-card-header">
+          <h1 className="state-title">Self Introduction</h1>
+          <span className="step-tag">Recording 2 of 2</span>
+        </div>
 
-      {phase === "instructions" && (
-        <>
-          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
-            <p className="text-sm text-gray-600">
+        {phase === "instructions" && (
+          <>
+            <p className="state-subtitle">
               Record a 15 to 90 second introduction. Cover all four of the
               following points in order:
             </p>
-            <ol className="mt-4 space-y-2 text-sm text-gray-600">
+            {/* .rules-list numbers each item from a CSS counter, so the point
+                number is still shown — it is no longer a hand-rendered span. */}
+            <ol className="rules-list">
               {DISCUSSION_POINTS.map((point) => (
-                <li key={point.num} className="flex gap-2">
-                  <span className="font-semibold text-[#FE6E3E]">
-                    {point.num}.
-                  </span>
-                  <span
-                    dangerouslySetInnerHTML={{
-                      __html: point.text.replace(
-                        /\*\*(.*?)\*\*/g,
-                        "<strong>$1</strong>"
-                      ),
-                    }}
-                  />
-                </li>
+                <li
+                  key={point.num}
+                  dangerouslySetInnerHTML={{
+                    __html: point.text.replace(
+                      /\*\*(.*?)\*\*/g,
+                      "<strong>$1</strong>"
+                    ),
+                  }}
+                />
               ))}
             </ol>
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-sm text-amber-800 flex items-center gap-2">
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                </svg>
+            <div className="trust-strip mt-5">
+              <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <p>
                 <strong>Important:</strong> Only mention your <strong>first name</strong> — do not share your last name.
               </p>
             </div>
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="field-hint-inline">
               You can listen to your recording and re-record before submitting. This recording may be shared with prospective clients.
             </p>
-          </div>
-          <button
-            onClick={startRecording}
-            className="mt-6 w-full rounded-full bg-[#FE6E3E] px-4 py-3 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-          >
-            Start Recording
-          </button>
-        </>
-      )}
-
-      {phase === "recording" && (
-        <div className="mt-8 text-center">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-red-100">
-            <div className="h-4 w-4 animate-pulse rounded-full bg-red-600" />
-          </div>
-          <p className="mt-4 text-lg font-semibold text-[#1C1B1A]">
-            Recording... {formatTime(recordingTime)} /{" "}
-            {formatTime(MAX_RECORDING_TIME)}
-          </p>
-          <p className="mt-1 text-sm text-gray-500">
-            Speak clearly and cover all four points.
-          </p>
-          <DiscussionPointsCard />
-          {recordingTime >= MIN_RECORDING_SECONDS && (
-            <button
-              onClick={stopRecording}
-              className="mt-6 rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors"
-            >
-              Stop Recording
+            <button onClick={startRecording} className="btn-submit mt-6">
+              <span className="submit-label">Start Recording</span>
+              <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
-          )}
-          {recordingTime < MIN_RECORDING_SECONDS && (
-            <p className="mt-4 text-xs text-gray-400">
-              Minimum {MIN_RECORDING_SECONDS} seconds required (
-              {MIN_RECORDING_SECONDS - recordingTime}s remaining)
-            </p>
-          )}
-        </div>
-      )}
+          </>
+        )}
 
-      {phase === "review" && playbackUrl && (
-        <div className="mt-8">
-          <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+        {phase === "recording" && (
+          <div className="state-centered">
+            {/* The Atlas record affordance: the pulsing ring is the state, not a
+                control — the only control is the Stop button below, and it stays
+                gated on MIN_RECORDING_SECONDS exactly as before. */}
+            <div className="mic-record-area on-paper">
+              <div className="mic-record-btn recording" aria-hidden>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                  <rect x="9" y="9" width="10" height="10" rx="2" fill="currentColor" />
+                </svg>
+              </div>
+              <div className="mic-waveform" aria-hidden>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+
+            <div className="countdown-display">
+              <span className="countdown-time">{formatTime(recordingTime)}</span>
+              <span className="countdown-label">
+                Recording · Max {formatTime(MAX_RECORDING_TIME)}
+              </span>
+            </div>
+
+            <p className="state-subtitle">
+              Speak clearly and cover all four points.
+            </p>
+            <DiscussionPointsCard />
+            {recordingTime >= MIN_RECORDING_SECONDS && (
+              <button onClick={stopRecording} className="state-action-btn mt-6">
+                Stop Recording
+              </button>
+            )}
+            {recordingTime < MIN_RECORDING_SECONDS && (
+              <p className="attempts-hint">
+                Minimum {MIN_RECORDING_SECONDS} seconds required (
+                {MIN_RECORDING_SECONDS - recordingTime}s remaining)
+              </p>
+            )}
+          </div>
+        )}
+
+        {phase === "review" && playbackUrl && (
+          <div className="state-centered">
+            <div className="state-icon-xl success">
               <svg
-                className="h-6 w-6 text-green-600"
+                width="28"
+                height="28"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2}
@@ -292,10 +305,8 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-[#1C1B1A]">
-              Review Your Introduction
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="state-title">Review Your Introduction</h2>
+            <p className="state-subtitle">
               Listen to your recording and confirm it is clear before
               submitting.
             </p>
@@ -308,38 +319,39 @@ export default function VoiceRecording2({ candidateId, onComplete }: Props) {
               />
             </div>
 
-            <div className="mt-6 flex justify-center gap-3">
-              <button
-                onClick={retryRecording}
-                className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-[#1C1B1A] hover:bg-gray-50 transition-colors"
-              >
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button onClick={retryRecording} className="state-action-btn">
                 Re-record
               </button>
-              <button
-                onClick={confirmAndUpload}
-                className="rounded-lg bg-[#FE6E3E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#E55A2B] transition-colors"
-              >
-                Confirm &amp; Submit
-              </button>
+              <div className="w-[240px]">
+                <button onClick={confirmAndUpload} className="btn-submit">
+                  <span className="submit-label">Confirm &amp; Submit</span>
+                  <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                    <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {phase === "uploading" && (
-        <div className="mt-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FE6E3E] border-t-transparent" />
+        {phase === "uploading" && (
+          <div className="rec-submitting state-centered">
+            <div className="spinner" />
+            <p className="state-subtitle">{uploadProgress}</p>
           </div>
-          <p className="mt-4 text-sm text-gray-500">{uploadProgress}</p>
-        </div>
-      )}
+        )}
 
-      {error && (
-        <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
+        {error && (
+          <div className="form-alert visible mt-6">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+              <circle cx="9" cy="9" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M9 5.25v4.5M9 12.375v.375" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <div>{error}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

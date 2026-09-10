@@ -1,6 +1,6 @@
 "use client";
 
-import type { CandidateData } from "@/app/(main)/apply/page";
+import type { CandidateData } from "@/app/(apply)/apply/page";
 
 interface Props {
   candidate: CandidateData;

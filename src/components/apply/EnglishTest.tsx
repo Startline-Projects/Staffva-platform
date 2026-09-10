@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { proctorLinkAttempt } from "@/lib/proctorBridge";
-import type { CandidateData } from "@/app/(main)/apply/page";
+import type { CandidateData } from "@/app/(apply)/apply/page";
 import {
   saveProgressLocal,
   loadProgressLocal,

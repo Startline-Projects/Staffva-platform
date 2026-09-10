@@ -8,31 +8,30 @@ interface Props {
   candidateId?: string;
 }
 
+// `tone` is the Atlas .state-icon-xl variant (success / amber / danger / done).
+// It replaces the old bg-*-100 / text-*-600 Tailwind pair — same four moods,
+// drawn with Atlas tokens instead of the legacy palette.
 const STATUS_CONFIG: Record<string, {
   icon: "check" | "clock" | "alert" | "x";
-  iconBg: string;
-  iconColor: string;
+  tone: "success" | "amber" | "danger" | "done";
   title: string;
   message: string;
 }> = {
   approved: {
     icon: "check",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
+    tone: "success",
     title: "Your Profile is Live!",
     message: "Your profile is approved and visible to clients. Clients can search for you and reach out about work directly.",
   },
   active: {
     icon: "check",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
+    tone: "success",
     title: "Application In Progress",
     message: "Your profile is in the pipeline. Complete your next steps to move forward in the process.",
   },
   profile_review: {
     icon: "check",
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-600",
+    tone: "amber",
     title: "Profile Under Review",
     // No turnaround promised: nothing measures review latency and no stated
     // SLA has ever been met here.
@@ -40,8 +39,7 @@ const STATUS_CONFIG: Record<string, {
   },
   pending_review: {
     icon: "check",
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-600",
+    tone: "amber",
     title: "Profile Under Review",
     // No turnaround promised: nothing measures review latency and no stated
     // SLA has ever been met here.
@@ -53,22 +51,19 @@ const STATUS_CONFIG: Record<string, {
   // have sat waiting for instructions that were never coming.
   rejected: {
     icon: "x",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
+    tone: "danger",
     title: "We're not taking your application forward",
     message: "Your dashboard has the reason and the date you can apply again.",
   },
   revision_required: {
     icon: "alert",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
+    tone: "amber",
     title: "Action Required",
     message: "Someone reviewed your profile and left feedback. Your dashboard shows what to change.",
   },
   ai_interview_failed: {
     icon: "x",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
+    tone: "danger",
     title: "Your AI interview did not pass",
     message: "You need a score of 60 or above to continue. Please return to your dashboard to view your retake date.",
   },
@@ -76,11 +71,16 @@ const STATUS_CONFIG: Record<string, {
 
 const FALLBACK_CONFIG = {
   icon: "clock" as const,
-  iconBg: "bg-blue-100",
-  iconColor: "text-blue-600",
+  tone: "done" as const,
   title: "Application In Progress",
   message: "Your application is being reviewed. Please check your dashboard for your current status.",
 };
+
+const ARROW = (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+    <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function CandidateStatusScreen({ adminStatus, candidateId }: Props) {
   const config = STATUS_CONFIG[adminStatus] || FALLBACK_CONFIG;
@@ -104,135 +104,115 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
   }
 
   return (
-    <div className="mx-auto max-w-xl px-6 py-16 text-center">
-      <div className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full ${config.iconBg}`}>
-        {config.icon === "check" && (
-          <svg className={`h-8 w-8 ${config.iconColor}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-        )}
-        {config.icon === "clock" && (
-          <svg className={`h-8 w-8 ${config.iconColor}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )}
-        {config.icon === "alert" && (
-          <svg className={`h-8 w-8 ${config.iconColor}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
-        )}
-        {config.icon === "x" && (
-          <svg className={`h-8 w-8 ${config.iconColor}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        )}
-      </div>
-
-      <h1 className="text-2xl font-bold text-text">{config.title}</h1>
-      <p className="mt-3 text-text/60">{config.message}</p>
-
-      {/* Failed AI interview or unknown status — direct to dashboard */}
-      {showDashboardLink && (
-        <div className="mt-6">
-          <Link
-            href="/candidate/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-          >
-            Go to Dashboard
-          </Link>
-        </div>
-      )}
-
-      {/* Revision required — show edit button */}
-      {adminStatus === "revision_required" && (
-        <div className="mt-6">
-          <Link
-            href="/apply"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-          >
-            Edit Your Profile
-          </Link>
-        </div>
-      )}
-
-      {/* Approved or pending — show next steps */}
-      {(adminStatus === "approved" || adminStatus === "active") && (
-        <div className="mt-8 text-left mx-auto max-w-sm">
-          <h3 className="font-semibold text-text mb-3">What you can do now:</h3>
-          <ul className="space-y-2">
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <div className="mx-auto max-w-xl px-6 py-16">
+      <div className="form-card signin-card">
+        <div className="signin-state state-centered">
+          <div className={`state-icon-xl ${config.tone}`} aria-hidden>
+            {config.icon === "check" && (
+              <svg width="30" height="30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
-              <span className="text-sm text-text/70">Application submitted</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              <span className="text-sm text-text/70">Voice recordings submitted</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <svg className="h-5 w-5 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              {/* NOT "live and visible" — at this moment the profile is
-                  submitted, review has not happened, and the interview below
-                  is a GATE, not polish. Both lies pointed people away from the
-                  one step that actually blocks them. */}
-              <span className="text-sm text-text/70">Profile submitted for review</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <div className="h-5 w-5 mt-0.5 shrink-0 rounded-full border-2 border-primary flex items-center justify-center">
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              </div>
-              <span className="text-sm text-text/70 font-medium">Take the skills interview — optional, and passing it earns the Vetted badge clients filter on</span>
-            </li>
-          </ul>
-
-          <div className="mt-6 space-y-3">
-            {candidateId && (
-              <div>
-                <button
-                  onClick={handleInterviewClick}
-                  disabled={interviewLoading}
-                  className="block w-full rounded-lg bg-primary px-6 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-60"
-                >
-                  {interviewLoading ? "Loading…" : "Start AI Interview"}
-                </button>
-                {interviewError && (
-                  <p className="mt-2 text-sm text-red-600">{interviewError}</p>
-                )}
-              </div>
             )}
-            {/* The only pre-approval door to the video recorder. Atlas puts
-                record-intro inside the pipeline; without a link here the whole
-                feature was dark for the cohort meant to record before review
-                (0 of 256 have one — the step-11 diagnosis, still true). */}
-            <Link
-              href="/profile/video-intro"
-              className="block w-full rounded-lg border border-gray-200 px-6 py-2.5 text-center text-sm font-medium text-text hover:bg-gray-50 transition-colors"
-            >
-              Add a 75-second video intro (optional — clients watch it first)
-            </Link>
-            <Link
-              href="/candidate/dashboard"
-              className="block w-full rounded-lg border border-gray-200 px-6 py-2.5 text-center text-sm font-medium text-text hover:bg-gray-50 transition-colors"
-            >
-              Go to Dashboard
-            </Link>
+            {config.icon === "clock" && (
+              <svg width="30" height="30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {config.icon === "alert" && (
+              <svg width="30" height="30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            )}
+            {config.icon === "x" && (
+              <svg width="30" height="30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* View profile link */}
-      <div className="mt-6">
-        <Link
-          href="/candidate/me"
-          className="text-sm text-primary hover:text-primary/80 transition-colors"
-        >
-          View my profile &rarr;
-        </Link>
+          <h1 className="state-title">{config.title}</h1>
+          <p className="state-subtitle">{config.message}</p>
+
+          {/* Failed AI interview or unknown status — direct to dashboard */}
+          {showDashboardLink && (
+            <Link href="/candidate/dashboard" className="state-action-btn">
+              Go to Dashboard
+              {ARROW}
+            </Link>
+          )}
+
+          {/* Revision required — show edit button */}
+          {adminStatus === "revision_required" && (
+            <Link href="/apply" className="state-action-btn">
+              Edit Your Profile
+              {ARROW}
+            </Link>
+          )}
+
+          {/* Approved or pending — show next steps */}
+          {(adminStatus === "approved" || adminStatus === "active") && (
+            <div className="mt-2 w-full max-w-sm mx-auto text-left">
+              <div className="ahead-card">
+                <h3 className="label">What you can do now:</h3>
+                {/* .pwd-criteria is the Atlas met/unmet checklist: `met` draws
+                    the green tick, an item without it draws the open ring. One
+                    column, because these read as sentences, not chips. */}
+                <ul className="pwd-criteria" style={{ gridTemplateColumns: "1fr" }}>
+                  <li className="met">Application submitted</li>
+                  <li className="met">Voice recordings submitted</li>
+                  {/* NOT "live and visible" — at this moment the profile is
+                      submitted, review has not happened, and the interview below
+                      is a GATE, not polish. Both lies pointed people away from the
+                      one step that actually blocks them. */}
+                  <li className="met">Profile submitted for review</li>
+                  <li>Take the skills interview — optional, and passing it earns the Vetted badge clients filter on</li>
+                </ul>
+              </div>
+
+              <div className="mt-6">
+                {candidateId && (
+                  <div>
+                    <button
+                      onClick={handleInterviewClick}
+                      disabled={interviewLoading}
+                      className={`btn-submit ${interviewLoading ? "loading" : ""}`}
+                    >
+                      <span className="submit-label">{interviewLoading ? "Loading…" : "Start AI Interview"}</span>
+                      <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                        <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="spinner" aria-hidden></span>
+                    </button>
+                    {interviewError && (
+                      <p className="form-alert visible mt-3">{interviewError}</p>
+                    )}
+                  </div>
+                )}
+                {/* The only pre-approval door to the video recorder. Atlas puts
+                    record-intro inside the pipeline; without a link here the whole
+                    feature was dark for the cohort meant to record before review
+                    (0 of 256 have one — the step-11 diagnosis, still true). */}
+                <div className="signin-alt-actions">
+                  <Link href="/profile/video-intro" className="alt-action">
+                    <span className="alt-label">Add a 75-second video intro (optional — clients watch it first)</span>
+                    <span className="alt-link">Record</span>
+                  </Link>
+                </div>
+                <div className="mt-4 text-center">
+                  <Link href="/candidate/dashboard" className="state-action-btn">
+                    Go to Dashboard
+                    {ARROW}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* View profile link */}
+          <p className="state-fine-print">
+            <Link href="/candidate/me">View my profile &rarr;</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

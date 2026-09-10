@@ -3630,3 +3630,59 @@
   font-family: var(--font-mono);
 }
 .lp-auth .cat-chip-count.has-selection { color: var(--ink); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Light-surface variants for the voice-recording steps.
+
+   The mic cluster (.mic-record-area / .mic-record-btn / .mic-waveform) and the
+   read-aloud passage were authored for .test-fullscreen, which is ink #0E0E0C.
+   The application flow reuses them on a .form-card, which is paper #FBF8F2 —
+   and two of those rules invert catastrophically on the lighter ground:
+
+     .mic-record-btn.recording  background: var(--paper)  → paper on paper, 1.00:1
+     .mic-waveform span         background: var(--lime)   → lime on paper, 1.19:1
+
+   So the "you are recording" signal — previously an unmissable red pulsing
+   dot — became a faint ring with invisible bars. On a screen where a candidate
+   has 90 seconds and one take, not knowing whether it is recording is the
+   worst thing the page can do.
+
+   .on-paper re-inverts the two colours for a light ground and drops the
+   pointer affordance, because in this flow the disc is a STATUS INDICATOR the
+   candidate cannot click — it sat next to the real Stop button growing on
+   hover, inviting a click that did nothing.
+   ───────────────────────────────────────────────────────────────────────── */
+.lp-auth .mic-record-area.on-paper .mic-record-btn {
+  cursor: default;
+}
+.lp-auth .mic-record-area.on-paper .mic-record-btn:hover {
+  transform: none;
+}
+.lp-auth .mic-record-area.on-paper .mic-record-btn.recording {
+  /* Filled red on paper, the inverse of the dark surface's filled paper on ink.
+     Same meaning, same weight, legible ground. */
+  background: var(--danger);
+  color: var(--paper);
+  border-color: rgba(194, 65, 43, 0.28);
+}
+.lp-auth .mic-record-area.on-paper .mic-waveform span {
+  background: var(--danger);
+}
+
+/* The read-aloud script is graded content, not a testimonial. .quote-card
+   injects curly quotation marks via blockquote::before/::after, so a candidate
+   was shown quote marks around text they must read aloud verbatim — and its
+   460px cap narrowed the reading column inside an already-narrow card. */
+.lp-auth .read-aloud-card {
+  margin-top: 24px;
+  padding: 22px 24px;
+  background: var(--paper-2, rgba(14, 14, 12, 0.03));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+}
+.lp-auth .read-aloud-card p {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0;
+}
