@@ -162,7 +162,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Platform",
     rows: [
       { label: "Settings", href: "/admin/settings", icon: ICON.settings },
-      { label: "Vendor Health", icon: ICON.vendor, step: 12 },
+      { label: "Vendor Health", href: "/admin/vendors", icon: ICON.vendor },
     ],
   },
   {
