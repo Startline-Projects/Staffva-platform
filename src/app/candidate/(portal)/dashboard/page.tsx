@@ -58,7 +58,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, application_stage, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -520,6 +520,18 @@ export default async function CandidateDashboardPage() {
   const waivedCount = requiredNodes.filter((n) => n.state === "waived").length;
   const xp = 25 /* account created */ + nodes.filter((n) => n.state === "completed").reduce((s, n) => s + n.xp, 0);
 
+  // Has the application form itself been filled in?
+  //
+  // /apply is a step machine, and its FIRST step is the application form —
+  // loadCandidateState sends anyone with application_stage < 3 (or no
+  // candidate row at all) straight there, whatever the dashboard thinks the
+  // next milestone is. The form is not a node in this tracker, so for a fresh
+  // candidate the dashboard happily announced "Record your voice
+  // introductions · Continue to recordings" and the button opened a
+  // first-name / last-name / country form in the old design. The English card
+  // already handled this; nothing else did.
+  const applicationDone = !!candidate && (candidate.application_stage ?? 0) >= 3;
+
   // Per-node presentation for the current-step card.
   const STEP_CARDS: Record<string, { title: string; body: string; cta: string; href: string; minutes: string; tips: string[] }> = {
     email: {
@@ -708,7 +720,35 @@ export default async function CandidateDashboardPage() {
   // still rendered. The lock itself is the condition; terminal and
   // action-required still take precedence over it.
   const englishLockoutOverride = englishLocked && !!lockedUntil && !terminal && !actionRequired;
+  // Say where the button actually goes. Every card whose destination is
+  // /apply lands on the application form until that form is done, so until
+  // then they all describe THAT, not the milestone further down the track.
+  if (!applicationDone) {
+    for (const card of Object.values(STEP_CARDS)) {
+      if (card.href !== "/apply") continue;
+      card.title = "Finish your application";
+      card.body =
+        "A few details about you and the work you do — name, country and your main role. It takes under a minute, and it unlocks the rest of your application.";
+      card.cta = "Continue your application";
+      card.minutes = "~1 min";
+    }
+  }
+
   const currentIndex = requiredNodes.findIndex((n) => n.id === currentNode.id);
+
+  // The circle's number and the card's "Step N of 7" must agree.
+  //
+  // They did not: circles were numbered by position among ALL ten nodes while
+  // the card counts only the seven REQUIRED ones, so the current step showed
+  // as a black "4" under an eyebrow reading "Step 3 of 7". Worse, with
+  // WhatsApp waived and English optional, a new candidate saw a green 1 and
+  // then a black 4 and reasonably read it as the tracker having skipped two
+  // steps they were never told about.
+  //
+  // Optional nodes now carry a dot rather than consuming a number, so the
+  // numbers a candidate sees are exactly the steps they actually have to do.
+  const requiredNumber = (n: PipelineNode): number =>
+    requiredNodes.findIndex((r) => r.id === n.id) + 1;
   const upcomingPreview = nodes.filter((n) => n.state === "upcoming" && !n.optional).slice(0, 3);
   const UPCOMING_BLURBS: Record<string, string> = {
     whatsapp: "A one-time code confirms the number where job matches and updates will reach you.",
@@ -772,12 +812,12 @@ export default async function CandidateDashboardPage() {
           </div>
           <div className="pipeline-track-wrap">
             <ol className="pipeline-track">
-              {nodes.map((n, i) => (
+              {nodes.map((n) => (
                 <li
                   key={n.id}
                   className={`pipeline-node ${n.state}`}
                   aria-current={n.state === "current" ? "step" : undefined}
-                  aria-label={`Step ${i + 1}, ${n.label}, ${n.optional ? "optional, " : ""}${n.state}`}
+                  aria-label={`${n.optional ? "Optional step" : `Step ${requiredNumber(n)}`}, ${n.label}, ${n.state}`}
                   data-optional={n.optional ? "true" : undefined}
                   title={n.detail || undefined}
                 >
@@ -787,7 +827,7 @@ export default async function CandidateDashboardPage() {
                     </span>
                   )}
                   <span className="node-circle">
-                    <span className="node-num">{i + 1}</span>
+                    <span className="node-num">{n.optional ? "·" : requiredNumber(n)}</span>
                     <span className="node-check" aria-hidden>
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5 5 9l4.5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </span>
