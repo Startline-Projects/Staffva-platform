@@ -904,8 +904,12 @@ export default function CandidateReviewPage() {
                     >
                       Preview Profile
                     </button>
+                    {/* `score_mismatch_flag` is set by `overall > 80` in
+                        gradeAttempt — it marks high scorers, not fraud. It read
+                        as a red "Mismatch" pill here for as long as the column
+                        has existed. */}
                     {c.score_mismatch_flag && (
-                      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">Mismatch</span>
+                      <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">Scored 80+</span>
                     )}
                     {c.cheat_flag_count > 0 && (
                       <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">{c.cheat_flag_count} flags</span>
@@ -1084,7 +1088,7 @@ export default function CandidateReviewPage() {
                             <div className="rounded-lg bg-gray-50 p-4 text-center"><p className="text-xs text-text/40">Tier</p><p className="text-xl font-bold text-blue-600">{TIER_LABELS[c.english_written_tier] || "—"}</p></div>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
-                            <div className="rounded-lg border p-3 text-center"><p className="text-xs text-text/40">Mismatch</p><p className={`text-sm font-semibold ${c.score_mismatch_flag ? "text-red-600" : "text-green-600"}`}>{c.score_mismatch_flag ? "FLAGGED" : "Clean"}</p></div>
+                            <div className="rounded-lg border p-3 text-center"><p className="text-xs text-text/40">Scored 80+</p><p className="text-sm font-semibold text-[#1C1B1A]">{c.score_mismatch_flag ? "Yes" : "No"}</p></div>
                             <div className="rounded-lg border p-3 text-center"><p className="text-xs text-text/40">Cheat Flags</p><p className={`text-sm font-semibold ${c.cheat_flag_count > 0 ? "text-amber-600" : "text-green-600"}`}>{c.cheat_flag_count} events</p></div>
                           </div>
                           {(c.test_events || []).length > 0 && (

@@ -153,7 +153,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Trust & Safety",
     rows: [
       { label: "Pending Bans", href: "/pending-bans", icon: ICON.ban, counter: "pendingBans", tone: "urgent" },
-      { label: "Suspicious Activity", icon: ICON.suspicious, step: 11 },
+      { label: "Suspicious Activity", href: "/admin/suspicious", icon: ICON.suspicious },
     ],
   },
   {

@@ -330,7 +330,14 @@ export default function CandidateRecordView({
           <Field k="Proctor consent" v={fmtDate(c.proctor_consent_at)} note={c.proctor_consent_version ? `v${c.proctor_consent_version}` : null} />
           <Field k="Cheat flags" v={num(c.cheat_flag_count)} tone={c.cheat_flag_count > 0 ? "warn" : undefined} mono />
           <Field k="Anti-cheat strikes" v={num(c.anticheat_strike_count)} tone={c.anticheat_strike_count > 0 ? "warn" : undefined} mono />
-          <Field k="Score mismatch" v={bool(c.score_mismatch_flag, "Flagged", "Clear")} tone={c.score_mismatch_flag ? "bad" : undefined} />
+          {/* Not an integrity signal, whatever the column is called: gradeAttempt
+              sets it with `overall > 80`, so it marks high scorers. Labelled
+              for what it measures and given no alarm colour. */}
+          <Field
+            k="Scored above 80"
+            v={bool(c.score_mismatch_flag, "Yes", "No")}
+            note={c.score_mismatch_flag ? "stored in score_mismatch_flag — the name predates the check" : null}
+          />
           <Field k="Permanently blocked" v={bool(c.permanently_blocked, "Yes", "No")} tone={c.permanently_blocked ? "bad" : undefined} />
         </div>
         {c.id_verification_review_note && (
