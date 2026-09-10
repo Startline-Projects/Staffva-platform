@@ -140,7 +140,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     id: "operations",
     label: "Operations",
     rows: [
-      { label: "Engagements", icon: ICON.engagement, step: 7 },
+      { label: "Engagements", href: "/admin/engagements", icon: ICON.engagement },
       { label: "Disputes", href: "/admin/disputes", icon: ICON.dispute },
       { label: "Reviews", href: "/admin/reviews", icon: ICON.review },
       { label: "Unanswered Messages", href: "/admin/messages", icon: ICON.message },
