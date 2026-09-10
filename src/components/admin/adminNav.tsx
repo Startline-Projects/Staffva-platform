@@ -168,7 +168,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     id: "internal",
     label: "Internal",
-    rows: [{ label: "Team Inbox", href: "/admin/team", icon: ICON.team, counter: "teamInbox" }],
+    rows: [
+      { label: "Performance", href: "/admin/performance", icon: ICON.report },
+      { label: "Team Inbox", href: "/admin/team", icon: ICON.team, counter: "teamInbox" },
+    ],
   },
 ];
 
