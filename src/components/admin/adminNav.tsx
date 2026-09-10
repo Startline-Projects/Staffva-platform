@@ -93,6 +93,7 @@ const ICON = {
   suspicious: ic(<><path d="M1.8 12S5.8 4.5 12 4.5 22.2 12 22.2 12 18.2 19.5 12 19.5 1.8 12 1.8 12z" /><circle cx="12" cy="12" r="3" /></>),
   settings: ic(<><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.2a2 2 0 1 1-4 0V21a1.6 1.6 0 0 0-2.7-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 15a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 3.6a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.2a2 2 0 1 1 0 4z" /></>),
   vendor: ic(<><path d="M3 12h4l2 5 4-12 2.5 7H21" /></>),
+  search: ic(<><circle cx="11" cy="11" r="7.5" /><path d="m21 21-4.3-4.3" /></>),
   team: ic(<><path d="M3 5.5h18v11a1.5 1.5 0 0 1-1.5 1.5H8l-5 4z" /><path d="M7.5 10h9M7.5 13.2h5.5" /></>),
 } as const;
 
@@ -102,6 +103,14 @@ export const ADMIN_PROFILE_ROW: AdminNavRow = {
   label: "My profile",
   href: "/admin/profile",
   icon: ICON.profile,
+};
+
+/** Reached from the topbar field and ⌘K, not a rail row — but the crumb still
+ *  has to name it rather than falling back to "Admin". */
+export const ADMIN_SEARCH_ROW: AdminNavRow = {
+  label: "Search",
+  href: "/admin/search",
+  icon: ICON.search,
 };
 
 export const ADMIN_NAV_TOP: AdminNavRow = {
@@ -208,7 +217,7 @@ export function isRowActive(row: AdminNavRow, pathname: string, search: string):
 
 /** The crumb the topbar shows. Falls back to the section, never to nothing. */
 export function pageTitle(pathname: string, search: string): string {
-  const rows = [ADMIN_NAV_TOP, ADMIN_PROFILE_ROW, ...ADMIN_NAV.flatMap((g) => g.rows)];
+  const rows = [ADMIN_NAV_TOP, ADMIN_PROFILE_ROW, ADMIN_SEARCH_ROW, ...ADMIN_NAV.flatMap((g) => g.rows)];
   const hit = rows.find((r) => isRowActive(r, pathname, search));
   return hit?.label ?? "Admin";
 }
