@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { recordAdminAction } from "@/lib/adminAudit";
 
 function getAdminClient() {
   return createClient(
@@ -201,6 +202,16 @@ export async function POST(request: Request) {
         break;
       }
     }
+
+    await recordAdminAction({
+      action: "dispute.resolve",
+      actorId: user.id,
+      actorRole: (user.app_metadata?.role as "admin") ?? "admin",
+      subjectType: "dispute",
+      subjectId: disputeId,
+      summary: `Resolved a dispute: ${String(decision).replace(/_/g, " ")}`,
+      detail: { decision, notes: notes || null },
+    });
 
     return NextResponse.json({ success: true, decision });
   } catch (error) {

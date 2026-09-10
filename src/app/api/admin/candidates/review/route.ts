@@ -11,6 +11,7 @@ import {
   recordStatusEvent,
   REJECTABLE_FROM,
 } from "@/lib/reviewOutcome";
+import { recordAdminAction } from "@/lib/adminAudit";
 
 function getAdminClient() {
   return createClient(
@@ -100,11 +101,18 @@ export async function POST(request: Request) {
   let actingUserId: string | null = null;
 
   // revision_required is open to recruiters and admins; all other actions are admin-only
+  // Held for the audit line: a revision request is a person's decision even
+  // though the old flow never stored an acting user for it.
+  let revisionActorId: string | null = null;
+  let callerRoleForAudit: string | undefined;
+
   if (action === "revision_required") {
     const caller = await verifyAdminOrRecruiter();
     if (!caller) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+    revisionActorId = caller.id;
+    callerRoleForAudit = caller.app_metadata?.role as string | undefined;
     if (caller.app_metadata?.role === "recruiter") {
       const scopeError = await assertRecruiterScope(caller.id, candidateId);
       if (scopeError) {
@@ -117,6 +125,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     actingUserId = admin.id;
+    callerRoleForAudit = admin.app_metadata?.role as string | undefined;
   }
 
   if (!candidateId || !action) {
@@ -126,6 +135,31 @@ export async function POST(request: Request) {
   const supabase = getAdminClient();
 
   // Candidate info for emails, plus every field the approval gates read
+  /** One line per decision. `actingUserId` is null only for revision requests,
+   *  which the broad guard admits recruiters and managers to — those are still
+   *  a person, so the caller passes their id explicitly. */
+  const logDecision = async (
+    action: "candidate.approve" | "candidate.reject" | "candidate.revision_requested" | "candidate.reinstate" | "candidate.flag" | "candidate.appeal_decided",
+    actorId: string | null,
+    actorRole: string | undefined,
+    summary: string,
+    detail?: Record<string, unknown>
+  ) => {
+    if (!actorId) {
+      console.error(`[audit] NOT RECORDED: ${action} on candidate:${candidateId} — no acting user resolved`);
+      return;
+    }
+    await recordAdminAction({
+      action,
+      actorId,
+      actorRole: (actorRole as "admin" | "recruiting_manager" | "recruiter") ?? "admin",
+      subjectType: "candidate",
+      subjectId: candidateId,
+      summary,
+      detail,
+    });
+  };
+
   const { data: candidate } = await supabase
     .from("candidates")
     .select(
@@ -221,6 +255,7 @@ export async function POST(request: Request) {
       }).catch(() => {});
     } catch { /* non-fatal */ }
 
+    await logDecision("candidate.approve", actingUserId, callerRoleForAudit, `Approved ${candidate?.full_name || candidateId} and put them live`);
     return NextResponse.json({ success: true, action: "approved" });
   }
 
@@ -274,6 +309,7 @@ export async function POST(request: Request) {
       reason: typeof reason === "string" && reason.trim() ? reason.trim() : "reinstated",
     });
 
+    await logDecision("candidate.reinstate", actingUserId, callerRoleForAudit, `Reinstated ${candidate?.full_name || candidateId}`);
     return NextResponse.json({ success: true, action: "reinstated" });
   }
 
@@ -335,6 +371,7 @@ export async function POST(request: Request) {
       reason: `appeal ${upheld ? "upheld" : "overturned"}: ${response}`,
     });
 
+    await logDecision("candidate.appeal_decided", actingUserId, callerRoleForAudit, `${upheld ? "Upheld" : "Overturned"} the appeal from ${candidate?.full_name || candidateId}`, { upheld });
     return NextResponse.json({ success: true, action: upheld ? "upheld" : "overturned" });
   }
 
@@ -416,6 +453,7 @@ export async function POST(request: Request) {
       "application_rejected"
     );
 
+    await logDecision("candidate.reject", actingUserId, callerRoleForAudit, `Closed the application from ${candidate?.full_name || candidateId}`, { reapplyEligibleAt });
     return NextResponse.json({
       success: true,
       action: "rejected",
@@ -457,10 +495,12 @@ export async function POST(request: Request) {
       </div>`,
       "revision_requested");
 
+    await logDecision("candidate.revision_requested", revisionActorId, callerRoleForAudit, `Asked ${candidate?.full_name || candidateId} for revisions`, { note: revisionNote ?? null });
     return NextResponse.json({ success: true, action: "revision_required" });
   }
 
   if (action === "flag") {
+    await logDecision("candidate.flag", actingUserId, callerRoleForAudit, `Flagged ${candidate?.full_name || candidateId}`);
     return NextResponse.json({ success: true, action: "flagged" });
   }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { recordAdminAction } from "@/lib/adminAudit";
 
 function getAdminClient() {
   return createClient(
@@ -117,6 +118,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await recordAdminAction({
+      action: "ban.confirm",
+      actorId: admin.id,
+      actorRole: (admin.app_metadata?.role as "admin") ?? "admin",
+      subjectType: "candidate",
+      subjectId: candidateId,
+      summary: `Confirmed the ban on ${candidate.full_name || candidate.display_name || candidateId}`,
+      detail: { reason: candidate.ban_reason ?? null, requestedBy: candidate.ban_requested_by ?? null },
+    });
+
     return NextResponse.json({ success: true, action: "confirmed" });
   }
 
@@ -150,6 +161,16 @@ export async function POST(req: NextRequest) {
       } catch { /* silent */ }
     }
   }
+
+  await recordAdminAction({
+    action: "ban.dismiss",
+    actorId: admin.id,
+    actorRole: (admin.app_metadata?.role as "admin") ?? "admin",
+    subjectType: "candidate",
+    subjectId: candidateId,
+    summary: `Dismissed the ban request on ${candidate.full_name || candidate.display_name || candidateId}`,
+    detail: { reason: candidate.ban_reason ?? null, requestedBy: candidate.ban_requested_by ?? null },
+  });
 
   return NextResponse.json({ success: true, action: "dismissed" });
 }

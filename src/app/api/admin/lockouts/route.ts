@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { selectIn } from "@/lib/selectIn";
+import { recordAdminAction } from "@/lib/adminAudit";
 
 function getAdminClient() {
   return createClient(
@@ -107,6 +108,16 @@ export async function POST(req: NextRequest) {
     payload: { admin_id: admin.id, reason, lockout_id: lockoutId, timestamp: new Date().toISOString() },
     processed: true,
     processed_at: new Date().toISOString(),
+  });
+
+  await recordAdminAction({
+    action: "lockout.lift",
+    actorId: admin.id,
+    actorRole: (admin.app_metadata?.role as "admin") ?? "admin",
+    subjectType: "candidate",
+    subjectId: lockout?.candidate_id ?? null,
+    summary: `Lifted the English test lockout`,
+    detail: { reason: reason ?? null, lockoutId: lockoutId ?? null },
   });
 
   return NextResponse.json({ success: true, overriddenBy: admin.id });

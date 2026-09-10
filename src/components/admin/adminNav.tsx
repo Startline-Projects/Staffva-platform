@@ -154,6 +154,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     rows: [
       { label: "Pending Bans", href: "/pending-bans", icon: ICON.ban, counter: "pendingBans", tone: "urgent" },
       { label: "Suspicious Activity", href: "/admin/suspicious", icon: ICON.suspicious },
+      { label: "Audit log", href: "/admin/audit", icon: ICON.queue },
     ],
   },
   {

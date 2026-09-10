@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { recordAdminAction } from "@/lib/adminAudit";
 
 /**
  * Staff view of every review, and the only way to take one down.
@@ -56,7 +57,8 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const gate = await requireStaff();
-  if (gate.error) return gate.error;
+  if (gate.error || !gate.user) return gate.error ?? NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = gate.user;
 
   const body = await req.json().catch(() => ({}));
   const reviewId = typeof body.reviewId === "string" ? body.reviewId : "";
@@ -79,6 +81,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Could not update that review." }, { status: 500 });
   }
   if (!updated) return NextResponse.json({ error: "Review not found" }, { status: 404 });
+
+  await recordAdminAction({
+    action: published ? "review.restore" : "review.takedown",
+    actorId: actor.id,
+    actorRole: (actor.app_metadata?.role as "admin") ?? "admin",
+    subjectType: "review",
+    subjectId: reviewId,
+    summary: published ? "Restored a review" : "Took a review down",
+  });
 
   return NextResponse.json({ review: updated });
 }
