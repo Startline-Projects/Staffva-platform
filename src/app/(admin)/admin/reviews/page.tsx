@@ -1,24 +1,33 @@
-import AdminReviewList from "@/components/admin/AdminReviewList";
+import { applyReviewFilter, loadReviews, type ReviewFilter } from "@/lib/adminReviews";
+import ReviewListView from "@/components/admin/ReviewListView";
 
-/**
- * Every review on the platform, and the control that takes one down.
- *
- * The reason this page exists at all: `reviews.published` shipped as a column
- * with no writer and no reader. A forged, abusive, or simply mistaken review
- * would have attached itself permanently to a real person's ability to get
- * hired, with no path to removal short of a hand-written SQL statement.
- */
-export default function AdminReviewsPage() {
-  return (
-    <div>
-      <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Reviews</h1>
-      <p style={{ fontSize: 13, color: "#6B6862", marginBottom: 18, maxWidth: 640 }}>
-        Both directions of every review pair. Unrevealed reviews are listed here
-        and nowhere else — staff can see a sealed review, the other party cannot.
-        Taking one down hides it from the public profile and removes it from the
-        candidate&apos;s public rating; nothing is deleted.
-      </p>
-      <AdminReviewList />
-    </div>
-  );
+export const dynamic = "force-dynamic";
+
+const FILTERS: ReviewFilter[] = ["all", "about_candidates", "about_clients", "sealed", "taken_down"];
+
+export default async function AdminReviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
+  const sp = await searchParams;
+  const filter: ReviewFilter = FILTERS.includes(sp.show as ReviewFilter) ? (sp.show as ReviewFilter) : "all";
+
+  const page = await loadReviews();
+
+  // null is a failed read. An empty platform is `counts.all === 0`, which the
+  // view explains. The two must not look the same.
+  if (!page) {
+    return (
+      <div className="adm-state error" role="alert">
+        <strong>Reviews could not be read.</strong>
+        <p style={{ marginTop: 8 }}>
+          This is not an empty platform — there may be reviews, including taken-down ones, that this
+          page cannot see. Reload; if it persists, check <code>SUPABASE_SERVICE_ROLE_KEY</code>.
+        </p>
+      </div>
+    );
+  }
+
+  return <ReviewListView page={page} filter={filter} shown={applyReviewFilter(page.reviews, filter)} />;
 }
