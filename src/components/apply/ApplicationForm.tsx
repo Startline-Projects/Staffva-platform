@@ -1,18 +1,23 @@
 "use client";
 
+import { COUNTRIES } from "@/lib/atlasCountries";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
 import { createClient } from "@/lib/supabase/client";
 import type { CandidateData } from "@/app/(main)/apply/page";
 
-// ─── Countries by Region ───
-const COUNTRY_GROUPS = [
-  { label: "Middle East", countries: ["Bahrain", "Iraq", "Jordan", "Kuwait", "Lebanon", "Oman", "Palestine", "Qatar", "Saudi Arabia", "Syria", "United Arab Emirates", "Yemen"] },
-  { label: "South Asia", countries: ["Bangladesh", "India", "Nepal", "Pakistan", "Sri Lanka"] },
-  { label: "North Africa", countries: ["Algeria", "Egypt", "Libya", "Morocco", "Tunisia"] },
-  { label: "South America", countries: ["Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Paraguay", "Peru", "Uruguay", "Venezuela"] },
-  { label: "Other", countries: ["Ghana", "Indonesia", "Kenya", "Nigeria", "Philippines", "South Africa", "Turkey", "Other"] },
-];
+// Countries come from the shared list, not a second one kept here.
+//
+// This file used to carry its own 44-country COUNTRY_GROUPS, which made the
+// application form a SECOND country gate with different contents from signup:
+// it had the Gulf states signup was missing, and lacked the United States,
+// every European country and most of Africa and Asia. A candidate whose
+// country existed at signup could reach this form and find it absent, and the
+// only way through was the "Other" option — which is exactly what 11 live
+// candidates have stored as their country today.
+//
+// One list, one answer. See src/lib/atlasCountries.ts.
 
 // ─── Role Categories ───
 const ROLE_CATEGORIES = [
@@ -687,10 +692,8 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
             <label className="block text-sm font-medium text-text">Country of Residence <span className="text-red-500">*</span></label>
             <select required value={country} onChange={(e) => setCountry(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
               <option value="">Select country</option>
-              {COUNTRY_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.countries.map((c) => <option key={c} value={c}>{c}</option>)}
-                </optgroup>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
               ))}
             </select>
           </div>
