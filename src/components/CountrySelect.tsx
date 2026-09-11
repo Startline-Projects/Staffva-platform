@@ -35,6 +35,7 @@ export default function CountrySelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const selected = COUNTRIES.find((c) => (by === "code" ? c.code : c.name) === value) || null;
@@ -78,6 +79,7 @@ export default function CountrySelect({
         onClick={() => {
           setOpen(!open);
           setQuery("");
+          setHighlight(0);
         }}
       >
         <span className="flag" aria-hidden>{selected?.flag || "🌍"}</span>
@@ -94,17 +96,51 @@ export default function CountrySelect({
               autoComplete="off"
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHighlight(0);
+              }}
+              onKeyDown={(e) => {
+                // Enter must not reach the form. This input lives inside both
+                // the signup form and the application form, and implicit
+                // submission would submit the step instead of choosing the
+                // country the candidate just searched for.
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const pick = filtered[highlight];
+                  if (pick) {
+                    onChange(by === "code" ? pick.code : pick.name);
+                    setOpen(false);
+                  }
+                  return;
+                }
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setHighlight((h) => Math.min(filtered.length - 1, h + 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setHighlight((h) => Math.max(0, h - 1));
+                } else if (e.key === "Home") {
+                  e.preventDefault();
+                  setHighlight(0);
+                } else if (e.key === "End") {
+                  e.preventDefault();
+                  setHighlight(filtered.length - 1);
+                }
+              }}
             />
           </div>
           <div className="country-list" role="presentation">
-            {filtered.map((c) => {
+            {filtered.map((c, i) => {
               const v = by === "code" ? c.code : c.name;
               return (
                 <button
                   key={c.code}
                   type="button"
-                  className={`country-option ${v === value ? "selected" : ""}`}
+                  ref={(el) => {
+                    if (i === highlight && el) el.scrollIntoView({ block: "nearest" });
+                  }}
+                  className={`country-option ${v === value ? "selected" : ""} ${i === highlight ? "focused" : ""}`}
                   role="option"
                   aria-selected={v === value}
                   onClick={() => {

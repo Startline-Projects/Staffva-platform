@@ -1,6 +1,7 @@
 "use client";
 
 import CountrySelect from "@/components/CountrySelect";
+import TimeZoneSelect from "@/components/TimeZoneSelect";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
@@ -643,6 +644,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
     setError("");
 
     if (hourlyRate < 3) { setError("Hourly rate must be at least $3/hr"); return; }
+    if (!timeZone.trim()) { setError("Please choose your time zone — clients use it to book calls with you."); return; }
 
     setLoading(true);
 
@@ -798,7 +800,7 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
           <div>
             <label className="block text-sm font-medium text-text">Short Bio <span className="text-red-500">*</span></label>
             <textarea required maxLength={400} rows={4} value={bio} onChange={(e) => setBio(e.target.value)} className="input" placeholder="Describe your background, key strengths, and what you bring to a client." />
-            <p className="mt-1 text-xs text-gray-400">{bio.length}/400</p>
+            <p className="field-hint-inline">{bio.length}/400</p>
           </div>
 
           <div>
@@ -853,7 +855,12 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
             <input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} className="input" placeholder="https://linkedin.com/in/yourprofile" />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="form-alert visible" role="alert">
+              {ALERT_ICON}
+              <span>{error}</span>
+            </div>
+          )}
 
           <button type="submit" disabled={loading} className={`btn-submit ${loading ? "loading" : ""}`}>
             {loading ? "Saving..." : "Continue"}
@@ -875,15 +882,30 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
           <div>
             <label className="block text-sm font-medium text-text">Hourly Rate (USD) <span className="text-red-500">*</span></label>
             <input type="number" required min={3} max={500} value={hourlyRate || ""} onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)} className="input" placeholder="e.g. 15" />
-            <p className="mt-1 text-xs text-gray-400">Minimum $3/hr. Clients see this rate on your profile.</p>
+            <p className="field-hint-inline">Minimum $3/hr. Clients see this rate on your profile.</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text">Time Zone</label>
-            <input type="text" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} className="mt-1 block w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-text/60" />
+          <div className="form-row">
+            <label className="field-label" htmlFor="timeZoneTrigger">
+              <span>Time Zone</span>
+              <span className="req">Required</span>
+            </label>
+            {/* Was a free-text box styled grey enough to read as disabled. It is
+                the value clients see and the one interview scheduling warns
+                against, so a wrong guess from the browser had to be
+                correctable — and it was not obvious it could be typed in. */}
+            <TimeZoneSelect value={timeZone} onChange={setTimeZone} />
+            <p className="field-hint-inline">
+              Detected from your device. Change it if that&apos;s not where you work.
+            </p>
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="form-alert visible" role="alert">
+              {ALERT_ICON}
+              <span>{error}</span>
+            </div>
+          )}
 
           <button type="submit" disabled={loading} className={`btn-submit ${loading ? "loading" : ""}`}>
             {loading ? "Saving..." : "Complete & Continue to Verification"}
