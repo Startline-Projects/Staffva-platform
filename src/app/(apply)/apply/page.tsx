@@ -52,6 +52,10 @@ export interface CandidateData {
   english_percentile: number | null;
   english_written_tier: string | null;
   admin_status: string;
+  /** Read by the completion screen so the checklist reflects what the
+   *  candidate has actually finished. */
+  interview1_passed?: boolean | null;
+  ai_interview_passed?: boolean | null;
   id_verification_status: string;
   voice_recording_1_url: string | null;
   voice_recording_2_url: string | null;
@@ -492,7 +496,12 @@ export default function ApplyPage() {
         />
       )}
       {step === "complete" && candidateData && (
-        <CandidateStatusScreen adminStatus={candidateData.admin_status} candidateId={candidateData.id} />
+        <CandidateStatusScreen
+          adminStatus={candidateData.admin_status}
+          candidateId={candidateData.id}
+          interview1Passed={candidateData.interview1_passed === true}
+          skillsPassed={candidateData.ai_interview_passed === true}
+        />
       )}
       {step === "anticheat_lockout" && candidateData?.test_lockout_until && (
         <AnticheatlockoutScreen

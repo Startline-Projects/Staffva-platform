@@ -6,6 +6,10 @@ import Link from "next/link";
 interface Props {
   adminStatus: string;
   candidateId?: string;
+  /** Interview 1, the free behavioural round. */
+  interview1Passed?: boolean;
+  /** Interview 2, the paid skills round that earns the Vetted badge. */
+  skillsPassed?: boolean;
 }
 
 // `tone` is the Atlas .state-icon-xl variant (success / amber / danger / done).
@@ -82,7 +86,12 @@ const ARROW = (
   </svg>
 );
 
-export default function CandidateStatusScreen({ adminStatus, candidateId }: Props) {
+export default function CandidateStatusScreen({
+  adminStatus,
+  candidateId,
+  interview1Passed = false,
+  skillsPassed = false,
+}: Props) {
   const config = STATUS_CONFIG[adminStatus] || FALLBACK_CONFIG;
   const showDashboardLink = !STATUS_CONFIG[adminStatus] || adminStatus === "ai_interview_failed";
   const [interviewLoading, setInterviewLoading] = useState(false);
@@ -165,24 +174,52 @@ export default function CandidateStatusScreen({ adminStatus, candidateId }: Prop
                       is a GATE, not polish. Both lies pointed people away from the
                       one step that actually blocks them. */}
                   <li className="met">Profile submitted for review</li>
-                  <li>Take the skills interview — optional, and passing it earns the Vetted badge clients filter on</li>
+                  {/* These two were one hardcoded <li> with no condition, so
+                      the only interview on the list could never tick and the
+                      behavioural round was not on it at all. A candidate who
+                      finished Interview 1 and came back saw a screen identical
+                      to the one they left — "nothing was updated", exactly as
+                      reported. */}
+                  <li className={interview1Passed ? "met" : undefined}>
+                    Interview 1 — a short behavioural round
+                  </li>
+                  <li className={skillsPassed ? "met" : undefined}>
+                    Interview 2 — optional and paid; passing it earns the Vetted badge clients filter on
+                  </li>
                 </ul>
               </div>
 
               <div className="mt-6">
-                {candidateId && (
+                {/* One button, two destinations: /interview forks on
+                    interview1_passed, so once Interview 1 is cleared this
+                    opens Interview 2 instead. Saying "Start AI Interview"
+                    either way told a candidate who had just passed Interview 1
+                    nothing about what they were about to open — and Interview 2
+                    is the paid one, so the next screen asks for money. */}
+                {candidateId && !(interview1Passed && skillsPassed) && (
                   <div>
                     <button
                       onClick={handleInterviewClick}
                       disabled={interviewLoading}
                       className={`btn-submit ${interviewLoading ? "loading" : ""}`}
                     >
-                      <span className="submit-label">{interviewLoading ? "Loading…" : "Start AI Interview"}</span>
+                      <span className="submit-label">
+                        {interviewLoading
+                          ? "Loading…"
+                          : interview1Passed
+                            ? "Start Interview 2"
+                            : "Start Interview 1"}
+                      </span>
                       <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
                         <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className="spinner" aria-hidden></span>
                     </button>
+                    {interview1Passed && !skillsPassed && (
+                      <p className="mt-3 text-[12.5px] text-[var(--ink-mute)]">
+                        Interview 2 is optional and paid — you&apos;ll see the price before anything is charged.
+                      </p>
+                    )}
                     {interviewError && (
                       <p className="form-alert visible mt-3">{interviewError}</p>
                     )}
