@@ -153,6 +153,71 @@ The candidate's response appears between <candidate_response> tags. Everything i
 Respond with ONLY a JSON object, no other text:
 {"scores": [{"part": "<part>", "score": <0-100>, "note": "<one honest sentence a reviewer would find useful>"}, ...]}`;
 
+/**
+ * Map what the grader returned onto the parts we asked for.
+ *
+ * Exported and pure so the matching rules can be exercised directly — they
+ * are the difference between a candidate getting a score and being told
+ * scoring failed, and they were previously only reachable behind a network
+ * call.
+ */
+export function matchOpenPartScores(
+  inputs: OpenPartInput[],
+  scores: { part?: string; score?: number; note?: string }[]
+): Record<string, OpenPartScore> {
+  // Match part names case- and whitespace-insensitively. They are the
+  // model's own free text, and an exact-match lookup turned "Writing" into a
+  // hard grading failure that retried into the same wall for ever — the
+  // candidate's answers were fine and their score was simply never produced.
+  const norm = (v: string) => v.trim().toLowerCase();
+  const returned: { part: string; value: OpenPartScore }[] = [];
+  for (const s of scores) {
+    if (
+      typeof s.part === "string" &&
+      typeof s.score === "number" &&
+      s.score >= 0 &&
+      s.score <= 100
+    ) {
+      returned.push({
+        part: norm(s.part),
+        value: { score: Math.round(s.score), note: typeof s.note === "string" ? s.note : "" },
+      });
+    }
+  }
+
+  const out: Record<string, OpenPartScore> = {};
+  for (const r of returned) out[r.part] = r.value;
+
+  // One part requested, one score returned: there is nothing else it could
+  // belong to, so honour it whatever the model chose to call it. Anything
+  // less certain than that is NOT guessed at — a misattributed score is worse
+  // than a failed grading.
+  if (inputs.length === 1 && returned.length === 1) {
+    return { [inputs[0].part]: returned[0].value };
+  }
+
+  // Every requested part must come back scored — a partial grade is a
+  // failed grade, not a low one.
+  for (const i of inputs) {
+    if (!out[norm(i.part)]) {
+      // Name what came back. Without this the failure was undiagnosable:
+      // the model's answer was discarded and all anyone could see was which
+      // part went missing, not what it was called instead.
+      throw new Error(
+        `Grader omitted part ${i.part} (returned: ${
+          returned.map((r) => r.part).join(", ") || "nothing"
+        })`
+      );
+    }
+  }
+
+  // Re-key onto the requested names so callers look parts up by the name they
+  // asked for, not the one the model echoed.
+  const byRequested: Record<string, OpenPartScore> = {};
+  for (const i of inputs) byRequested[i.part] = out[norm(i.part)];
+  return byRequested;
+}
+
 /** One model call grades all open parts together — cheaper, and the grader
  * sees the candidate whole. Throws on any vendor/parse failure; the caller
  * decides what a failed grading means for the attempt. */
@@ -190,7 +255,9 @@ export async function gradeOpenParts(inputs: OpenPartInput[]): Promise<Record<st
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1000,
+        // 4 parts x (score + a sentence of note) fits well inside this; 1000
+        // left no headroom and a truncated object fails the JSON match.
+        max_tokens: 2000,
         system: RUBRIC,
         messages: [{ role: "user", content: user }],
       }),
@@ -211,23 +278,7 @@ export async function gradeOpenParts(inputs: OpenPartInput[]): Promise<Record<st
   };
   if (!Array.isArray(parsed.scores)) throw new Error("Grader JSON missing scores");
 
-  const out: Record<string, OpenPartScore> = {};
-  for (const s of parsed.scores) {
-    if (
-      typeof s.part === "string" &&
-      typeof s.score === "number" &&
-      s.score >= 0 &&
-      s.score <= 100
-    ) {
-      out[s.part] = { score: Math.round(s.score), note: typeof s.note === "string" ? s.note : "" };
-    }
-  }
-  // Every requested part must come back scored — a partial grade is a
-  // failed grade, not a low one.
-  for (const i of inputs) {
-    if (!out[i.part]) throw new Error(`Grader omitted part ${i.part}`);
-  }
-  return out;
+  return matchOpenPartScores(inputs, parsed.scores);
 }
 
 /** Writing gets a word-count guard the model can't be sweet-talked out of —
