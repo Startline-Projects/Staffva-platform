@@ -37,7 +37,6 @@ interface CandidateData {
   skills: string[] | null;
   tools: string[] | null;
   work_experience: unknown[] | null;
-  resume_url: string | null;
   payout_method: string | null;
   payout_status: string | null;
   stripe_account_id: string | null;
@@ -123,16 +122,13 @@ function calculateCompleteness(c: CandidateData, hasPortfolio: boolean): { score
     },
     {
       label: "Work experience",
-      points: 15,
+      // 30, not 15: the résumé's points moved here when candidates stopped
+      // uploading a CV (20260911115148). Work history is what the CV stood in
+      // for, and it is the same destination the SQL ranking and
+      // src/lib/searchRanking.ts chose — all three must agree.
+      points: 30,
       complete: Array.isArray(c.work_experience) && c.work_experience.length >= 1,
       tip: "Add at least one work experience entry",
-      link: "/apply",
-    },
-    {
-      label: "Resume uploaded",
-      points: 15,
-      complete: !!c.resume_url,
-      tip: "Upload your resume so clients can review your full background",
       link: "/apply",
     },
     {
@@ -996,7 +992,7 @@ export default function CandidateDashboardPage({
         const step1Done = true; // Candidate record exists
         const step2Done = (candidate.english_mc_score ?? 0) >= 70 && (candidate.english_comprehension_score ?? 0) >= 70 && !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
         const step3Done = candidate.id_verification_status === "passed";
-        const step4Done = !!candidate.profile_photo_url && !!candidate.resume_url && !!candidate.tagline && !!candidate.bio && !!candidate.payout_method && !!candidate.interview_consent_at;
+        const step4Done = !!candidate.profile_photo_url && !!candidate.tagline && !!candidate.bio && !!candidate.payout_method && !!candidate.interview_consent_at;
 
         // AI interview fail-gate derived state — interview_attempts.next_retake_available_at
         // is the single source of truth for retake timing.

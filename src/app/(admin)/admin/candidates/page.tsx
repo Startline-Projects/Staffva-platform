@@ -85,7 +85,6 @@ interface Candidate {
   us_client_experience: string | null;
   voice_recording_1_url: string;
   voice_recording_2_url: string;
-  resume_url: string;
   payout_method: string;
   availability_status: string;
   total_earnings_usd: number;
@@ -1070,8 +1069,7 @@ export default function CandidateReviewPage() {
                               </div>
                             </div>
                           )}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-xs font-semibold text-text/40 uppercase mb-1">Resume</p>{c.resume_url ? <span className="text-xs text-primary">Uploaded</span> : <span className="text-xs text-text/40 italic">Not uploaded</span>}</div>
+                          <div className="grid grid-cols-1 gap-4">
                             <div><p className="text-xs font-semibold text-text/40 uppercase mb-1">Payout</p><p className="text-sm text-text capitalize">{c.payout_method?.replace(/_/g, " ") || "—"}</p></div>
                           </div>
                         </div>

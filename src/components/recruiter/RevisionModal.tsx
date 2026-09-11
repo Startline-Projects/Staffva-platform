@@ -26,10 +26,13 @@ const REVISION_CATEGORIES = [
     ],
   },
   {
-    category: "Resume",
+    // Was "Resume". Candidates cannot upload one any more, so asking for it
+    // sent them back to a screen with no such field and no way to comply.
+    category: "Work samples",
     items: [
-      "Resume — Missing",
-      "Resume — Needs update — outdated or incomplete",
+      "Work samples — Add at least one sample of your work",
+      "Work samples — Replace — the sample doesn't show the work you're applying for",
+      "Work samples — Remove personal contact details from the file",
     ],
   },
   {

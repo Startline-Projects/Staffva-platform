@@ -54,8 +54,6 @@ function runGateCheck(candidate: Record<string, unknown>): string[] {
     failing.push("ID verification not passed");
   if (!candidate.profile_photo_url)
     failing.push("Profile photo missing");
-  if (!candidate.resume_url)
-    failing.push("Resume missing");
   if (!candidate.tagline)
     failing.push("Tagline missing");
   if (!candidate.bio)
@@ -113,8 +111,11 @@ async function main() {
       process.exit(1);
     }
 
-    // ── Test 1: Candidate with missing resume → should fail with "Resume missing" ──
-    console.log("\n== Test 1: Missing resume triggers gate failure ==");
+    // ── Test 1: a missing required field fails the gate ──
+    // Was anchored on the résumé; candidates no longer upload one
+    // (20260911115148), so this now tests the tagline, which is still
+    // required by both approvalGates.ts and promote_candidate_if_ready.
+    console.log("\n== Test 1: A missing required field triggers gate failure ==");
 
     const { data: inserted, error: insertErr } = await admin
       .from("candidates")
@@ -135,8 +136,7 @@ async function main() {
         voice_recording_2_url: "https://example.com/voice2.mp3",
         id_verification_status: "passed",
         profile_photo_url: "https://example.com/photo.jpg",
-        resume_url: null, // <-- deliberately missing
-        tagline: "Experienced VA",
+        tagline: null, // <-- deliberately missing
         bio: "I am a skilled virtual assistant with 5 years of experience.",
         payout_method: "wise",
         interview_consent_at: new Date().toISOString(),
@@ -156,29 +156,29 @@ async function main() {
     // Fetch and run gate check
     const { data: c1 } = await admin
       .from("candidates")
-      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status")
+      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, tagline, bio, payout_method, interview_consent_at, admin_status")
       .eq("id", testCandidateId)
       .single();
 
     const failures1 = runGateCheck(c1!);
     assert(failures1.length > 0, "Gate check returns failures");
-    assert(failures1.includes("Resume missing"), 'failingConditions includes "Resume missing"');
+    assert(failures1.includes("Tagline missing"), 'failingConditions includes "Tagline missing"');
     assert(!failures1.includes("English grammar score below passing threshold"), "English MC passes (score is 85)");
 
     // Confirm admin_status unchanged
     assert(c1!.admin_status === "pending_review", "admin_status still pending_review");
 
-    // ── Test 2: Fix resume → all gates should pass ──
+    // ── Test 2: Fix it → all gates should pass ──
     console.log("\n== Test 2: All conditions met → approval succeeds ==");
 
     await admin
       .from("candidates")
-      .update({ resume_url: "https://example.com/resume.pdf" })
+      .update({ tagline: "Experienced VA" })
       .eq("id", testCandidateId);
 
     const { data: c2 } = await admin
       .from("candidates")
-      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status")
+      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, tagline, bio, payout_method, interview_consent_at, admin_status")
       .eq("id", testCandidateId)
       .single();
 
@@ -206,7 +206,6 @@ async function main() {
       .from("candidates")
       .update({
         admin_status: "pending_review",
-        resume_url: null,
         tagline: null,
         bio: "",
         payout_method: null,
@@ -216,12 +215,11 @@ async function main() {
 
     const { data: c4 } = await admin
       .from("candidates")
-      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status")
+      .select("id, email, full_name, display_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, tagline, bio, payout_method, interview_consent_at, admin_status")
       .eq("id", testCandidateId)
       .single();
 
     const failures4 = runGateCheck(c4!);
-    assert(failures4.includes("Resume missing"), "Catches missing resume");
     assert(failures4.includes("Tagline missing"), "Catches missing tagline");
     assert(failures4.includes("Bio missing"), "Catches empty bio");
     assert(failures4.includes("Payout method not selected"), "Catches missing payout");

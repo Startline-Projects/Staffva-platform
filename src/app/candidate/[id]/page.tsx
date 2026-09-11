@@ -459,7 +459,7 @@ export default async function CandidateProfilePage({
       {isOwnProfile && candidate.admin_status !== "approved" && (() => {
         const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70;
         const hasRecordings = !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
-        const profileDone = !!candidate.profile_photo_url && !!candidate.resume_url;
+        const profileDone = !!candidate.profile_photo_url && !!candidate.tagline;
         const aiDone = !!candidate.ai_interview_completed_at;
 
         if (aiDone) return null;
@@ -1131,16 +1131,13 @@ export default async function CandidateProfilePage({
           )}
 
           {/* Admin-only extras */}
-          {isAdmin && (candidate.linkedin_url || candidate.resume_url) && (
+          {isAdmin && candidate.linkedin_url && (
             <div className="sidebar-quick" style={{ marginTop: "18px" }}>
               <div className="sidebar-quick-row">
                 <span className="sidebar-quick-lbl">Admin only</span>
                 <span className="sidebar-quick-val" style={{ display: "flex", gap: "10px" }}>
                   {candidate.linkedin_url && (
                     <a href={candidate.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>LinkedIn</a>
-                  )}
-                  {candidate.resume_url && (
-                    <a href={candidate.resume_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>Resume</a>
                   )}
                 </span>
               </div>

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   const assignedCandidateIds = (assignedCandidates || []).map((c: { id: string }) => c.id);
 
   // Parallel fetches
-  // Lane 1 (resumes to review before the call), Lane 2 (profiles to submit after
+  // Lane 1 (profiles to review before the call), Lane 2 (profiles to submit after
   // it), the "interviews completed today" KPI, the upcoming-bookings list and the
   // unmatched-bookings list have all been removed. Every one of them was keyed on
   // second_interview_status, which nothing sets any more, so each would render as

@@ -31,7 +31,6 @@ interface ProfileBuilderProps {
     country?: string | null;
     city?: string | null;
     role_title?: string | null;
-    resume_url?: string | null;
     video_intro_url?: string | null;
     voice_recording_2_url?: string | null;
     hours_per_week?: number | null;
@@ -48,7 +47,7 @@ interface ProfileBuilderProps {
  * The mapping is deliberate about one thing: the OLD six steps are all still
  * here, in the same order, doing the same work. Atlas's structure is layered
  * over them rather than replacing them, because every approval gate in the
- * product enumerates resume_url, payout_method and interview_consent_at, and
+ * product enumerates payout_method and interview_consent_at, and
  * a step set that stopped collecting one of those would silently stop making
  * candidates promotable.
  *
@@ -56,7 +55,7 @@ interface ProfileBuilderProps {
  *   2 (B)  About you
  *   3 (D)  Skills and tools          <- skills are now WRITTEN, see below
  *   4 (E)  Work history + references
- *   5 (F)  Portfolio and resume
+ *   5 (F)  Work samples and payout
  *   6 (C)  Rate, availability and payout
  *   7 (G)  Education and certifications   <- new, optional
  *   8 (R)  Review and submit              <- new
@@ -74,7 +73,7 @@ const LAST_STEP: BuilderStep = 8;
  * total"), and lifting it wholesale would ship claims no code backs.
  */
 /** Bytes, as something a person reads.
- *  `(bytes / 1024 / 1024).toFixed(1)` renders a 40KB résumé as "0.0 MB", which
+ *  `(bytes / 1024 / 1024).toFixed(1)` renders a 40KB file as "0.0 MB", which
  *  on a card whose whole job is to say "your file is attached" reads as
  *  nothing being attached. */
 function formatFileSize(bytes: number): string {
@@ -114,10 +113,10 @@ const STEP_HEADERS: { lead: string; em: string; tail: string; sub: string }[] = 
     sub: "Up to 3 roles, each with an optional reference contact we store for later.",
   },
   {
-    lead: "Your ",
-    em: "résumé",
-    tail: " and work samples.",
-    sub: "A PDF résumé, up to 3 optional samples, and how you'd like to be paid.",
+    lead: "Show your ",
+    em: "work",
+    tail: ".",
+    sub: "Up to 3 optional samples of what you've done, and how you'd like to be paid.",
   },
   {
     lead: "When you're ",
@@ -523,10 +522,6 @@ export default function ProfileBuilder({
   const [hourlyRate, setHourlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const portfolioInputRef = useRef<HTMLInputElement>(null);
-  const resumeInputRef = useRef<HTMLInputElement>(null);
-  // The input itself is hidden, so a failed résumé check scrolls to the
-  // SECTION. Scrolling to a display:none element does nothing.
-  const resumeSectionRef = useRef<HTMLDivElement>(null);
 
   // Step 2 — About
   const [bio, setBio] = useState(candidateData.bio || "");
@@ -554,8 +549,7 @@ export default function ProfileBuilder({
     ];
   });
 
-  // Step 5 — Portfolio and Resume
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  // Step 5 — Work samples and payout
   // References are keyed by employer, not by array index: reordering or
   // deleting an entry must not silently re-point somebody's reference at a
   // different job. The key is derived from the company name and start date.
@@ -599,7 +593,6 @@ export default function ProfileBuilder({
     skills: selectedSkills,
     tools: selectedTools,
     work_experience: workEntries.filter((e) => e.role_title.trim()),
-    resume_url: resumeFile ? "pending" : candidateData.resume_url || null,
     video_intro_url: candidateData.video_intro_url || null,
     voice_recording_2_url: candidateData.voice_recording_2_url || null,
   });
@@ -839,37 +832,6 @@ export default function ProfileBuilder({
     setPortfolioItems(portfolioItems.filter((_, i) => i !== index));
   }
 
-  function pickResume() {
-    resumeInputRef.current?.click();
-  }
-
-  function handleResumeFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Reset immediately so re-picking the SAME file still fires onChange —
-    // otherwise "Replace" with an identical filename looks broken.
-    e.target.value = "";
-    if (!file) return;
-    // accept= is a filter, not a guarantee: every OS file dialog offers an
-    // "All files" escape hatch. A .docx would upload happily and then fail to
-    // open for whoever reads it, so refuse it here and say what to do instead.
-    const isPdf =
-      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf) {
-      setError("Your résumé must be a PDF. If yours is a Word file, export it as a PDF and try again.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Your résumé must be under 10MB.");
-      return;
-    }
-    setError("");
-    setResumeFile(file);
-  }
-
-  function removeResume() {
-    setResumeFile(null);
-    setError("");
-  }
 
   function validateStep(): boolean {
     setError("");
@@ -946,18 +908,7 @@ export default function ProfileBuilder({
         return true;
       }
       case 5:
-        // An already-uploaded résumé counts. Checking only resumeFile meant a
-        // returning candidate whose CV was already on their profile was told
-        // "Resume is required" and had to re-upload the same PDF — the same
-        // defect the photo check had.
-        if (!resumeFile && !candidateData.resume_url) {
-          // Say WHICH field and rule out the one people reach for instead.
-          // "Resume is required" was true and unhelpful: the step has two
-          // upload controls and the optional one is the bigger target.
-          setError("Your résumé is required. Upload it in the first field on this step — portfolio samples don't count.");
-          resumeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-          return false;
-        }
+        // Work samples are optional, so payout is the only gate on this step.
         if (!payoutMethod) {
           setError("Payout method is required");
           return false;
@@ -1009,7 +960,7 @@ export default function ProfileBuilder({
    *
    * Applying it wholesale is correct because submit DELETEs the draft, so a
    * draft that exists is by definition newer than the last save. Fields the
-   * draft does not carry (the photo and resume Files, and the references)
+   * draft does not carry (the photo File and the references)
    * keep their seeded values.
    */
   useEffect(() => {
@@ -1081,8 +1032,8 @@ export default function ProfileBuilder({
       city, roleTitle, tagline, bio, hourlyRate, hoursPerWeek, workingHours,
       selectedSkills, selectedTools, workEntries, educationEntries,
       certifications, payoutMethod, availability, availabilityDate,
-      // Deliberately NOT saved: photoFile and resumeFile are File objects and
-      // do not serialise, and savedReferences holds a third party's contact
+      // Deliberately NOT saved: photoFile is a File object and does not
+      // serialise, and savedReferences holds a third party's contact
       // details, which belong in candidate_references and nowhere else.
     };
     fetch("/api/candidate/profile-draft", {
@@ -1136,22 +1087,6 @@ export default function ProfileBuilder({
           .from("profile-photos")
           .getPublicUrl(path);
         photoUrl = urlData.publicUrl;
-      }
-
-      // Upload resume
-      let resumeUrl = "";
-      if (resumeFile) {
-        const path = `${candidateId}/resume-${Date.now()}.pdf`;
-        const { error: uploadError } = await supabase.storage
-          .from("resumes")
-          .upload(path, resumeFile);
-
-        if (uploadError) throw new Error("Failed to upload resume: " + uploadError.message);
-
-        const { data: urlData } = supabase.storage
-          .from("resumes")
-          .getPublicUrl(path);
-        resumeUrl = urlData.publicUrl;
       }
 
       // Upload portfolio items
@@ -1227,7 +1162,6 @@ export default function ProfileBuilder({
       };
 
       if (photoUrl) updateData.profile_photo_url = photoUrl;
-      if (resumeUrl) updateData.resume_url = resumeUrl;
 
       const { error: updateError } = await supabase
         .from("candidates")
@@ -1289,13 +1223,13 @@ export default function ProfileBuilder({
 
   // Each label names what is actually ON that step. "Rate" sat over the
   // availability step while the rate field lives on step 1, and "Portfolio"
-  // over a step whose only required field is the résumé.
+  // over a step whose only required field is the payout method.
   const stepLabels = [
     "Basics",
     "About",
     "Skills",
     "Experience",
-    "Résumé",
+    "Work samples",
     "Availability",
     "Education",
     "Review",
@@ -2067,105 +2001,16 @@ export default function ProfileBuilder({
           </div>
         )}
 
-        {/* ───────── STEP 5: Portfolio & Resume ───────── */}
+        {/* ───────── STEP 5: Work samples & payout ───────── */}
         {currentStep === 5 && (
           <div>
-            {/* The required résumé sat here as a bare <input type="file"> — a
-                ~100px native button — directly above the OPTIONAL portfolio
-                zone, which is full-width with an icon and a "Click to add"
-                title. The only required control on the step was the least
-                visible thing on it, so a candidate aiming at the obvious
-                target put their CV in the portfolio grid and was then told
-                "Resume is required" with nothing on screen looking empty.
-                Same upload vocabulary as the portfolio, at the weight a
-                required field earns, and a filled state that cannot be
-                mistaken for an empty one. */}
-            <div className="pb-section" ref={resumeSectionRef}>
-              <div className="pb-section-label">
-                Résumé<span className="req">*</span>
-              </div>
-              <p className="pb-section-help">
-                PDF only, max 10MB. Work samples go in the next section — they don&rsquo;t replace this.
-              </p>
-
-              {/* Hidden: the visible control is the zone or card below, so the
-                  thing that looks clickable is the thing that opens the
-                  dialog. Same pattern as the portfolio picker. */}
-              <input
-                ref={resumeInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={handleResumeFilePicked}
-                className="hidden"
-              />
-
-              {resumeFile ? (
-                <div className="pb-file-card attached mt-3">
-                  <div className="pb-file-thumb" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-                      <path d="M8 4h10l6 6v18H8V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M18 4v6h6M12 18h8M12 23h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <div className="pb-file-body">
-                    <div className="pb-file-name">{resumeFile.name}</div>
-                    <div className="pb-file-meta">
-                      {formatFileSize(resumeFile.size)} &middot; attached
-                    </div>
-                  </div>
-                  <div className="pb-file-actions">
-                    <button type="button" onClick={pickResume} className="linklike">
-                      Replace
-                    </button>
-                    <button type="button" onClick={removeResume} className="linklike">
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : candidateData.resume_url ? (
-                /* A returning candidate's CV is already on their profile and
-                   the check below passes on it. Showing nothing made the only
-                   required field on the step look empty and unfilled. */
-                <div className="pb-file-card mt-3">
-                  <div className="pb-file-thumb" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-                      <path d="M8 4h10l6 6v18H8V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                      <path d="M18 4v6h6M12 18h8M12 23h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <div className="pb-file-body">
-                    <div className="pb-file-name">Résumé already on your profile</div>
-                    <div className="pb-file-meta">Nothing to do &middot; replace it only if it has changed</div>
-                  </div>
-                  <div className="pb-file-actions">
-                    <button type="button" onClick={pickResume} className="linklike">
-                      Replace
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Click only, like the portfolio zone: there is no drop
-                   handler here, so the wording must not promise one. */
-                <button
-                  type="button"
-                  onClick={pickResume}
-                  className="pb-portfolio-upload-zone required mt-3 w-full"
-                >
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                    <path d="M8 20v4h16v-4M16 4v16m0-16-6 6m6-6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="upload-title">Click to upload your résumé</div>
-                  <div className="upload-help">PDF only, max 10MB &mdash; required</div>
-                </button>
-              )}
-            </div>
 
             <div className="pb-section">
               <h3 className="pb-section-label">
                 Portfolio items — optional
               </h3>
               <p className="pb-section-help">
-                Up to 3 items. PDF or image, max 5MB each. Examples: a cover letter, work sample, certificate, or project screenshot.
+                Up to 3 items. PDF or image, max 5MB each. Examples: a work sample, a certificate, or a project screenshot. These go to clients &mdash; leave out your phone number, email and address.
               </p>
               {/* Atlas's sample grid. The thumb variant is picked off the
                   file's own MIME type — display only, nothing reads it back.

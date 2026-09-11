@@ -46,7 +46,6 @@ interface GateCandidate {
   voice_recording_2_url: string | null;
   id_verification_status: string | null;
   profile_photo_url: string | null;
-  resume_url: string | null;
   tagline: string | null;
   bio: string | null;
   payout_method: string | null;
@@ -91,9 +90,6 @@ export function checkApprovalGates(candidate: GateCandidate): {
   // predicate (00154) rather than blocked from approval.
   if (!filled(candidate.profile_photo_url)) {
     failingConditions.push("Profile photo missing");
-  }
-  if (!filled(candidate.resume_url)) {
-    failingConditions.push("Resume missing");
   }
   if (!filled(candidate.tagline)) {
     failingConditions.push("Tagline missing");

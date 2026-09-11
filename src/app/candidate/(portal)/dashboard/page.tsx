@@ -58,7 +58,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, resume_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, application_stage, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, application_stage, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -151,7 +151,7 @@ export default async function CandidateDashboardPage() {
   if (candidate?.admin_status === "approved") {
     const { data: live, error: liveError } = await admin
       .from("candidates")
-      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category, profile_photo_url, ai_interview_passed, english_written_tier, video_intro_status, video_intro_url, voice_recording_1_url, bio, tagline, skills, tools, work_experience, resume_url")
+      .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category, profile_photo_url, ai_interview_passed, english_written_tier, video_intro_status, video_intro_url, voice_recording_1_url, bio, tagline, skills, tools, work_experience")
       .eq("id", candidate.id)
       .single();
     // Dropping the portal on a failed read would leave a live candidate on a
@@ -416,7 +416,7 @@ export default async function CandidateDashboardPage() {
     hasSkillsHistory;
   const interview2Done = candidate?.ai_interview_passed === true;
   const recordingsDone = !!candidate?.voice_recording_1_url && !!candidate?.voice_recording_2_url;
-  const profileDone = !!candidate?.profile_photo_url && !!candidate?.resume_url && !!candidate?.tagline && !!candidate?.bio && !!candidate?.payout_method;
+  const profileDone = !!candidate?.profile_photo_url && !!candidate?.tagline && !!candidate?.bio && !!candidate?.payout_method;
   const status = candidate?.admin_status || "";
   const underReview = ["under_review", "profile_review"].includes(status);
   const actionRequired = ["revision_required", "changes_requested"].includes(status);
@@ -586,7 +586,7 @@ export default async function CandidateDashboardPage() {
     },
     profile: {
       title: "Build your profile",
-      body: "Photo, tagline, bio, resume, payout method — the profile clients actually see. This is your storefront; make it yours.",
+      body: "Photo, tagline, bio, work samples, payout method — the profile clients actually see. This is your storefront; make it yours.",
       cta: "Continue building",
       href: "/apply",
       minutes: "~10 min",
@@ -757,7 +757,7 @@ export default async function CandidateDashboardPage() {
     interview1: "A short behavioral interview — communication, problem-solving, judgment.",
     interview2: "A skills interview that probes what you claimed you can do.",
     recordings: "Two short voice recordings clients hear on your profile.",
-    profile: "Photo, tagline, bio, resume and payout — your storefront.",
+    profile: "Photo, tagline, bio, work samples and payout — your storefront.",
     review: "A human reviewer signs off before anything goes live.",
     live: "Your profile joins the marketplace.",
   };

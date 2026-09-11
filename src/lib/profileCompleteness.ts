@@ -43,7 +43,6 @@ export interface CompletenessInput {
   skills?: unknown;
   tools?: unknown;
   work_experience?: unknown;
-  resume_url?: string | null;
   video_intro_url?: string | null;
   voice_recording_2_url?: string | null;
 }
@@ -144,14 +143,6 @@ export function profileSections(c: CompletenessInput): CompletenessSection[] {
       done: jobs >= 1,
       step: "E",
       missing: "Add at least one previous role.",
-      required: true,
-    },
-    {
-      key: "resume",
-      label: "Résumé",
-      done: !!c.resume_url,
-      step: "F",
-      missing: "Upload a PDF.",
       required: true,
     },
     {

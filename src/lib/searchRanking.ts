@@ -8,7 +8,8 @@
  * checklist and still rank low, because the two ask different questions.
  *
  * ⚠️ THE WEIGHTS BELOW MUST MATCH
- * `supabase/migrations/00219_browse_completeness_sort.sql` (profile) and
+ * `supabase/migrations/20260911115148_retire_resume_requirement.sql`
+ * (profile — supersedes 00219/00224 for the completeness terms) and
  * `00224_assessments_affect_ranking.sql` (assessments).
  * The SQL is authoritative — it is what actually orders client search. This
  * exists so the dashboard can tell a candidate why they sit where they sit,
@@ -40,7 +41,6 @@ export interface RankingInput {
   skills?: unknown;
   tools?: unknown;
   work_experience?: unknown;
-  resume_url?: string | null;
 }
 
 export interface RankingItem {
@@ -77,7 +77,10 @@ export function rankingItems(c: RankingInput): RankingItem[] {
     },
     { key: "voice", label: "A voice recording", points: 10, done: c.voice_recording_1_url != null },
     { key: "skills", label: "At least 3 skills", points: 10, done: len(c.skills) >= 3 },
-    { key: "work", label: "At least one past role", points: 8, done: len(c.work_experience) >= 1 },
+    // 13, not 8: the résumé's 5 points moved here when candidates stopped
+    // uploading one (migration 20260911115148). Work history is what the CV
+    // stood in for, and the scale has to still total 100.
+    { key: "work", label: "At least one past role", points: 13, done: len(c.work_experience) >= 1 },
     {
       key: "tagline",
       label: "A headline",
@@ -85,7 +88,6 @@ export function rankingItems(c: RankingInput): RankingItem[] {
       done: !!c.tagline && c.tagline.replace(/^ +| +$/g, "") !== "",
     },
     { key: "tools", label: "At least one tool", points: 5, done: len(c.tools) >= 1 },
-    { key: "resume", label: "A résumé", points: 5, done: c.resume_url != null },
   ];
 }
 
@@ -109,7 +111,7 @@ export function hasRankingColumns(c: RankingInput): boolean {
   return (
     "profile_photo_url" in c &&
     "bio" in c &&
-    "resume_url" in c &&
+    "work_experience" in c &&
     "ai_interview_passed" in c
   );
 }

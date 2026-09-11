@@ -55,7 +55,6 @@ export interface CandidateData {
   id_verification_status: string;
   voice_recording_1_url: string | null;
   voice_recording_2_url: string | null;
-  resume_url: string | null;
   payout_method: string | null;
   availability_status: string;
   permanently_blocked: boolean;
@@ -156,15 +155,17 @@ export default function ApplyPage() {
       return;
     }
 
-    // "Complete" means the profile is finished — the same seven conditions
-    // 00221 and approvalGates.ts gate going live on. The English thresholds
-    // were removed here with them: leaving them made an OPTIONAL test the
-    // thing standing between a candidate and their own profile.
+    // "Complete" means the profile is finished — the same six conditions
+    // 20260911115148 and approvalGates.ts gate going live on. The English
+    // thresholds were removed here with them: leaving them made an OPTIONAL
+    // test the thing standing between a candidate and their own profile.
+    // The résumé left the list when candidates stopped uploading one; it is
+    // still in this SELECT because old rows carry a value, but nothing gates
+    // on it.
     const isFullyComplete =
       !!candidate.voice_recording_1_url &&
       !!candidate.voice_recording_2_url &&
       !!candidate.profile_photo_url &&
-      !!candidate.resume_url &&
       !!candidate.tagline &&
       !!candidate.bio &&
       !!candidate.payout_method &&
@@ -480,7 +481,6 @@ export default function ApplyPage() {
             country: candidateData.country ?? null,
             city: (candidateData as { city?: string | null }).city ?? null,
             role_title: (candidateData as { role_title?: string | null }).role_title ?? null,
-            resume_url: candidateData.resume_url ?? null,
             video_intro_url: (candidateData as { video_intro_url?: string | null }).video_intro_url ?? null,
             voice_recording_2_url: candidateData.voice_recording_2_url ?? null,
             hours_per_week: (candidateData as { hours_per_week?: number | null }).hours_per_week ?? null,

@@ -52,7 +52,6 @@ interface Candidate {
   us_client_experience: string | null;
   voice_recording_1_url: string;
   voice_recording_2_url: string;
-  resume_url: string;
   payout_method: string;
   availability_status: string;
   total_earnings_usd: number;
@@ -348,15 +347,6 @@ export default function CandidatePreviewModal({
                         {US_EXP_LABELS[usExperienceLocal] || "Yes"}
                       </span>
                     </div>
-                  </>
-                )}
-                {c.resume_url && (
-                  <>
-                    <div className="border-t border-gray-100" />
-                    <a href={c.resume_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:text-orange-600">
-                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">PDF</span>
-                      Download Resume
-                    </a>
                   </>
                 )}
               </div>

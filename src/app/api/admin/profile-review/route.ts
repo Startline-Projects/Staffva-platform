@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const { data: candidate } = await admin
       .from("candidates")
       .select(
-        "id, email, display_name, full_name, first_name, last_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, resume_url, tagline, bio, payout_method, interview_consent_at, admin_status, permanently_blocked"
+        "id, email, display_name, full_name, first_name, last_name, english_mc_score, english_comprehension_score, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url, tagline, bio, payout_method, interview_consent_at, admin_status, permanently_blocked"
       )
       .eq("id", candidateId)
       .single();

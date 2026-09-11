@@ -67,10 +67,11 @@ export async function GET() {
     admin.from("candidates").select("id", { count: "exact", head: true }).gte("english_mc_score", 70).gte("english_comprehension_score", 70),
     // Pipeline: ID verified
     admin.from("candidates").select("id", { count: "exact", head: true }).eq("id_verification_status", "passed"),
-    // Pipeline: Profile built (photo + resume + tagline + bio + payout + consent)
+    // Pipeline: Profile built (photo + tagline + bio + payout + consent).
+    // The résumé left this list when candidates stopped uploading one — kept
+    // as a condition it would have counted zero new candidates forever.
     admin.from("candidates").select("id", { count: "exact", head: true })
       .not("profile_photo_url", "is", null)
-      .not("resume_url", "is", null)
       .not("tagline", "is", null)
       .not("bio", "is", null)
       .not("payout_method", "is", null)

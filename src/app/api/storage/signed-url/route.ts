@@ -15,6 +15,12 @@ function getAdminClient() {
 // staff member — the sole legitimate callers. This closes the previous hole
 // where anyone could fetch any private file with no authentication.
 const PUBLIC_BUCKETS = new Set(["voice-recordings"]);
+// "resumes" stays on purpose. Candidates no longer upload a CV
+// (20260911115148), but 46 historical files are still in the bucket. No
+// screen links to them any more — the admin list tile and the preview
+// modal's download link went with the feature — so this route is now the
+// only way to reach one. Dropping it here would lock away records that
+// still exist.
 const STAFF_BUCKETS = new Set(["resumes", "portfolio", "contracts", "video-intros"]);
 const STAFF_ROLES = new Set(["recruiter", "recruiting_manager", "admin"]);
 
