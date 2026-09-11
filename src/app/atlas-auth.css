@@ -4872,3 +4872,13 @@
   color: var(--ink);
   background: var(--cream-deep, rgba(14, 14, 12, 0.06));
 }
+
+/* No "+" on the suggestion chips.
+   Atlas prefixes them with "+ " via ::before to say "add this". The owner's
+   call is that the chip itself is the affordance — you click the thing you
+   want, the way you do everywhere else — and the marker read as though the
+   little plus were the target rather than the whole chip. Removing it also
+   makes the chip row and the dropdown behave identically, since both use
+   .pb-skill-suggestion. The hover state (solid border, ink text) still carries
+   the "this is clickable" signal, and cursor: pointer is on the base rule. */
+.lp-auth .pb-skill-suggestion::before { content: none; }
