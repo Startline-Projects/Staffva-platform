@@ -103,6 +103,29 @@ export async function GET(request: NextRequest) {
   const failures: string[] = [];
 
   for (const row of owed) {
+    // A FREE sitting (20260911201321) has no money behind it and no
+    // PaymentIntent, so there is nothing for Stripe to return. Marking it
+    // refunded is the whole remedy. It also hands the free go back — a
+    // refunded row is no longer "spent" — but that is bounded by the lifetime
+    // cap in 20260911203842, NOT by this flag: keying the bound on
+    // refunded_at alone let the same candidate re-mint a free sitting every
+    // cycle, with released_count reset each time. Without this branch every
+    // broken free sitting would be alerted as a fatal "needs a manual refund"
+    // with no money behind it to return.
+    if (row.amount_cents === 0) {
+      const { error: zeroErr } = await supabase
+        .from("assessment_purchases")
+        .update({ status: "refunded", refunded_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .neq("status", "refunded");
+      if (zeroErr) {
+        failures.push(row.id);
+      } else {
+        refunded++;
+      }
+      continue;
+    }
+
     if (!row.stripe_payment_intent_id) {
       // Paid with no PaymentIntent recorded — cannot be refunded by machine.
       // Surface it rather than leaving it to be retried for ever.

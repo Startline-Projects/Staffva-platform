@@ -83,6 +83,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: eligible.reason }, { status: 403 });
   }
 
+  // Is their free first sitting still unspent? Then grant it and fall into
+  // the "already holding one" answer below rather than taking money for
+  // something they are owed (20260911201321). Idempotent, and a no-op once
+  // the free go has been used — so a genuine retake still reaches Stripe.
+  // Belt and braces: the dashboard already routes a free sitting past this
+  // route entirely, but any other entry point would otherwise charge $5 for
+  // a sitting the candidate would have got for nothing.
+  const { error: grantErr } = await supabase.rpc("grant_free_assessment_sitting", {
+    p_candidate_id: candidateId,
+    p_kind: kind,
+  });
+  if (grantErr) {
+    // Do NOT fall through to checkout. If the grant could not run we do not
+    // know whether this sitting is owed for free, and the failure mode of
+    // guessing is taking $5 from someone entitled to pay nothing.
+    return NextResponse.json(
+      { error: "We couldn't check your free sitting just now. Please try again in a moment." },
+      { status: 503 }
+    );
+  }
+
   // Already holding a live sitting of this kind — send them to take it
   // instead of charging again. The partial unique index would reject the
   // second row anyway; this turns a 500 into an answer.

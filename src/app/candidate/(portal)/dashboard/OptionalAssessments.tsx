@@ -37,6 +37,8 @@ export default function OptionalAssessments({
   englishExhausted,
   paidEnglish,
   paidInterview,
+  freeEnglish,
+  freeInterview,
   pendingEnglish,
   pendingInterview,
   needsInterview1,
@@ -48,6 +50,10 @@ export default function OptionalAssessments({
   englishExhausted: boolean;
   paidEnglish: boolean;
   paidInterview: boolean;
+  /** The free first sitting has not been spent yet, so this one costs
+   *  nothing (20260911201321). Retakes are paid. */
+  freeEnglish: boolean;
+  freeInterview: boolean;
   /** A payment is in flight but not confirmed. The local methods a candidate
    *  without an international card actually has settle asynchronously, and
    *  showing "Buy" through that window is how someone pays twice. */
@@ -142,7 +148,7 @@ export default function OptionalAssessments({
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
               {needsInterview1 ? "Interview 1" : "Skills interview"}{" "}
               <span style={{ fontWeight: 500, color: "var(--ink-mute)" }}>
-                — {needsInterview1 ? "free" : !paidInterview ? priceLabel("interview") : ""}
+                — {needsInterview1 || freeInterview ? "free" : !paidInterview ? priceLabel("interview") : ""}
               </span>
             </p>
             <p style={{ margin: "4px 0 8px", fontSize: 13.5, color: "var(--ink-mute)" }}>
@@ -151,7 +157,8 @@ export default function OptionalAssessments({
                   A short recorded conversation about how you work — how you
                   handle deadlines, feedback, and a client who changes their
                   mind. It&apos;s free, and passing it opens the{" "}
-                  <strong>skills interview</strong> ({priceLabel("interview")}),
+                  <strong>skills interview</strong>
+                  {freeInterview ? " (your first one is free)" : ` (${priceLabel("interview")})`},
                   which is the one that earns the Vetted badge.
                 </>
               ) : (
@@ -184,7 +191,7 @@ export default function OptionalAssessments({
                   again.
                 </p>
               </>
-            ) : paidInterview ? (
+            ) : paidInterview || freeInterview ? (
               <>
                 <button
                   type="button"
@@ -195,7 +202,7 @@ export default function OptionalAssessments({
                   <span>{busy === "interview-launch" ? "Opening…" : "Start your interview"}</span>
                 </button>
                 <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-mute)" }}>
-                  Paid — this is yours to take whenever you&apos;re ready.
+                  {freeInterview ? "Yours to take whenever you're ready." : "Paid — this is yours to take whenever you're ready."}
                 </p>
               </>
             ) : (
@@ -206,7 +213,9 @@ export default function OptionalAssessments({
                 disabled={busy !== null}
               >
                 <span>
-                  {busy === "interview" ? "Opening checkout…" : `Take the skills interview — ${priceLabel("interview")}`}
+                  {busy === "interview"
+                    ? "Opening checkout…"
+                    : `Retake the skills interview — ${priceLabel("interview")}`}
                 </span>
               </button>
             )}
@@ -219,7 +228,7 @@ export default function OptionalAssessments({
               English assessment{" "}
               {!paidEnglish && (
                 <span style={{ fontWeight: 500, color: "var(--ink-mute)" }}>
-                  — {priceLabel("english")}
+                  — {freeEnglish ? "free" : priceLabel("english")}
                 </span>
               )}
             </p>
@@ -241,7 +250,7 @@ export default function OptionalAssessments({
                   again.
                 </p>
               </>
-            ) : paidEnglish ? (
+            ) : paidEnglish || freeEnglish ? (
               <>
                 {/* The assessment lives on its own host now. A plain
                     <Link> would client-side navigate and never leave
@@ -250,7 +259,7 @@ export default function OptionalAssessments({
                   <span>Start your English assessment</span>
                 </a>
                 <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-mute)" }}>
-                  Paid — this is yours to take whenever you&apos;re ready.
+                  {freeEnglish ? "Yours to take whenever you're ready." : "Paid — this is yours to take whenever you're ready."}
                 </p>
               </>
             ) : (
@@ -261,7 +270,9 @@ export default function OptionalAssessments({
                 disabled={busy !== null}
               >
                 <span>
-                  {busy === "english" ? "Opening checkout…" : `Take the English assessment — ${priceLabel("english")}`}
+                  {busy === "english"
+                    ? "Opening checkout…"
+                    : `Retake the English assessment — ${priceLabel("english")}`}
                 </span>
               </button>
             )}

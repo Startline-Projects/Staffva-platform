@@ -78,11 +78,12 @@ export default function TermsOfService() {
         <li>Failed assessments may be retaken under the retake rules shown in your dashboard.</li>
         <li>Acceptance to the marketplace is at StaffVA&apos;s discretion.</li>
         <li>
-          <strong>The assessments are optional and paid.</strong> Neither the
-          English assessment nor the skills interview is required to create a
-          profile or to be listed. Each costs <strong>$5</strong> and buys{" "}
-          <strong>one sitting</strong> of that assessment. The price is shown
-          before you pay.
+          <strong>The assessments are optional. Your first sitting of each is
+          free.</strong> Neither the English assessment nor the skills
+          interview is required to create a profile or to be listed. Your first
+          sitting of each is free; after that a <strong>retake costs $5</strong>{" "}
+          and buys <strong>one sitting</strong>. The price is shown before you
+          pay, and you are never charged for a first sitting.
         </li>
         <li>
           <strong>What a payment does and does not buy.</strong> It buys the

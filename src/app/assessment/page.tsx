@@ -90,6 +90,18 @@ export default async function AssessmentPage() {
   // second one, while the attempt they had paid for ran out its clock in the
   // background.
   if (mode === "run") {
+    // First sitting free (20260911201321). This page reads the entitlement
+    // DIRECTLY rather than going through /api/test/questions, so without a
+    // grant here a first-time candidate had no row, fell to mode "unpaid",
+    // and was shown "You don't have a sitting yet — it costs $5" with a link
+    // back to the dashboard, whose button sent them straight back here. A
+    // closed loop, and the $5 was the one price they could not even pay,
+    // because the dashboard hides the Buy button while the sitting is free.
+    await admin.rpc("grant_free_assessment_sitting", {
+      p_candidate_id: candidate.id,
+      p_kind: "english",
+    });
+
     const { data: entitlement } = await admin
       .from("assessment_purchases")
       .select("id")

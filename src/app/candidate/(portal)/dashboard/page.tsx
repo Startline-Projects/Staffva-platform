@@ -193,6 +193,37 @@ export default async function CandidateDashboardPage() {
     const paidKinds = new Set(
       rows.filter((e) => e.status === "paid").map((e) => e.kind as string)
     );
+
+    // Is the next sitting of each kind free? Mirrors
+    // grant_free_assessment_sitting (20260911203842): a free go is spent by a
+    // sitting that COMPLETED, was not refunded, and is not waiting to be
+    // refunded — and there is a hard lifetime cap of 3 zero-cent rows that a
+    // refund cannot erase.
+    //
+    // This is a second copy of that predicate and exists only to label a
+    // button. The database decides who actually gets a free sitting; if the
+    // two disagree the button lies and the entitlement does not, so the
+    // columns are fetched and the test written out rather than pushed into a
+    // filter that could drift silently.
+    const FREE_SITTING_CAP = 3;
+    const { data: freeRows } = await admin
+      .from("assessment_purchases")
+      .select("kind, status, amount_cents, consumed_at, refunded_at, refund_reason")
+      .eq("candidate_id", live.id);
+    const freeSpentKinds = new Set<string>();
+    for (const kind of ["english", "interview"]) {
+      const forKind = (freeRows ?? []).filter((r) => r.kind === kind);
+      const spent = forKind.some(
+        (r) =>
+          r.status === "paid" &&
+          r.consumed_at !== null &&
+          r.refunded_at === null &&
+          r.refund_reason === null
+      );
+      const capped =
+        forKind.filter((r) => r.amount_cents === 0).length >= FREE_SITTING_CAP;
+      if (spent || capped) freeSpentKinds.add(kind);
+    }
     // A delayed local payment method (bank debit, voucher — the methods that
     // matter for candidates without an international card) leaves the row at
     // 'pending' until it confirms. Showing the Buy button through that window
@@ -367,6 +398,8 @@ export default async function CandidateDashboardPage() {
           englishExhausted={candidate.english_attempts_exhausted === true}
           paidEnglish={paidKinds.has("english")}
           paidInterview={paidKinds.has("interview")}
+          freeEnglish={!freeSpentKinds.has("english")}
+          freeInterview={!freeSpentKinds.has("interview")}
           pendingEnglish={pendingKinds.has("english")}
           pendingInterview={pendingKinds.has("interview")}
           needsInterview1={needsInterview1}

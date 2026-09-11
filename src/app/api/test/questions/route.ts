@@ -370,6 +370,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // First sitting free, retakes paid (20260911201321). Granted through the
+  // same table a purchase writes to, so the re-read below, claim, settle and
+  // the release cap are all unchanged and cannot tell a free sitting from a
+  // bought one. Returns null and writes nothing once the free go has been
+  // spent on a sitting that actually completed — that is what makes a retake
+  // paid.
+  const { error: grantErr } = await supabase.rpc("grant_free_assessment_sitting", {
+    p_candidate_id: candidateId,
+    p_kind: "english",
+  });
+  if (grantErr) {
+    // Falling through would hit the 402 below and tell a first-timer their
+    // free test had been used — false, and it points them at a $5 retake.
+    return NextResponse.json(
+      { error: "We couldn't start your assessment just now. Please try again." },
+      { status: 503 }
+    );
+  }
+
   // Re-read after resolving, and require an UNCLAIMED purchase: a settle above
   // spends it, a release frees it, and only a free one can start a sitting.
   const { data: entitlement } = await supabase
@@ -386,7 +405,10 @@ export async function POST(request: Request) {
   if (!entitlement) {
     return NextResponse.json(
       {
-        error: "This assessment hasn't been paid for yet.",
+        // Reaching here means the free sitting is already spent on a test
+        // that completed, so this is a retake. "Hasn't been paid for" would
+        // read as a billing fault to someone never asked for money first time.
+        error: "Your free English test has been used. Retakes are $5.",
         paymentRequired: true,
         kind: "english",
       },
