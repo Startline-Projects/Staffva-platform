@@ -4882,3 +4882,52 @@
    .pb-skill-suggestion. The hover state (solid border, ink text) still carries
    the "this is clickable" signal, and cursor: pointer is on the base rule. */
 .lp-auth .pb-skill-suggestion::before { content: none; }
+
+/* ── The résumé slot on step 5 of the profile builder ───────────────────────
+   The required résumé was a bare <input type="file"> — a ~100px native button
+   — sitting directly above the OPTIONAL portfolio drop zone, measured at
+   626x147 with an icon and a "Click to add a work sample" title. The only
+   required control on the step was the least visible thing on it. These
+   classes give it the same upload vocabulary as the portfolio at the weight a
+   required field earns, plus a filled state that reads as filled. */
+.lp-auth .pb-file-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md); }
+.lp-auth .pb-file-card.attached { border-color: var(--lime-deep); }
+.lp-auth .pb-file-thumb {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #c9b890 0%, #8d7c5d 100%); }
+.lp-auth .pb-file-thumb svg { color: rgba(255, 255, 255, 0.9); }
+/* min-width:0 is what lets the name ellipsis inside a flex row. */
+.lp-auth .pb-file-body { flex: 1; min-width: 0; }
+.lp-auth .pb-file-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; }
+.lp-auth .pb-file-meta {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute); }
+.lp-auth .pb-file-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12px; }
+/* A shade heavier than the optional zone below it, so the eye lands on the
+   required one first. */
+.lp-auth .pb-portfolio-upload-zone.required { border-color: var(--ink-mute); }

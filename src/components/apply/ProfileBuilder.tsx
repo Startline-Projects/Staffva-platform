@@ -73,6 +73,16 @@ const LAST_STEP: BuilderStep = 8;
  * ("we email each reference after Miguel approves your profile", "~45 min
  * total"), and lifting it wholesale would ship claims no code backs.
  */
+/** Bytes, as something a person reads.
+ *  `(bytes / 1024 / 1024).toFixed(1)` renders a 40KB résumé as "0.0 MB", which
+ *  on a card whose whole job is to say "your file is attached" reads as
+ *  nothing being attached. */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 const STEP_HEADERS: { lead: string; em: string; tail: string; sub: string }[] = [
   {
     lead: "Let's start with the ",
@@ -513,6 +523,10 @@ export default function ProfileBuilder({
   const [hourlyRate, setHourlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const portfolioInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+  // The input itself is hidden, so a failed résumé check scrolls to the
+  // SECTION. Scrolling to a display:none element does nothing.
+  const resumeSectionRef = useRef<HTMLDivElement>(null);
 
   // Step 2 — About
   const [bio, setBio] = useState(candidateData.bio || "");
@@ -825,6 +839,38 @@ export default function ProfileBuilder({
     setPortfolioItems(portfolioItems.filter((_, i) => i !== index));
   }
 
+  function pickResume() {
+    resumeInputRef.current?.click();
+  }
+
+  function handleResumeFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset immediately so re-picking the SAME file still fires onChange —
+    // otherwise "Replace" with an identical filename looks broken.
+    e.target.value = "";
+    if (!file) return;
+    // accept= is a filter, not a guarantee: every OS file dialog offers an
+    // "All files" escape hatch. A .docx would upload happily and then fail to
+    // open for whoever reads it, so refuse it here and say what to do instead.
+    const isPdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setError("Your résumé must be a PDF. If yours is a Word file, export it as a PDF and try again.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Your résumé must be under 10MB.");
+      return;
+    }
+    setError("");
+    setResumeFile(file);
+  }
+
+  function removeResume() {
+    setResumeFile(null);
+    setError("");
+  }
+
   function validateStep(): boolean {
     setError("");
     switch (currentStep) {
@@ -905,7 +951,11 @@ export default function ProfileBuilder({
         // "Resume is required" and had to re-upload the same PDF — the same
         // defect the photo check had.
         if (!resumeFile && !candidateData.resume_url) {
-          setError("Resume is required");
+          // Say WHICH field and rule out the one people reach for instead.
+          // "Resume is required" was true and unhelpful: the step has two
+          // upload controls and the optional one is the bigger target.
+          setError("Your résumé is required. Upload it in the first field on this step — portfolio samples don't count.");
+          resumeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
           return false;
         }
         if (!payoutMethod) {
@@ -2020,29 +2070,93 @@ export default function ProfileBuilder({
         {/* ───────── STEP 5: Portfolio & Resume ───────── */}
         {currentStep === 5 && (
           <div>
-            <div className="pb-section">
+            {/* The required résumé sat here as a bare <input type="file"> — a
+                ~100px native button — directly above the OPTIONAL portfolio
+                zone, which is full-width with an icon and a "Click to add"
+                title. The only required control on the step was the least
+                visible thing on it, so a candidate aiming at the obvious
+                target put their CV in the portfolio grid and was then told
+                "Resume is required" with nothing on screen looking empty.
+                Same upload vocabulary as the portfolio, at the weight a
+                required field earns, and a filled state that cannot be
+                mistaken for an empty one. */}
+            <div className="pb-section" ref={resumeSectionRef}>
               <div className="pb-section-label">
                 Résumé<span className="req">*</span>
               </div>
-              <p className="pb-section-help">PDF only. Max 10MB.</p>
+              <p className="pb-section-help">
+                PDF only, max 10MB. Work samples go in the next section — they don&rsquo;t replace this.
+              </p>
+
+              {/* Hidden: the visible control is the zone or card below, so the
+                  thing that looks clickable is the thing that opens the
+                  dialog. Same pattern as the portfolio picker. */}
               <input
+                ref={resumeInputRef}
                 type="file"
-                accept=".pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file && file.size > 10 * 1024 * 1024) {
-                    setError("Resume must be under 10MB");
-                    return;
-                  }
-                  setResumeFile(file || null);
-                  setError("");
-                }}
-                className="mt-3 block w-full text-sm text-[var(--ink-soft)] file:mr-4 file:rounded-full file:border file:border-[var(--line)] file:bg-[var(--cream)] file:px-4 file:py-2 file:text-sm file:text-[var(--ink)] hover:file:bg-[var(--cream-deep)]"
+                accept="application/pdf,.pdf"
+                onChange={handleResumeFilePicked}
+                className="hidden"
               />
-              {resumeFile && (
-                <p className="mt-2 text-[12.5px] text-[var(--success)]">
-                  ✓ {resumeFile.name}
-                </p>
+
+              {resumeFile ? (
+                <div className="pb-file-card attached mt-3">
+                  <div className="pb-file-thumb" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                      <path d="M8 4h10l6 6v18H8V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M18 4v6h6M12 18h8M12 23h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div className="pb-file-body">
+                    <div className="pb-file-name">{resumeFile.name}</div>
+                    <div className="pb-file-meta">
+                      {formatFileSize(resumeFile.size)} &middot; attached
+                    </div>
+                  </div>
+                  <div className="pb-file-actions">
+                    <button type="button" onClick={pickResume} className="linklike">
+                      Replace
+                    </button>
+                    <button type="button" onClick={removeResume} className="linklike">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : candidateData.resume_url ? (
+                /* A returning candidate's CV is already on their profile and
+                   the check below passes on it. Showing nothing made the only
+                   required field on the step look empty and unfilled. */
+                <div className="pb-file-card mt-3">
+                  <div className="pb-file-thumb" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                      <path d="M8 4h10l6 6v18H8V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      <path d="M18 4v6h6M12 18h8M12 23h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div className="pb-file-body">
+                    <div className="pb-file-name">Résumé already on your profile</div>
+                    <div className="pb-file-meta">Nothing to do &middot; replace it only if it has changed</div>
+                  </div>
+                  <div className="pb-file-actions">
+                    <button type="button" onClick={pickResume} className="linklike">
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Click only, like the portfolio zone: there is no drop
+                   handler here, so the wording must not promise one. */
+                <button
+                  type="button"
+                  onClick={pickResume}
+                  className="pb-portfolio-upload-zone required mt-3 w-full"
+                >
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                    <path d="M8 20v4h16v-4M16 4v16m0-16-6 6m6-6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="upload-title">Click to upload your résumé</div>
+                  <div className="upload-help">PDF only, max 10MB &mdash; required</div>
+                </button>
               )}
             </div>
 
@@ -2106,7 +2220,7 @@ export default function ProfileBuilder({
                     <div className="pb-portfolio-meta">
                       <span>
                         {item.file
-                          ? `${(item.file.size / 1024 / 1024).toFixed(1)} MB`
+                          ? formatFileSize(item.file.size)
                           : "No file"}
                       </span>
                       <button
