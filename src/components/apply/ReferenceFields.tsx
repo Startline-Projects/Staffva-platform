@@ -83,16 +83,16 @@ export default function ReferenceFields({
     touched && !!v.email && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v.email.trim());
 
   return (
-    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="mt-4 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--cream)] p-4">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold text-text">
+        <p className="text-sm font-medium text-text">
           Reference for {employerName || "this role"}{" "}
-          <span className="font-normal text-text/50">— optional</span>
+          <span className="font-normal text-[color:var(--ink-mute)]">— optional</span>
         </p>
         {/* Rendered from the row's own contact_state, which the database will
             not let leave 'never_contacted' without a deliberate admin release.
             It is not a hopeful label. */}
-        <span className="rounded-full bg-gray-200 px-2.5 py-1 text-[11px] font-medium text-text/70">
+        <span className="rounded-full bg-[color:var(--line-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ink-mute)]">
           {v.contactState === "never_contacted" || !v.contactState
             ? "Not contacted"
             : v.contactState}
@@ -101,33 +101,33 @@ export default function ReferenceFields({
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-text/70" htmlFor={`ref-name-${employerKey}`}>
+          <label className="text-xs font-medium text-[color:var(--ink-mute)]" htmlFor={`ref-name-${employerKey}`}>
             Their name
           </label>
           <input
             id={`ref-name-${employerKey}`}
             type="text"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="pb-input"
             value={v.fullName}
             onChange={(e) => set({ fullName: e.target.value })}
             autoComplete="off"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-text/70" htmlFor={`ref-title-${employerKey}`}>
+          <label className="text-xs font-medium text-[color:var(--ink-mute)]" htmlFor={`ref-title-${employerKey}`}>
             Their job title
           </label>
           <input
             id={`ref-title-${employerKey}`}
             type="text"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="pb-input"
             value={v.jobTitle}
             onChange={(e) => set({ jobTitle: e.target.value })}
             autoComplete="off"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-text/70" htmlFor={`ref-email-${employerKey}`}>
+          <label className="text-xs font-medium text-[color:var(--ink-mute)]" htmlFor={`ref-email-${employerKey}`}>
             Their work email
           </label>
           <input
@@ -141,16 +141,16 @@ export default function ReferenceFields({
             autoComplete="off"
           />
           {emailLooksWrong && (
-            <p className="mt-1 text-xs text-red-600">That doesn&apos;t look like an email address.</p>
+            <p className="mt-1 text-xs text-[color:var(--danger)]">That doesn&apos;t look like an email address.</p>
           )}
         </div>
         <div>
-          <label className="text-xs font-medium text-text/70" htmlFor={`ref-country-${employerKey}`}>
+          <label className="text-xs font-medium text-[color:var(--ink-mute)]" htmlFor={`ref-country-${employerKey}`}>
             Where are they based?
           </label>
           <select
             id={`ref-country-${employerKey}`}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            className="pb-input"
             value={v.countryCode}
             onChange={(e) => set({ countryCode: e.target.value })}
           >
@@ -165,7 +165,7 @@ export default function ReferenceFields({
       </div>
 
       {started && (
-        <label className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-text/70">
+        <label className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-[color:var(--ink-mute)]">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -179,8 +179,8 @@ export default function ReferenceFields({
         </label>
       )}
 
-      <p className="mt-3 border-t border-gray-200 pt-3 text-xs leading-relaxed text-text/60">
-        <strong className="font-semibold text-text/80">
+      <p className="mt-3 border-t border-[color:var(--line-soft)] pt-3 text-xs leading-relaxed text-[color:var(--ink-mute)]">
+        <strong className="font-medium text-[color:var(--ink-mute)]">
           We store this contact. We are not contacting anyone yet.
         </strong>{" "}
         Their details stay with us until a StaffVA specialist has approved your profile — and

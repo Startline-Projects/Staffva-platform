@@ -820,9 +820,22 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
                 { value: "yes", label: "Yes" },
                 { value: "no", label: "No" },
               ].map((opt) => (
-                <label key={opt.value} className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-3 cursor-pointer hover:border-primary/30 transition-colors">
-                  <input type="radio" name="usExpYesNo" value={opt.value} checked={usExperienceYesNo === opt.value} onChange={(e) => handleUsYesNoChange(e.target.value)} className="text-primary focus:ring-primary" />
-                  <span className="text-sm text-text">{opt.label}</span>
+                <label
+                  key={opt.value}
+                  // The Atlas preset chip — same affordance as the builder's
+                  // pb-preset-chip, rather than the last grey bordered box on
+                  // this form.
+                  className={`pb-preset-chip ${usExperienceYesNo === opt.value ? "selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="usExpYesNo"
+                    value={opt.value}
+                    checked={usExperienceYesNo === opt.value}
+                    onChange={(e) => handleUsYesNoChange(e.target.value)}
+                    className="sr-only"
+                  />
+                  <span>{opt.label}</span>
                 </label>
               ))}
             </div>

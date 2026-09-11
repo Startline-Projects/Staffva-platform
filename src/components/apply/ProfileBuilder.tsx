@@ -63,6 +63,71 @@ interface ProfileBuilderProps {
 type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 const LAST_STEP: BuilderStep = 8;
 
+/**
+ * The per-step headers Atlas's builder puts above each section.
+ *
+ * Presentation only — one entry per existing step, in the existing order.
+ * The sub-lines describe the fields that are already on that step and nothing
+ * else: the Atlas prototype's copy makes promises this product does not keep
+ * ("we email each reference after Miguel approves your profile", "~45 min
+ * total"), and lifting it wholesale would ship claims no code backs.
+ */
+const STEP_HEADERS: { lead: string; em: string; tail: string; sub: string }[] = [
+  {
+    lead: "Let's start with the ",
+    em: "basics",
+    tail: ".",
+    sub: "A photo, a job title and a one-line pitch — the first things a client sees.",
+  },
+  {
+    lead: "Tell clients ",
+    em: "who you are",
+    tail: ".",
+    sub: "Your background and what you bring to the role, in up to 300 characters.",
+  },
+  {
+    lead: "What you're ",
+    em: "good at",
+    tail: ".",
+    sub: "The skills clients filter on, and the tools you actually use day to day.",
+  },
+  {
+    lead: "Where you've ",
+    em: "worked",
+    tail: ".",
+    // "we can verify it with" was invented by the restyle and is false: the
+    // only reference routes that exist are store and erase, and ReferenceFields
+    // tells the candidate on this very screen that we are not contacting
+    // anyone. A heading that contradicts the disclosure below it is worse than
+    // no heading.
+    sub: "Up to 3 roles, each with an optional reference contact we store for later.",
+  },
+  {
+    lead: "Your ",
+    em: "résumé",
+    tail: " and work samples.",
+    sub: "A PDF résumé, up to 3 optional samples, and how you'd like to be paid.",
+  },
+  {
+    lead: "When you're ",
+    em: "available",
+    tail: ".",
+    sub: "The hours a week you're looking for, and the date you could start.",
+  },
+  {
+    lead: "Optional — but ",
+    em: "helpful",
+    tail: ".",
+    sub: "Skip this if it isn't relevant to your work. It appears on your profile for a client reading it; none of it is required to be approved.",
+  },
+  {
+    lead: "Here's how clients will ",
+    em: "see you",
+    tail: ".",
+    sub: "Anything still missing is listed below.",
+  },
+];
+
 
 /** A fresh employer identity. */
 function newEmployerKey(): string {
@@ -1185,9 +1250,15 @@ export default function ProfileBuilder({
     "Review",
   ];
 
+  const stepHeader = STEP_HEADERS[currentStep - 1];
+  // Ring geometry: r=13 → circumference 2πr ≈ 81.68. Purely visual.
+  const RING_C = 81.68;
+  const strengthTier =
+    completeness.percent >= 90 ? "strong" : completeness.percent >= 55 ? "medium" : "weak";
+
   return (
     <div
-      className="mx-auto max-w-2xl px-6 py-12"
+      className="mx-auto max-w-5xl px-6 pb-16"
       onInput={() => {
         touchedRef.current = true;
       }}
@@ -1195,93 +1266,171 @@ export default function ProfileBuilder({
         touchedRef.current = true;
       }}
     >
-      <h1 className="display text-[34px] text-[#0E0E0C]">
-        Build Your <span className="serif-italic">Profile</span>
-      </h1>
-      <p className="mt-3 text-sm text-[#2B2A26]">
-        Complete your profile so clients can find and hire you.
-      </p>
+      {/* Sticky header — step position on the left, how much is filled in on
+          the right. The back control is the SAME step-back the footer has;
+          Atlas's "Save & exit" is not wired here because nothing in this flow
+          exits to a saved draft on demand. */}
+      <header className="pb-header">
+        <button
+          type="button"
+          onClick={prevStep}
+          disabled={currentStep === 1}
+          className="pb-back cursor-pointer border-0 bg-transparent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="m7 2.5-3.5 3.5L7 9.5M3.5 6H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back
+        </button>
+
+        <div className="pb-header-meta">
+          <span className="pb-step-label">
+            Step {currentStep} of {LAST_STEP} · <strong>{stepLabels[currentStep - 1]}</strong>
+          </span>
+        </div>
+
+        <div className="pb-header-actions">
+          {/* Deliberately NOT Atlas's weighted 0-100 "Profile Strength" — see
+              lib/profileCompleteness. Same ring, but the number is the share
+              of profile sections done, which is what step 8 already lists. */}
+          <span
+            className="pb-strength"
+            aria-label={`Profile ${completeness.percent}% complete — ${completeness.done} of ${completeness.total} sections done`}
+          >
+            <span className="pb-strength-ring" data-tier={strengthTier}>
+              <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+                <circle className="ring-bg" cx="16" cy="16" r="13" />
+                <circle
+                  className="ring-fg"
+                  cx="16"
+                  cy="16"
+                  r="13"
+                  strokeDasharray={RING_C}
+                  strokeDashoffset={RING_C * (1 - completeness.percent / 100)}
+                />
+              </svg>
+              <span className="ring-num">{completeness.percent}</span>
+            </span>
+            <span className="pb-strength-text" aria-hidden="true">
+              Sections<strong>{completeness.done} of {completeness.total}</strong>
+            </span>
+          </span>
+        </div>
+      </header>
 
       {/* Say so. Fields filling themselves with no explanation reads as a bug,
           and a candidate who does not know their work was kept will redo it. */}
       {draftRestored && (
-        <div className="ahead-card mt-5">
-          <p className="text-sm text-[#2B2A26]">
+        <div className="ahead-card mb-6">
+          <p className="pb-section-help">
             We picked up where you left off. Everything you had filled in is still here.
           </p>
         </div>
       )}
 
-      {/* Step indicators */}
-      <div className="mt-8 flex items-center gap-1.5">
-        {stepLabels.map((label, i) => (
-          <div key={label} className="flex-1">
-            <div
-              className={`h-1.5 rounded-full transition-colors ${
-                i + 1 <= currentStep ? "bg-[#D6F24D]" : "bg-[#E4DDCE]"
-              }`}
-            />
-            <p
-              className={`mt-2 text-[10px] uppercase tracking-[0.1em] ${
-                i + 1 === currentStep
-                  ? "font-semibold text-[#0E0E0C]"
-                  : "text-[#6B6860]"
-              }`}
-            >
-              {label}
-            </p>
-          </div>
-        ))}
-      </div>
+      <div className="pb-layout">
+        {/* Left rail. Not clickable: jumping steps would skip validateStep,
+            which is the only thing keeping a half-filled step from being
+            saved, so the rail reports position rather than offering travel. */}
+        <nav className="pb-stepnav" aria-label="Profile builder steps">
+          <ul className="pb-stepnav-list">
+            {stepLabels.map((label, i) => {
+              const n = i + 1;
+              const state =
+                n === currentStep ? "active" : n < currentStep ? "complete" : "";
+              return (
+                <li key={label}>
+                  <div
+                    className={`pb-stepnav-item ${state} cursor-default`}
+                    aria-current={n === currentStep ? "step" : undefined}
+                  >
+                    <span className="pb-stepnav-letter">
+                      <span>{n}</span>
+                    </span>
+                    <span className="pb-stepnav-label">{label}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      {error && (
-        <p className="form-alert visible mt-6">{error}</p>
-      )}
+        <div className="pb-content">
+          {error && (
+            <p className="form-alert visible mb-6">{error}</p>
+          )}
 
-      <div className="mt-8">
+          <section className="pb-step active">
+            <header className="pb-step-header">
+              <span className="pb-step-eyebrow">
+                Step {currentStep} of {LAST_STEP} · {stepLabels[currentStep - 1]}
+              </span>
+              <h1 className="pb-step-title">
+                {stepHeader.lead}
+                <em>{stepHeader.em}</em>
+                {stepHeader.tail}
+              </h1>
+              <p className="pb-step-sub">{stepHeader.sub}</p>
+            </header>
+
         {/* ───────── STEP 1: Photo & Basic Info ───────── */}
         {currentStep === 1 && (
-          <div className="space-y-6">
-            <div>
-              <label className="pb-section-label block text-sm font-semibold text-text">
-                Profile Photo <span className="req">*</span>
-              </label>
-              <p className="field-hint-inline">
-                Min 200×200px. JPG or PNG. Max 5MB. Will be cropped to a square.
-              </p>
-              <div className="mt-4 flex items-center gap-6">
-                <div
+          <div>
+            <div className="pb-section">
+              <div className="pb-section-label">
+                Profile photo<span className="req">*</span>
+              </div>
+              {/* Atlas's uploader: the circle on the left IS the picker, the
+                  rules live beside it as a list instead of one run-on hint
+                  line. The four bullets are the limits handlePhotoChange
+                  actually enforces (200×200, 5MB, JPG/PNG) plus the crop. */}
+              <div className="pb-photo-uploader">
+                <button
+                  type="button"
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[#D9D2C3] bg-[#F3EEE3] transition-colors hover:border-[#0E0E0C]"
+                  className={`pb-photo-zone${photoPreview ? " has-photo" : ""}`}
                 >
                   {photoPreview ? (
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="h-full w-full object-cover"
-                    />
+                    /* .uploaded-portrait is inset-0 inside the round,
+                       overflow-hidden zone, so the crop stays circular. */
+                    <span className="uploaded-portrait">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
                   ) : (
-                    <div className="text-center">
-                      <svg className="mx-auto h-8 w-8 text-[#B9B2A2]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                    <span className="upload-prompt">
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                        <path d="M5 13v3h12v-3M11 4v9m0-9-4 4m4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#6B6860]">Upload</p>
+                      Click to upload
+                    </span>
+                  )}
+                </button>
+                <div className="pb-photo-guidelines">
+                  <strong>Photo guidelines</strong>
+                  <ul>
+                    <li>At least 200 × 200 pixels — bigger is better</li>
+                    <li>JPG or PNG, up to 5MB</li>
+                    <li>Cropped to a square — you position it after choosing</li>
+                    <li>Just you: clear, well-lit, no group shots</li>
+                  </ul>
+                  {photoPreview && (
+                    <div className="pb-photo-quality-status">
+                      <span>Photo ready · cropped to square</span>
                     </div>
                   )}
-                </div>
-                <div>
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="state-action-btn"
+                    className="state-action-btn mt-3"
                   >
                     {photoPreview ? "Change Photo" : "Upload Your Photo"}
                   </button>
-                  {photoPreview && (
-                    <p className="mt-2 text-xs text-[#2E7D54]">Photo ready — cropped to square</p>
-                  )}
                 </div>
+                {/* display:none, so it claims no grid cell. */}
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -1293,9 +1442,9 @@ export default function ProfileBuilder({
 
               {/* Cropper modal */}
               {showCropper && rawImageUrl && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0E0E0C]/60 p-4" onClick={cancelCrop}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[color:var(--ink)]/60 p-4" onClick={cancelCrop}>
                   <div className="form-card w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="display text-[22px] text-[#0E0E0C] mb-2">Crop Your Photo</h3>
+                    <h3 className="pb-step-title mb-2" style={{ fontSize: 22 }}>Crop your photo</h3>
                     <p className="field-hint-inline mb-4">Drag the image to position it within the circle. Use the slider to zoom.</p>
                     <div className="flex items-center justify-center rounded-[10px] bg-[#0E0E0C] p-4">
                       <div
@@ -1333,7 +1482,7 @@ export default function ProfileBuilder({
                       </div>
                     </div>
                     <div className="mt-4 flex items-center gap-3">
-                      <svg className="h-4 w-4 text-[#6B6860]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <svg className="h-4 w-4 text-[color:var(--ink-mute)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
                       </svg>
                       <input
@@ -1343,9 +1492,9 @@ export default function ProfileBuilder({
                         step="0.05"
                         value={cropZoom}
                         onChange={(e) => setCropZoom(parseFloat(e.target.value))}
-                        className="flex-1 accent-primary"
+                        className="flex-1 accent-[color:var(--ink)]"
                       />
-                      <svg className="h-4 w-4 text-[#6B6860]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <svg className="h-4 w-4 text-[color:var(--ink-mute)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
                       </svg>
                     </div>
@@ -1364,14 +1513,15 @@ export default function ProfileBuilder({
               )}
             </div>
 
-            <div>
-              <label className="field-label">
-                <span>Display Name</span>
-              </label>
-              <p className="input">
+            <div className="pb-section">
+              <div className="pb-section-label">Display name</div>
+              {/* Not an input: this value is derived from full_name and the
+                  candidate cannot edit it here. Styled as a filled-in field
+                  the way Atlas styles its read-only timezone field. */}
+              <p className="pb-input" style={{ background: "var(--cream-deep)" }}>
                 {displayName}
               </p>
-              <p className="field-hint-inline">
+              <p className="pb-section-help">
                 Auto-generated for privacy. Clients see first name + last initial.
               </p>
             </div>
@@ -1380,11 +1530,13 @@ export default function ProfileBuilder({
                 title. role_category stays the taxonomy value that drives
                 routing and the Interview 2 task; this is what the candidate
                 calls themselves, shown on the profile. */}
-            <div className="form-row split">
-              <div className="form-col">
-                <label htmlFor="roleTitle" className="field-label">
-                  <span>Your job title</span>
-                  <span className="req">*</span>
+            {/* pb-field-row is the grid; pb-section on the same element
+                supplies the 28px it owes the next block. The two columns are
+                plain divs so no inner margin lifts one cell taller. */}
+            <div className="pb-field-row pb-section">
+              <div>
+                <label htmlFor="roleTitle" className="pb-section-label block">
+                  Your job title<span className="req">*</span>
                 </label>
                 <input
                   id="roleTitle"
@@ -1393,17 +1545,17 @@ export default function ProfileBuilder({
                   onChange={(e) => setRoleTitle(e.target.value)}
                   placeholder="e.g. Executive Assistant"
                   maxLength={80}
-                  className="input"
+                  className="pb-input"
                 />
-                <p className="field-hint-inline">
+                <p className="pb-section-help">
                   How you&apos;d describe yourself. We match you to work as{" "}
                   {/^[AEIOU]/i.test(candidateData.role_category || "") ? "an" : "a"}{" "}
                   {candidateData.role_category}.
                 </p>
               </div>
-              <div className="form-col">
-                <label htmlFor="city" className="field-label">
-                  <span>City</span>
+              <div>
+                <label htmlFor="city" className="pb-section-label block">
+                  City
                 </label>
                 <input
                   id="city"
@@ -1412,19 +1564,18 @@ export default function ProfileBuilder({
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="e.g. Cebu City"
                   maxLength={80}
-                  className="input"
+                  className="pb-input"
                 />
-                <p className="field-hint-inline">
+                <p className="pb-section-help">
                   Optional. Clients see {candidateData.country || "your country"}; your city
                   helps us match you on time-zone overlap.
                 </p>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="tagline" className="field-label">
-                <span>Tagline</span>
-                <span className="req">*</span>
+            <div className="pb-section">
+              <label htmlFor="tagline" className="pb-section-label block">
+                Tagline<span className="req">*</span>
               </label>
               <input
                 id="tagline"
@@ -1433,36 +1584,39 @@ export default function ProfileBuilder({
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
                 placeholder="e.g. Paralegal with 5 years US client experience"
-                className="input"
+                className="pb-input"
               />
-              <p className="field-hint-inline">{tagline.length}/80</p>
+              <p className="pb-char-counter">{tagline.length} / 80</p>
             </div>
 
-            <div>
-              <label htmlFor="rate" className="field-label">
-                <span>Hourly Rate (USD)</span>
-                <span className="req">*</span>
+            <div className="pb-section">
+              <label htmlFor="rate" className="pb-section-label block">
+                Hourly rate<span className="req">*</span>
               </label>
-              <input
-                id="rate"
-                type="number"
-                min={3}
-                value={hourlyRate || ""}
-                onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)}
-                className="input"
-              />
-              <p className="field-hint-inline">Minimum $3/hr. Clients see this rate on your profile.</p>
+              {/* Spinners off: they render at the right edge, which is where
+                  pb-input-suffix sits. */}
+              <div className="pb-input-with-suffix">
+                <input
+                  id="rate"
+                  type="number"
+                  min={3}
+                  value={hourlyRate || ""}
+                  onChange={(e) => setHourlyRate(parseInt(e.target.value) || 0)}
+                  className="pb-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="pb-input-suffix">USD / hr</span>
+              </div>
+              <p className="pb-section-help">Minimum $3/hr. Clients see this rate on your profile.</p>
             </div>
           </div>
         )}
 
         {/* ───────── STEP 2: About ───────── */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="bio" className="field-label">
-                <span>About You</span>
-                <span className="req">*</span>
+          <div>
+            <div className="pb-section">
+              <label htmlFor="bio" className="pb-section-label block">
+                About you<span className="req">*</span>
               </label>
               <textarea
                 id="bio"
@@ -1471,27 +1625,49 @@ export default function ProfileBuilder({
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell clients about your background and what you bring to the role."
-                className="input resize-y"
+                className="pb-textarea"
               />
-              <p className="field-hint-inline">{bio.length}/300</p>
+              <p className="pb-char-counter">{bio.length} / 300</p>
+              {/* Atlas's pb-tips-callout collapses, which needs an open/closed
+                  state variable this stage is not allowed to add — so it is
+                  rendered open, with no toggle to imply otherwise. The copy is
+                  advice about writing, deliberately NOT a claim about what the
+                  product does with the text. */}
+              <div className="pb-tips-callout">
+                <div className="pb-tips-content" data-open="true" style={{ paddingTop: 18 }}>
+                  <div className="pb-section-label">Writing tips</div>
+                  <ul>
+                    <li>Lead with the work you do now, not the course you took years ago.</li>
+                    <li>Be specific — the industries you&apos;ve worked in, the tools you use.</li>
+                    <li>Say who you work best with. This is a pitch, not a résumé.</li>
+                    <li>300 characters is short. Cut anything a client would skim past.</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* ───────── STEP 3: Tools & Software ───────── */}
         {currentStep === 3 && (
-          <div className="space-y-6">
+          <div>
             {/* Skills, from the role taxonomy. This block is new: the browse
                 facet reads candidates.skills and this builder never wrote it —
                 roleSkills was computed and then never rendered. */}
-            <div>
-              <h3 className="pb-section-label text-sm font-semibold text-text">
-                Skills <span className="req">*</span>
+            <div className="pb-section">
+              <h3 className="pb-section-label">
+                Skills<span className="req">*</span>
               </h3>
-              <p className="field-hint-inline">
+              <p className="pb-section-help mb-4">
                 Pick the ones you&apos;d be comfortable being hired for. Clients filter on these.
               </p>
-              <div className="cat-chips mt-4">
+              {/* Atlas's two skill chip shapes, driven off the one toggle
+                  list we already had: unselected renders as pb-skill-suggestion
+                  (dashed, "+" prefixed — "add this"), selected renders as
+                  pb-skill-tag (solid pill with an × — "remove this"). Same
+                  map, same handler; only the class switches. The × is a span,
+                  not a button, because the whole chip is the toggle. */}
+              <div className="pb-skill-suggestions">
                 {roleSkills.map((skill) => {
                   const on = selectedSkills.includes(skill);
                   return (
@@ -1506,26 +1682,31 @@ export default function ProfileBuilder({
                             : [...selectedSkills, skill]
                         )
                       }
-                      className={`cat-chip ${on ? "selected" : ""}`}
+                      className={on ? "pb-skill-tag" : "pb-skill-suggestion"}
                     >
                       {skill}
+                      {on && (
+                        <span className="skill-remove" aria-hidden="true">
+                          ×
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
               {roleSkills.length === 0 && (
                 <div className="mt-2">
-                  <div className="cat-chips mb-3">
+                  {/* pb-skill-tags is the cream tray; its :empty rule prints
+                      "Skills you add will appear here", which is exactly the
+                      right prompt on this free-text branch. */}
+                  <div className="pb-skill-tags mb-3">
                     {selectedSkills.map((sk) => (
-                      <span
-                        key={sk}
-                        className="cat-chip selected inline-flex items-center gap-1.5"
-                      >
+                      <span key={sk} className="pb-skill-tag">
                         {sk}
                         <button
                           type="button"
                           onClick={() => setSelectedSkills(selectedSkills.filter((x) => x !== sk))}
-                          className="opacity-60 hover:opacity-100"
+                          className="skill-remove"
                         >
                           ×
                         </button>
@@ -1546,21 +1727,25 @@ export default function ProfileBuilder({
                   />
                 </div>
               )}
-              <p className="field-hint-inline mt-3">
+              <p className="pb-section-help">
                 {selectedSkills.length} selected. Clients filter by individual skills, so
                 each one you add is another search you can turn up in.
               </p>
             </div>
 
-            <div>
-              <h3 className="pb-section-label text-sm font-semibold text-text">
-                Tools & Software <span className="req">*</span>
+            <div className="pb-section">
+              <h3 className="pb-section-label">
+                Tools &amp; software<span className="req">*</span>
               </h3>
-              <p className="field-hint-inline">
+              <p className="pb-section-help mb-4">
                 Select up to 8 tools you actively use. ({selectedTools.length}/8 selected)
               </p>
-            </div>
-            <div className="cat-chips">
+              {/* Atlas's tool tiles rather than a chip run: the monogram makes
+                  a long list scannable at a glance. The monogram is the first
+                  two characters of the name — display only, nothing reads it.
+                  pb-tool-prof is display:none until .selected, so "Selected"
+                  is only ever shown for a tool the candidate actually picked. */}
+              <div className="pb-tools-grid">
               {roleTools.map((tool) => {
                 const selected = selectedTools.includes(tool);
                 return (
@@ -1568,16 +1753,21 @@ export default function ProfileBuilder({
                     key={tool}
                     type="button"
                     onClick={() => toggleTool(tool)}
-                    className={`cat-chip ${selected ? "selected" : ""} ${
+                    className={`pb-tool-tile ${selected ? "selected" : ""} ${
                       !selected && selectedTools.length >= 8
                         ? "cursor-not-allowed opacity-40"
                         : ""
                     }`}
                   >
-                    {tool}
+                    <span className="pb-tool-icon" aria-hidden="true">
+                      {tool.slice(0, 2)}
+                    </span>
+                    <span className="pb-tool-name">{tool}</span>
+                    <span className="pb-tool-prof">Selected</span>
                   </button>
                 );
               })}
+              </div>
             </div>
           </div>
         )}
@@ -1586,20 +1776,32 @@ export default function ProfileBuilder({
         {currentStep === 4 && (
           <div className="space-y-6">
             <div>
-              <h3 className="pb-section-label text-sm font-semibold text-text">
-                Work Experience <span className="req">*</span>
+              <h3 className="pb-section-label">
+                Work experience<span className="req">*</span>
               </h3>
-              <p className="field-hint-inline">Add up to 3 entries.</p>
+              <p className="pb-section-help">Add up to 3 entries.</p>
             </div>
+            {/* Atlas's employer list. Every card carries "expanded" because
+                nothing here collapses — pb-employer-body is display:none
+                without it — and for the same reason the header gets
+                cursor:default and no chevron: a toggle that did nothing would
+                be worse than none. The ordinal lives in the monogram and the
+                company name becomes the card's title as it is typed. */}
+            <div className="pb-employer-list">
             {workEntries.map((entry, i) => (
               <div
                 key={i}
-                className="form-card space-y-4"
+                className="pb-employer-card expanded"
               >
-                <div className="flex items-center justify-between">
-                  <span className="eyebrow">
-                    Entry {i + 1}
-                  </span>
+                <div className="pb-employer-header" style={{ cursor: "default" }}>
+                  <div className="pb-employer-icon" aria-hidden="true">
+                    {i + 1}
+                  </div>
+                  <div className="pb-employer-meta">
+                    <div className="pb-employer-title">
+                      {entry.company_name || `Entry ${i + 1}`}
+                    </div>
+                  </div>
                   {workEntries.length > 1 && (
                     <button
                       type="button"
@@ -1610,6 +1812,7 @@ export default function ProfileBuilder({
                     </button>
                   )}
                 </div>
+                <div className="pb-employer-body space-y-4">
                 <div>
                   <input
                     type="text"
@@ -1663,7 +1866,7 @@ export default function ProfileBuilder({
                 )}
                 {/* Start Date */}
                 <div>
-                  <label className="block text-xs text-text/50 mb-1">Start Date</label>
+                  <label className="pb-section-label block">Start date</label>
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       value={entry.start_date?.split("-")[1] || ""}
@@ -1696,13 +1899,13 @@ export default function ProfileBuilder({
 
                 {/* End Date */}
                 <div>
-                  <label className="block text-xs text-text/50 mb-1">End Date</label>
-                  <label className="mb-2 flex items-center gap-1.5 text-xs text-text/50 cursor-pointer">
+                  <label className="pb-section-label block">End date</label>
+                  <label className="mb-2 flex cursor-pointer items-center gap-1.5 text-[12.5px] text-[var(--ink-soft)]">
                     <input
                       type="checkbox"
                       checked={entry.end_date === "present"}
                       onChange={(e) => updateWorkEntry(i, "end_date", e.target.checked ? "present" : "")}
-                      className="accent-primary h-3.5 w-3.5"
+                      className="accent-[color:var(--ink)] h-3.5 w-3.5"
                     />
                     I currently work here
                   </label>
@@ -1745,16 +1948,19 @@ export default function ProfileBuilder({
                   onChange={(e) => updateWorkEntry(i, "description", e.target.value)}
                   className="input"
                 />
-                <p className="text-right text-xs text-text/40">{entry.description.length}/120</p>
+                <p className="pb-char-counter">{entry.description.length}/120</p>
 
                 {/* Tools Used */}
                 <div>
-                  <label className="block text-xs font-medium text-text/70 mb-1">Tools used in this role (up to 5)</label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <label className="pb-section-label block">Tools used in this role (up to 5)</label>
+                  {/* A plain flex row, not pb-skill-tags: that tray's :empty
+                      rule prints "Skills you add will appear here", which is
+                      the wrong prompt over a list of tools. */}
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {entry.tools_used.map((t) => (
-                      <span key={t} className="cat-chip selected">
+                      <span key={t} className="pb-skill-tag">
                         {t}
-                        <button type="button" onClick={() => removeWorkEntryTag(i, "tools_used", t)} className="text-primary/60 hover:text-primary">×</button>
+                        <button type="button" onClick={() => removeWorkEntryTag(i, "tools_used", t)} className="skill-remove">×</button>
                       </span>
                     ))}
                   </div>
@@ -1767,12 +1973,12 @@ export default function ProfileBuilder({
 
                 {/* Skills Gained */}
                 <div>
-                  <label className="block text-xs font-medium text-text/70 mb-1">Skills gained (up to 5)</label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <label className="pb-section-label block">Skills gained (up to 5)</label>
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {entry.skills_gained.map((s) => (
-                      <span key={s} className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700">
+                      <span key={s} className="pb-skill-tag">
                         {s}
-                        <button type="button" onClick={() => removeWorkEntryTag(i, "skills_gained", s)} className="text-green-500 hover:text-green-700">×</button>
+                        <button type="button" onClick={() => removeWorkEntryTag(i, "skills_gained", s)} className="skill-remove">×</button>
                       </span>
                     ))}
                   </div>
@@ -1791,15 +1997,20 @@ export default function ProfileBuilder({
                     setSavedReferences((prev) => ({ ...prev, [employerKeyFor(entry)]: v }))
                   }
                 />
+                </div>
               </div>
             ))}
+            </div>
             {workEntries.length < 3 && (
               <button
                 type="button"
                 onClick={addWorkEntry}
-                className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
+                className="pb-employer-add"
               >
-                + Add Work Experience
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                Add work experience
               </button>
             )}
           </div>
@@ -1807,12 +2018,12 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 5: Portfolio & Resume ───────── */}
         {currentStep === 5 && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-text">
-                Resume <span className="text-red-500">*</span>
-              </label>
-              <p className="text-xs text-text/50">PDF only. Max 10MB.</p>
+          <div>
+            <div className="pb-section">
+              <div className="pb-section-label">
+                Résumé<span className="req">*</span>
+              </div>
+              <p className="pb-section-help">PDF only. Max 10MB.</p>
               <input
                 type="file"
                 accept=".pdf"
@@ -1825,40 +2036,57 @@ export default function ProfileBuilder({
                   setResumeFile(file || null);
                   setError("");
                 }}
-                className="mt-2 block w-full text-sm text-text/70 file:mr-4 file:rounded-lg file:border-0 file:bg-[rgba(14,14,12,.06)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ink)] hover:file:bg-[rgba(14,14,12,.1)]"
+                className="mt-3 block w-full text-sm text-[var(--ink-soft)] file:mr-4 file:rounded-full file:border file:border-[var(--line)] file:bg-[var(--cream)] file:px-4 file:py-2 file:text-sm file:text-[var(--ink)] hover:file:bg-[var(--cream-deep)]"
               />
               {resumeFile && (
-                <p className="mt-1 text-xs text-green-600">
+                <p className="mt-2 text-[12.5px] text-[var(--success)]">
                   ✓ {resumeFile.name}
                 </p>
               )}
             </div>
 
-            <div>
-              <h3 className="text-sm font-medium text-text">
-                Portfolio Items{" "}
-                <span className="text-text/40 font-normal">(optional)</span>
+            <div className="pb-section">
+              <h3 className="pb-section-label">
+                Portfolio items — optional
               </h3>
-              <p className="text-xs text-text/50">
+              <p className="pb-section-help">
                 Up to 3 items. PDF or image, max 5MB each. Examples: a cover letter, work sample, certificate, or project screenshot.
               </p>
+              {/* Atlas's sample grid. The thumb variant is picked off the
+                  file's own MIME type — display only, nothing reads it back.
+                  cursor:default because .pb-portfolio-item ships cursor:grab
+                  and nothing here reorders. */}
+              <div className="pb-portfolio-grid mt-3">
               {portfolioItems.map((item, i) => (
                 <div
                   key={i}
-                  className="mt-3 flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4"
+                  className="pb-portfolio-item"
+                  style={{ cursor: "default" }}
                 >
-                  <div className="flex-1 space-y-2">
+                  <div
+                    className={`pb-portfolio-thumb ${
+                      item.file?.type.startsWith("image/") ? "image" : "pdf"
+                    }`}
+                  >
+                    {item.file?.type.startsWith("image/") ? (
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                        <rect x="4" y="6" width="24" height="20" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                        <circle cx="11" cy="13" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                        <path d="m4 22 7-7 6 6 4-4 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                        <path d="M8 4h10l6 6v18H8V4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                        <path d="M18 4v6h6M12 18h8M12 23h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="pb-portfolio-body">
                     {/* The file is chosen before the row exists, so show WHAT is
                         attached rather than an empty picker that looks unfilled. */}
-                    <p className="flex items-center gap-2 text-sm font-medium text-text">
-                      <span aria-hidden="true" className="text-green-600">✓</span>
-                      <span className="truncate">{item.file?.name ?? "No file attached"}</span>
-                      {item.file && (
-                        <span className="shrink-0 text-xs font-normal text-text/40">
-                          {(item.file.size / 1024 / 1024).toFixed(1)}MB
-                        </span>
-                      )}
-                    </p>
+                    <div className="pb-portfolio-title truncate">
+                      {item.file?.name ?? "No file attached"}
+                    </div>
                     <input
                       type="text"
                       maxLength={100}
@@ -1872,18 +2100,26 @@ export default function ProfileBuilder({
                         };
                         setPortfolioItems(updated);
                       }}
-                      className="input"
+                      className="input mt-2"
                     />
+                    <div className="pb-portfolio-meta">
+                      <span>
+                        {item.file
+                          ? `${(item.file.size / 1024 / 1024).toFixed(1)} MB`
+                          : "No file"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removePortfolioItem(i)}
+                        className="linklike"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removePortfolioItem(i)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
                 </div>
               ))}
+              </div>
               {/* Hidden: the visible control is the button below, so that
                   clicking "Add Portfolio Item" opens the file dialog, which is
                   what the label promises. */}
@@ -1895,25 +2131,36 @@ export default function ProfileBuilder({
                 className="hidden"
               />
               {portfolioItems.length < 3 && (
+                /* Atlas's drop zone, worded for click only: there is no drop
+                   handler on this element, so it must not promise one. */
                 <button
                   type="button"
                   onClick={addPortfolioItem}
-                  className="mt-3 w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
+                  className="pb-portfolio-upload-zone mt-3 w-full"
                 >
-                  + Add Portfolio Item &mdash; choose a PDF or image
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                    <path d="M8 20v4h16v-4M16 4v16m0-16-6 6m6-6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="upload-title">Click to add a work sample</div>
+                  <div className="upload-help">PDF or image, max 5MB each &mdash; up to 3 items</div>
                 </button>
               )}
             </div>
 
-            <div>
-              <label htmlFor="payout" className="block text-sm font-medium text-text">
-                Payout Method <span className="text-red-500">*</span>
+            <div className="pb-section">
+              <label htmlFor="payout" className="pb-section-label block">
+                Payout method<span className="req">*</span>
               </label>
+              {/* pb-input, not "select": .select supplies appearance:none plus
+                  its own chevron background-image, and .pb-input's background
+                  shorthand is declared later in the sheet and wipes that image
+                  out — leaving a select with no affordance at all. Plain
+                  pb-input keeps the browser's native arrow. */}
               <select
                 id="payout"
                 value={payoutMethod}
                 onChange={(e) => setPayoutMethod(e.target.value)}
-                className="input"
+                className="pb-input"
               >
                 <option value="">Select payout method</option>
                 <option value="payoneer">Payoneer</option>
@@ -1926,31 +2173,37 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 6: Availability ───────── */}
         {currentStep === 6 && (
-          <div className="space-y-6">
+          <div>
             {/* Capacity OFFERED. Stored in hours_per_week, never in
                 committed_hours — that column means hours already booked, and
                 matching computes spare capacity as 50 minus it, so writing
                 "I want 40 hours" there would read as "40 already gone". */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="pb-field-row pb-section">
               <div>
-                <label htmlFor="hoursPerWeek" className="block text-sm font-medium text-text">
-                  Hours a week you want <span className="text-red-500">*</span>
+                <label htmlFor="hoursPerWeek" className="pb-section-label block">
+                  Hours a week you want<span className="req">*</span>
                 </label>
-                <input
-                  id="hoursPerWeek"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={hoursPerWeek}
-                  onChange={(e) => setHoursPerWeek(Number(e.target.value))}
-                  className="input"
-                />
-                <p className="mt-1 text-xs text-text/40">
+                {/* Kept a number input, NOT Atlas's 5/10/15/20/30/40/50+
+                    preset chips: this field validates 1-60 and a chip set
+                    would quietly restrict what a candidate can enter. */}
+                <div className="pb-input-with-suffix">
+                  <input
+                    id="hoursPerWeek"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={hoursPerWeek}
+                    onChange={(e) => setHoursPerWeek(Number(e.target.value))}
+                    className="pb-input [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  <span className="pb-input-suffix">hrs / wk</span>
+                </div>
+                <p className="pb-section-help">
                   What you&apos;re looking for, not what you&apos;re already booked for.
                 </p>
               </div>
               <div>
-                <label htmlFor="workingHours" className="block text-sm font-medium text-text">
+                <label htmlFor="workingHours" className="pb-section-label block">
                   Hours you prefer to work
                 </label>
                 <input
@@ -1960,90 +2213,63 @@ export default function ProfileBuilder({
                   onChange={(e) => setWorkingHours(e.target.value)}
                   placeholder="e.g. 8am-1pm PHT, flexible for US mornings"
                   maxLength={120}
-                  className="input"
+                  className="pb-input"
                 />
-                <p className="mt-1 text-xs text-text/40">
+                <p className="pb-section-help">
                   Most clients are in US time zones. Say what overlap you can offer.
                 </p>
               </div>
             </div>
 
-            <h3 className="text-sm font-medium text-text">
-              When can you start? <span className="text-red-500">*</span>
-            </h3>
-            <div className="grid gap-4">
-              <button
-                type="button"
-                onClick={() => setAvailability("available_now")}
-                className={`rounded-xl border-2 p-5 text-left transition-colors ${
-                  availability === "available_now"
-                    ? "border-green-500 bg-green-50"
-                    : "border-gray-200 bg-white hover:border-green-300"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🟢</span>
-                  <div>
-                    <p className="font-semibold text-text">Available Now</p>
-                    <p className="text-xs text-text/50">
-                      Ready to start immediately
-                    </p>
-                  </div>
-                </div>
-              </button>
+            {/* Atlas's "Available to start" preset chips. The three coloured
+                cards each carried a sub-line that only restated its own
+                heading ("Available Now" / "Ready to start immediately"), so
+                the heading is the whole chip. Same three values, same three
+                handlers. */}
+            <div className="pb-section">
+              <h3 className="pb-section-label">
+                When can you start?<span className="req">*</span>
+              </h3>
+              <div className="pb-preset-group">
+                <button
+                  type="button"
+                  onClick={() => setAvailability("available_now")}
+                  className={`pb-preset-chip ${
+                    availability === "available_now" ? "selected" : ""
+                  }`}
+                >
+                  Available now
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setAvailability("available_by_date")}
-                className={`rounded-xl border-2 p-5 text-left transition-colors ${
-                  availability === "available_by_date"
-                    ? "border-yellow-500 bg-yellow-50"
-                    : "border-gray-200 bg-white hover:border-yellow-300"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🟡</span>
-                  <div>
-                    <p className="font-semibold text-text">
-                      Available From a Specific Date
-                    </p>
-                    <p className="text-xs text-text/50">
-                      I can start on a future date
-                    </p>
-                  </div>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setAvailability("available_by_date")}
+                  className={`pb-preset-chip ${
+                    availability === "available_by_date" ? "selected" : ""
+                  }`}
+                >
+                  From a specific date
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAvailability("not_available")}
+                  className={`pb-preset-chip ${
+                    availability === "not_available" ? "selected" : ""
+                  }`}
+                >
+                  Not available currently
+                </button>
+              </div>
               {availability === "available_by_date" && (
                 <input
                   type="date"
                   value={availabilityDate}
                   onChange={(e) => setAvailabilityDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="input"
+                  className="pb-input mt-3 max-w-[220px]"
                 />
               )}
-
-              <button
-                type="button"
-                onClick={() => setAvailability("not_available")}
-                className={`rounded-xl border-2 p-5 text-left transition-colors ${
-                  availability === "not_available"
-                    ? "border-gray-500 bg-gray-50"
-                    : "border-gray-200 bg-white hover:border-gray-400"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">⚪</span>
-                  <div>
-                    <p className="font-semibold text-text">
-                      Not Available Currently
-                    </p>
-                    <p className="text-xs text-text/50">
-                      I&apos;m not ready to take on work right now
-                    </p>
-                  </div>
-                </div>
-              </button>
             </div>
 
           </div>
@@ -2051,37 +2277,41 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 7: Education & Certifications (optional) ───────── */}
         {currentStep === 7 && (
-          <div className="mt-8 space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold text-text">
-                Education &amp; certifications{" "}
-                <span className="font-normal text-text/50">— optional</span>
-              </h3>
-              <p className="mt-1 text-xs text-text/50">
-                Skip this if it isn&apos;t relevant to your work. It appears on your profile
-                for a client reading it; none of it is required to be approved.
-              </p>
-            </div>
-
+          <div className="space-y-6">
+            {/* The step's own title and sub-line are in pb-step-header above —
+                they used to be repeated here, which read as a stutter. */}
             <div className="space-y-3">
+              {/* Same employer-card idiom as step 4's work entries, so the two
+                  list steps read as one design. Permanently "expanded" and
+                  cursor:default for the same reason: nothing collapses here. */}
+              <div className="pb-employer-list">
               {educationEntries.map((e, i) => (
-                <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-text">Education {i + 1}</span>
+                <div key={i} className="pb-employer-card expanded">
+                  <div className="pb-employer-header" style={{ cursor: "default" }}>
+                    <div className="pb-employer-icon" aria-hidden="true">
+                      {i + 1}
+                    </div>
+                    <div className="pb-employer-meta">
+                      <div className="pb-employer-title">
+                        {e.school || `Education ${i + 1}`}
+                      </div>
+                      {e.year && <div className="pb-employer-dates">{e.year}</div>}
+                    </div>
                     <button
                       type="button"
                       onClick={() => setEducationEntries(educationEntries.filter((_, x) => x !== i))}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="linklike text-xs"
                     >
                       Remove
                     </button>
                   </div>
+                  <div className="pb-employer-body">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <input
                       type="text"
                       placeholder="School or university"
                       aria-label={`School or university, education ${i + 1}`}
-                      className="input"
+                      className="pb-input"
                       value={e.school}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2093,7 +2323,7 @@ export default function ProfileBuilder({
                       type="text"
                       placeholder="Qualification"
                       aria-label={`Qualification, education ${i + 1}`}
-                      className="input"
+                      className="pb-input"
                       value={e.qualification}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2105,7 +2335,7 @@ export default function ProfileBuilder({
                       type="text"
                       placeholder="Field of study"
                       aria-label={`Field of study, education ${i + 1}`}
-                      className="input"
+                      className="pb-input"
                       value={e.field}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2118,7 +2348,7 @@ export default function ProfileBuilder({
                       placeholder="Year finished"
                       aria-label={`Year finished, education ${i + 1}`}
                       inputMode="numeric"
-                      className="input"
+                      className="pb-input"
                       value={e.year}
                       onChange={(ev) => {
                         const u = [...educationEntries];
@@ -2127,8 +2357,10 @@ export default function ProfileBuilder({
                       }}
                     />
                   </div>
+                  </div>
                 </div>
               ))}
+              </div>
               {educationEntries.length < 3 && (
                 <button
                   type="button"
@@ -2138,26 +2370,26 @@ export default function ProfileBuilder({
                       { school: "", qualification: "", field: "", year: "" },
                     ])
                   }
-                  className="w-full rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-text/50 hover:border-[var(--ink)] hover:text-[var(--ink)] transition-colors"
+                  className="pb-employer-add"
                 >
-                  + Add education
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                  Add education
                 </button>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-text mb-2">Certifications</label>
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="pb-section-label">Certifications — optional</div>
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {certifications.map((c) => (
-                  <span
-                    key={c}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
-                  >
+                  <span key={c} className="pb-skill-tag">
                     {c}
                     <button
                       type="button"
                       onClick={() => setCertifications(certifications.filter((x) => x !== c))}
-                      className="text-blue-500 hover:text-blue-700"
+                      className="skill-remove"
                     >
                       ×
                     </button>
@@ -2181,25 +2413,33 @@ export default function ProfileBuilder({
 
         {/* ───────── STEP 8: Review & submit ───────── */}
         {currentStep === 8 && (
-          <div className="mt-8 space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold text-text">Here&apos;s how clients will see you</h3>
-              <p className="mt-1 text-xs text-text/50">
-                Anything still missing is listed below.
-              </p>
-            </div>
-
-            {/* A checklist, not a score. See lib/profileCompleteness for why
-                Atlas's weighted 0-100 "Profile Strength" is deliberately not
-                here: nothing ranks on it, reputation_score already exists and
-                would disagree with it, and a hidden rubric that decides
-                nothing should not be shown as a number. */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                <p className="text-sm font-semibold text-text">
+          <div className="space-y-6">
+            {/* Same ring and same number as the sticky header — the share of
+                profile sections done, NOT Atlas's weighted 0-100 "Profile
+                Strength". See lib/profileCompleteness: nothing ranks on that,
+                reputation_score already exists and would disagree with it,
+                and a hidden rubric that decides nothing should not be shown
+                as a number. */}
+            <div className="pb-review-completion">
+              <div className="pb-review-completion-ring" data-tier={strengthTier}>
+                <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">
+                  <circle className="ring-bg" cx="28" cy="28" r="24" />
+                  <circle
+                    className="ring-fg"
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    strokeDasharray={150.8}
+                    strokeDashoffset={150.8 * (1 - completeness.percent / 100)}
+                  />
+                </svg>
+                <span className="ring-num">{completeness.percent}</span>
+              </div>
+              <div className="pb-review-completion-text">
+                <h4>
                   {completeness.done} of {completeness.total} sections done
-                </p>
-                <p className="text-xs text-text/50">
+                </h4>
+                <p>
                   {/* Counts only what this form can actually capture. Saying
                       "3 still needed to submit" while Submit works, and while
                       two of the three are recorded on a different page, is a
@@ -2211,55 +2451,120 @@ export default function ProfileBuilder({
                       : "Nothing left on this form — the rest is recorded separately."}
                 </p>
               </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-[var(--lime)] transition-all"
-                  style={{ width: `${completeness.percent}%` }}
-                />
-              </div>
-
-              <ul className="mt-4 space-y-2">
-                {completeness.sections.map((sec) => (
-                  <li key={sec.key} className="flex items-start gap-2.5 text-sm">
-                    <span
-                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                        sec.done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"
-                      }`}
-                      aria-hidden
-                    >
-                      {sec.done ? "✓" : "·"}
-                    </span>
-                    <span className="flex-1">
-                      <span className={sec.done ? "text-text/70" : "text-text"}>{sec.label}</span>
-                      {!sec.required && (
-                        <span className="ml-1.5 text-xs text-text/40">optional</span>
-                      )}
-                      {sec.elsewhere && !sec.done && (
-                        <span className="ml-1.5 text-xs text-text/40">recorded separately</span>
-                      )}
-                      {!sec.done && sec.missing && (
-                        <span className="block text-xs text-text/50">{sec.missing}</span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </div>
 
-            {/* Voice recording consent */}
-            <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
+            {/* The step header promises "here's how clients will see you", so
+                show it. Every value here is state this component already
+                holds; nothing is fetched and nothing is written. There is no
+                pb-review-edit button on these sections on purpose — jumping
+                steps would skip validateStep, which is the same reason the
+                left rail is not clickable. */}
+            <div className="pb-review-card">
+              <div className="pb-review-cover" aria-hidden="true" />
+              <div className="pb-review-head">
+                <div
+                  className="pb-review-photo"
+                  aria-hidden="true"
+                  style={
+                    photoPreview
+                      ? {
+                          backgroundImage: `url(${photoPreview})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : undefined
+                  }
+                />
+                <div className="pb-review-namebar">
+                  <h3>{displayName}</h3>
+                  <div className="role-line">
+                    {[roleTitle, city].filter(Boolean).join(" · ") || (
+                      <span className="pb-review-empty">Job title and city not set.</span>
+                    )}
+                  </div>
+                  <div className="tagline">
+                    {tagline || (
+                      <span className="pb-review-empty">No tagline yet.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="pb-review-rate">
+                  <div className="amount">{hourlyRate ? `$${hourlyRate}` : "—"}</div>
+                  <div className="unit">USD / hr</div>
+                </div>
+              </div>
+
+              <div className="pb-review-section">
+                <h4>About</h4>
+                <p className="pb-review-bio">
+                  {bio || <span className="pb-review-empty">Bio not yet written.</span>}
+                </p>
+              </div>
+
+              <div className="pb-review-section">
+                <h4>Skills</h4>
+                {/* The cream tray's :empty rule supplies its own prompt, so
+                    an empty list is not a blank strip. */}
+                <div className="pb-skill-tags">
+                  {selectedSkills.map((sk) => (
+                    <span key={sk} className="pb-skill-tag">
+                      {sk}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="pb-review-card">
+              <div className="pb-review-section">
+                <h4>Anything still missing</h4>
+                <ul className="space-y-2">
+                  {completeness.sections.map((sec) => (
+                    <li key={sec.key} className="flex items-start gap-2.5 text-sm">
+                      <span
+                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                          sec.done
+                            ? "bg-[var(--lime)] text-[var(--ink)]"
+                            : "bg-[var(--cream-deep)] text-[var(--ink-mute)]"
+                        }`}
+                        aria-hidden
+                      >
+                        {sec.done ? "✓" : "·"}
+                      </span>
+                      <span className="flex-1">
+                        <span className={sec.done ? "text-[var(--ink-soft)]" : "text-[var(--ink)]"}>{sec.label}</span>
+                        {!sec.required && (
+                          <span className="ml-1.5 text-xs text-[var(--ink-mute)]">optional</span>
+                        )}
+                        {sec.elsewhere && !sec.done && (
+                          <span className="ml-1.5 text-xs text-[var(--ink-mute)]">recorded separately</span>
+                        )}
+                        {!sec.done && sec.missing && (
+                          <span className="block text-xs text-[var(--ink-mute)]">{sec.missing}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Voice recording consent. Not a pb-* widget — Atlas's builder has
+                no consent gate — so it keeps its own box, retinted off the
+                grey Tailwind palette onto the Atlas tokens. */}
+            <div className="mt-8 rounded-[10px] border border-[var(--line)] bg-[var(--cream)] p-5">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={interviewConsent}
                   onChange={(e) => setInterviewConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--ink)] focus:ring-[var(--ink)]"
+                  className="mt-0.5 h-4 w-4 rounded accent-[var(--ink)]"
                 />
                 <div>
-                  <span className="text-sm text-[#1C1B1A]/70 leading-relaxed">
+                  <span className="text-sm leading-relaxed text-[var(--ink-soft)]">
                     I consent to my voice recordings being made available to registered clients on StaffVA for the purpose of hiring evaluation. I understand my recordings will be visible to logged-in clients browsing my profile.
                   </span>
-                  <p className="mt-2 text-xs text-gray-400 italic">
+                  <p className="mt-2 text-xs italic text-[var(--ink-mute)]">
                     Your voice is your strongest profile feature. Clients hear you before they hire you — this is what sets StaffVA apart.
                   </p>
                 </div>
@@ -2267,48 +2572,56 @@ export default function ProfileBuilder({
             </div>
           </div>
         )}
-      </div>
+            {/* Navigation buttons */}
+            <div className="pb-step-nav">
+              <button
+                type="button"
+                onClick={prevStep}
+                disabled={currentStep === 1}
+                className="pb-nav-back"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="m8 3-4 4 4 4M4 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Back
+              </button>
 
-      {/* Navigation buttons */}
-      <div className="mt-10 flex items-center justify-between">
-        {currentStep > 1 ? (
-          <button
-            type="button"
-            onClick={prevStep}
-            className="state-action-btn"
-          >
-            Back
-          </button>
-        ) : (
-          <div />
-        )}
+              {currentStep < LAST_STEP ? (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className="pb-nav-next"
+                >
+                  Continue
+                  <svg className="arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={saving || (currentStep === LAST_STEP && !interviewConsent)}
+                  aria-describedby={
+                    currentStep === LAST_STEP && !interviewConsent ? "submit-blocked" : undefined
+                  }
+                  className="pb-nav-next disabled:opacity-40"
+                >
+                  {saving ? "Submitting..." : "Submit Profile"}
+                  <svg className="arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M3 7h8M7 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
 
-        {currentStep < LAST_STEP ? (
-          <button
-            type="button"
-            onClick={nextStep}
-            className="btn-submit"
-          >
-            Continue
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving || (currentStep === LAST_STEP && !interviewConsent)}
-            aria-describedby={
-              currentStep === LAST_STEP && !interviewConsent ? "submit-blocked" : undefined
-            }
-            className="btn-submit"
-          >
-            {saving ? "Submitting..." : "Submit Profile"}
-          </button>
-        )}
-        {currentStep === LAST_STEP && !interviewConsent && (
-          <p id="submit-blocked" className="mt-3 w-full text-right text-xs text-text/50">
-            Tick the recording consent above to submit.
-          </p>
-        )}
+            {currentStep === LAST_STEP && !interviewConsent && (
+              <p id="submit-blocked" className="pb-section-help text-right">
+                Tick the recording consent above to submit.
+              </p>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
