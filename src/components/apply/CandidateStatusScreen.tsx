@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 interface Props {
@@ -10,6 +10,13 @@ interface Props {
   interview1Passed?: boolean;
   /** Interview 2, the paid skills round that earns the Vetted badge. */
   skillsPassed?: boolean;
+  /** Interview 2 has been SAT, whatever the result. Without this a candidate
+   *  who took it and did not pass saw a screen identical to one who had never
+   *  opened it — no tick, no score, and a Start button that would now be
+   *  refused by the retake cooldown. */
+  skillsAttempted?: boolean;
+  /** ISO date the skills retake opens, when one is pending. */
+  skillsRetakeAt?: string | null;
 }
 
 // `tone` is the Atlas .state-icon-xl variant (success / amber / danger / done).
@@ -86,12 +93,44 @@ const ARROW = (
   </svg>
 );
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** "14 September 2026" — built from UTC parts so the server and the browser
+ *  produce the same string, and so it cannot be misread as month-first. */
+function formatRetakeDate(d: Date): string {
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 export default function CandidateStatusScreen({
   adminStatus,
   candidateId,
   interview1Passed = false,
   skillsPassed = false,
+  skillsAttempted = false,
+  skillsRetakeAt = null,
 }: Props) {
+  // "now" is read AFTER mount, never during render. A bare new Date() here
+  // is impure and makes the server HTML and the first client render disagree
+  // whenever the clock crosses the retake boundary between them.
+  //
+  // Until it is known, a pending retake counts as LOCKED — the safe side of
+  // the guess is never offering a start the server would refuse.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const retakeOpensAt = skillsRetakeAt ? new Date(skillsRetakeAt) : null;
+  const retakeLocked =
+    !!retakeOpensAt && (nowMs === null || retakeOpensAt.getTime() > nowMs);
+  // Sat it, did not pass. The only state the screen used to render as "not
+  // started".
+  const skillsMissed = skillsAttempted && !skillsPassed;
   const config = STATUS_CONFIG[adminStatus] || FALLBACK_CONFIG;
   const showDashboardLink = !STATUS_CONFIG[adminStatus] || adminStatus === "ai_interview_failed";
   const [interviewLoading, setInterviewLoading] = useState(false);
@@ -184,7 +223,13 @@ export default function CandidateStatusScreen({
                     Interview 1 — a short behavioural round
                   </li>
                   <li className={skillsPassed ? "met" : undefined}>
-                    Interview 2 — optional and paid; passing it earns the Vetted badge clients filter on
+                    {skillsPassed
+                      ? "Interview 2 — passed; you have the Vetted badge"
+                      : skillsMissed
+                        ? retakeLocked
+                          ? `Interview 2 — taken, not passed this time. You can retake it from ${formatRetakeDate(retakeOpensAt!)}`
+                          : "Interview 2 — taken, not passed this time. A retake is available now"
+                        : "Interview 2 — optional; passing it earns the Vetted badge clients filter on"}
                   </li>
                 </ul>
               </div>
@@ -196,7 +241,7 @@ export default function CandidateStatusScreen({
                     either way told a candidate who had just passed Interview 1
                     nothing about what they were about to open — and Interview 2
                     is the paid one, so the next screen asks for money. */}
-                {candidateId && !(interview1Passed && skillsPassed) && (
+                {candidateId && !(interview1Passed && skillsPassed) && !retakeLocked && (
                   <div>
                     <button
                       onClick={handleInterviewClick}
@@ -206,9 +251,11 @@ export default function CandidateStatusScreen({
                       <span className="submit-label">
                         {interviewLoading
                           ? "Loading…"
-                          : interview1Passed
-                            ? "Start Interview 2"
-                            : "Start Interview 1"}
+                          : skillsMissed
+                            ? "Retake Interview 2"
+                            : interview1Passed
+                              ? "Start Interview 2"
+                              : "Start Interview 1"}
                       </span>
                       <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
                         <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -217,13 +264,21 @@ export default function CandidateStatusScreen({
                     </button>
                     {interview1Passed && !skillsPassed && (
                       <p className="mt-3 text-[12.5px] text-[var(--ink-mute)]">
-                        Interview 2 is optional and paid — you&apos;ll see the price before anything is charged.
+                        {skillsMissed
+                          ? "Your free sitting is used, so a retake costs $5 — you'll see the price before anything is charged."
+                          : "Interview 2 is optional, and your first sitting is free."}
                       </p>
                     )}
                     {interviewError && (
                       <p className="form-alert visible mt-3">{interviewError}</p>
                     )}
                   </div>
+                )}
+                {retakeLocked && (
+                  <p className="mt-1 text-[12.5px] text-[var(--ink-mute)]">
+                    Interview 2 is on a short cooldown after an attempt. It opens
+                    again on {formatRetakeDate(retakeOpensAt!)}.
+                  </p>
                 )}
                 {/* The only pre-approval door to the video recorder. Atlas puts
                     record-intro inside the pipeline; without a link here the whole

@@ -56,6 +56,7 @@ export interface CandidateData {
    *  candidate has actually finished. */
   interview1_passed?: boolean | null;
   ai_interview_passed?: boolean | null;
+  ai_interview_completed_at?: string | null;
   id_verification_status: string;
   voice_recording_1_url: string | null;
   voice_recording_2_url: string | null;
@@ -83,10 +84,68 @@ export default function ApplyPage() {
   const [step, setStep] = useState<ApplicationStep>("loading");
   const [candidateData, setCandidateData] = useState<CandidateData | null>(null);
   const [testPassed, setTestPassed] = useState(false);
+  /** When the skills retake opens, for the completion screen. Lives in
+   *  interview_attempts, not on the candidate row. */
+  const [skillsRetakeAt, setSkillsRetakeAt] = useState<string | null>(null);
 
   useEffect(() => {
     loadCandidateState();
   }, []);
+
+  /**
+   * Keep the completion screen current without a reload.
+   *
+   * The interview opens in ANOTHER TAB, on another origin, so the tab holding
+   * this screen never learns that it finished — a candidate came back to a
+   * page still offering "Start Interview 2" after they had sat it.
+   *
+   * Deliberately narrow. It refetches ONLY on the "complete" step and updates
+   * ONLY candidateData: re-running loadCandidateState would re-route, and
+   * doing that under someone part-way through the profile builder could
+   * remount the form they are typing into. It also does nothing while the tab
+   * is hidden, so a backgrounded tab is not polling all day.
+   */
+  useEffect(() => {
+    if (step !== "complete") return;
+    let alive = true;
+
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !alive) return;
+      const { data } = await supabase
+        .from("candidates")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (!alive || !data) return;
+      setCandidateData(data);
+      const { data: attempt } = await supabase
+        .from("interview_attempts")
+        .select("next_retake_available_at")
+        .eq("candidate_id", data.id)
+        .eq("kind", "skills")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (alive) setSkillsRetakeAt(attempt?.next_retake_available_at ?? null);
+    };
+
+    refresh();
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    // Backstop for the case focus never fires: the interview tab can finish
+    // and be closed while this one sits in the background.
+    const poll = setInterval(refresh, 15000);
+
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      clearInterval(poll);
+    };
+  }, [step]);
 
   // Save the current step to the database
   async function saveStep(newStep: ApplicationStep, candidateId?: string) {
@@ -501,6 +560,8 @@ export default function ApplyPage() {
           candidateId={candidateData.id}
           interview1Passed={candidateData.interview1_passed === true}
           skillsPassed={candidateData.ai_interview_passed === true}
+          skillsAttempted={!!candidateData.ai_interview_completed_at}
+          skillsRetakeAt={skillsRetakeAt}
         />
       )}
       {step === "anticheat_lockout" && candidateData?.test_lockout_until && (
