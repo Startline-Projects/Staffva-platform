@@ -522,6 +522,11 @@ export default function ProfileBuilder({
   const [hourlyRate, setHourlyRate] = useState(candidateData.hourly_rate || 0);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const portfolioInputRef = useRef<HTMLInputElement>(null);
+  // The error banner sits at the top of .pb-content while the controls that
+  // trigger it sit far below. Scrolled down, a refused action changed nothing
+  // a candidate could see — which is the "clicking does nothing" complaint
+  // this rail work started from.
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   // Step 2 — About
   const [bio, setBio] = useState(candidateData.bio || "");
@@ -592,7 +597,11 @@ export default function ProfileBuilder({
     payout_method: payoutMethod,
     skills: selectedSkills,
     tools: selectedTools,
-    work_experience: workEntries.filter((e) => e.role_title.trim()),
+    // Shape-checked, not assumed: work_experience is jsonb cast to
+    // WorkEntry[] by assertion, and this runs on every render — an entry
+    // without a string role_title threw here and blanked the whole builder.
+    // No live row is malformed today; the autosaved draft is the open vector.
+    work_experience: workEntries.filter((e) => typeof e?.role_title === "string" && e.role_title.trim()),
     video_intro_url: candidateData.video_intro_url || null,
     voice_recording_2_url: candidateData.voice_recording_2_url || null,
   });
@@ -833,25 +842,30 @@ export default function ProfileBuilder({
   }
 
 
-  function validateStep(): boolean {
-    setError("");
-    switch (currentStep) {
+  /**
+   * What is missing on a step, or null when it is finished.
+   *
+   * PURE — it reads state and returns a message; it sets nothing. That is what
+   * lets the rail ask "is step 3 actually done?" while rendering, which it has
+   * to do now that the rail is clickable: marking a step complete purely
+   * because it sits behind the cursor meant a candidate saw green ticks on
+   * every earlier step, clicked Review, and was bounced back by a gate the
+   * ticks said could not fail.
+   */
+  function stepError(step: BuilderStep): string | null {
+    switch (step) {
       case 1:
         if (!photoFile && !photoPreview) {
-          setError("Profile photo is required");
-          return false;
+          return "Profile photo is required";
         }
         if (!roleTitle.trim()) {
-          setError("Add the job title you'd want a client to see.");
-          return false;
+          return "Add the job title you'd want a client to see.";
         }
         if (!tagline.trim()) {
-          setError("Tagline is required");
-          return false;
+          return "Tagline is required";
         }
         if (hourlyRate < 3) {
-          setError("Hourly rate must be at least $3/hr");
-          return false;
+          return "Hourly rate must be at least $3/hr";
         }
         // The $3 floor is deliberately stricter than the database's $1 — that
         // is a product minimum, and a stricter app rule is fine. The CEILING
@@ -859,89 +873,104 @@ export default function ProfileBuilder({
         // an out-of-range rate passed every step and then failed the whole
         // submit with a raw constraint error, after the uploads.
         if (hourlyRate > 500) {
-          setError("Hourly rate must be $500/hr or less");
-          return false;
+          return "Hourly rate must be $500/hr or less";
         }
-        return true;
+        return null;
       case 2:
         if (!bio.trim()) {
-          setError("Bio is required");
-          return false;
+          return "Bio is required";
         }
-        return true;
+        return null;
       case 3:
         if (selectedSkills.length === 0) {
-          setError("Select at least one skill");
-          return false;
+          return "Select at least one skill";
         }
         if (selectedTools.length === 0) {
-          setError("Select at least one tool");
-          return false;
+          return "Select at least one tool";
         }
-        return true;
+        return null;
       case 4: {
-        const validEntries = workEntries.filter((e) => e.role_title.trim());
+        // Defensive on purpose. workEntries is seeded from the work_experience
+        // jsonb column and from autosaved draft JSON, both cast to WorkEntry[]
+        // by assertion rather than by any check. This runs during RENDER now —
+        // the rail asks every step whether it is done — so one entry with a
+        // missing or non-string role_title would throw here and blank the
+        // whole builder, where before it could only fail a button press.
+        const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+        const entries = Array.isArray(workEntries) ? workEntries : [];
+        const validEntries = entries.filter((e) => e && text(e.role_title));
         if (validEntries.length === 0) {
-          setError("Add at least one work experience entry");
-          return false;
+          return "Add at least one work experience entry";
         }
         for (const entry of validEntries) {
-          if (!entry.company_name?.trim()) {
-            setError("Please enter the company or business name.");
-            return false;
+          if (!text(entry.company_name)) {
+            return "Please enter the company or business name.";
           }
           if (!entry.industry || !entry.start_date) {
-            setError("Each entry needs a role title, industry, and start date");
-            return false;
+            return "Each entry needs a role title, industry, and start date";
           }
-          if (entry.end_date && entry.end_date !== "present" && entry.start_date) {
-            const [startYear, startMonth] = entry.start_date.split("-").map(Number);
-            const [endYear, endMonth] = entry.end_date.split("-").map(Number);
+          if (text(entry.end_date) && entry.end_date !== "present" && text(entry.start_date)) {
+            const [startYear, startMonth] = text(entry.start_date).split("-").map(Number);
+            const [endYear, endMonth] = text(entry.end_date).split("-").map(Number);
             const startTotal = startYear * 12 + startMonth;
             const endTotal = endYear * 12 + endMonth;
             if (startTotal > endTotal) {
-              setError(`The start date cannot be after the end date for "${entry.role_title || entry.company_name}". Please fix the dates before continuing.`);
-              return false;
+              return `The start date cannot be after the end date for "${entry.role_title || entry.company_name}". Please fix the dates before continuing.`;
             }
           }
         }
-        return true;
+        return null;
       }
       case 5:
         // Work samples are optional, so payout is the only gate on this step.
         if (!payoutMethod) {
-          setError("Payout method is required");
-          return false;
+          return "Payout method is required";
         }
-        return true;
+        return null;
+      case 6:
+        if (!availability) {
+          return "Select your availability";
+        }
+        if (!hoursPerWeek || hoursPerWeek < 1 || hoursPerWeek > 60) {
+          return "Enter how many hours a week you want to work (1-60).";
+        }
+        if (availability === "available_by_date" && !availabilityDate) {
+          return "Select a date";
+        }
+        return null;
       case 7:
         // Education and certifications are optional. Atlas says so, and a
         // Virtual Assistant with fifteen years of experience and no degree is
         // not a worse candidate for leaving it blank.
-        return true;
+        return null;
       case 8:
         if (!interviewConsent) {
-          setError("Please agree to share your voice recordings with clients to submit.");
-          return false;
+          return "Please agree to share your voice recordings with clients to submit.";
         }
-        return true;
-      case 6:
-        if (!availability) {
-          setError("Select your availability");
-          return false;
-        }
-        if (!hoursPerWeek || hoursPerWeek < 1 || hoursPerWeek > 60) {
-          setError("Enter how many hours a week you want to work (1-60).");
-          return false;
-        }
-        if (availability === "available_by_date" && !availabilityDate) {
-          setError("Select a date");
-          return false;
-        }
-        return true;
+        return null;
       default:
-        return true;
+        return null;
     }
+  }
+
+  /**
+   * stepError for DISPLAY. A tick in the rail is decoration; it must never be
+   * able to take the page down, so an unexpected throw reads as "not done"
+   * rather than unmounting the builder mid-application.
+   */
+  function stepIsDone(step: BuilderStep): boolean {
+    try {
+      return stepError(step) === null;
+    } catch {
+      return false;
+    }
+  }
+
+  /** stepError, but it also shows the message. This is the form's gate. */
+  function validateStep(step: BuilderStep = currentStep): boolean {
+    const problem = stepError(step);
+    setError(problem ?? "");
+    return problem === null;
   }
 
   // Was the form repopulated from an autosaved draft? Shown once, so the
@@ -1046,8 +1075,57 @@ export default function ProfileBuilder({
       selectedSkills, selectedTools, workEntries, educationEntries,
       certifications, payoutMethod, availability, availabilityDate]);
 
+  /**
+   * Travel to a step from the rail.
+   *
+   * Backward is free. The Back button has always worked this way, and a
+   * candidate returning to a step they already finished has nothing to prove.
+   *
+   * Forward re-runs every gate between here and there and stops at the first
+   * step that fails, which is the thing the rail's old "not clickable" rule
+   * was actually protecting: without it a candidate could blank their bio on
+   * step 2, jump straight to Review and submit, skipping the check pressing
+   * Continue would have applied.
+   */
+  /** Put the refusal where the candidate is looking. */
+  function revealError() {
+    // Next frame: when error was previously empty the banner does not exist
+    // in the DOM yet at the moment this is called.
+    requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  function goToStep(target: BuilderStep) {
+    if (target === currentStep) return;
+
+    if (target < currentStep) {
+      setCurrentStep(target);
+      setError("");
+      return;
+    }
+
+    for (let s = currentStep; s < target; s++) {
+      if (!validateStep(s as BuilderStep)) {
+        // validateStep has already set the message naming what is missing.
+        // When the refusal is on the step we are already standing on, nothing
+        // else about the page changes, so the banner has to come to them or
+        // the click reads as dead.
+        setCurrentStep(s as BuilderStep);
+        revealError();
+        return;
+      }
+    }
+    saveDraft();
+    setCurrentStep(target);
+    setError("");
+  }
+
   function nextStep() {
-    if (!validateStep()) return;
+    if (!validateStep()) {
+      revealError();
+      return;
+    }
     saveDraft();
     setCurrentStep((prev) => Math.min(prev + 1, LAST_STEP) as BuilderStep);
     setError("");
@@ -1124,7 +1202,7 @@ export default function ProfileBuilder({
       }
 
       // Filter valid work entries
-      const validWorkEntries = sortWorkEntries(workEntries.filter((e) => e.role_title.trim()));
+      const validWorkEntries = sortWorkEntries(workEntries.filter((e) => typeof e?.role_title === "string" && e.role_title.trim()));
 
 
       // Update candidate record
@@ -1314,26 +1392,34 @@ export default function ProfileBuilder({
       )}
 
       <div className="pb-layout">
-        {/* Left rail. Not clickable: jumping steps would skip validateStep,
-            which is the only thing keeping a half-filled step from being
-            saved, so the rail reports position rather than offering travel. */}
+        {/* Left rail, and it travels. The Atlas stylesheet has always
+            styled .pb-stepnav-item as a button — transparent background,
+            border: 0, width: 100%, cursor: pointer, its own :hover — so the
+            cursor-default <div> here was fighting the design. Going back
+            costs nothing; going forward runs each gate on the way. */}
         <nav className="pb-stepnav" aria-label="Profile builder steps">
           <ul className="pb-stepnav-list">
             {stepLabels.map((label, i) => {
               const n = i + 1;
+              // "complete" now means the step's gates actually pass, not
+              // merely that it sits behind the cursor. With a clickable rail
+              // the old position rule showed ticks on steps that would bounce
+              // you straight back.
               const state =
-                n === currentStep ? "active" : n < currentStep ? "complete" : "";
+                n === currentStep ? "active" : stepIsDone(n as BuilderStep) ? "complete" : "";
               return (
                 <li key={label}>
-                  <div
-                    className={`pb-stepnav-item ${state} cursor-default`}
+                  <button
+                    type="button"
+                    onClick={() => goToStep(n as BuilderStep)}
+                    className={`pb-stepnav-item ${state}`}
                     aria-current={n === currentStep ? "step" : undefined}
                   >
                     <span className="pb-stepnav-letter">
                       <span>{n}</span>
                     </span>
                     <span className="pb-stepnav-label">{label}</span>
-                  </div>
+                  </button>
                 </li>
               );
             })}
@@ -1342,7 +1428,12 @@ export default function ProfileBuilder({
 
         <div className="pb-content">
           {error && (
-            <p className="form-alert visible mb-6">{error}</p>
+            // role="alert" so the refusal is announced, not just drawn: the
+            // rail buttons keep focus when a jump is refused, so a screen
+            // reader user would otherwise get silence.
+            <p ref={errorRef} role="alert" className="form-alert visible mb-6">
+              {error}
+            </p>
           )}
 
           <section className="pb-step active">
@@ -2415,10 +2506,10 @@ export default function ProfileBuilder({
 
             {/* The step header promises "here's how clients will see you", so
                 show it. Every value here is state this component already
-                holds; nothing is fetched and nothing is written. There is no
-                pb-review-edit button on these sections on purpose — jumping
-                steps would skip validateStep, which is the same reason the
-                left rail is not clickable. */}
+                holds; nothing is fetched and nothing is written. Each section
+                carries the Atlas .pb-review-edit button back to the step that
+                owns it — travelling backwards skips no gate, which is the
+                same reason the left rail is clickable. */}
             <div className="pb-review-card">
               <div className="pb-review-cover" aria-hidden="true" />
               <div className="pb-review-head">
@@ -2455,14 +2546,24 @@ export default function ProfileBuilder({
               </div>
 
               <div className="pb-review-section">
-                <h4>About</h4>
+                <h4>
+                  About
+                  <button type="button" className="pb-review-edit" onClick={() => goToStep(2)}>
+                    Edit
+                  </button>
+                </h4>
                 <p className="pb-review-bio">
                   {bio || <span className="pb-review-empty">Bio not yet written.</span>}
                 </p>
               </div>
 
               <div className="pb-review-section">
-                <h4>Skills</h4>
+                <h4>
+                  Skills
+                  <button type="button" className="pb-review-edit" onClick={() => goToStep(3)}>
+                    Edit
+                  </button>
+                </h4>
                 {/* The cream tray's :empty rule supplies its own prompt, so
                     an empty list is not a blank strip. */}
                 <div className="pb-skill-tags">
