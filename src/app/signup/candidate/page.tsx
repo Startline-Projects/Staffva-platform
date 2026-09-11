@@ -7,6 +7,7 @@ import StaffvaLogo from "@/components/landing/StaffvaLogo";
 import Asti, { AstiPointChip } from "@/components/landing/Asti";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/atlasCountries";
+import CountrySelect from "@/components/CountrySelect";
 import { SIGNUP_ROLE_CATEGORIES } from "@/lib/signupCapture";
 import { useTurnstile } from "@/components/auth/Turnstile";
 import "@/app/landing.css";
@@ -64,8 +65,6 @@ export default function CandidateSignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [country, setCountry] = useState<string>("");
-  const [countryOpen, setCountryOpen] = useState(false);
-  const [countryQuery, setCountryQuery] = useState("");
   const [roleCategory, setRoleCategory] = useState("");
   const [referral, setReferral] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -79,7 +78,6 @@ export default function CandidateSignupPage() {
   const [showBlocker, setShowBlocker] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState(false);
 
-  const countryWrapRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const captcha = useTurnstile();
 
@@ -89,12 +87,6 @@ export default function CandidateSignupPage() {
   const strengthLabel = metCount >= 5 ? "Strong" : metCount >= 3 ? "Medium" : "Weak";
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country) || null;
-  const filteredCountries = useMemo(() => {
-    const q = countryQuery.trim().toLowerCase();
-    return q
-      ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q)
-      : COUNTRIES;
-  }, [countryQuery]);
 
   // The button unlocks once the typed fields are plausible; the checkboxes
   // are enforced by submit so their error copy (and the under-18 blocker)
@@ -103,16 +95,6 @@ export default function CandidateSignupPage() {
     nameValid(fullName) && emailValid(email) && passwordValid(password) &&
     !!country && !!roleCategory;
 
-  // Close the country menu on outside click
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (countryWrapRef.current && !countryWrapRef.current.contains(e.target as Node)) {
-        setCountryOpen(false);
-      }
-    }
-    document.addEventListener("click", onDoc);
-    return () => document.removeEventListener("click", onDoc);
-  }, []);
 
   function setFieldState(name: string, state: FieldState) {
     setStates((prev) => ({ ...prev, [name]: state }));
@@ -503,67 +485,14 @@ export default function CandidateSignupPage() {
                         <span className="req">Required</span>
                       </label>
                       <div className={wrapClass("country")}>
-                        <div
-                          className={`country-wrap ${countryOpen ? "open" : ""}`}
-                          ref={countryWrapRef}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape" && countryOpen) {
-                              e.stopPropagation();
-                              setCountryOpen(false);
-                              (document.getElementById("countryTrigger") as HTMLButtonElement | null)?.focus();
-                            }
+                        <CountrySelect
+                          value={country}
+                          onChange={(code) => {
+                            setCountry(code);
+                            setFieldState("country", "valid");
                           }}
-                        >
-                          <button
-                            type="button"
-                            className={`country-trigger ${selectedCountry ? "" : "empty"}`}
-                            id="countryTrigger"
-                            aria-haspopup="listbox"
-                            aria-expanded={countryOpen}
-                            onClick={() => { setCountryOpen(!countryOpen); setCountryQuery(""); }}
-                          >
-                            <span className="flag" aria-hidden>{selectedCountry?.flag || "🌍"}</span>
-                            <span className="country-name">{selectedCountry?.name || "Select country…"}</span>
-                          </button>
-                          {countryOpen && (
-                            <div className="country-menu" role="listbox" aria-label="Country of residence">
-                              <div className="country-search-wrap">
-                                <input
-                                  type="text"
-                                  className="country-search"
-                                  placeholder="Search countries…"
-                                  autoComplete="off"
-                                  autoFocus
-                                  value={countryQuery}
-                                  onChange={(e) => setCountryQuery(e.target.value)}
-                                />
-                              </div>
-                              <div className="country-list" role="presentation">
-                                {filteredCountries.map((c) => (
-                                  <button
-                                    key={c.code}
-                                    type="button"
-                                    className={`country-option ${c.code === country ? "selected" : ""}`}
-                                    role="option"
-                                    aria-selected={c.code === country}
-                                    onClick={() => {
-                                      setCountry(c.code);
-                                      setCountryOpen(false);
-                                      setFieldState("country", "valid");
-                                    }}
-                                  >
-                                    <span className="flag" aria-hidden>{c.flag}</span>
-                                    <span>{c.name}</span>
-                                    <span className="country-code">{c.code}</span>
-                                  </button>
-                                ))}
-                                {filteredCountries.length === 0 && (
-                                  <div className="no-results">No countries match &ldquo;{countryQuery}&rdquo;</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                          by="code"
+                        />
                       </div>
                       <div className="field-error-text" role="alert">
                         {ERR_ICON}

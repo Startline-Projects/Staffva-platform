@@ -1,6 +1,6 @@
 "use client";
 
-import { COUNTRIES } from "@/lib/atlasCountries";
+import CountrySelect from "@/components/CountrySelect";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
@@ -392,10 +392,22 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setEmail(user.email || "");
-        const fullName = user.user_metadata?.full_name || "";
+        const meta = user.user_metadata || {};
+        const fullName = meta.full_name || "";
         const parts = fullName.split(" ");
         setFirstName(parts[0] || "");
         setLastName(parts.slice(1).join(" ") || "");
+        // Signup already asked for these and stored them on the auth user (the
+        // handle_new_user trigger copies the same two onto profiles as
+        // signup_country / signup_role_category). Asking again was pure
+        // re-entry: the candidate picked their country on the signup screen and
+        // was handed an empty country picker one screen later.
+        //
+        // Prefilled, not locked — someone who mistyped at signup, or moved,
+        // can still change it, and whatever is in the field at submit is what
+        // gets written.
+        if (meta.signup_country) setCountry(meta.signup_country);
+        if (meta.signup_role_category) setRoleCategory(meta.signup_role_category);
       }
       try { setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { setTimeZone("UTC"); }
     }
@@ -415,8 +427,12 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
         setLastName(parts.slice(1).join(" ") || "");
       }
       setEmail(existingCandidate.email || "");
-      setCountry(existingCandidate.country || "");
-      setRoleCategory(existingCandidate.role_category || "");
+      // Only overwrite when the saved row actually HAS a value. A returning
+      // candidate whose row was created before these were captured has empty
+      // strings here, and a blind assignment would wipe the signup prefill
+      // above — handing them the empty picker this change exists to remove.
+      if (existingCandidate.country) setCountry(existingCandidate.country);
+      if (existingCandidate.role_category) setRoleCategory(existingCandidate.role_category);
       setYearsExperience(existingCandidate.years_experience || "");
       setBio(existingCandidate.bio || "");
       setTools(existingCandidate.tools || []);
@@ -701,12 +717,18 @@ export default function ApplicationForm({ onComplete, initialStage = 0, existing
                   <span>Country of Residence</span>
                   <span className="req">Required</span>
                 </label>
-                <select required value={country} onChange={(e) => setCountry(e.target.value)} className={`select ${country ? "" : "empty"}`}>
-                  <option value="">Select country</option>
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
-                  ))}
-                </select>
+                {/* Searchable, not a native <select>: the list is 207 long, and
+                    scrolling to Saudi Arabia past Afghanistan, Albania, Algeria…
+                    is the difference this component removes. Stores the NAME,
+                    which is what candidates.country holds and what
+                    api/ensure-profile validates against. */}
+                <CountrySelect
+                  value={country}
+                  onChange={setCountry}
+                  by="name"
+                  id="applyCountryTrigger"
+                  placeholder="Select country"
+                />
               </div>
 
               <div className="form-row">
