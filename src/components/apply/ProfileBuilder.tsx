@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import ReferenceFields, { useSavedReferences, saveReference, type ReferenceValue } from "@/components/apply/ReferenceFields";
 import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
+import TagPicker, { tagKey } from "@/components/apply/TagPicker";
 import { createClient } from "@/lib/supabase/client";
 import { profileCompleteness } from "@/lib/profileCompleteness";
 
@@ -1661,72 +1662,47 @@ export default function ProfileBuilder({
               <p className="pb-section-help mb-4">
                 Pick the ones you&apos;d be comfortable being hired for. Clients filter on these.
               </p>
-              {/* Atlas's two skill chip shapes, driven off the one toggle
-                  list we already had: unselected renders as pb-skill-suggestion
-                  (dashed, "+" prefixed — "add this"), selected renders as
-                  pb-skill-tag (solid pill with an × — "remove this"). Same
-                  map, same handler; only the class switches. The × is a span,
-                  not a button, because the whole chip is the toggle. */}
-              <div className="pb-skill-suggestions">
-                {roleSkills.map((skill) => {
-                  const on = selectedSkills.includes(skill);
-                  return (
-                    <button
-                      key={skill}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() =>
-                        setSelectedSkills(
-                          on
-                            ? selectedSkills.filter((x) => x !== skill)
-                            : [...selectedSkills, skill]
-                        )
-                      }
-                      className={on ? "pb-skill-tag" : "pb-skill-suggestion"}
-                    >
-                      {skill}
-                      {on && (
-                        <span className="skill-remove" aria-hidden="true">
-                          ×
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {roleSkills.length === 0 && (
-                <div className="mt-2">
-                  {/* pb-skill-tags is the cream tray; its :empty rule prints
-                      "Skills you add will appear here", which is exactly the
-                      right prompt on this free-text branch. */}
-                  <div className="pb-skill-tags mb-3">
-                    {selectedSkills.map((sk) => (
-                      <span key={sk} className="pb-skill-tag">
-                        {sk}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSkills(selectedSkills.filter((x) => x !== sk))}
-                          className="skill-remove"
-                        >
-                          ×
-                        </button>
-                      </span>
+              {/* Preset chips AND type-to-add, for every role.
+                  Previously these were exclusive branches: a role WITH a
+                  taxonomy got chips and no way to type, and only a role with
+                  NO taxonomy got a text field — so the candidates most likely
+                  to have a skill outside the list were the ones who could not
+                  enter it. */}
+              {roleSkills.length > 0 && (
+                <div className="pb-skill-suggestions mb-3">
+                  {/* Compared on the SAME key TagPicker uses. With raw string
+                      equality a candidate who typed "cold calling" still saw
+                      the "Cold calling" preset offered, and clicking it stored
+                      both — two facet entries for one skill, which is the
+                      duplication the picker exists to prevent. */}
+                  {roleSkills
+                    .filter((skill) => !selectedSkills.some((v) => tagKey(v) === tagKey(skill)))
+                    .map((skill) => (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() =>
+                          selectedSkills.length < 12 &&
+                          setSelectedSkills([...selectedSkills, skill])
+                        }
+                        disabled={selectedSkills.length >= 12}
+                        className="pb-skill-suggestion"
+                      >
+                        {skill}
+                      </button>
                     ))}
-                  </div>
-                  {/* Roles outside the taxonomy — "STR Property Manager",
-                      "Qualitative Researcher" — get a free-text field rather
-                      than an empty list. */}
-                  <WorkEntryTagInput
-                    placeholder="Type a skill, then tap Add"
-                    disabled={selectedSkills.length >= 12}
-                    onAdd={(v) => {
-                      if (!selectedSkills.includes(v) && selectedSkills.length < 12) {
-                        setSelectedSkills([...selectedSkills, v]);
-                      }
-                    }}
-                  />
                 </div>
               )}
+
+              <TagPicker
+                value={selectedSkills}
+                onChange={setSelectedSkills}
+                suggestions={roleSkills}
+                max={12}
+                noun="skill"
+                placeholder="Type a skill and press Enter"
+              />
+
               <p className="pb-section-help">
                 {selectedSkills.length} selected. Clients filter by individual skills, so
                 each one you add is another search you can turn up in.
@@ -1745,8 +1721,14 @@ export default function ProfileBuilder({
                   two characters of the name — display only, nothing reads it.
                   pb-tool-prof is display:none until .selected, so "Selected"
                   is only ever shown for a tool the candidate actually picked. */}
+              {/* Role presets first, then anything the candidate typed, so a
+                  custom tool sits in the grid as a peer rather than in a
+                  second list that looks like an afterthought. */}
               <div className="pb-tools-grid">
-              {roleTools.map((tool) => {
+              {[
+                ...roleTools,
+                ...selectedTools.filter((t) => !roleTools.some((r) => tagKey(r) === tagKey(t))),
+              ].map((tool) => {
                 const selected = selectedTools.includes(tool);
                 return (
                   <button
@@ -1767,6 +1749,25 @@ export default function ProfileBuilder({
                   </button>
                 );
               })}
+              </div>
+
+              {/* The tiles cover this role's usual stack; this is for
+                  everything else. The cap of 8 is enforced twice on purpose —
+                  toggleTool guards the tiles, TagPicker guards typing — and
+                  both read the same selectedTools array. */}
+              <div className="mt-4">
+                <TagPicker
+                  value={selectedTools}
+                  onChange={setSelectedTools}
+                  suggestions={roleTools}
+                  max={8}
+                  noun="tool"
+                  placeholder="Using something else? Type it and press Enter"
+                  // The tile grid above already shows what is selected, custom
+                  // entries included, so a second tray would duplicate it — and
+                  // its empty state is hardcoded in CSS to talk about skills.
+                  showTray={false}
+                />
               </div>
             </div>
           </div>

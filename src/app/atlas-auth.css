@@ -4861,3 +4861,14 @@
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+
+/* Keyboard highlight for the type-to-add pickers.
+   .pb-skill-suggestion ships with base and :hover only, so the arrow-key
+   highlight had no visual at all — Enter committed a row the candidate could
+   not see was selected. Mirrors the hover treatment so pointer and keyboard
+   read the same. */
+.lp-auth .pb-skill-suggestion.focused {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--cream-deep, rgba(14, 14, 12, 0.06));
+}
