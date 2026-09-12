@@ -45,7 +45,7 @@ export default function PortalTopbar({ user }: { user: PortalUser }) {
           </svg>
           {user.unreadMessages > 0 && <span className="unread-dot" aria-label={`${user.unreadMessages} unread`} />}
         </Link>
-        <Link href="/account/security" className="topbar-avatar" aria-label="Account">
+        <Link href="/candidate/settings/security" className="topbar-avatar" aria-label="Account settings">
           {user.initial}
         </Link>
       </div>

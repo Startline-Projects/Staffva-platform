@@ -86,7 +86,7 @@ export default function ClientPortalSidebar({ user }: { user: ClientPortalUser }
           badge={user.needsVerification || user.needsCard ? "Todo" : undefined}
           mobileHide
         />
-        <PortalNavItem href="/account/security" icon="settings" label="Account Settings" active={is("/account")} mobileHide />
+        <PortalNavItem href="/settings/security" icon="settings" label="Account Settings" active={is("/settings")} mobileHide />
         <PortalNavItem href="mailto:support@staffva.com" icon="help" label="Help" mobileHide />
       </ul>
       <div className="dash-sidebar-footer">

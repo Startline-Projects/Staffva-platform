@@ -1104,7 +1104,7 @@ export default async function CandidateDashboardPage() {
                 </Link>
               </li>
               <li>
-                <Link href="/account/security">
+                <Link href="/candidate/settings/security">
                   Account security
                   <span className="help-arrow" aria-hidden>→</span>
                 </Link>

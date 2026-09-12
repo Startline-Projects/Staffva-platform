@@ -59,7 +59,7 @@ export default function ClientPortalTopbar({ user }: { user: ClientPortalUser })
           </svg>
           {unread > 0 && <span className="unread-dot" />}
         </Link>
-        <Link href="/account/security" className="topbar-avatar" aria-label="Account settings">
+        <Link href="/settings/security" className="topbar-avatar" aria-label="Account settings">
           {user.initial}
         </Link>
         {/* The rail's sign-out sits in the sidebar footer, which is hidden
