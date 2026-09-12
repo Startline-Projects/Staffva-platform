@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import PortalAccountMenu from "@/components/portal/PortalAccountMenu";
 import PortalSignOut from "@/components/portal/PortalSignOut";
 import PortalNotifBell from "@/components/portal/PortalNotifBell";
 import { useUnreadMessages } from "./UnreadMessages";
@@ -59,12 +60,22 @@ export default function ClientPortalTopbar({ user }: { user: ClientPortalUser })
           </svg>
           {unread > 0 && <span className="unread-dot" />}
         </Link>
-        <Link href="/settings/security" className="topbar-avatar" aria-label="Account settings">
-          {user.initial}
-        </Link>
-        {/* The rail's sign-out sits in the sidebar footer, which is hidden
-            below 880px where the rail becomes a bottom bar — so on a phone
-            this is the only way out. */}
+        <PortalAccountMenu
+          initial={user.initial}
+          displayName={user.displayName}
+          statusLine={user.subtitle}
+          items={[
+            { href: "/settings/notifications", label: "Notification settings" },
+            { href: "/settings/security", label: "Two-step verification" },
+            // No /help route exists in this app — the only real support
+            // channel is the address the candidate rail already uses.
+            { href: "mailto:support@staffva.com", label: "Help", external: true },
+          ]}
+        />
+        {/* Kept ALONGSIDE the menu's sign-out, not replaced by it. The rail's
+            copy lives in the sidebar footer, which is hidden below 880px where
+            the rail becomes a bottom bar — and a way out must never be one tap
+            deeper on a shared machine. */}
         <PortalSignOut />
       </div>
     </header>

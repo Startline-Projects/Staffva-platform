@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotifBell from "./NotifBell";
+import PortalAccountMenu from "@/components/portal/PortalAccountMenu";
 import type { PortalUser } from "./PortalShell";
 
 /**
@@ -45,9 +46,20 @@ export default function PortalTopbar({ user }: { user: PortalUser }) {
           </svg>
           {user.unreadMessages > 0 && <span className="unread-dot" aria-label={`${user.unreadMessages} unread`} />}
         </Link>
-        <Link href="/candidate/settings/security" className="topbar-avatar" aria-label="Account settings">
-          {user.initial}
-        </Link>
+        <PortalAccountMenu
+          initial={user.initial}
+          displayName={user.displayName}
+          statusLine={user.statusLine}
+          items={[
+            // Null until they have a public profile, and the menu drops the
+            // row rather than offering a dead link.
+            { href: user.profilePath, label: "View my profile" },
+            { href: "/candidate/settings/notifications", label: "Notification settings" },
+            { href: "/candidate/settings/security", label: "Two-step verification" },
+            // No candidate help page exists yet; the rail already points here.
+            { href: "mailto:support@staffva.com", label: "Help", external: true },
+          ]}
+        />
       </div>
     </header>
   );

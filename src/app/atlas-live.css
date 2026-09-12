@@ -2723,3 +2723,88 @@
   background: var(--paper);
   color: var(--ink);
 }
+
+/* ===== ACCOUNT MENU =====
+   The prototype's topbar avatar is a button labelled "Account menu" with a
+   hover scale, and the menu behind it was never drawn. These rules follow
+   .notif-dropdown exactly — same offset, surface, border, radius, shadow,
+   z-index and entry animation — because the two hang off the same topbar and
+   any difference between them reads as a mistake. */
+.lp-dash .topbar-account-wrap { position: relative; display: inline-flex; }
+
+.lp-dash .account-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 264px;
+  max-width: calc(100vw - 32px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(14, 14, 12, 0.18);
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lp-dash .account-dropdown.visible {
+  display: flex;
+  animation: notifDropIn .2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.lp-dash .account-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+/* min-width:0 so a long name ellipsises instead of widening the panel. */
+.lp-dash .account-dropdown-who { display: flex; flex-direction: column; min-width: 0; }
+.lp-dash .account-dropdown-who strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lp-dash .account-dropdown-who span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-top: 2px;
+}
+
+.lp-dash .account-dropdown-items { display: flex; flex-direction: column; padding: 6px; }
+
+.lp-dash .account-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.lp-dash .account-dropdown-item:hover { background: var(--cream-deep); }
+
+/* Explicit background as well as the div: belt and braces against any tag or
+   descendant rule reaching in from the landing stylesheet. */
+.lp-dash .account-dropdown-footer {
+  border-top: 1px solid var(--line);
+  padding: 6px;
+  background: var(--paper);
+}
+/* Sign-out reads as the destructive-ish action without shouting. */
+.lp-dash .account-dropdown-item.signout { color: var(--ink-mute); }
+.lp-dash .account-dropdown-item.signout:hover { color: var(--ink); }
