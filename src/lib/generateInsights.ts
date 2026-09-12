@@ -25,7 +25,7 @@ export async function generateInsights(candidateId: string): Promise<void> {
     // ── Source 1: Candidate profile fields ──
     const { data: candidate, error: candidateErr } = await supabase
       .from("candidates")
-      .select("display_name, full_name, role_category, tagline, bio, skills, tools, work_experience, hourly_rate, country, english_written_tier, us_client_experience, total_earnings_usd, reputation_score, reputation_tier")
+      .select("display_name, full_name, role_category, tagline, bio, skills, tools, work_experience, hourly_rate, country, english_written_tier, us_client_experience, total_earnings_usd")
       .eq("id", candidateId)
       .single();
 
@@ -66,8 +66,6 @@ export async function generateInsights(candidateId: string): Promise<void> {
       candidate.english_written_tier ? `English written tier: ${candidate.english_written_tier}` : null,
       candidate.us_client_experience ? `US client experience: ${describeUsExperience(candidate.us_client_experience)}` : null,
       candidate.total_earnings_usd > 0 ? `Verified earnings: $${candidate.total_earnings_usd}` : null,
-      candidate.reputation_score ? `Reputation score: ${candidate.reputation_score}%` : null,
-      candidate.reputation_tier ? `Reputation tier: ${candidate.reputation_tier}` : null,
     ].filter(Boolean).join("\n");
 
     let aiInterviewSummary = "";

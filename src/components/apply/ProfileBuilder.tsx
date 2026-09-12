@@ -2467,10 +2467,9 @@ export default function ProfileBuilder({
           <div className="space-y-6">
             {/* Same ring and same number as the sticky header — the share of
                 profile sections done, NOT Atlas's weighted 0-100 "Profile
-                Strength". See lib/profileCompleteness: nothing ranks on that,
-                reputation_score already exists and would disagree with it,
-                and a hidden rubric that decides nothing should not be shown
-                as a number. */}
+                Strength". See lib/profileCompleteness: nothing ranks on
+                that, and a hidden rubric that decides nothing should not be
+                shown as a number. */}
             <div className="pb-review-completion">
               <div className="pb-review-completion-ring" data-tier={strengthTier}>
                 <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">

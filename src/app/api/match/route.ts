@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     // function, which is how they came to disagree.
     const { data: candidates, error: poolError } = await admin
       .from("matchable_candidates")
-      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, ai_interview_passed, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, reputation_tier, video_intro_status");
+      .select("id, display_name, country, role_category, hourly_rate, english_written_tier, ai_interview_passed, availability_status, availability_date, us_client_experience, bio, total_earnings_usd, hours_per_week, profile_photo_url, voice_recording_1_preview_url, years_experience, tools, video_intro_status");
 
     if (poolError) {
       console.error("[match] pool query failed:", poolError.message);

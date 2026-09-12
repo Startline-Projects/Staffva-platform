@@ -16,7 +16,7 @@ export default function AdminReviewsPage() {
         Both directions of every review pair. Unrevealed reviews are listed here
         and nowhere else — staff can see a sealed review, the other party cannot.
         Taking one down hides it from the public profile and removes it from the
-        candidate&apos;s reputation score; nothing is deleted.
+        candidate&apos;s public rating; nothing is deleted.
       </p>
       <AdminReviewList />
     </div>

@@ -262,16 +262,6 @@ export default async function RecruiterCandidateProfilePage({
                       English: {tier.label}
                     </span>
                   )}
-                  {candidate.reputation_tier === "Elite" && (
-                    <span className="rounded-full bg-amber-700 px-3 py-1 text-xs font-semibold text-amber-100">
-                      Elite
-                    </span>
-                  )}
-                  {candidate.reputation_tier === "Top Rated" && (
-                    <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
-                      Top Rated
-                    </span>
-                  )}
                 </div>
               </div>
             </div>

@@ -142,7 +142,7 @@ export default async function CandidateDashboardPage() {
   // 30 of the 31 live candidates on 0, which made the pipeline tell people
   // already working through StaffVA that their application was still being
   // received. LegacyDashboard still renders beneath for the things that ARE
-  // live work — contracts, payouts, reputation, profile views — with its own
+  // live work — contracts, payouts, profile views — with its own
   // pipeline suppressed for the same reason.
   //
   // The ID banner is gone from here: it is one of the reasons LivePortal
@@ -352,8 +352,8 @@ export default async function CandidateDashboardPage() {
         />
         {/* The operational cards the legacy inventory marked MUST SURVIVE —
             interview hours, specialist thread, upcoming interviews, escrow,
-            payout setup (with its focus-refetch), video intro, completeness,
-            reputation. The #payouts anchor lives on the payout card itself,
+            payout setup (with its focus-refetch), video intro, completeness.
+            The #payouts anchor lives on the payout card itself,
             inside LegacyDashboard. */}
         {/* Assessment feedback lives here too — approved candidates ARE the
             population that now takes the optional assessments, so mounting

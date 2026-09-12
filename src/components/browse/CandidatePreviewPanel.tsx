@@ -26,8 +26,6 @@ interface PanelData {
     skills: string[] | null;
     tools: string[] | null;
     work_experience: { company_name?: string; role_title: string; industry: string; duration: string; description: string; start_date?: string; end_date?: string }[] | null;
-    reputation_score: number | null;
-    reputation_tier: string | null;
     total_earnings_usd: number;
     committed_hours: number;
     availability_status: string | null;

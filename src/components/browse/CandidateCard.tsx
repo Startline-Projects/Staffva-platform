@@ -21,8 +21,6 @@ export interface CandidateCardData {
   voice_recording_1_preview_url?: string | null;
   english_mc_score?: number | null;
   english_comprehension_score?: number | null;
-  reputation_score?: number | null;
-  reputation_tier?: string | null;
   video_intro_status?: string | null;
   skills?: string[] | null;
   ai_insight_1?: string | null;
@@ -135,15 +133,6 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
           {/* Row 1: Name + tier */}
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
-            {candidate.reputation_tier === "Elite" && (
-              <span className="shrink-0 rounded-full bg-amber-700 px-2 py-0.5 text-[9px] font-bold text-amber-100">Elite</span>
-            )}
-            {candidate.reputation_tier === "Top Rated" && (
-              <span className="shrink-0 rounded-full bg-[#FE6E3E] px-2 py-0.5 text-[9px] font-bold text-white">Top Rated</span>
-            )}
-            {candidate.reputation_tier === "Rising" && (
-              <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold text-white">Rising</span>
-            )}
           </div>
 
           {/* Row 2: Tagline (primary) + Role category (secondary) */}
@@ -159,18 +148,9 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
             </>
           )}
 
-          {/* Row 4: Rate + reputation + earnings */}
+          {/* Row 4: Rate + earnings */}
           <div className="mt-1.5 flex items-center gap-1.5 text-xs">
             <span className="font-semibold text-[#FE6E3E]">${candidate.hourly_rate}/hr</span>
-            {/* The raw percent only shows once a tier exists — a young
-                reputation system printing "38%" on every card reads as a
-                bad grade, not a new account. */}
-            {candidate.reputation_tier && candidate.reputation_score && candidate.reputation_score > 0 && (
-              <>
-                <span className="text-gray-300">&middot;</span>
-                <span className="text-text-secondary">{candidate.reputation_score}% reputation</span>
-              </>
-            )}
             {earningsLabel && (
               <>
                 <span className="text-gray-300">&middot;</span>
@@ -266,8 +246,6 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-[#1C1B1A] truncate">{candidate.display_name}</h3>
-              {candidate.reputation_tier === "Elite" && <span className="shrink-0 rounded-full bg-amber-700 px-1.5 py-0.5 text-[8px] font-bold text-amber-100">Elite</span>}
-              {candidate.reputation_tier === "Top Rated" && <span className="shrink-0 rounded-full bg-[#FE6E3E] px-1.5 py-0.5 text-[8px] font-bold text-white">Top Rated</span>}
             </div>
             <p className="text-[11px] text-text-tertiary">{candidate.country}</p>
           </div>
@@ -286,12 +264,6 @@ export default function CandidateCard({ candidate, isLoggedIn = false, onSkillCl
         {/* Row 3: Rate + signals */}
         <div className="flex items-center gap-1.5 text-xs">
           <span className="font-semibold text-[#FE6E3E]">${candidate.hourly_rate}/hr</span>
-          {candidate.reputation_score && candidate.reputation_score > 0 && (
-            <>
-              <span className="text-gray-300">&middot;</span>
-              <span className="text-text-secondary">{candidate.reputation_score}%</span>
-            </>
-          )}
           {earningsLabel && (
             <>
               <span className="text-gray-300">&middot;</span>

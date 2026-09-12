@@ -85,9 +85,8 @@ export default function AdminReviewList() {
         // Sealed means "nobody outside staff can see this", and reveal_at alone
         // does not say that: a pair where BOTH sides have submitted is live
         // immediately, thirty days before its anchor. Badging those as sealed
-        // told a moderator that an abusive review already on a public profile
-        // and already counting toward a reputation score was harmless, which is
-        // the one thing this screen must not do.
+        // told a moderator that an abusive review already visible on a public
+        // profile was harmless, which is the one thing this screen must not do.
         const paired = reviews.some(
           (o) => o.engagement_id === r.engagement_id && o.direction !== r.direction
         );

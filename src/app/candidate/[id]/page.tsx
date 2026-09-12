@@ -617,9 +617,6 @@ export default async function CandidateProfilePage({
                 US CLIENT EXPERIENCE
               </span>
             )}
-            {candidate.reputation_tier && ["Elite", "Top Rated", "Rising", "Established"].includes(candidate.reputation_tier) && (
-              <span className="id-badge lime">★ {candidate.reputation_tier.toUpperCase()}</span>
-            )}
           </div>
 
           <h1 className="profile-name">
@@ -666,12 +663,6 @@ export default async function CandidateProfilePage({
               <div className="profile-stat-lbl">English level</div>
             </div>
           </div>
-
-          {candidate.reputation_tier && candidate.reputation_percentile ? (
-            <p className="profile-note" style={{ marginTop: "-8px", marginBottom: "18px" }}>
-              Top {100 - candidate.reputation_percentile + 1}% of platform
-            </p>
-          ) : null}
 
           {/* Primary actions */}
           {isOwnProfile ? (

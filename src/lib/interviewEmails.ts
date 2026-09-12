@@ -118,7 +118,7 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
         [
           `<strong>${clientWho}</strong> booked a 30-minute video interview with you on <strong>${candTime}</strong>.`,
           `The call happens on StaffVA — the link appears on your interview page 15 minutes before the start. A calendar invite is attached.`,
-          `If you genuinely can't make it, cancel from the interview page as early as you can — reliability is part of your profile's reputation.`,
+          `If you genuinely can't make it, cancel from the interview page as early as you can — the client is holding that slot for you.`,
         ],
         { href: manage, label: "View the interview" }
       ),

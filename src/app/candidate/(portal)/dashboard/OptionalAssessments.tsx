@@ -168,8 +168,7 @@ export default function OptionalAssessments({
                   clients can see and filter on, and at +25 it&apos;s the
                   biggest lift any assessment gives you — second only to having
                   a profile photo, which sorts you above every profile without
-                  one. It also counts for 40% of your reputation score: without
-                  it that score is capped at 60, however good your reviews are.
+                  one.
                 </>
               )}
             </p>

@@ -14,7 +14,6 @@ interface MatchResult {
   english_written_tier: string | null;
   bio: string | null;
   profile_photo_url: string | null;
-  reputation_tier: string | null;
   video_intro_status: string | null;
   match_score: number;
 }
@@ -148,12 +147,6 @@ function MatchPageContent() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-sm font-semibold text-text truncate">{c.display_name}</h3>
-                        {c.reputation_tier === "Elite" && (
-                          <span className="rounded-full bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold text-amber-100">Elite</span>
-                        )}
-                        {c.reputation_tier === "Top Rated" && (
-                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-white">Top Rated</span>
-                        )}
                       </div>
                       <p className="text-xs text-text-tertiary">{c.country} &middot; {c.role_category}</p>
                     </div>

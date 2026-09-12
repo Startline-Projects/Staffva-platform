@@ -6,6 +6,10 @@
  * three portfolio samples is 12 — and that number does not ship here. Three
  * reasons, in order of how much they matter:
  *
+ * (The old reason 2 — "reputation_score already exists and disagrees" — is
+ * gone with the reputation system itself, removed 2026-09-12. The remaining
+ * two are why this is still a count and not a score.)
+ *
  * 1. This list ranks nothing. NOTE (2026-09-07): browse now DOES order on a
  *    completeness score — get_candidates_with_skills sorts photo-first, then
  *    by the weights in 00219 — but that is a DIFFERENT calculation, mirrored
@@ -14,12 +18,7 @@
  *    page 9?". Merging them would let a builder tweak silently reorder the
  *    marketplace. What still holds: no number derived HERE decides anything,
  *    and dressing this list up as a weighted score would imply otherwise.
- * 2. There is already a score, and it disagrees. reputation_score is weighted
- *    0-100 with tiers at 60/70/80/90, badges as Elite or Top Rated, and is fed
- *    verbatim to the model that writes client-facing copy. A candidate reading
- *    "Strong · 72" on their dashboard while their public card shows no tier at
- *    all has two numbers and no way to reconcile them.
- * 3. The English test is the precedent. A hidden weighted rubric that decides
+ * 2. The English test is the precedent. A hidden weighted rubric that decides
  *    who gets seen must be inspectable by the person it scores; one that
  *    decides nothing should not be dressed up as a score at all.
  *

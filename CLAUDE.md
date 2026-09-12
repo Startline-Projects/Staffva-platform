@@ -61,7 +61,6 @@ src/
 │   ├── approvalGates.ts  # 11-gate candidate quality checklist
 │   ├── contracts.ts      # HMAC signing tokens + Claude API contract generation
 │   ├── google-calendar.ts # Google OAuth, calendar webhooks, token refresh
-│   ├── reputation.ts     # Candidate reputation score calculation
 │   ├── audioUtils.ts     # Voice recording utilities
 │   ├── testProgress.ts   # English test state machine
 │   ├── recruiterScope.ts # Limit recruiter to assigned candidates only
@@ -210,7 +209,6 @@ All routes live under `src/app/api/`. Key groups:
 | `/api/messages/*` | 2 | Send, thread retrieval |
 | `/api/match/*` | 1 | AI candidate matching |
 | `/api/reviews/*` | 1 | Publish review |
-| `/api/reputation/*` | 1 | Score recalculation |
 | `/api/notifications/*` | 2 | Slack + availability alerts |
 
 ---
@@ -259,7 +257,6 @@ Defined in `vercel.json`. Routes live under `src/app/api/cron/`.
 | `*/15 * * * *` | Stripe webhook reconciliation |
 | `0 * * * *` | AI interview retake notifications |
 | `0 */6 * * *` | Interview nudge emails |
-| `0 2 * * *` | Reputation score recalculation |
 | `0 8 * * *` | SLA alerts |
 | `0 9 * * 1` | Weekly digest email (Monday) |
 | `0 9 * * *` | Renew Google Calendar watches |
