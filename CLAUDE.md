@@ -39,7 +39,7 @@ src/
 │   ├── (admin)/          # Admin-only route group (role-gated in layout)
 │   ├── (main)/           # Protected app routes (apply, browse, hire, contracts…)
 │   ├── _landing/         # Non-routable landing page component parts
-│   ├── api/              # 140+ API route handlers
+│   ├── api/              # 185 API route handlers
 │   ├── auth/             # Magic link callbacks + signout endpoint
 │   ├── globals.css       # Tailwind v4 theme + custom tokens
 │   ├── layout.tsx        # Root layout
@@ -191,24 +191,24 @@ All routes live under `src/app/api/`. Key groups:
 
 | Prefix | Routes | Purpose |
 |---|---|---|
-| `/api/admin/*` | 29 | Candidate mgmt, reviews, lockouts, disputes, settings, command-center |
-| `/api/auth/*` | 3 | Email verification, OTP resend |
+| `/api/admin/*` | 27 | Candidate mgmt, reviews, lockouts, disputes, settings, command-center |
+| `/api/auth/*` | 6 | Email verification, OTP resend |
 | `/api/candidates/*` | 4 | Search, preview, autocomplete |
-| `/api/candidate/*` | 7 | Profile updates, rerecord, photo, role classification |
+| `/api/candidate/*` | 17 | Profile updates, rerecord, photo, role classification |
 | `/api/contracts/*` | 5 | Generate (Claude API), PDF (Puppeteer), sign, list, view |
-| `/api/engagements/*` | 6 | Create, invite, milestones, periods, escrow release |
+| `/api/engagements/*` | 8 | Create, invite, milestones, periods, escrow release |
 | `/api/escrow/*` | 4 | Fund, release, auto-release, status |
 | `/api/disputes/*` | 3 | File, list, resolve |
 | `/api/stripe/*` | 3 | Webhook, Connect accounts (checkout + portal retired with the subscription) |
 | `/api/services/*` | 6 | 404 tombstones — the services/giveaway surface is retired (pages deleted in client step 1) |
-| `/api/recruiter/*` | 15+ | Queue, approvals, notes, Google Calendar OAuth, reminders |
+| `/api/recruiter/*` | 15 | Queue, approvals, notes, Google Calendar OAuth, reminders |
 | `/api/recruiting-manager/*` | 4 | Dashboard, approve, ban, notifications |
-| `/api/test/*` | 5 | Questions, submit, anti-cheat check/log, lockout |
+| `/api/test/*` | 6 | Questions, submit, anti-cheat check/log, lockout |
 | `/api/identity/*` | 3 | Create session, webhook, status check |
-| `/api/cron/*` | 13 | All scheduled background jobs |
+| `/api/cron/*` | 20 | All scheduled background jobs |
 | `/api/messages/*` | 2 | Send, thread retrieval |
 | `/api/match/*` | 1 | AI candidate matching |
-| `/api/reviews/*` | 1 | Publish review |
+| `/api/reviews/*` | 2 | Publish review |
 | `/api/notifications/*` | 2 | Slack + availability alerts |
 
 ---
@@ -248,7 +248,8 @@ Defined in `src/lib/approvalGates.ts`. A candidate must pass all 11 before going
 
 ## Vercel Cron Jobs
 
-Defined in `vercel.json`. Routes live under `src/app/api/cron/`.
+Defined in `vercel.json` (21 entries as of 2026-09-12). Routes live under
+`src/app/api/cron/`. The table below is a selection, not the full list — `vercel.json` is authoritative.
 
 | Schedule | Job |
 |---|---|
