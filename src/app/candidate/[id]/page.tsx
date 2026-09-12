@@ -139,9 +139,22 @@ export default async function CandidateProfilePage({
 
     if (ownCandidate) {
       candidate = ownCandidate;
-      isOwnProfile = true;
     }
   }
+
+  // Ownership is a fact about who is signed in — NOT a consolation prize for a
+  // failed public lookup, which is what it was.
+  //
+  // isOwnProfile was assigned only inside the branch above, and that branch
+  // runs only when the public query found nothing. So the moment a candidate
+  // went live, their own profile started matching the public query, the branch
+  // was skipped, and isOwnProfile stayed false for them for ever. canViewGated
+  // is `isClient || isOwnProfile || isAdmin || isRecruitingManager`, so a live
+  // candidate was locked out of their own scorecard, their own work samples and
+  // everything else gated — shown "Screening results are visible to client
+  // accounts" on their own page. Exactly inverted: the only candidates who
+  // could see their own gated content were the ones whose profile was hidden.
+  isOwnProfile = isCandidate && !!user && candidate?.user_id === user.id;
 
   // If candidate is trying to view someone else's profile, block it
   if (isCandidate && !isOwnProfile && !candidate) {
@@ -217,8 +230,13 @@ export default async function CandidateProfilePage({
   // tagline and work history with contact details masked. The candidate
   // sees their own text raw, and staff always see raw.
   const isStaff = isAdmin || isRecruitingManager || isRecruiter;
-  const viewingOwn = isOwnProfile || (isCandidate && !!user && candidate.user_id === user.id);
-  if (!viewingOwn && !isStaff) {
+  // This used to be `isOwnProfile || (isCandidate && user && candidate.user_id
+  // === user.id)` under the name viewingOwn — a second, CORRECT ownership test
+  // written because the first one did not work. Masking therefore behaved
+  // while every other owner-gated section did not, which is why the bug
+  // presented as "the scorecard is locked" rather than "nothing works".
+  // One fact, one name, now that isOwnProfile is computed properly.
+  if (!isOwnProfile && !isStaff) {
     candidate = maskCandidateText(candidate);
   }
 
@@ -293,7 +311,7 @@ export default async function CandidateProfilePage({
     .order("display_order");
   // Portfolio descriptions are candidate free text — mask pre-hire.
   const portfolioItems =
-    !viewingOwn && !isStaff
+    !isOwnProfile && !isStaff
       ? (portfolioItemsRaw || []).map((item) => ({
           ...item,
           description: item.description ? maskContact(item.description) : item.description,
