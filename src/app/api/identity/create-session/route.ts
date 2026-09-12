@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordIdentityFailure } from "@/lib/identityFailure";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
@@ -12,6 +13,7 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
+  let candidateId: string | undefined;
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -29,7 +31,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { candidateId } = await request.json();
+    // Hoisted so the catch can name WHO failed. Without it a recorded
+    // failure says only that create-session threw.
+    ({ candidateId } = await request.json());
     if (!candidateId) {
       return NextResponse.json({ error: "Missing candidateId" }, { status: 400 });
     }
@@ -114,11 +118,20 @@ export async function POST(request: Request) {
       sessionId: session.id,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("Stripe Identity error:", msg);
+    // The overwhelmingly likely cause is that Stripe Identity is not
+    // activated on the account — which is ours to fix, not the candidate's,
+    // and affects every one of them. Record it as fatal so it shows up as a
+    // vendor outage rather than 152 people quietly failing to verify.
+    await recordIdentityFailure("create-session", error, candidateId);
+    // And do not hand them the raw SDK string. "Stripe Identity error: ..."
+    // told a candidate nothing they could act on, while sounding like their
+    // document was the problem.
     return NextResponse.json(
-      { error: `Stripe Identity error: ${msg}` },
-      { status: 500 }
+      {
+        error:
+          "We couldn't start ID verification just now. This is on our side — please try again shortly.",
+      },
+      { status: 503 }
     );
   }
 }

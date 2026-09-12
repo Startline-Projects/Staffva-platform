@@ -183,6 +183,14 @@ export async function runReadinessChecks(): Promise<ReadinessReport> {
   // ── Is the refund worker actually scheduled? ──
   checks.push(checkRefundCron());
 
+  // ── Can anyone prove who they are? ──
+  // Both of these are account configuration, not code: Identity has to be
+  // switched on, and the webhook has to carry the identity events. Either
+  // missing and the candidate-visible symptom is the same — a verification
+  // that never completes — with nothing in the app able to say why.
+  checks.push(await checkIdentityEnabled());
+  checks.push(await checkIdentityWebhookEvents());
+
   const blocked = checks.filter((c) => c.status === "blocked").length;
   const degraded = checks.filter((c) => c.status === "degraded").length;
   const unknown = checks.filter((c) => c.status === "unknown").length;
@@ -225,6 +233,109 @@ const CARD_BACKED = new Set([
   "naver_pay",
   "payco",
 ]);
+
+
+/**
+ * Is Stripe Identity switched on for this account?
+ *
+ * It is not on by default: it needs activating in the dashboard, and until it
+ * is, identity.verificationSessions.create throws. That surfaces to the
+ * candidate as "Stripe Identity error: ..." from /api/identity/create-session
+ * and nothing else — no session row, no retry path, no signal anywhere that
+ * the ACCOUNT is the problem rather than their document.
+ *
+ * Probed with a LIST, deliberately. Creating a session to find out would mint
+ * a real verification session on a live account every time this report is
+ * read; list is read-only, free, and fails the same way when Identity is off.
+ */
+async function checkIdentityEnabled(): Promise<Check> {
+  const id = "identity-enabled";
+  const label = "Verifying a candidate's ID at all";
+
+  if (!set("STRIPE_SECRET_KEY")) {
+    return {
+      id,
+      label,
+      status: "unknown",
+      impact: "No Stripe key, so this could not be asked.",
+      fix: "Set STRIPE_SECRET_KEY.",
+    };
+  }
+
+  try {
+    await getStripe().identity.verificationSessions.list({ limit: 1 });
+    return { id, label, status: "ok", impact: "", fix: "" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      id,
+      label,
+      status: "blocked",
+      impact:
+        "Nobody can verify their ID. /api/identity/create-session throws, and the candidate is shown a raw Stripe error with no way forward — while the profile stays unverified.",
+      fix: `Activate Stripe Identity in the dashboard (Products > Identity), then re-run this. Stripe said: ${message.slice(0, 160)}`,
+    };
+  }
+}
+
+/**
+ * Does a webhook endpoint actually subscribe to the identity events?
+ *
+ * A verification is finished by Stripe, not by us: the candidate is redirected
+ * back before Stripe has decided, so identity.verification_session.verified is
+ * the ONLY thing that moves them to passed. An endpoint that does not list
+ * that event leaves every candidate who completes the flow sitting at
+ * "pending" for ever, with the money and the document already spent.
+ */
+async function checkIdentityWebhookEvents(): Promise<Check> {
+  const id = "identity-webhook-events";
+  const label = "Hearing back that an ID passed";
+  const NEEDED = [
+    "identity.verification_session.verified",
+    "identity.verification_session.requires_input",
+  ];
+
+  if (!set("STRIPE_SECRET_KEY")) {
+    return { id, label, status: "unknown", impact: "No Stripe key, so this could not be asked.", fix: "Set STRIPE_SECRET_KEY." };
+  }
+
+  try {
+    const endpoints = await getStripe().webhookEndpoints.list({ limit: 20 });
+    const live = endpoints.data.filter((e) => e.status !== "disabled");
+    if (live.length === 0) {
+      return {
+        id,
+        label,
+        status: "blocked",
+        impact: "No enabled webhook endpoint exists, so no verification can ever complete.",
+        fix: "Add a webhook endpoint pointing at /api/stripe/webhook and subscribe the identity events.",
+      };
+    }
+    // "*" is Stripe's all-events wildcard and counts as subscribed.
+    const covered = (event: string) =>
+      live.some((e) => e.enabled_events.includes(event) || e.enabled_events.includes("*"));
+    const missing = NEEDED.filter((e) => !covered(e));
+    if (missing.length === 0) return { id, label, status: "ok", impact: "", fix: "" };
+
+    return {
+      id,
+      label,
+      status: "blocked",
+      impact:
+        "A candidate completes verification and stays 'pending' for ever. The redirect back happens BEFORE Stripe decides, so the webhook is the only thing that records the result.",
+      fix: `Subscribe these events on the webhook endpoint: ${missing.join(", ")}.`,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      id,
+      label,
+      status: "unknown",
+      impact: `Could not read the webhook endpoints (${message.slice(0, 120)}).`,
+      fix: "Confirm the Stripe key is valid and has permission to read webhook endpoints.",
+    };
+  }
+}
 
 /** Read the methods this account can actually offer at checkout. */
 async function enabledPaymentMethods(): Promise<string[]> {

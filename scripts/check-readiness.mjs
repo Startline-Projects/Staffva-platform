@@ -133,6 +133,54 @@ add(
   "A decision, not a setting: add a second provider for PH collection, or move the cost off the candidate. Verify Stripe's current country support directly before ruling the first out."
 );
 
+// ── Can anyone prove who they are? ──
+// Account configuration, not code. Stripe Identity is off by default, and the
+// webhook has to carry the identity events — a verification is finished by
+// Stripe, not by the redirect, so without them a candidate who completes the
+// flow sits at "pending" for ever. Probed with LIST calls: creating a session
+// to find out would mint a real one on a live account every run.
+if (!on("STRIPE_SECRET_KEY")) {
+  add("Verifying a candidate's ID at all", "unknown", "No Stripe key set.", "Set STRIPE_SECRET_KEY.");
+} else {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  try {
+    await stripe.identity.verificationSessions.list({ limit: 1 });
+    add("Verifying a candidate's ID at all", "ok", "", "");
+  } catch (err) {
+    add(
+      "Verifying a candidate's ID at all",
+      "blocked",
+      "Nobody can verify their ID — create-session throws and the candidate sees a raw Stripe error with no way forward.",
+      `Activate Stripe Identity in the dashboard (Products > Identity). Stripe said: ${String(err.message).slice(0, 160)}`
+    );
+  }
+
+  const NEEDED = [
+    "identity.verification_session.verified",
+    "identity.verification_session.requires_input",
+  ];
+  try {
+    const endpoints = await stripe.webhookEndpoints.list({ limit: 20 });
+    const live = endpoints.data.filter((e) => e.status !== "disabled");
+    if (live.length === 0) {
+      add("Hearing back that an ID passed", "blocked",
+        "No enabled webhook endpoint exists, so no verification can ever complete.",
+        "Add an endpoint pointing at /api/stripe/webhook and subscribe the identity events.");
+    } else {
+      const covered = (e) => live.some((x) => x.enabled_events.includes(e) || x.enabled_events.includes("*"));
+      const missing = NEEDED.filter((e) => !covered(e));
+      if (missing.length === 0) add("Hearing back that an ID passed", "ok", "", "");
+      else add("Hearing back that an ID passed", "blocked",
+        "A candidate completes verification and stays 'pending' for ever — the redirect happens before Stripe decides, so the webhook is the only record of the result.",
+        `Subscribe these events: ${missing.join(", ")}.`);
+    }
+  } catch (err) {
+    add("Hearing back that an ID passed", "unknown",
+      `Could not read the webhook endpoints (${String(err.message).slice(0, 120)}).`,
+      "Confirm the Stripe key can read webhook endpoints.");
+  }
+}
+
 // ── The money path's database objects ──
 if (!on("NEXT_PUBLIC_SUPABASE_URL") || !on("SUPABASE_SERVICE_ROLE_KEY")) {
   add("The purchase and entitlement tables", "unknown", "Database credentials not set.", "Set the Supabase URL and service-role key.");

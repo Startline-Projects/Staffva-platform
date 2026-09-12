@@ -83,6 +83,10 @@
     {
       "path": "/api/cron/process-refunds",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/identity-reconcile",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {

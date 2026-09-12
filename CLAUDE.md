@@ -39,7 +39,7 @@ src/
 │   ├── (admin)/          # Admin-only route group (role-gated in layout)
 │   ├── (main)/           # Protected app routes (apply, browse, hire, contracts…)
 │   ├── _landing/         # Non-routable landing page component parts
-│   ├── api/              # 185 API route handlers
+│   ├── api/              # 186 API route handlers
 │   ├── auth/             # Magic link callbacks + signout endpoint
 │   ├── globals.css       # Tailwind v4 theme + custom tokens
 │   ├── layout.tsx        # Root layout
@@ -205,7 +205,7 @@ All routes live under `src/app/api/`. Key groups:
 | `/api/recruiting-manager/*` | 4 | Dashboard, approve, ban, notifications |
 | `/api/test/*` | 6 | Questions, submit, anti-cheat check/log, lockout |
 | `/api/identity/*` | 3 | Create session, webhook, status check |
-| `/api/cron/*` | 20 | All scheduled background jobs |
+| `/api/cron/*` | 21 | All scheduled background jobs |
 | `/api/messages/*` | 2 | Send, thread retrieval |
 | `/api/match/*` | 1 | AI candidate matching |
 | `/api/reviews/*` | 2 | Publish review |
@@ -248,7 +248,7 @@ Defined in `src/lib/approvalGates.ts`. A candidate must pass all 11 before going
 
 ## Vercel Cron Jobs
 
-Defined in `vercel.json` (21 entries as of 2026-09-12). Routes live under
+Defined in `vercel.json` (22 entries as of 2026-09-12). Routes live under
 `src/app/api/cron/`. The table below is a selection, not the full list — `vercel.json` is authoritative.
 
 | Schedule | Job |

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { ownsCandidate } from "@/lib/auth";
+import { recordIdentityFailure } from "@/lib/identityFailure";
 
 function getAdminClient() {
   return createClient(
@@ -78,6 +79,24 @@ export async function POST(request: Request) {
       );
 
       if (session.status === "verified") {
+        // ANCHOR, not just a status write. Only the webhook used to call
+        // recordVerifiedIdentity, so on this path no identity hash was stored
+        // and the duplicate-document check never ran — while VerifyIdClient
+        // tells the candidate we keep "a one-way fingerprint of your document
+        // that lets us block the same ID being used on another account".
+        // That promise was false exactly when it mattered: this route exists
+        // for when the webhook has not fired, so if the webhook is the broken
+        // piece, EVERY pass comes through here.
+        const { recordVerifiedIdentity } = await import("@/lib/identityAnchor");
+        const anchor = await recordVerifiedIdentity({
+          supabase,
+          stripe: getStripe(),
+          candidateId,
+          sessionId: candidate.identity_session_id,
+        });
+        if (anchor.outcome === "error") {
+          await recordIdentityFailure("check-status.anchor", new Error(anchor.message), candidateId);
+        }
         await supabase
           .from("candidates")
           .update({ id_verification_status: "passed" })
@@ -98,8 +117,11 @@ export async function POST(request: Request) {
       }
       // Unsubmitted, processing, or canceled — nothing to conclude yet.
       return NextResponse.json({ status: "pending" });
-    } catch {
-      // Stripe check failed — return current DB status
+    } catch (err) {
+      // A Stripe failure here is OURS, and it used to vanish: the candidate
+      // was handed the unchanged "pending" and the poll rendered that as
+      // "still verifying" for ever. Record it where alerting can see it.
+      await recordIdentityFailure("check-status.retrieve", err, candidateId);
     }
 
     return NextResponse.json({ status: candidate.id_verification_status });

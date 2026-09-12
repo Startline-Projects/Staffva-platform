@@ -1013,11 +1013,20 @@ export default async function CandidateDashboardPage() {
         )}
 
         {/* ── ID verification window ──
-            Was gated on assessmentsDone. Since 00221 the 14-day clock starts
-            at GO-LIVE rather than at passing assessments, so that condition
-            would hide this card from exactly the candidates who now have a
-            deadline. Gate on the deadline itself. */}
-        {idDueAt && !idDone && !terminal && candidate?.id_verification_status !== "manual_review" && (
+            Was gated on assessmentsDone, then on the deadline itself. Both
+            were wrong, and the second one silently shut the whole feature off:
+            id_verification_due_at is stamped ONLY on the not-approved ->
+            approved transition, so every candidate approved before that
+            existed carries NULL for ever. Measured: 151 of 152 unverified
+            candidates have no due date, which means no card, no link, and no
+            way to start — the last ID submission anywhere was 2026-04-07
+            because there has been no button to press since.
+            So: gate on whether they still need to verify, not on whether a
+            clock happens to be running. The eyebrow below already has a
+            no-deadline branch; without a deadline this reads as an invitation
+            rather than a countdown, which is exactly right — nothing hides
+            their profile until a due date exists. */}
+        {!idDone && !terminal && candidate?.id_verification_status !== "manual_review" && (
           <section className={`current-step-card active`} aria-label="Identity verification window">
             <div className="current-step-body">
               <div className="current-step-header">
@@ -1033,9 +1042,15 @@ export default async function CandidateDashboardPage() {
                 <span className="current-step-meta-chip">~5 min</span>
               </div>
               <p className="current-step-body-text">
+                {/* Three states, because two of them were being told the
+                    same thing. A candidate with no due date has no 14-day
+                    window — promising one would be a plain invention, and
+                    nothing hides their profile today. */}
                 {idOverdue
                   ? "Your 14-day window has passed, so your profile is hidden from clients right now. Verify your government ID and you're back on the marketplace immediately."
-                  : "You've finished your assessments — verify your government ID within 14 days. Inside the window you stay fully visible to clients; miss it and your profile hides until you verify."}
+                  : idDueAt
+                    ? "Verify your government ID within 14 days. Inside the window you stay fully visible to clients; miss it and your profile hides until you verify."
+                    : "Verify your government ID so clients can see you're a real, checked person. It takes a couple of minutes and you'll keep the verified badge on your profile."}
               </p>
               <div className="current-step-actions">
                 <Link href="/verify-id" className="current-step-cta">
