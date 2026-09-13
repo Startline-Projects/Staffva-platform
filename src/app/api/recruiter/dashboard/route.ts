@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       .select("id, display_name, full_name, role_category, profile_photo_url, ai_interview_completed_at, email")
       .eq("assigned_recruiter", recruiterId)
       .not("ai_interview_completed_at", "is", null)
-      .not("admin_status", "eq", "approved")
+      .not("admin_status", "in", '("approved","live")')
       .order("ai_interview_completed_at", { ascending: true }),
 
     // Lane 3: Revision follow-ups — pending revisions for assigned candidates

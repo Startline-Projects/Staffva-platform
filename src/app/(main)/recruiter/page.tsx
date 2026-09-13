@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import KpiStrip from "@/components/recruiter/KpiStrip";
@@ -53,7 +54,7 @@ interface DashboardData {
 type SidebarTab = "messages" | "team";
 
 function getPipelineStatus(row: PipelineRow): { label: string; className: string } {
-  if (row.admin_status === "approved") {
+  if (isLive(row.admin_status)) {
     return { label: "Live", className: "bg-green-100 text-green-800" };
   }
   if (row.admin_status === "revision_required") {

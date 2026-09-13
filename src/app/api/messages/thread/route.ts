@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { contactSafeClientName } from "@/lib/contactSafeName";
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
         .limit(1)
         .maybeSingle(),
     ]);
-    if (!target || (target.admin_status !== "approved" && !pairEngagement)) {
+    if (!target || (!isLive(target.admin_status) && !pairEngagement)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
   }

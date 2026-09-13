@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -82,7 +83,7 @@ export default function AvailabilityPage() {
       }
       setCandidateId(c.id);
       setTz(c.time_zone || "UTC");
-      setApproved(c.admin_status === "approved");
+      setApproved(isLive(c.admin_status));
 
       const [{ data: wins }, { data: blocks }] = await Promise.all([
         supabase
@@ -104,7 +105,7 @@ export default function AvailabilityPage() {
       }
       setDays(next);
       setBlackouts(blocks || []);
-      if (c.admin_status === "approved" && (wins || []).length > 0) {
+      if (isLive(c.admin_status) && (wins || []).length > 0) {
         refreshSlotCount(c.id);
       }
       setLoading(false);

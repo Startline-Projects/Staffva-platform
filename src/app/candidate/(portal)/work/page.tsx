@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLive } from "@/lib/candidateStatus";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
@@ -49,7 +50,7 @@ export default async function CandidateWorkPage() {
 
   // Work is a post-approval concept. An applicant landing here must not read
   // "no roles available" as a verdict on their application.
-  if (candidate.admin_status !== "approved") redirect("/candidate/dashboard");
+  if (!isLive(candidate.admin_status)) redirect("/candidate/dashboard");
 
   const vis = computeVisibility(candidate);
   const { offers, roles, engagementCount } = await loadCandidateWork(candidate.id);

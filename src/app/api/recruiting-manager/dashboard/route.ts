@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from("candidates")
       .select("id, display_name, full_name, role_category, profile_photo_url, profile_went_live_at, assigned_recruiter")
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       .not("profile_went_live_at", "is", null)
       .order("profile_went_live_at", { ascending: false })
       .limit(10),
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from("candidates")
       .select("id", { count: "exact", head: true })
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       .gte("updated_at", weekStartISO),
   ]);
 
@@ -158,7 +159,7 @@ export async function GET(req: NextRequest) {
     .from("candidates")
     .select("assigned_recruiter")
     .not("assigned_recruiter", "is", null)
-    .not("admin_status", "in", '("approved","rejected")');
+    .not("admin_status", "in", '("approved","live","rejected")');
 
   const queueByRecruiter = new Map<string, number>();
   for (const c of queueCounts || []) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@/lib/supabase/client";
 import AudioPlayer from "@/components/AudioPlayer";
 import CandidatePreviewModal from "@/components/admin/CandidatePreviewModal";
@@ -113,7 +114,7 @@ interface Candidate {
 // ─── Recruiter Post-Interview Scoring Panel ───
 function ProfileReviewStep({ candidate, aiScoringDone }: { candidate: Candidate; aiScoringDone: boolean }) {
   const unlocked = aiScoringDone;
-  const alreadyApproved = candidate.admin_status === "approved";
+  const alreadyApproved = isLive(candidate.admin_status);
   const [showChangeModal, setShowChangeModal] = useState(false);
   const [changeAreas, setChangeAreas] = useState<Record<string, boolean>>({});
   const [changeInstructions, setChangeInstructions] = useState<Record<string, string>>({});
@@ -583,7 +584,7 @@ export default function CandidateReviewPage() {
             <option value="all">All Statuses</option>
             <option value="active">Active (In Pipeline)</option>
             <option value="profile_review">Profile Review</option>
-            <option value="approved">Approved</option>
+            <option value="live">Live</option>
             <option value="rejected">Rejected</option>
             <option value="revision_required">Revision Required</option>
             <option value="deactivated">Deactivated</option>
@@ -793,7 +794,7 @@ export default function CandidateReviewPage() {
                               </button>
                             </>
                           )}
-                          {c.admin_status === "approved" && (
+                          {isLive(c.admin_status) && (
                             <>
                               <div className="border-t border-gray-100 my-1" />
                               <button

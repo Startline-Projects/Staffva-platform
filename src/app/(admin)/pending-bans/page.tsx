@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isLive } from "@/lib/candidateStatus";
 
 interface PendingBan {
   id: string;
@@ -78,7 +79,7 @@ export default function PendingBansPage() {
                           Ban Requested
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          c.admin_status === "approved" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                          isLive(c.admin_status) ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
                         }`}>
                           {c.admin_status?.replace(/_/g, " ")}
                         </span>

@@ -23,7 +23,7 @@ export type USExperience =
 // retained only because the enum label still exists for historical rows; nothing
 // writes it and no candidate holds it. pending_speaking_review was never a label
 // of that enum at all and has been removed.
-export type AdminStatus = "active" | "pending_2nd_interview" | "pending_review" | "ai_interview_failed" | "approved" | "rejected" | "revision_required" | "duplicate_blocked" | "changes_requested" | "under_review" | "deactivated";
+export type AdminStatus = "active" | "pending_2nd_interview" | "pending_review" | "ai_interview_failed" | "approved" | "live" | "rejected" | "revision_required" | "duplicate_blocked" | "changes_requested" | "under_review" | "deactivated";
 
 export type EnglishWrittenTier = "exceptional" | "proficient" | "competent";
 

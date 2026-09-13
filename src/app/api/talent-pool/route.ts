@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -37,7 +38,7 @@ function classifyStage(c: {
   screening_score: number | null;
 }): string {
   // Approved candidates are "live" not pipeline
-  if (c.admin_status === "approved") return "live";
+  if (isLive(c.admin_status)) return "live";
   if (c.admin_status === "deactivated" || c.admin_status === "rejected") return "excluded";
 
   // Pending approval

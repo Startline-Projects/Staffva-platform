@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -527,7 +528,7 @@ export default function CandidateDashboardPage({
         setCandidate(c as CandidateData);
         // Interview-calendar nudge: an approved candidate with no published
         // hours cannot be booked, and nothing else tells them that.
-        if (c.admin_status === "approved") {
+        if (isLive(c.admin_status)) {
           const { count: availCount } = await supabase
             .from("candidate_availability")
             .select("id", { count: "exact", head: true })
@@ -809,7 +810,7 @@ export default function CandidateDashboardPage({
           states live here so the two surfaces cannot each own half of it.
           availabilityCount is null while loading: no card rather than a wrong
           one. */}
-      {candidate.admin_status === "approved" && availabilityCount === 0 && (
+      {isLive(candidate.admin_status) && availabilityCount === 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div>
             <p className="text-sm font-semibold text-amber-900">Clients can&apos;t book an interview with you yet</p>
@@ -825,7 +826,7 @@ export default function CandidateDashboardPage({
           </Link>
         </div>
       )}
-      {candidate.admin_status === "approved" && !!availabilityCount && availabilityCount > 0 && (
+      {isLive(candidate.admin_status) && !!availabilityCount && availabilityCount > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5">
           <div>
             <p className="text-sm font-semibold text-[#1C1B1A]">Interview hours</p>
@@ -882,7 +883,7 @@ export default function CandidateDashboardPage({
         </div>
       )}
 
-      {candidate.admin_status === "approved" && (
+      {isLive(candidate.admin_status) && (
         <div className="mb-6 empty:mb-0">
           <UpcomingInterviews />
         </div>
@@ -907,7 +908,7 @@ export default function CandidateDashboardPage({
         // Step 5 is only "done" if the interview completed AND did not fail — a failed
         // interview blocks progress past Step 4 until the candidate retakes and passes.
         const step5Done = !!candidate.ai_interview_completed_at && !aiFailed;
-        const step7Done = candidate.admin_status === "approved";
+        const step7Done = isLive(candidate.admin_status);
 
         // Derived flags for 9-stage message card logic
         const testSubmitted = (candidate.english_mc_score ?? 0) > 0;

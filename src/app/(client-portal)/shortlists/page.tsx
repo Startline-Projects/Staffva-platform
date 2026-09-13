@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLive } from "@/lib/candidateStatus";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import ShortlistsView, { type ShortlistWithPeople, type SavedSearchRow } from "@/components/client/portal/ShortlistsView";
@@ -94,7 +95,7 @@ export default async function ShortlistsPage() {
       // gets its own, and each is derived from the column that caused it.
       const withdrawn = c.permanently_blocked
         ? "This account has been closed."
-        : c.admin_status !== "approved"
+        : !isLive(c.admin_status)
           ? "No longer listed on StaffVA."
           : !vis.searchable
             ? "Temporarily hidden from search."

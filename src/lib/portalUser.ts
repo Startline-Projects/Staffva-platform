@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLive } from "@/lib/candidateStatus";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import type { PortalUser } from "@/components/candidate/portal/PortalShell";
@@ -43,7 +44,7 @@ export async function loadPortalUser(loginNext: string): Promise<PortalUser> {
 
   // No candidate row yet (fresh signup mid-application): render the applicant
   // shell around whatever the page decides to do.
-  const mode: PortalUser["mode"] = candidate?.admin_status === "approved" ? "live" : "applicant";
+  const mode: PortalUser["mode"] = isLive(candidate?.admin_status) ? "live" : "applicant";
 
   // Unread staff replies — the Messages badge and topbar dot. sender_role
   // 'recruiter' + read_at NULL is the read-marker contract from step 15

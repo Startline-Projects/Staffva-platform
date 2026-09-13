@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LIVE_STATUS } from "@/lib/candidateStatus";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       const { data: updated, error: updateError } = await admin
         .from("candidates")
         .update({
-          admin_status: "approved",
+          admin_status: LIVE_STATUS,
           profile_went_live_at: new Date().toISOString(),
           // The 14-day ID window starts AT GO-LIVE (00221). This route writes
           // admin_status directly rather than calling promote_candidate_if_ready,
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
             : new Date(Date.now() + 14 * 86400000).toISOString(),
         })
         .eq("id", candidateId)
-        .neq("admin_status", "approved")
+        .not("admin_status", "in", '("approved","live")')
         .select("id")
         .single();
 

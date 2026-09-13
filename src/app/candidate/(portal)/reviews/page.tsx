@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLive } from "@/lib/candidateStatus";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import WorkReviews from "@/components/candidate/WorkReviews";
@@ -33,7 +34,7 @@ export default async function CandidateReviewsPage() {
   if (error) throw new Error(`reviews candidate lookup failed: ${error.message}`);
   if (!candidate) redirect("/candidate/dashboard");
   // Reviews attach to paid work, which is a post-approval concept.
-  if (candidate.admin_status !== "approved") redirect("/candidate/dashboard");
+  if (!isLive(candidate.admin_status)) redirect("/candidate/dashboard");
 
   const states = await loadMyReviewState();
   const eligible = states.filter((s) => s.window_opened_at !== null);

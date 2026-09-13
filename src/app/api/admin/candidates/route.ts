@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { assertRecruiterScope } from "@/lib/recruiterScope";
@@ -63,12 +64,21 @@ export async function GET(request: Request) {
   // excessively deep" on the real query types.
   type Filterable = {
     eq: (column: string, value: unknown) => Filterable;
+    // Added for the live filter, which must match either admin_status label.
+    in: (column: string, values: readonly unknown[]) => Filterable;
     or: (filters: string) => Filterable;
   };
 
   function applyFilters<Q>(q: Q): Q {
     let out = q as unknown as Filterable;
-    if (status !== "all") out = out.eq("admin_status", status);
+    if (status === "live" || status === "approved") {
+      // Either label means live; which one a row carries depends on how far
+      // the rename has got. An .eq here returned an empty list for the whole
+      // transition.
+      out = out.in("admin_status", LIVE_STATUSES);
+    } else if (status !== "all") {
+      out = out.eq("admin_status", status);
+    }
     if (search.trim()) {
       out = out.or(
         `full_name.ilike.%${search}%,country.ilike.%${search}%,email.ilike.%${search}%`

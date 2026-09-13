@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -254,7 +255,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Could not save that candidate." }, { status: 500 });
       }
       // Fails closed: an unreadable or missing candidate is not saveable.
-      if (!cand || cand.admin_status !== "approved" || cand.permanently_blocked) {
+      if (!cand || !isLive(cand.admin_status) || cand.permanently_blocked) {
         return NextResponse.json({ error: "That profile isn't available." }, { status: 403 });
       }
 

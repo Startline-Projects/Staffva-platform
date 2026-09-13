@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { BROWSE_PILLS } from "@/lib/roleTaxonomy";
@@ -84,7 +85,7 @@ async function landingData(): Promise<LandingData> {
       db
         .from("candidates")
         .select("id, ai_interview_passed, display_name, role_category, hourly_rate, country, profile_photo_url, skills", { count: "exact" })
-        .eq("admin_status", "approved")
+        .in("admin_status", LIVE_STATUSES)
       // Overdue-unverified profiles are hidden from clients (00154).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
         .order("created_at", { ascending: false })

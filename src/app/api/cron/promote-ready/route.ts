@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 
   const rows = (data || []) as Array<{ candidate_id: string; new_status: string }>;
-  const promoted = rows.filter((r) => r.new_status === "approved");
+  const promoted = rows.filter((r) => isLive(r.new_status));
 
   // Only worth a log line when it actually did something — this runs hourly and
   // the healthy case is silence.

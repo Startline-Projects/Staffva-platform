@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { rolePatternsFor, BROWSE_PILLS } from "@/lib/roleTaxonomy";
 
@@ -191,7 +192,7 @@ export async function GET(request: Request) {
     .select(
       "display_name, role_category, country, bio, hourly_rate, availability_status, english_written_tier, us_client_experience, skills, tools"
     )
-    .eq("admin_status", "approved")
+    .in("admin_status", LIVE_STATUSES)
     .eq("permanently_blocked", false)
     .or(
       `id_verification_status.eq.passed,id_verification_status.eq.manual_review,id_verification_due_at.is.null,id_verification_due_at.gte.${nowIso}`

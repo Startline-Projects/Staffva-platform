@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLive } from "@/lib/candidateStatus";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
@@ -148,7 +149,10 @@ export default async function CandidateDashboardPage() {
   // The ID banner is gone from here: it is one of the reasons LivePortal
   // derives from computeVisibility(), so it can no longer disagree with the
   // rest of the page about whether someone is actually hidden.
-  if (candidate?.admin_status === "approved") {
+  // `candidate &&` first: the old `candidate?.admin_status === "approved"`
+  // narrowed candidate to non-null for the whole block, and a helper call
+  // cannot. Without it every candidate.* below becomes possibly-null.
+  if (candidate && isLive(candidate.admin_status)) {
     const { data: live, error: liveError } = await admin
       .from("candidates")
       .select("id, first_name, display_name, full_name, admin_status, permanently_blocked, id_verification_status, id_verification_due_at, availability_status, availability_date, availability_last_updated_at, created_at, lock_status, hourly_rate, hours_per_week, going_live_ack_at, tour_seen_at, role_category, profile_photo_url, ai_interview_passed, english_written_tier, video_intro_status, video_intro_url, voice_recording_1_url, bio, tagline, skills, tools, work_experience")

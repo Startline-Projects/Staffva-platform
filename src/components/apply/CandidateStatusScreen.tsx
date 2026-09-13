@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { isLive } from "@/lib/candidateStatus";
 
 interface Props {
   adminStatus: string;
@@ -198,7 +199,7 @@ export default function CandidateStatusScreen({
           )}
 
           {/* Approved or pending — show next steps */}
-          {(adminStatus === "approved" || adminStatus === "active") && (
+          {(isLive(adminStatus) || adminStatus === "active") && (
             <div className="mt-2 w-full max-w-sm mx-auto text-left">
               <div className="ahead-card">
                 <h3 className="label">What you can do now:</h3>

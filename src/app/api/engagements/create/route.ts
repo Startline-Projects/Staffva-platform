@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       .eq("id", candidateId)
       .single();
 
-    if (!candidate || candidate.admin_status !== "approved") {
+    if (!candidate || !isLive(candidate.admin_status)) {
       return NextResponse.json({ error: "Candidate not available" }, { status: 400 });
     }
 

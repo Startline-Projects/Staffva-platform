@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import Link from "next/link";
 
 interface CandidateInfo {
@@ -157,7 +158,7 @@ export default function AdminDuplicatesPage() {
                     <div className="mt-2 flex items-center gap-2">
                       <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
                         r.candidate.admin_status === "duplicate_blocked" ? "bg-red-100 text-red-700" :
-                        r.candidate.admin_status === "approved" ? "bg-green-100 text-green-700" :
+                        isLive(r.candidate.admin_status) ? "bg-green-100 text-green-700" :
                         "bg-gray-100 text-gray-600"
                       }`}>
                         {r.candidate.admin_status?.replace(/_/g, " ")}

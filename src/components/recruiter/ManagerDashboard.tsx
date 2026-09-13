@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -134,7 +135,8 @@ function stageBadge(status: string, pendingRouting: boolean) {
     case "pending_review":
     case "profile_review":
       return { label: "Profile Under Review", cls: "bg-yellow-100 text-yellow-700" };
-    case "approved": return { label: "Approved", cls: "bg-green-100 text-green-700" };
+    case "approved":
+    case "live": return { label: "Live", cls: "bg-green-100 text-green-700" };
     case "revision_required": return { label: "Revision", cls: "bg-orange-100 text-orange-700" };
     default: return { label: status?.replace(/_/g, " ") || "Unknown", cls: "bg-gray-100 text-gray-600" };
   }
@@ -280,12 +282,12 @@ export default function ManagerDashboard() {
     { label: "English test passed", count: allCandidates.filter((c) => (c.english_mc_score ?? 0) >= 70 && (c.english_comprehension_score ?? 0) >= 70).length, color: "bg-purple-500" },
     { label: "Identity verified", count: allCandidates.filter((c) => c.id_verification_status === "passed").length, color: "bg-indigo-500" },
     { label: "AI interview complete", count: allCandidates.filter((c) => !!c.ai_interview_completed_at).length, color: "bg-blue-500" },
-    { label: "Approved & live", count: allCandidates.filter((c) => c.admin_status === "approved").length, color: "bg-green-500" },
+    { label: "Approved & live", count: allCandidates.filter((c) => isLive(c.admin_status)).length, color: "bg-green-500" },
   ];
 
   // TS view counts
   const myActionNeeded = myQueue.filter((c) => c.admin_status === "pending_review" || c.assignment_pending_review);
-  const myApprovedThisWeek = myQueue.filter((c) => c.admin_status === "approved" && isThisWeek(c.updated_at)).length;
+  const myApprovedThisWeek = myQueue.filter((c) => isLive(c.admin_status) && isThisWeek(c.updated_at)).length;
   const myNeedsRouting = myQueue.filter((c) => c.assignment_pending_review).length;
 
   // Alerts

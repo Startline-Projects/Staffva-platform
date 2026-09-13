@@ -1,4 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+// isLive is aliased: this file already has a local `isLive` meaning "is this
+// listing live", which is a different question from "is this status a live one".
+import { LIVE_STATUS, LIVE_STATUSES, isLive as isLiveStatus } from "@/lib/candidateStatus";
 import { getUser } from "@/lib/auth";
 import { generateInterviewToken } from "@/lib/interviewToken";
 import Link from "next/link";
@@ -121,7 +124,7 @@ export default async function CandidateProfilePage({
     .from("candidates")
     .select("*")
     .eq("id", id)
-    .eq("admin_status", "approved")
+    .in("admin_status", LIVE_STATUSES)
     // Overdue-unverified profiles are hidden from clients (00154). Their
     // owner and staff still reach them through the branches below.
     .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
@@ -364,7 +367,7 @@ export default async function CandidateProfilePage({
   const idVerified = candidate.id_verification_status === "passed";
   // Trust marks belong to LIVE listings only — a rejected or in-review
   // profile viewed by its owner or staff must not wear them.
-  const isLive = candidate.admin_status === "approved";
+  const isLive = isLiveStatus(candidate.admin_status);
   // Assessed = actually passed the structured skills interview. Since the
   // 2026-09-07 relist put the whole pipeline live, "approved" and "screened"
   // are different facts and every vetting claim keys off THIS one.
@@ -400,7 +403,7 @@ export default async function CandidateProfilePage({
         { label: "Areas for improvement", value: aiInterview!.weaknesses },
       ].filter((b) => b.value)
     : [];
-  const hasScorecard = candidate.admin_status === "approved" && (englishRows.length > 0 || interviewRows.length > 0);
+  const hasScorecard = isLiveStatus(candidate.admin_status) && (englishRows.length > 0 || interviewRows.length > 0);
 
   const weeklyRate = candidate.hourly_rate ? Math.round(Number(candidate.hourly_rate) * 40).toLocaleString() : null;
 
@@ -449,7 +452,7 @@ export default async function CandidateProfilePage({
           </p>
         </div>
       )}
-      {isOwnProfile && candidate.admin_status === "approved" && (
+      {isOwnProfile && isLiveStatus(candidate.admin_status) && (
         hiddenForId ? (
           <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center">
             <p className="text-sm text-red-800">
@@ -474,7 +477,7 @@ export default async function CandidateProfilePage({
           orange "Continue Application" / "Start AI Interview" banner across the
           top of their own live profile. Same defect the dashboard had, on a
           second page. An approved candidate has no application to continue. */}
-      {isOwnProfile && candidate.admin_status !== "approved" && (() => {
+      {isOwnProfile && !isLiveStatus(candidate.admin_status) && (() => {
         const hasPassedTest = (candidate.english_mc_score ?? 0) >= 70;
         const hasRecordings = !!candidate.voice_recording_1_url && !!candidate.voice_recording_2_url;
         const profileDone = !!candidate.profile_photo_url && !!candidate.tagline;
@@ -527,7 +530,7 @@ export default async function CandidateProfilePage({
               <ApproveButton
                 candidateId={candidate.id}
                 aiInterviewCompleted={aiInterviewCompleted}
-                alreadyApproved={candidate.admin_status === "approved"}
+                alreadyApproved={isLiveStatus(candidate.admin_status)}
               />
               <BanButton
                 candidateId={candidate.id}
@@ -1159,7 +1162,7 @@ export default async function CandidateProfilePage({
       <AtlasFooter />
 
       {/* ── Floating hire pill — appears on scroll, clients only ── */}
-      {!isOwnProfile && !isCandidate && candidate.admin_status === "approved" && isClient && (
+      {!isOwnProfile && !isCandidate && isLiveStatus(candidate.admin_status) && isClient && (
         <>
           <div className="profile-sticky-footer">
             <div className="sticky-footer-info">

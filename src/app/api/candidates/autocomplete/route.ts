@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("candidates")
     .select("role_category, skills")
-    .eq("admin_status", "approved")
+    .in("admin_status", LIVE_STATUSES)
       // Overdue-unverified profiles are hidden from clients (00154/00155).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 

@@ -1,3 +1,4 @@
+import { isLive } from "@/lib/candidateStatus";
 /**
  * Can clients actually see this candidate, and if not, why not?
  *
@@ -134,7 +135,7 @@ export function computeVisibility(c: VisibilityInput | null | undefined): Visibi
     return { searchable: false, matchable: false, reasons };
   }
 
-  const approved = c.admin_status === "approved";
+  const approved = isLive(c.admin_status);
 
   // The ID window. Dormant for the current cohort — all 31 have passed — but
   // it is the one thing that genuinely removes an approved profile from every

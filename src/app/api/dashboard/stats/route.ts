@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { selectIn } from "@/lib/selectIn";
@@ -188,7 +189,7 @@ export async function GET() {
           .from("candidates")
           .select("id, display_name, role_category, profile_photo_url")
           .in("id", topCandidateIds)
-          .eq("admin_status", "approved")
+          .in("admin_status", LIVE_STATUSES)
       // Overdue-unverified profiles are hidden from clients (00154/00155).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 
@@ -216,7 +217,7 @@ export async function GET() {
           .from("candidates")
           .select("id, display_name, role_category, profile_photo_url")
           .in("id", poolIds.slice(0, 4))
-          .eq("admin_status", "approved")
+          .in("admin_status", LIVE_STATUSES)
       // Overdue-unverified profiles are hidden from clients (00154/00155).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString());
 

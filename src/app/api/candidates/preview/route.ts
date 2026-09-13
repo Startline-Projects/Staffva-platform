@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { maskCandidateText } from "@/lib/contactMask";
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       .from("candidates")
       .select("id, ai_interview_passed, display_name, first_name, last_name, country, role_category, time_zone, hourly_rate, bio, tagline, profile_photo_url, voice_recording_1_url, voice_recording_1_preview_url, skills, tools, work_experience, total_earnings_usd, committed_hours, availability_status, availability_date")
       .eq("id", candidateId)
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       // Overdue-unverified profiles are hidden from clients (00154).
       .or("id_verification_status.in.(passed,manual_review),id_verification_due_at.is.null,id_verification_due_at.gt." + new Date().toISOString())
       .single();

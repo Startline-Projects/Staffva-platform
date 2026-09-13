@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isLive } from "@/lib/candidateStatus";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ApplicationForm from "@/components/apply/ApplicationForm";
@@ -264,7 +265,7 @@ export default function ApplyPage() {
     // working, listed candidate could remove themselves from it by clicking
     // "Edit Profile", and the notification email is suppressed by the freeze,
     // so it would happen silently.
-    if (candidate.admin_status === "approved") {
+    if (isLive(candidate.admin_status)) {
       router.replace("/candidate/dashboard");
       return;
     }

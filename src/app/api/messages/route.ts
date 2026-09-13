@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notifyCandidate } from "@/lib/notifyCandidate";
@@ -241,7 +242,7 @@ export async function POST(request: Request) {
       if (!target) {
         return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
       }
-      if (target.admin_status !== "approved" && !pairEngagement) {
+      if (!isLive(target.admin_status) && !pairEngagement) {
         return NextResponse.json(
           { error: "This candidate isn't available for messages." },
           { status: 403 }

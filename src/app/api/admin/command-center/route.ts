@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES, isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -52,7 +53,7 @@ export async function GET() {
     routeCandidatesRes,
   ] = await Promise.all([
     // Live candidates
-    admin.from("candidates").select("id", { count: "exact", head: true }).eq("admin_status", "approved"),
+    admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", LIVE_STATUSES),
     // Total candidates (applied)
     admin.from("candidates").select("id", { count: "exact", head: true }),
     // Active engagements count
@@ -265,7 +266,7 @@ export async function GET() {
     const role = c.role_category || "Unknown";
     if (!roleStats.has(role)) roleStats.set(role, { live: 0, pending: 0 });
     const entry = roleStats.get(role)!;
-    if (c.admin_status === "approved") entry.live++;
+    if (isLive(c.admin_status)) entry.live++;
     else if (c.admin_status !== "deactivated" && c.admin_status !== "rejected") entry.pending++;
   }
   let rolesBelow2 = 0;

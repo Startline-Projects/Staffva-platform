@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES, isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -60,7 +61,7 @@ export async function GET() {
     // Sparkline: approved counts at end of each of past 4 weeks
     // We'll calculate these from candidates with created_at snapshots
   ] = await Promise.all([
-    admin.from("candidates").select("id", { count: "exact", head: true }).eq("admin_status", "approved"),
+    admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", LIVE_STATUSES),
     admin.from("engagements").select("id", { count: "exact", head: true }).eq("status", "active"),
     admin.from("engagements").select("platform_fee_usd").eq("status", "active"),
     admin.from("candidates").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
@@ -79,7 +80,7 @@ export async function GET() {
     admin.from("screening_log").select("id", { count: "exact", head: true }).is("tag", null).lt("created_at", new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()),
     admin.from("profile_revisions").select("id", { count: "exact", head: true }).eq("status", "pending").lt("created_at", new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString()),
     // Approved candidates with no payout setup for >48h
-    admin.from("candidates").select("id", { count: "exact", head: true }).eq("admin_status", "approved").eq("payout_status", "not_setup").lt("profile_went_live_at", new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()),
+    admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", LIVE_STATUSES).eq("payout_status", "not_setup").lt("profile_went_live_at", new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()),
     // Client health
     admin.from("clients").select("id, user_id, full_name, company_name, created_at").order("created_at", { ascending: false }),
     // Profile views (last 14 days for "browsed not hired")
@@ -170,7 +171,7 @@ export async function GET() {
     const { count } = await admin
       .from("candidates")
       .select("id", { count: "exact", head: true })
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       .lte("updated_at", boundary);
     liveSpark.push(count || 0);
   }
@@ -200,7 +201,7 @@ export async function GET() {
     const role = c.role_category || "Unknown";
     if (!roleStats.has(role)) roleStats.set(role, { live: 0, pending: 0 });
     const entry = roleStats.get(role)!;
-    if (c.admin_status === "approved") entry.live++;
+    if (isLive(c.admin_status)) entry.live++;
     else if (c.admin_status !== "deactivated" && c.admin_status !== "rejected") entry.pending++;
   }
   let rolesBelow2 = 0;

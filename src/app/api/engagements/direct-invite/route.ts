@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIVE_STATUS } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
           years_experience: "0-1",
           hourly_rate: candidateRateUsd,
           time_zone: "UTC",
-          admin_status: "approved", // Direct contracts skip English test
+          admin_status: LIVE_STATUS, // Direct contracts skip English test
           id_verification_status: "pending", // Still required
           activation_fee_paid: true,
         })

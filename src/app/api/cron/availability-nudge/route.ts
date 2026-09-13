@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     const { data: needsNudge } = await supabase
       .from("candidates")
       .select("id, email, display_name, availability_last_updated_at, availability_nudge_sent_at")
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       .eq("permanently_blocked", false)
       .lt("availability_last_updated_at", thirtyDaysAgo)
       .or(`availability_nudge_sent_at.is.null,availability_nudge_sent_at.lt.${thirtyDaysAgo}`);
@@ -113,7 +114,7 @@ export async function GET(req: NextRequest) {
     const { data: needsFlag } = await supabase
       .from("candidates")
       .select("id")
-      .eq("admin_status", "approved")
+      .in("admin_status", LIVE_STATUSES)
       .eq("needs_availability_update", false)
       .not("availability_nudge_sent_at", "is", null)
       .lt("availability_nudge_sent_at", sevenDaysAgo)

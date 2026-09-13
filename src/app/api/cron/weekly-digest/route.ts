@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LIVE_STATUS, LIVE_STATUSES } from "@/lib/candidateStatus";
 import { sendEmail } from "@/lib/email";
 import { createClient } from "@supabase/supabase-js";
 
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     const { data: candidates } = await supabase
       .from("candidates")
       .select("id, email, display_name, role_category")
-      .eq("admin_status", "approved");
+      .in("admin_status", LIVE_STATUSES);
 
     if (!candidates || candidates.length === 0) {
       return NextResponse.json({ message: "No approved candidates to email", sent: 0 });

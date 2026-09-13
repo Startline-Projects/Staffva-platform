@@ -78,6 +78,7 @@ export function outcomeState(c: OutcomeFields | null | undefined): OutcomeState 
   if (c.permanently_blocked) return "closed_permanently";
   switch (c.admin_status) {
     case "approved":
+    case "live":
       return "approved";
     case "rejected":
       return "declined";
