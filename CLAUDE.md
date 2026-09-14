@@ -172,7 +172,7 @@ Two Claude sessions frequently run here at once. Three rules:
 
 ```ts
 UserRole:             candidate | client | admin | recruiter | recruiting_manager
-AdminStatus:          active | pending_2nd_interview | pending_review | profile_review | approved | rejected
+AdminStatus:          active | pending_2nd_interview | pending_review | profile_review | live (was approved; both labels valid, write 'live' — see lib/candidateStatus) | rejected
 AvailabilityStatus:   available_now | available_by_date | not_available
 SpeakingLevel:        basic | conversational | proficient | fluent
 EnglishWrittenTier:   exceptional | proficient | competent
