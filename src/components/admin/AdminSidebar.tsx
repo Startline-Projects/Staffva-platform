@@ -10,11 +10,12 @@ interface Badges {
   talentPool: number;
   triage: number;
   teamInbox: number;
+  proctor: number;
 }
 
 export default function AdminSidebar({ isRecruitingManager }: { isRecruitingManager: boolean }) {
   const pathname = usePathname();
-  const [badges, setBadges] = useState<Badges>({ pendingProfileReview: 0, clients: 0, talentPool: 0, triage: 0, teamInbox: 0 });
+  const [badges, setBadges] = useState<Badges>({ pendingProfileReview: 0, clients: 0, talentPool: 0, triage: 0, teamInbox: 0, proctor: 0 });
 
   useEffect(() => {
     fetch("/api/admin/command-center")
@@ -71,6 +72,7 @@ export default function AdminSidebar({ isRecruitingManager }: { isRecruitingMana
         <NavItem href="/admin/duplicates" active={isActive("/admin/duplicates")} icon="⊘">Duplicates</NavItem>
 
         <SectionLabel>Operations</SectionLabel>
+        <NavItem href="/admin/proctor" active={isActive("/admin/proctor")} icon="⊙" badge={badges.proctor} badgeType="red">Proctor Review</NavItem>
         <NavItem href="/admin/identity" active={isActive("/admin/identity")} icon="◻">Identity</NavItem>
         <NavItem href="/admin/team" active={isActive("/admin/team")} icon="✉" badge={badges.teamInbox} badgeType="orange">Team Inbox</NavItem>
         <NavItem href="/admin/pending-bans" active={isActive("/admin/pending-bans")} icon="⊗">Pending Bans</NavItem>

@@ -21,6 +21,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/triage": "Triage Queue",
   "/admin/duplicates": "Duplicates",
   "/admin/identity": "Identity",
+  "/admin/proctor": "Proctor Review",
   "/admin/recruiters": "Talent Specialists",
   "/admin/team": "Team Inbox",
   "/admin/pending-bans": "Pending Bans",

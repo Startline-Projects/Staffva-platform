@@ -191,7 +191,7 @@ All routes live under `src/app/api/`. Key groups:
 
 | Prefix | Routes | Purpose |
 |---|---|---|
-| `/api/admin/*` | 27 | Candidate mgmt, reviews, lockouts, disputes, settings, command-center |
+| `/api/admin/*` | 29 | Candidate mgmt, reviews, lockouts, disputes, settings, command-center, proctor review |
 | `/api/auth/*` | 6 | Email verification, OTP resend |
 | `/api/candidates/*` | 4 | Search, preview, autocomplete |
 | `/api/candidate/*` | 17 | Profile updates, rerecord, photo, role classification |

@@ -51,6 +51,7 @@ export async function GET() {
     threadDataRes,
     talentSpecialistsRes,
     routeCandidatesRes,
+    proctorFlaggedRes,
   ] = await Promise.all([
     // Live candidates
     admin.from("candidates").select("id", { count: "exact", head: true }).in("admin_status", LIVE_STATUSES),
@@ -109,6 +110,8 @@ export async function GET() {
     admin.from("profiles").select("id, full_name, email, role, recruiter_photo_url").in("role", ["recruiter", "recruiting_manager"]).order("full_name"),
     // Route candidates (assignment_pending_review)
     admin.from("candidates").select("id, full_name, display_name, role_category, country, hourly_rate, created_at").eq("assignment_pending_review", true).limit(20),
+    // Proctor sessions awaiting a human decision (sidebar badge)
+    admin.from("proctor_sessions").select("id", { count: "exact", head: true }).eq("review_status", "flagged"),
   ]);
 
   const liveCandidates = liveCandidatesRes.count || 0;
@@ -357,6 +360,7 @@ export async function GET() {
       talentPool: totalCandidates,
       triage: triageRes.count || 0,
       teamInbox: activeConversations,
+      proctor: proctorFlaggedRes.count || 0,
     },
 
     // Route candidates

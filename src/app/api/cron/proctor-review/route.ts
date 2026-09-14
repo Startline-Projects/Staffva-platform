@@ -212,10 +212,17 @@ export async function GET(req: NextRequest) {
         `Session \`${s.id}\` · flag-only — the recording is preserved until a person decides.`
     );
     if (ok) {
+      // Guarded on review_status: this write rebuilds verdict from a snapshot
+      // taken before the storage/Slack round-trips, and an admin may have
+      // decided the session in that window — an unguarded write would erase
+      // the human_decision record the admin surface just stored in verdict.
+      // A decided session can never be re-selected here (the query filters
+      // flagged), so skipping the alerted_at stamp loses nothing.
       await db
         .from("proctor_sessions")
         .update({ verdict: { ...v, alerted_at: new Date().toISOString() } })
-        .eq("id", s.id);
+        .eq("id", s.id)
+        .eq("review_status", "flagged");
       stats.notified++;
     } else {
       stats.notifyFailed++;
