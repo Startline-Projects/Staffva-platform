@@ -77,6 +77,8 @@ export default function CandidateSignupPage() {
   const [loading, setLoading] = useState(false);
   const [showBlocker, setShowBlocker] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState(false);
+  // The verification email could not be queued; the overlay must not claim it was sent.
+  const [sendFailed, setSendFailed] = useState(false);
 
   const formRef = useRef<HTMLFormElement>(null);
   const captcha = useTurnstile();
@@ -262,15 +264,13 @@ export default function CandidateSignupPage() {
       body: JSON.stringify({ email }),
     });
 
-    if (!verifyRes.ok && verifyRes.status !== 429) {
-      if (captcha.configured) captcha.reset();
-      setAlert({
-        title: "Your account was created, but the verification email failed.",
-        body: <>Please contact <a href="mailto:support@staffva.com">support@staffva.com</a> so we can activate it.</>,
-      });
-      return;
-    }
-
+    // A failed send is NOT a dead end: /verify-email has a working Resend
+    // button, and routing without sent=1 arms it with no cooldown. The old
+    // branch stopped here with "contact support so we can activate it" — a
+    // scarier claim than the truth (the account is fine, one email didn't
+    // go out), pointing at an inbox instead of the button that fixes it.
+    // One transient 500 during a deploy put a real signup into that dead end.
+    setSendFailed(!verifyRes.ok);
     setSuccessOverlay(true);
     const sentParam = verifyRes.ok ? "&sent=1" : "";
     setTimeout(() => {
@@ -620,8 +620,13 @@ export default function CandidateSignupPage() {
               <AstiPointChip label="+25 · account created" />
             </div>
             <p>
-              We sent a verification link to <strong>{email}</strong>.
-              Click it to continue your application.
+              {sendFailed ? (
+                <>We couldn&apos;t send the verification email just now — use the{" "}
+                <strong>Resend</strong> button on the next screen and it&apos;ll be on its way.</>
+              ) : (
+                <>We sent a verification link to <strong>{email}</strong>.
+                Click it to continue your application.</>
+              )}
             </p>
             <div className="success-routing">
               <span className="dot-pulse" aria-hidden></span>

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     // by the token itself, so the account email never has to cross the wire.
     let lookup = admin
       .from("profiles")
-      .select("id, email, full_name, email_verified, email_verification_sent_at");
+      .select("id, email, full_name, role, email_verified, email_verification_sent_at");
     if (email) {
       lookup = lookup.eq("email", email);
     } else {
@@ -112,7 +112,16 @@ export async function POST(req: NextRequest) {
     await enqueueEmail({
       to: profile.email,
       subject: "Verify your StaffVA account",
-      recipientKind: "candidate",
+      // Label by who this actually goes to. It was hardcoded "candidate",
+      // which only worked because email_verification sits on the candidate
+      // freeze allowlist — narrow that list and every CLIENT signup would
+      // have silently stopped verifying.
+      recipientKind:
+        profile.role === "client"
+          ? "client"
+          : ["admin", "recruiter", "recruiting_manager"].includes(profile.role as string)
+            ? "staff"
+            : "candidate",
       emailType: "email_verification",
       dedupeKey: `verification:${token}`,
       html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
