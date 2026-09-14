@@ -4,8 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * The Atlas dashboard tour — three spotlight stops on the live dashboard
+ * The Atlas dashboard tour — spotlight stops over the dashboard
  * (.dash-tour-* CSS extracted from the prototype).
+ *
+ * Two variants over one machinery and ONE completion stamp:
+ *  - "live": the original three stops on the live dashboard.
+ *  - "postProfile": the guided walkthrough a candidate lands in right after
+ *    submitting the profile builder (owner's flow, 2026-09-13) — their
+ *    application tracker, the three assessment cards to choose from, and the
+ *    sidebar. Mounted by the pre-live dashboard.
+ * A candidate sees the tour once, on whichever surface they reach first —
+ * both variants stamp candidates.tour_seen_at through the same ack RPC, and
+ * both mounts key on it.
  *
  * Two deliberate departures from the prototype:
  *  - Copy is OURS, not Atlas's. The prototype's stop 2 says pausing "hides
@@ -27,7 +37,7 @@ interface TourStop {
   skip?: () => boolean;
 }
 
-const STOPS: TourStop[] = [
+const LIVE_STOPS: TourStop[] = [
   {
     selector: ".dash-sidebar",
     arrow: "left",
@@ -69,11 +79,69 @@ const STOPS: TourStop[] = [
   },
 ];
 
+/** The post-profile walkthrough. Selectors live on the pre-live dashboard:
+ *  the pipeline tracker, the assessment chooser (OptionalAssessments), and
+ *  the shared portal sidebar. The machinery already skips a stop whose
+ *  target is missing, so a state where the cards don't mount degrades to a
+ *  shorter tour rather than a stuck one. */
+const POST_PROFILE_STOPS: TourStop[] = [
+  {
+    selector: ".pipeline-full",
+    arrow: "top",
+    title: (
+      <>
+        Your profile is <em>in</em>. This is home now.
+      </>
+    ),
+    text: "This tracker is your whole application at a glance — what's done, what's next, and where review stands. The outcome appears right here.",
+    nextLabel: "Got it",
+  },
+  {
+    selector: ".assessment-cards",
+    arrow: "top",
+    title: (
+      <>
+        Choose your <em>assessments</em>.
+      </>
+    ),
+    // Only what the cards actually enforce: English any time, Interview 2
+    // waits on Interview 1, first sittings free. No pass promises.
+    text: "The English test, Interview 1 and Interview 2 are optional and yours to pick — in any order, except Interview 2 opens after Interview 1. Your first sitting of each is free, and passing lifts you in search.",
+    nextLabel: "Got it",
+  },
+  {
+    selector: ".dash-sidebar",
+    arrow: "left",
+    title: (
+      <>
+        Everything else, on the <em>left</em>.
+      </>
+    ),
+    // The applicant rail carries Dashboard, My Application and Help today;
+    // the work tools arrive with the live portal. Say exactly that.
+    text: "Your dashboard and full application live here, with help one click away. Messages, contracts and find-work tools unlock when your profile goes live.",
+    nextLabel: "All set",
+    // Under 881px the sidebar is a BOTTOM bar — spotlighting it while the
+    // card says "on the left" would be wrong twice over.
+    skip: () => window.innerWidth <= 880,
+  },
+];
+
+const VARIANT_STOPS = {
+  live: LIVE_STOPS,
+  postProfile: POST_PROFILE_STOPS,
+} as const;
+
 const PAD = 8;
 const GAP = 24;
 const CARD_W = 320;
 
-export default function DashboardTour() {
+export default function DashboardTour({
+  variant = "live",
+}: {
+  variant?: keyof typeof VARIANT_STOPS;
+}) {
+  const STOPS = VARIANT_STOPS[variant];
   const [step, setStep] = useState(-1); // -1 = not started yet
   const [spot, setSpot] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [card, setCard] = useState<{ top: number; left: number } | null>(null);
@@ -101,7 +169,7 @@ export default function DashboardTour() {
     }
     setCard({ top, left });
     return true;
-  }, []);
+  }, [STOPS]);
 
   const goTo = useCallback(
     (idx: number) => {
@@ -128,7 +196,10 @@ export default function DashboardTour() {
       // 350ms for the same reason.
       setTimeout(() => position(i), 360);
     },
-    [position]
+    // finish is a stable function declaration; STOPS changes only with the
+    // variant prop, which never changes after mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [position, STOPS]
   );
 
   function finish() {
@@ -161,7 +232,7 @@ export default function DashboardTour() {
       window.removeEventListener("resize", onMove);
       window.removeEventListener("scroll", onMove);
     };
-  }, [step, position]);
+  }, [step, position, STOPS.length]);
 
   if (step < 0 || step >= STOPS.length || !spot || !card) return null;
   const stop = STOPS[step];

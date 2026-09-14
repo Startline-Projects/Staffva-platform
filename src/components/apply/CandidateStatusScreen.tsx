@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isLive } from "@/lib/candidateStatus";
 
+/**
+ * The /apply revisit surface: a completion CONFIRMATION, nothing more.
+ *
+ * It used to carry its own copy of the assessment logic — an Interview 1/2
+ * checklist, a Start/Retake button, retake dates and pricing copy. That was
+ * a second implementation of exactly the state machine the dashboard's
+ * assessment cards own (free first sittings, the Interview 1 → Interview 2
+ * order gate, cooldowns, $5 retakes), and two implementations of a machine
+ * that takes money WILL disagree eventually. The owner's flow (2026-09-13)
+ * puts the choosing on the dashboard, so this screen now confirms what was
+ * submitted and routes there — it never offers a start itself.
+ *
+ * A fresh profile-builder submit no longer lands here at all: it hands off
+ * to the dashboard walkthrough. This renders only when someone returns to
+ * /apply with a finished application.
+ */
+
 interface Props {
   adminStatus: string;
-  candidateId?: string;
-  /** Interview 1, the free behavioural round. */
-  interview1Passed?: boolean;
-  /** Interview 2, the paid skills round that earns the Vetted badge. */
-  skillsPassed?: boolean;
-  /** Interview 2 has been SAT, whatever the result. Without this a candidate
-   *  who took it and did not pass saw a screen identical to one who had never
-   *  opened it — no tick, no score, and a Start button that would now be
-   *  refused by the retake cooldown. */
-  skillsAttempted?: boolean;
-  /** ISO date the skills retake opens, when one is pending. */
-  skillsRetakeAt?: string | null;
 }
 
 // `tone` is the Atlas .state-icon-xl variant (success / amber / danger / done).
@@ -80,6 +84,11 @@ const STATUS_CONFIG: Record<string, {
     message: "You need a score of 60 or above to continue. Please return to your dashboard to view your retake date.",
   },
 };
+// admin_status 'approved' is being renamed to 'live' ADDITIVELY — both labels
+// are live values, so both must key the same screen. Without this a live
+// candidate revisiting /apply fell through to the fallback and was told their
+// application was "being reviewed".
+STATUS_CONFIG.live = STATUS_CONFIG.approved;
 
 const FALLBACK_CONFIG = {
   icon: "clock" as const,
@@ -94,63 +103,9 @@ const ARROW = (
   </svg>
 );
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-/** "14 September 2026" — built from UTC parts so the server and the browser
- *  produce the same string, and so it cannot be misread as month-first. */
-function formatRetakeDate(d: Date): string {
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-}
-
-export default function CandidateStatusScreen({
-  adminStatus,
-  candidateId,
-  interview1Passed = false,
-  skillsPassed = false,
-  skillsAttempted = false,
-  skillsRetakeAt = null,
-}: Props) {
-  // "now" is read AFTER mount, never during render. A bare new Date() here
-  // is impure and makes the server HTML and the first client render disagree
-  // whenever the clock crosses the retake boundary between them.
-  //
-  // Until it is known, a pending retake counts as LOCKED — the safe side of
-  // the guess is never offering a start the server would refuse.
-  const [nowMs, setNowMs] = useState<number | null>(null);
-  useEffect(() => {
-    setNowMs(Date.now());
-    const t = setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const retakeOpensAt = skillsRetakeAt ? new Date(skillsRetakeAt) : null;
-  const retakeLocked =
-    !!retakeOpensAt && (nowMs === null || retakeOpensAt.getTime() > nowMs);
-  // Sat it, did not pass. The only state the screen used to render as "not
-  // started".
-  const skillsMissed = skillsAttempted && !skillsPassed;
+export default function CandidateStatusScreen({ adminStatus }: Props) {
   const config = STATUS_CONFIG[adminStatus] || FALLBACK_CONFIG;
   const showDashboardLink = !STATUS_CONFIG[adminStatus] || adminStatus === "ai_interview_failed";
-  const [interviewLoading, setInterviewLoading] = useState(false);
-  const [interviewError, setInterviewError] = useState<string | null>(null);
-
-  async function handleInterviewClick() {
-    setInterviewLoading(true);
-    setInterviewError(null);
-    try {
-      const res = await fetch("/api/interview/token");
-      if (!res.ok) throw new Error("Token request failed");
-      const { token } = await res.json();
-      window.open(`https://interview.staffva.com?token=${token}`, "_blank", "noopener,noreferrer");
-    } catch {
-      setInterviewError("Unable to start the interview. Please try again.");
-    } finally {
-      setInterviewLoading(false);
-    }
-  }
 
   return (
     <div className="mx-auto max-w-xl px-6 py-16">
@@ -198,11 +153,14 @@ export default function CandidateStatusScreen({
             </Link>
           )}
 
-          {/* Approved or pending — show next steps */}
+          {/* Approved or pending — confirm what's in, then route the choosing
+              of assessments to the dashboard cards, which own every state
+              (free first sittings, cooldown dates, the Interview 1 → 2 order,
+              retake pricing). No start button here, ever. */}
           {(isLive(adminStatus) || adminStatus === "active") && (
             <div className="mt-2 w-full max-w-sm mx-auto text-left">
               <div className="ahead-card">
-                <h3 className="label">What you can do now:</h3>
+                <h3 className="label">What you&apos;ve done:</h3>
                 {/* .pwd-criteria is the Atlas met/unmet checklist: `met` draws
                     the green tick, an item without it draws the open ring. One
                     column, because these read as sentences, not chips. */}
@@ -210,77 +168,23 @@ export default function CandidateStatusScreen({
                   <li className="met">Application submitted</li>
                   <li className="met">Voice recordings submitted</li>
                   {/* NOT "live and visible" — at this moment the profile is
-                      submitted, review has not happened, and the interview below
-                      is a GATE, not polish. Both lies pointed people away from the
-                      one step that actually blocks them. */}
+                      submitted and review has not happened. */}
                   <li className="met">Profile submitted for review</li>
-                  {/* These two were one hardcoded <li> with no condition, so
-                      the only interview on the list could never tick and the
-                      behavioural round was not on it at all. A candidate who
-                      finished Interview 1 and came back saw a screen identical
-                      to the one they left — "nothing was updated", exactly as
-                      reported. */}
-                  <li className={interview1Passed ? "met" : undefined}>
-                    Interview 1 — a short behavioural round
-                  </li>
-                  <li className={skillsPassed ? "met" : undefined}>
-                    {skillsPassed
-                      ? "Interview 2 — passed; you have the Vetted badge"
-                      : skillsMissed
-                        ? retakeLocked
-                          ? `Interview 2 — taken, not passed this time. You can retake it from ${formatRetakeDate(retakeOpensAt!)}`
-                          : "Interview 2 — taken, not passed this time. A retake is available now"
-                        : "Interview 2 — optional; passing it earns the Vetted badge clients filter on"}
-                  </li>
                 </ul>
               </div>
 
               <div className="mt-6">
-                {/* One button, two destinations: /interview forks on
-                    interview1_passed, so once Interview 1 is cleared this
-                    opens Interview 2 instead. Saying "Start AI Interview"
-                    either way told a candidate who had just passed Interview 1
-                    nothing about what they were about to open — and Interview 2
-                    is the paid one, so the next screen asks for money. */}
-                {candidateId && !(interview1Passed && skillsPassed) && !retakeLocked && (
-                  <div>
-                    <button
-                      onClick={handleInterviewClick}
-                      disabled={interviewLoading}
-                      className={`btn-submit ${interviewLoading ? "loading" : ""}`}
-                    >
-                      <span className="submit-label">
-                        {interviewLoading
-                          ? "Loading…"
-                          : skillsMissed
-                            ? "Retake Interview 2"
-                            : interview1Passed
-                              ? "Start Interview 2"
-                              : "Start Interview 1"}
-                      </span>
-                      <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-                        <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      <span className="spinner" aria-hidden></span>
-                    </button>
-                    {interview1Passed && !skillsPassed && (
-                      <p className="mt-3 text-[12.5px] text-[var(--ink-mute)]">
-                        {skillsMissed
-                          ? "Your free sitting is used, so a retake costs $5 — you'll see the price before anything is charged."
-                          : "Interview 2 is optional, and your first sitting is free."}
-                      </p>
-                    )}
-                    {interviewError && (
-                      <p className="form-alert visible mt-3">{interviewError}</p>
-                    )}
-                  </div>
-                )}
-                {retakeLocked && (
-                  <p className="mt-1 text-[12.5px] text-[var(--ink-mute)]">
-                    Interview 2 is on a short cooldown after an attempt. It opens
-                    again on {formatRetakeDate(retakeOpensAt!)}.
-                  </p>
-                )}
+                <Link href="/candidate/dashboard" className="btn-submit" style={{ textDecoration: "none" }}>
+                  <span className="submit-label">Choose your assessments</span>
+                  <svg className="arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                    <path d="M3.75 9h10.5M9.75 4.5 14.25 9l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+                <p className="mt-3 text-[12.5px] text-[var(--ink-mute)]">
+                  The English test, Interview 1 and Interview 2 are optional
+                  and live on your dashboard — your first sitting of each is
+                  free, and passing lifts you in search.
+                </p>
                 {/* The only pre-approval door to the video recorder. Atlas puts
                     record-intro inside the pipeline; without a link here the whole
                     feature was dark for the cohort meant to record before review
@@ -289,12 +193,6 @@ export default function CandidateStatusScreen({
                   <Link href="/profile/video-intro" className="alt-action">
                     <span className="alt-label">Add a 75-second video intro (optional — clients watch it first)</span>
                     <span className="alt-link">Record</span>
-                  </Link>
-                </div>
-                <div className="mt-4 text-center">
-                  <Link href="/candidate/dashboard" className="state-action-btn">
-                    Go to Dashboard
-                    {ARROW}
                   </Link>
                 </div>
               </div>

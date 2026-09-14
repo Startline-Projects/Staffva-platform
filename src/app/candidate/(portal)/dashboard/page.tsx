@@ -9,6 +9,7 @@ import AtlasLiveHome, { type ActivityItem } from "@/components/candidate/portal/
 import EnglishResults from "@/components/candidate/portal/EnglishResults";
 import ViewInterviewResultsButton from "@/app/candidate/(portal)/dashboard/ViewInterviewResultsButton";
 import OptionalAssessments from "@/app/candidate/(portal)/dashboard/OptionalAssessments";
+import DashboardTour from "@/components/candidate/portal/DashboardTour";
 import { englishTestUrl } from "@/lib/englishTestHost";
 import { loadCandidateWork, pendingOffers } from "@/lib/candidateWork";
 import { loadCandidateContracts, signableContracts, flaggedContracts } from "@/lib/candidateContracts";
@@ -59,7 +60,7 @@ export default async function CandidateDashboardPage() {
   const admin = getAdminClient();
   const [{ data: profile }, { data: candidate, error: candidateError }] = await Promise.all([
     admin.from("profiles").select("email_verified, full_name, email, phone_verified_at").eq("id", user.id).maybeSingle(),
-    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, application_stage, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response").eq("user_id", user.id).maybeSingle(),
+    admin.from("candidates").select("id, admin_status, first_name, display_name, full_name, email, id_verification_status, english_mc_score, english_comprehension_score, english_written_tier, test_completed_at, ai_interview_passed, ai_interview_completed_at, interview1_passed, interview1_completed_at, voice_recording_1_url, voice_recording_2_url, profile_photo_url, tagline, bio, video_intro_status, video_intro_url, skills, tools, work_experience, payout_method, retake_available_at, test_lockout_until, permanently_blocked, english_attempts_exhausted, application_step, application_stage, id_verification_due_at, rejection_reason, reapply_eligible_at, admin_revision_note, appeal_submitted_at, appeal_decision, appeal_response, tour_seen_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   // A failed lookup must not masquerade as a fresh applicant — a candidate
@@ -115,27 +116,177 @@ export default async function CandidateDashboardPage() {
     hasSkillsHistory = (count || 0) > 0;
   }
 
+  // One request-time clock for every lock decision on the page. Server
+  // component: "render" happens once per request, so reading it here is the
+  // correct per-request behavior, not a purity bug.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
+  // The two interviews are separate now (step 9). Interview 1 is
+  // behavioral, Interview 2 is the skills exam whose verdict every
+  // downstream gate still reads as ai_interview_passed.
+  //
+  // GRANDFATHERING, and it must match the interview app's rule byte for
+  // byte (api/interview/session order gate + api/auth/verify skillsHistory):
+  // ANY pre-split skills history counts, not just a pass. A candidate
+  // mid-retake on the old single interview never took Interview 1 and never
+  // will — telling them to "Start Interview 1" while the interview app
+  // routes them into the skills exam is two surfaces disagreeing about
+  // which interview the candidate is even sitting.
+  const interview1Done =
+    candidate?.interview1_passed === true ||
+    candidate?.ai_interview_passed === true ||
+    hasSkillsHistory;
+
+  // Latest retake window per interview track, read UNCONDITIONALLY — not just
+  // for admin_status 'ai_interview_failed'. The assessment cards below must
+  // never offer a start the interview app would refuse, whatever the status
+  // column happens to say.
+  const retakeByKind: { behavioral: string | null; skills: string | null } = {
+    behavioral: null,
+    skills: null,
+  };
+  if (candidate) {
+    const { data: attempts } = await admin
+      .from("interview_attempts")
+      .select("kind, next_retake_available_at, created_at")
+      .eq("candidate_id", candidate.id)
+      .in("kind", ["behavioral", "skills"])
+      .order("created_at", { ascending: false });
+    const seen = new Set<string>();
+    for (const a of attempts ?? []) {
+      const k = a.kind as "behavioral" | "skills";
+      if (seen.has(k)) continue;
+      seen.add(k);
+      retakeByKind[k] = (a.next_retake_available_at as string | null) ?? null;
+    }
+  }
+  /** The window if it is still in the future, else null — the cards show a
+   *  date only while a start would actually be refused. */
+  const futureIso = (iso: string | null): string | null =>
+    iso && new Date(iso).getTime() > now ? iso : null;
+
   // Interview retake window (only meaningful after a failed interview).
+  // Read the track that actually failed: a candidate who has not passed
+  // Interview 1 is waiting on the behavioral cooldown, not the skills one.
   let interviewRetakeAt: Date | null = null;
   if (candidate?.admin_status === "ai_interview_failed") {
-    // Read the track that actually failed: a candidate who has not passed
-    // Interview 1 is waiting on the behavioral cooldown, not the skills one.
-    const failedKind =
-      candidate.interview1_passed === true ||
-      candidate.ai_interview_passed === true ||
-      hasSkillsHistory
-        ? "skills"
-        : "behavioral";
-    const { data: attempt } = await admin
-      .from("interview_attempts")
-      .select("next_retake_available_at")
-      .eq("candidate_id", candidate.id)
-      .eq("kind", failedKind)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (attempt?.next_retake_available_at) interviewRetakeAt = new Date(attempt.next_retake_available_at);
+    const iso = retakeByKind[interview1Done ? "skills" : "behavioral"];
+    if (iso) interviewRetakeAt = new Date(iso);
   }
+
+  // ── Assessment entitlements, for the chooser cards on BOTH dashboards ──
+  // Sittings this candidate has bought and not yet used. The assessments
+  // are paid now, so the cards have to know whether they are selling one
+  // or handing over one already owned — offering "Buy" to someone who has
+  // already paid is how you get charged twice.
+  // "Live purchase" is paid, unsettled and unrefunded — a purchase CLAIMED
+  // by a sitting in progress still counts, which is what stops the card
+  // offering to sell a second one to someone mid-test.
+  const paidKinds = new Set<string>();
+  const pendingKinds = new Set<string>();
+  const freeSpentKinds = new Set<string>();
+  if (candidate) {
+    const { data: entitlements } = await admin
+      .from("assessment_purchases")
+      .select("kind, status, created_at")
+      .eq("candidate_id", candidate.id)
+      .in("status", ["paid", "pending"])
+      .is("consumed_at", null)
+      .is("refunded_at", null);
+    const rows = entitlements ?? [];
+    for (const e of rows) {
+      if (e.status === "paid") paidKinds.add(e.kind as string);
+    }
+
+    // Is the next sitting of each kind free? Mirrors
+    // grant_free_assessment_sitting (20260911203842): a free go is spent by a
+    // sitting that COMPLETED, was not refunded, and is not waiting to be
+    // refunded — and there is a hard lifetime cap of 3 zero-cent rows that a
+    // refund cannot erase.
+    //
+    // This is a second copy of that predicate and exists only to label a
+    // button. The database decides who actually gets a free sitting; if the
+    // two disagree the button lies and the entitlement does not, so the
+    // columns are fetched and the test written out rather than pushed into a
+    // filter that could drift silently.
+    const FREE_SITTING_CAP = 3;
+    const { data: freeRows } = await admin
+      .from("assessment_purchases")
+      .select("kind, status, amount_cents, consumed_at, refunded_at, refund_reason")
+      .eq("candidate_id", candidate.id);
+    for (const kind of ["english", "interview"]) {
+      const forKind = (freeRows ?? []).filter((r) => r.kind === kind);
+      const spent = forKind.some(
+        (r) =>
+          r.status === "paid" &&
+          r.consumed_at !== null &&
+          r.refunded_at === null &&
+          r.refund_reason === null
+      );
+      const capped =
+        forKind.filter((r) => r.amount_cents === 0).length >= FREE_SITTING_CAP;
+      if (spent || capped) freeSpentKinds.add(kind);
+    }
+    // A delayed local payment method (bank debit, voucher — the methods that
+    // matter for candidates without an international card) leaves the row at
+    // 'pending' until it confirms. Showing the Buy button through that window
+    // is how someone pays twice for one sitting.
+    const oneHourAgo = now - 3600_000;
+    for (const e of rows) {
+      if (
+        e.status === "pending" &&
+        new Date(e.created_at as string).getTime() >= oneHourAgo &&
+        !paidKinds.has(e.kind as string)
+      ) {
+        pendingKinds.add(e.kind as string);
+      }
+    }
+  }
+
+  // Everything the three assessment cards need, derived once so the pre-live
+  // and live dashboards cannot disagree about a state that takes money.
+  // English "passed" is gradeAttempt's own rule (both parts ≥ 70; a written
+  // tier is only ever assigned on a pass, so it counts as one for rows the
+  // reverification reset left without scores).
+  const assessmentCardProps = candidate
+    ? {
+        candidateId: candidate.id,
+        english: {
+          taken: candidate.english_mc_score !== null,
+          passed:
+            (candidate.english_mc_score !== null &&
+              candidate.english_mc_score >= 70 &&
+              (candidate.english_comprehension_score ?? 0) >= 70) ||
+            candidate.english_written_tier != null,
+          exhausted: candidate.english_attempts_exhausted === true,
+          // Whichever English lock reaches further: the retake cooldown or an
+          // anti-cheat lockout. Both make the test host refuse a start.
+          retakeAt:
+            [candidate.retake_available_at, candidate.test_lockout_until]
+              .map(futureIso)
+              .filter((v): v is string => v !== null)
+              .sort()
+              .pop() ?? null,
+          free: !freeSpentKinds.has("english"),
+          paid: paidKinds.has("english"),
+          pending: pendingKinds.has("english"),
+        },
+        interview1: {
+          done: interview1Done,
+          taken: candidate.interview1_completed_at != null,
+          retakeAt: futureIso(retakeByKind.behavioral),
+        },
+        skills: {
+          passed: candidate.ai_interview_passed === true,
+          taken: candidate.ai_interview_completed_at != null,
+          retakeAt: futureIso(retakeByKind.skills),
+          free: !freeSpentKinds.has("interview"),
+          paid: paidKinds.has("interview"),
+          pending: pendingKinds.has("interview"),
+        },
+      }
+    : null;
 
   // Approved candidates get the live portal, not the application pipeline.
   // This branch returns before any pipeline state is derived — deliberately:
@@ -178,83 +329,6 @@ export default async function CandidateDashboardPage() {
     // [] on failure rather than throwing, so a review prompt can go missing but
     // the dashboard carrying this person's offers and contracts cannot.
     const reviewStates = await loadMyReviewState();
-
-    // Sittings this candidate has bought and not yet used. The assessments
-    // are paid now, so the card below has to know whether it is selling one
-    // or handing over one already owned — offering "Buy" to someone who has
-    // already paid is how you get charged twice.
-    // "Live purchase" is paid, unsettled and unrefunded — a purchase CLAIMED
-    // by a sitting in progress still counts, which is what stops the card
-    // offering to sell a second one to someone mid-test.
-    const { data: entitlements } = await admin
-      .from("assessment_purchases")
-      .select("kind, status, created_at")
-      .eq("candidate_id", live.id)
-      .in("status", ["paid", "pending"])
-      .is("consumed_at", null)
-      .is("refunded_at", null);
-    const rows = entitlements ?? [];
-    const paidKinds = new Set(
-      rows.filter((e) => e.status === "paid").map((e) => e.kind as string)
-    );
-
-    // Is the next sitting of each kind free? Mirrors
-    // grant_free_assessment_sitting (20260911203842): a free go is spent by a
-    // sitting that COMPLETED, was not refunded, and is not waiting to be
-    // refunded — and there is a hard lifetime cap of 3 zero-cent rows that a
-    // refund cannot erase.
-    //
-    // This is a second copy of that predicate and exists only to label a
-    // button. The database decides who actually gets a free sitting; if the
-    // two disagree the button lies and the entitlement does not, so the
-    // columns are fetched and the test written out rather than pushed into a
-    // filter that could drift silently.
-    const FREE_SITTING_CAP = 3;
-    const { data: freeRows } = await admin
-      .from("assessment_purchases")
-      .select("kind, status, amount_cents, consumed_at, refunded_at, refund_reason")
-      .eq("candidate_id", live.id);
-    const freeSpentKinds = new Set<string>();
-    for (const kind of ["english", "interview"]) {
-      const forKind = (freeRows ?? []).filter((r) => r.kind === kind);
-      const spent = forKind.some(
-        (r) =>
-          r.status === "paid" &&
-          r.consumed_at !== null &&
-          r.refunded_at === null &&
-          r.refund_reason === null
-      );
-      const capped =
-        forKind.filter((r) => r.amount_cents === 0).length >= FREE_SITTING_CAP;
-      if (spent || capped) freeSpentKinds.add(kind);
-    }
-    // A delayed local payment method (bank debit, voucher — the methods that
-    // matter for candidates without an international card) leaves the row at
-    // 'pending' until it confirms. Showing the Buy button through that window
-    // is how someone pays twice for one sitting.
-    const oneHourAgo = Date.now() - 3600_000;
-    const pendingKinds = new Set(
-      rows
-        .filter(
-          (e) =>
-            e.status === "pending" &&
-            new Date(e.created_at as string).getTime() >= oneHourAgo &&
-            !paidKinds.has(e.kind as string)
-        )
-        .map((e) => e.kind as string)
-    );
-
-    // The interview is two rounds: Interview 1 (behavioral, free) opens the
-    // skills interview (paid). The interview app enforces that order, so the
-    // card has to respect it — offering the $5 sitting to someone who has not
-    // cleared Interview 1 sells a door that will not open.
-    //
-    // Reuses hasSkillsHistory from above rather than re-counting: two reads of
-    // the same fact can disagree, and this one decides whether we take money.
-    const needsInterview1 =
-      candidate.interview1_passed !== true &&
-      live.ai_interview_passed !== true &&
-      !hasSkillsHistory;
 
     // ── Atlas home data: stats + recent activity, one round of queries ──
     // Server component: "now" is request time by design. The purity rule is
@@ -386,28 +460,10 @@ export default async function CandidateDashboardPage() {
 
         {/* ── #6: the optional assessments need a door. Marking them optional
             removed every CTA that led to them, so the model had no entry
-            point at all for a live candidate. ── */}
-        <OptionalAssessments
-          candidateId={live.id}
-          hasEnglish={candidate.english_mc_score !== null}
-          // Passed the SKILLS interview — not "has any interview feedback".
-          // This read `!!latestInterview`, which is deliberately kind-blind so
-          // the results door also covers the behavioural round. The effect was
-          // that finishing the free Interview 1 made the card conclude the
-          // candidate was done with interviews and hide the paid skills
-          // interview altogether — removing the only place to buy it, at
-          // exactly the moment they became eligible for it.
-          hasInterview={live.ai_interview_passed === true}
-          englishLocked={!!candidate.retake_available_at && new Date(candidate.retake_available_at) > new Date()}
-          englishExhausted={candidate.english_attempts_exhausted === true}
-          paidEnglish={paidKinds.has("english")}
-          paidInterview={paidKinds.has("interview")}
-          freeEnglish={!freeSpentKinds.has("english")}
-          freeInterview={!freeSpentKinds.has("interview")}
-          pendingEnglish={pendingKinds.has("english")}
-          pendingInterview={pendingKinds.has("interview")}
-          needsInterview1={needsInterview1}
-        />
+            point at all for a live candidate. The three chooser cards render
+            here with the same derivation the pre-live dashboard uses, so the
+            two surfaces cannot disagree about a state that takes money. ── */}
+        {assessmentCardProps && <OptionalAssessments {...assessmentCardProps} />}
 
         <LegacyDashboard variant="live" />
       </>
@@ -436,21 +492,8 @@ export default async function CandidateDashboardPage() {
   // unfinished step to nag about. The tier carries the quality signal.
   const englishDone = candidate?.english_mc_score !== null && candidate?.english_mc_score !== undefined;
 
-  // The two interviews are separate now (step 9). Interview 1 is
-  // behavioral, Interview 2 is the skills exam whose verdict every
-  // downstream gate still reads as ai_interview_passed.
-  //
-  // GRANDFATHERING, and it must match the interview app's rule byte for
-  // byte (api/interview/session order gate + api/auth/verify skillsHistory):
-  // ANY pre-split skills history counts, not just a pass. A candidate
-  // mid-retake on the old single interview never took Interview 1 and never
-  // will — telling them to "Start Interview 1" while the interview app
-  // routes them into the skills exam is two surfaces disagreeing about
-  // which interview the candidate is even sitting.
-  const interview1Done =
-    candidate?.interview1_passed === true ||
-    candidate?.ai_interview_passed === true ||
-    hasSkillsHistory;
+  // interview1Done is derived above (with the grandfathering rule), before
+  // the live branch — the assessment cards on both dashboards read it.
   const interview2Done = candidate?.ai_interview_passed === true;
   const recordingsDone = !!candidate?.voice_recording_1_url && !!candidate?.voice_recording_2_url;
   const profileDone = !!candidate?.profile_photo_url && !!candidate?.tagline && !!candidate?.bio && !!candidate?.payout_method;
@@ -460,11 +503,8 @@ export default async function CandidateDashboardPage() {
   const interviewFailed = status === "ai_interview_failed";
   const terminal = ["rejected", "deactivated", "duplicate_blocked"].includes(status) || candidate?.permanently_blocked === true;
 
-  // English retake + anticheat lockouts — Asti rests, honestly. This is a
-  // server component: "render" happens once per request, so reading the
-  // clock here is the correct per-request behavior, not a purity bug.
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
+  // English retake + anticheat lockouts — Asti rests, honestly. `now` is the
+  // request-time clock read once above.
   const retakeAt = candidate?.retake_available_at ? new Date(candidate.retake_available_at) : null;
   const anticheatUntil = candidate?.test_lockout_until ? new Date(candidate.test_lockout_until) : null;
   const englishLocked = (!!retakeAt && retakeAt.getTime() > now) || (!!anticheatUntil && anticheatUntil.getTime() > now);
@@ -568,6 +608,20 @@ export default async function CandidateDashboardPage() {
   // first-name / last-name / country form in the old design. The English card
   // already handled this; nothing else did.
   const applicationDone = !!candidate && (candidate.application_stage ?? 0) >= 3;
+
+  // Owner's flow (2026-09-13): once the profile is built, the candidate
+  // chooses the English test, Interview 1 and Interview 2 by clicking them
+  // from the dashboard. The chooser mounts when the profile work is actually
+  // done — before that, the pipeline card owns the conversation about what
+  // to do next — and never for a closed application, whose token mint and
+  // checkout would both refuse anyway.
+  const profileSubmitted = applicationDone && recordingsDone && profileDone;
+  const showAssessmentCards = !!assessmentCardProps && profileSubmitted && !terminal;
+  // The guided walkthrough the profile builder hands off into. Same stamp as
+  // the live tour (candidates.tour_seen_at) — a candidate gets one tour, on
+  // whichever dashboard they reach first, and returning candidates who have
+  // seen it skip straight to the cards.
+  const showPostProfileTour = showAssessmentCards && !candidate?.tour_seen_at;
 
   // Per-node presentation for the current-step card.
   const STEP_CARDS: Record<string, { title: string; body: string; cta: string; href: string; minutes: string; tips: string[] }> = {
@@ -805,6 +859,7 @@ export default async function CandidateDashboardPage() {
   // to end.
   return (
     <main style={{ maxWidth: "980px", margin: "0 auto" }}>
+        {showPostProfileTour && <DashboardTour variant="postProfile" />}
         {/* ── Welcome ── */}
         <section className="dash-welcome">
           <div className={`status-banner ${terminal ? "rejected" : lockedOut ? "cooldown" : underReview ? "waiting" : actionRequired ? "waiting" : ""}`}>
@@ -988,6 +1043,12 @@ export default async function CandidateDashboardPage() {
               new Date(candidate.reapply_eligible_at) <= new Date() && <ReapplyButton />}
           </div>
         </section>
+
+        {/* ── The assessment chooser (owner's flow): English test,
+            Interview 1, Interview 2 as clickable cards, each with its honest
+            state. Same component and same derivation as the live dashboard's
+            mount, so the two never disagree about price or availability. ── */}
+        {showAssessmentCards && <OptionalAssessments {...assessmentCardProps!} />}
 
         {/* Everyone who has sat the assessment sees their result — not just
             people mid-cooldown, which is where these numbers used to live. */}

@@ -53,11 +53,6 @@ export interface CandidateData {
   english_percentile: number | null;
   english_written_tier: string | null;
   admin_status: string;
-  /** Read by the completion screen so the checklist reflects what the
-   *  candidate has actually finished. */
-  interview1_passed?: boolean | null;
-  ai_interview_passed?: boolean | null;
-  ai_interview_completed_at?: string | null;
   id_verification_status: string;
   voice_recording_1_url: string | null;
   voice_recording_2_url: string | null;
@@ -85,20 +80,16 @@ export default function ApplyPage() {
   const [step, setStep] = useState<ApplicationStep>("loading");
   const [candidateData, setCandidateData] = useState<CandidateData | null>(null);
   const [testPassed, setTestPassed] = useState(false);
-  /** When the skills retake opens, for the completion screen. Lives in
-   *  interview_attempts, not on the candidate row. */
-  const [skillsRetakeAt, setSkillsRetakeAt] = useState<string | null>(null);
 
   useEffect(() => {
     loadCandidateState();
   }, []);
 
   /**
-   * Keep the completion screen current without a reload.
-   *
-   * The interview opens in ANOTHER TAB, on another origin, so the tab holding
-   * this screen never learns that it finished — a candidate came back to a
-   * page still offering "Start Interview 2" after they had sat it.
+   * Keep the completion screen's status line current without a reload — an
+   * approval or review decision can land while the candidate is looking at
+   * it. The assessment states left this screen (the dashboard cards own
+   * them now), so only the candidate row is refetched.
    *
    * Deliberately narrow. It refetches ONLY on the "complete" step and updates
    * ONLY candidateData: re-running loadCandidateState would re-route, and
@@ -122,22 +113,13 @@ export default function ApplyPage() {
         .single();
       if (!alive || !data) return;
       setCandidateData(data);
-      const { data: attempt } = await supabase
-        .from("interview_attempts")
-        .select("next_retake_available_at")
-        .eq("candidate_id", data.id)
-        .eq("kind", "skills")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (alive) setSkillsRetakeAt(attempt?.next_retake_available_at ?? null);
     };
 
     refresh();
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
-    // Backstop for the case focus never fires: the interview tab can finish
-    // and be closed while this one sits in the background.
+    // Backstop for the case focus never fires: a decision can land while
+    // this tab sits in the background.
     const poll = setInterval(refresh, 15000);
 
     return () => {
@@ -412,8 +394,13 @@ export default function ApplyPage() {
       console.error("Could not decide placement after profile completion:", promoteError.message);
     }
 
-    setCandidateData({ ...candidateData!, ...latest, profile_completed_at: new Date().toISOString() } as CandidateData);
-    goToStep("complete");
+    // Hand off to the dashboard, where the guided walkthrough (DashboardTour
+    // "postProfile") picks them up and the three assessment cards live —
+    // owner's flow, 2026-09-13. The static status screen stays the /apply
+    // revisit surface; a fresh submit no longer dead-ends on it. The step is
+    // still saved so a revisit renders that confirmation, not a form.
+    void saveStep("complete", latest.id);
+    router.push("/candidate/dashboard");
   }
 
   if (step === "loading") {
@@ -556,14 +543,7 @@ export default function ApplyPage() {
         />
       )}
       {step === "complete" && candidateData && (
-        <CandidateStatusScreen
-          adminStatus={candidateData.admin_status}
-          candidateId={candidateData.id}
-          interview1Passed={candidateData.interview1_passed === true}
-          skillsPassed={candidateData.ai_interview_passed === true}
-          skillsAttempted={!!candidateData.ai_interview_completed_at}
-          skillsRetakeAt={skillsRetakeAt}
-        />
+        <CandidateStatusScreen adminStatus={candidateData.admin_status} />
       )}
       {step === "anticheat_lockout" && candidateData?.test_lockout_until && (
         <AnticheatlockoutScreen
