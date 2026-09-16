@@ -2949,3 +2949,104 @@
 }
 
 .lp-admin .bell-foot:hover { color: var(--ink); }
+
+/* ── two-step verification setup ─────────────────────────────────────────
+   The enrolment panel on /admin/profile. Two columns while a QR code and a
+   paragraph both fit; stacked below that, because a QR squeezed narrow
+   enough to sit beside text on a phone is a QR nobody's camera can read. */
+
+.lp-admin .tfa-enrol {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: start;
+  padding: 16px;
+  background: var(--paper-deep);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+
+.lp-admin .tfa-qr {
+  /* White, not --paper: the cream tint eats the contrast a scanner needs. */
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  line-height: 0;
+}
+
+.lp-admin .tfa-qr img { display: block; width: 168px; height: 168px; }
+
+.lp-admin .tfa-manual { min-width: 0; }
+
+.lp-admin .tfa-secret {
+  display: block;
+  margin-top: 7px;
+  padding: 9px 11px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  /* A secret that wraps mid-token is a secret somebody mistypes. */
+  word-break: break-all;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  user-select: all;
+}
+
+.lp-admin .tfa-verify {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lp-admin .adm-input.tfa-otp {
+  width: 142px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  text-align: center;
+}
+
+.lp-admin .adm-input.tfa-otp::placeholder { color: var(--line); letter-spacing: 0.24em; }
+
+.lp-admin .tfa-codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 14px;
+  list-style: none;
+  background: var(--paper-deep);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+
+.lp-admin .tfa-codes li { margin: 0; }
+
+.lp-admin .tfa-codes code {
+  display: block;
+  padding: 7px 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  user-select: all;
+}
+
+@media (max-width: 560px) {
+  .lp-admin .tfa-enrol { grid-template-columns: 1fr; justify-items: center; }
+  .lp-admin .tfa-manual { width: 100%; }
+}
+
+@media print {
+  /* Recovery codes are the one thing on this panel anyone prints. */
+  .lp-admin .tfa-codes { border-color: #999; background: #fff; }
+  .lp-admin .tfa-codes code { background: #fff; border-color: #999; }
+}

@@ -44,7 +44,8 @@ async function requireAal2Enrolled() {
   return { user };
 }
 
-// GET — how many unused codes remain (the security page's "7 of 10 left").
+// GET — how many unused codes remain (the "7 of 10 unused" line under
+// Security on /admin/profile).
 export async function GET() {
   const gate = await requireAal2Enrolled();
   if ("error" in gate) return gate.error;

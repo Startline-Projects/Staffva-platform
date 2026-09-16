@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TwoFactorSetup from "@/components/auth/TwoFactorSetup";
 import { loadOwnProfile } from "@/lib/adminStaff";
 import { CAPABILITIES, ROLE_LABEL, can, domainSummary } from "@/lib/adminCapabilities";
 
@@ -135,11 +136,9 @@ export default async function AdminProfilePage() {
             <div className="prof-banner-title">Two-factor authentication is off</div>
             <div className="prof-banner-text">
               This account signs in with a password alone, on a panel that can approve
-              candidates, ban accounts and read every client&apos;s spend. The server
-              side of two-factor is already built — backup codes and MFA recovery both
-              exist and both demand an <code>aal2</code> session — but the product has
-              no enrolment screen anywhere, so a second factor cannot be switched on.
-              That is a build, not a setting.
+              candidates, ban accounts and read every client&apos;s spend. Switch it on
+              under <strong>Security</strong> below — it takes about a minute and needs
+              an authenticator app on your phone.
             </div>
           </div>
         </div>
@@ -168,6 +167,20 @@ export default async function AdminProfilePage() {
           </div>
         </div>
       )}
+
+      <section className="adm-section" style={{ marginTop: 24 }}>
+        <div className="adm-section-head">
+          <h2>
+            Security
+            <span className="count">{mfaOn ? "two-step on" : "password only"}</span>
+          </h2>
+        </div>
+
+        {/* Server-rendered above (mfaFactors), client-rendered here. The panel
+            refreshes this route when it changes either one, so the two halves
+            cannot sit on screen disagreeing. */}
+        <TwoFactorSetup />
+      </section>
 
       <section className="adm-section" style={{ marginTop: 24 }}>
         <div className="adm-section-head">

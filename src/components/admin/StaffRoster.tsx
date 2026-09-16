@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ROLE_LABEL, type StaffRole } from "@/lib/adminCapabilities";
 import type { StaffMember } from "@/lib/adminStaff";
 
@@ -79,10 +80,11 @@ export default function StaffRoster({ staff }: { staff: StaffMember[] }) {
             </div>
             <div className="prof-banner-text">
               These logins can approve candidates, ban accounts and read client spend.
-              The server side of two-factor is already built — backup codes and MFA
-              recovery both exist and both demand an <code>aal2</code> session — but
-              the product has no enrolment screen, so a second factor cannot be
-              switched on from anywhere. That is a build, not a setting.
+              Two-step is switched on under Security on each person&apos;s own{" "}
+              <Link href="/admin/profile">profile</Link> — nobody can enable it on
+              someone else&apos;s behalf, because only the account holder can hold the
+              authenticator. Nothing here enforces it either: there is no policy that
+              refuses a sign-in without one.
             </div>
           </div>
         </div>
