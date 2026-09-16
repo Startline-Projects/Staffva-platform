@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { countByPriority, deriveAlerts } from "@/lib/adminAlerts";
+import { isLive } from "@/lib/candidateStatus";
 
 /**
  * Just the counts the attention bell needs.
@@ -58,7 +59,7 @@ export async function GET() {
     const key = c.role_category || "Unknown";
     if (!roleStats.has(key)) roleStats.set(key, { live: 0, pending: 0 });
     const e = roleStats.get(key)!;
-    if (c.admin_status === "approved") e.live += 1;
+    if (isLive(c.admin_status)) e.live += 1;
     else if (c.admin_status !== "rejected" && c.admin_status !== "deactivated") e.pending += 1;
   }
   let thinRoles = 0;

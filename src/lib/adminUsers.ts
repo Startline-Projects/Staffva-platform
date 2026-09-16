@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { isLive } from "@/lib/candidateStatus";
 
 /**
  * The cross-population people directory behind `/admin/users`.
@@ -109,7 +110,9 @@ export async function loadCounts(): Promise<PopulationCounts | null> {
 function candidateStatus(admin_status: string | null, banPending: boolean): UserRow["status"] {
   if (banPending) return { label: "Ban requested", tone: "bad" };
   switch (admin_status) {
+    case "live":
     case "approved": return { label: "Live", tone: "ok" };
+    case "revision_required": return { label: "Revisions asked", tone: "warn" };
     // Rejected is a settled outcome, not an alarm. Only a pending ban gets the
     // red treatment here — if both are red, the row that needs a decision
     // today looks the same as the one that was decided in June.
@@ -156,7 +159,7 @@ export async function loadDirectory(
         // The public page resolves only for approved candidates; for anyone
         // else it falls through to an owner-only view and shows nothing. The
         // admin record above works for every candidate regardless.
-        publicHref: c.admin_status === "approved" ? `/candidate/${c.id}` : null,
+        publicHref: isLive(c.admin_status) ? `/candidate/${c.id}` : null,
       })),
       total: count ?? 0,
       page,

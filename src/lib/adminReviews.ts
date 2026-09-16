@@ -10,9 +10,9 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
  * needs: unrevealed reviews, and taken-down ones.
  *
  * The asymmetry matters and the page says so. A review of a candidate goes on
- * a public profile and into a reputation score; a review of a client is
- * private to that client. Taking one down is not the same act as taking the
- * other down, so the direction is never just a label here.
+ * a public profile; a review of a client is private to that client. Taking one
+ * down is not the same act as taking the other down, so the direction is never
+ * just a label here.
  *
  * `published` defaults to true: a review is public the moment it reveals, and
  * this column is the only way back.
@@ -86,6 +86,20 @@ export async function loadReviews(): Promise<ReviewsPage | null> {
   const clients = new Map((clientsRes.data ?? []).map((c) => [c.id, c.company_name || c.full_name]));
 
   const now = Date.now();
+
+  /**
+   * Sealed means "nobody outside staff can see this", and `reveal_at` alone
+   * does not say that: a pair where BOTH sides have submitted goes live
+   * immediately, thirty days before its anchor date. Badging one of those as
+   * sealed tells a moderator that a review already on a public profile is
+   * harmless, which is the one thing this screen must not do.
+   */
+  const paired = new Set(
+    rows
+      .filter((r) => rows.some((o) => o.engagement_id === r.engagement_id && o.direction !== r.direction))
+      .map((r) => r.id)
+  );
+
   const reviews: AdminReview[] = rows.map((r) => ({
     id: r.id,
     engagementId: r.engagement_id,
@@ -99,7 +113,7 @@ export async function loadReviews(): Promise<ReviewsPage | null> {
     candidateName: r.candidate_id ? (candidates.get(r.candidate_id) ?? null) : null,
     clientId: r.client_id,
     clientName: r.client_id ? (clients.get(r.client_id) ?? null) : null,
-    sealed: new Date(r.reveal_at).getTime() > now,
+    sealed: !paired.has(r.id) && new Date(r.reveal_at).getTime() > now,
   }));
 
   return {

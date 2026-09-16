@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { SafetyReport } from "@/lib/adminSafety";
+import { isLive } from "@/lib/candidateStatus";
 
 const STATUS_LABEL: Record<string, string> = {
-  approved: "Live", active: "Applying", pending_review: "In review",
-  profile_review: "Profile review", rejected: "Rejected",
+  live: "Live", approved: "Live", active: "Applying", pending_review: "In review",
+  profile_review: "Profile review", revision_required: "Revisions asked", rejected: "Rejected",
 };
 
 export default function SuspiciousActivityView({ report }: { report: SafetyReport }) {
@@ -135,7 +136,7 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
                         </div>
                       </td>
                       <td>
-                        <span className={`adm-pill ${c.adminStatus === "approved" ? "ok" : "mute"}`}>
+                        <span className={`adm-pill ${isLive(c.adminStatus) ? "ok" : "mute"}`}>
                           {STATUS_LABEL[c.adminStatus ?? ""] ?? c.adminStatus ?? "—"}
                         </span>
                       </td>

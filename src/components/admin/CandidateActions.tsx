@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/Toast";
+import { isLive } from "@/lib/candidateStatus";
 
 /**
  * The decisions an admin can take on a candidate record.
@@ -68,7 +69,7 @@ export default function CandidateActions({
     act("reject", { reason });
   }
 
-  const isLive = adminStatus === "approved";
+  const alreadyLive = isLive(adminStatus);
 
   return (
     <div className="rec-actionbar">
@@ -76,7 +77,7 @@ export default function CandidateActions({
         {busy === "revision_required" ? "Sending…" : "Request revision"}
       </button>
 
-      {canDecide && !isLive && (
+      {canDecide && !alreadyLive && (
         <button type="button" className="adm-btn primary" disabled={busy !== null} onClick={() => act("approve")}>
           {busy === "approve" ? "Approving…" : "Approve"}
         </button>

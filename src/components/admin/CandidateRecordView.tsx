@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CandidateRecord } from "@/lib/adminCandidate";
 import CandidateActions from "@/components/admin/CandidateActions";
+import { isLive } from "@/lib/candidateStatus";
 
 /**
  * The candidate record, as a pure view over an already-loaded record.
@@ -40,7 +41,9 @@ function initials(name: string, email: string): string {
 }
 
 const STATUS: Record<string, { label: string; tone: string }> = {
+  live: { label: "Live", tone: "ok" },
   approved: { label: "Live", tone: "ok" },
+  revision_required: { label: "Revisions asked", tone: "warn" },
   rejected: { label: "Rejected", tone: "mute" },
   pending_review: { label: "In review", tone: "warn" },
   profile_review: { label: "Profile review", tone: "warn" },
@@ -170,12 +173,8 @@ export default function CandidateRecordView({
             <div className="rec-v">{fmtDate(c.created_at) ?? "—"}</div>
           </div>
           <div className="rec-fact">
-            <div className="rec-k">Reputation</div>
-            <div className="rec-v">
-              {c.reputation_score !== null && c.reputation_score !== undefined
-                ? `${c.reputation_score}${c.reputation_tier ? ` · ${c.reputation_tier}` : ""}`
-                : "—"}
-            </div>
+            <div className="rec-k">Went live</div>
+            <div className="rec-v">{fmtDate(c.profile_went_live_at) ?? "—"}</div>
           </div>
         </div>
       </div>
@@ -427,7 +426,7 @@ export default function CandidateRecordView({
             <div className="rec-timeline">
               {events.map((e) => (
                 <div key={e.id} className="rec-event">
-                  <span className={`rec-event-dot${e.toStatus === "approved" ? " live" : e.toStatus === "rejected" ? " bad" : ""}`} aria-hidden="true" />
+                  <span className={`rec-event-dot${isLive(e.toStatus) ? " live" : e.toStatus === "rejected" ? " bad" : ""}`} aria-hidden="true" />
                   <div>
                     <div className="rec-event-title">
                       {e.fromStatus ? <>{e.fromStatus} → <strong>{e.toStatus}</strong></> : <strong>{e.toStatus}</strong>}

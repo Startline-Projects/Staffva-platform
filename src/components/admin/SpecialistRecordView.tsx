@@ -24,7 +24,9 @@ function initials(name: string | null, email: string): string {
 }
 
 const STATUS_LABEL: Record<string, string> = {
+  live: "Live",
   approved: "Live",
+  revision_required: "Revisions asked",
   active: "Applying",
   pending_review: "In review",
   profile_review: "Profile review",

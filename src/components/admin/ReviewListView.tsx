@@ -60,8 +60,8 @@ function ReviewCard({ r }: { r: AdminReview }) {
         <span className="rev-reach">
           {aboutCandidate
             ? r.published
-              ? "On the candidate's public profile and in their reputation score."
-              : "Hidden from the public profile and excluded from the reputation score."
+              ? "On the candidate's public profile and in their public rating."
+              : "Hidden from the public profile and excluded from their public rating."
             : r.published
               ? "Visible to the client. Client reviews are private either way — they are never public."
               : "Hidden from the client."}
@@ -102,9 +102,9 @@ export default function ReviewListView({
       <p className="staff-legend">
         Both directions of every review, including ones that have not revealed yet and ones already
         taken down — the two published views hide exactly those. Taking a review down is not
-        symmetric: a candidate review sits on a public profile and inside a reputation score, while
-        a client review is private to that client whether it is published or not. Nothing here
-        deletes anything.
+        symmetric: a candidate review sits on a public profile and counts toward that
+        candidate&apos;s public rating, while a client review is private to that client whether it is
+        published or not. Nothing here deletes anything.
       </p>
 
       {counts.all > 0 && (

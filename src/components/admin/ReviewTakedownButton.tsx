@@ -9,8 +9,8 @@ import { useToast } from "@/components/admin/Toast";
  *
  * `published` is the only way back from a review that is already public, so
  * the confirm names what the act actually does — which differs by direction.
- * A candidate review is on a public profile and inside a reputation score; a
- * client review is private to the client either way.
+ * A candidate review is on a public profile and counts toward that candidate's
+ * public rating; a client review is private to the client either way.
  */
 export default function ReviewTakedownButton({
   reviewId,
@@ -28,7 +28,7 @@ export default function ReviewTakedownButton({
   async function toggle() {
     if (published) {
       const what = aboutCandidate
-        ? "This removes the review from the candidate's public profile and from their reputation score. Nothing is deleted."
+        ? "This removes the review from the candidate's public profile and from their public rating. Nothing is deleted."
         : "This hides the review from the client. Nothing is deleted.";
       if (!confirm(`${what}\n\nContinue?`)) return;
     }

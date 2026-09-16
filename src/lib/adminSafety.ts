@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { isLive } from "@/lib/candidateStatus";
 
 /**
  * The integrity signals StaffVA actually records, and what each one is worth.
@@ -115,7 +116,7 @@ export async function loadSafetyReport(): Promise<SafetyReport | null> {
       withAnySignal: candidates.length,
       withWindowExits: candidates.filter((c) => c.cheatFlagCount > 0).length,
       withScoreMismatch: candidates.filter((c) => c.scoreMismatch).length,
-      liveWithAnySignal: candidates.filter((c) => c.adminStatus === "approved").length,
+      liveWithAnySignal: candidates.filter((c) => isLive(c.adminStatus)).length,
       windowExitEvents: (logRes.data ?? []).length,
       rateLimitBuckets: rateRows.length,
       rateLimitHits: rateRows.reduce((s, r) => s + (r.hits ?? 0), 0),

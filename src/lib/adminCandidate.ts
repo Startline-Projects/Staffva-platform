@@ -12,6 +12,11 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
  * and nothing else — a `select("*")` here would ship every draft, token and
  * internal flag to the browser for a page that shows a fraction of them.
  *
+ * Naming a column that does not exist makes PostgREST reject the whole select,
+ * so the loader returns null and the record 404s. That is what the reputation
+ * columns did after they were dropped — an explicit list is safer than
+ * `select("*")` but it has to be kept in step with the schema.
+ *
  * Server-only: reads SUPABASE_SERVICE_ROLE_KEY. Do not import from a
  * "use client" module.
  */
@@ -46,7 +51,6 @@ const CANDIDATE_FIELDS = `
   computer_specs, has_headset, has_webcam,
   payout_method, payout_status, payout_currency, total_earnings_usd,
   stripe_onboarding_complete, activation_fee_paid,
-  reputation_score, reputation_tier, reputation_percentile,
   ban_pending_review, ban_requested_by, ban_requested_at, ban_reason,
   rejection_reason, rejected_at, reapply_eligible_at,
   appeal_text, appeal_submitted_at, appeal_decision,
