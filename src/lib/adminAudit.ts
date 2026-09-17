@@ -28,6 +28,7 @@ export type AuditAction =
   | "candidate.reinstate"
   | "candidate.flag"
   | "candidate.appeal_decided"
+  | "candidate.reassign_bulk"
   | "ban.confirm"
   | "ban.dismiss"
   | "lockout.lift"

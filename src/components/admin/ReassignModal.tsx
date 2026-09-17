@@ -6,6 +6,20 @@ interface Recruiter {
   id: string;
   full_name: string;
   email: string;
+  lastSignInAt: string | null;
+  /** null = never signed in. */
+  daysSinceSignIn: number | null;
+  /** null = the sign-in read failed, so presence is unknown — not fresh. */
+  dormant: boolean | null;
+}
+
+/** "3 days ago" / "never" — the one thing that says whether a pick is real. */
+function seenLabel(r: Recruiter): string {
+  if (r.dormant === null) return "last sign-in unknown";
+  if (r.daysSinceSignIn === null) return "never signed in";
+  if (r.daysSinceSignIn === 0) return "signed in today";
+  if (r.daysSinceSignIn === 1) return "signed in yesterday";
+  return `last signed in ${r.daysSinceSignIn} days ago`;
 }
 
 interface ReassignModalProps {
@@ -31,6 +45,7 @@ export default function ReassignModal({
   const [selectedId, setSelectedId] = useState<string>("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true);
+  const [signInsRead, setSignInsRead] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +56,7 @@ export default function ReassignModal({
       .then((r) => r.json())
       .then((data) => {
         setRecruiters(data.recruiters || []);
+        setSignInsRead(data.signInsRead !== false);
         setLoading(false);
       })
       .catch(() => {
@@ -128,13 +144,28 @@ export default function ReassignModal({
                 <option value="">— Select a recruiter —</option>
                 {recruiters.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.full_name}{r.id === currentRecruiterId ? " (current)" : ""}
+                    {r.full_name}
+                    {r.id === currentRecruiterId ? " (current)" : ""}
+                    {` — ${seenLabel(r)}`}
                   </option>
                 ))}
               </select>
             )}
             {isSame && (
               <p className="mt-1 text-xs text-amber-600">This is already the assigned recruiter.</p>
+            )}
+            {!loading && !signInsRead && (
+              <p className="mt-1 text-xs text-gray-500">
+                Sign-in times could not be read, so this list cannot show who is actually working.
+              </p>
+            )}
+            {selected?.dormant && !isSame && (
+              <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-2">
+                <strong>{selected.full_name}</strong> has not signed in for{" "}
+                {selected.daysSinceSignIn === null ? "as long as this account has existed" : `${selected.daysSinceSignIn} days`}.
+                Moving {candidateName} here will read as assigned everywhere in the panel, so nothing
+                will flag them again.
+              </p>
             )}
           </div>
 

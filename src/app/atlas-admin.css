@@ -1566,6 +1566,17 @@
 .lp-admin .adm-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .lp-admin .adm-btn.danger:hover:not(:disabled) { background: var(--danger-deep); border-color: var(--danger-deep); color: #fff; }
 
+/* Sits inside a table row, so it has to clear the row's line-height. */
+.lp-admin .adm-btn.sm { padding: 4px 11px; font-size: 11.5px; }
+
+/* Right-aligned row actions: a button beside the row's Open link. */
+.lp-admin .adm-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 /* ----- Candidate review card (inside the review modal) ----- */
 .lp-admin .adm-cand {
   border: 1px solid var(--line-soft);

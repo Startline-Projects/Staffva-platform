@@ -31,6 +31,19 @@ export interface AlertInput {
   pendingBans: number;
   openDisputes: number;
   vendorsDown: string[];
+  /**
+   * Dormancy, from `loadDormancyFacts`. Undefined means it was not read —
+   * which is not the same as nothing being dormant, so the alerts below stay
+   * silent rather than reporting an all-clear nobody checked.
+   */
+  assignedToDormant?: number;
+  dormantSpecialists?: number;
+  longestDormancyDays?: number | null;
+  unassignedLive?: number;
+  awaitingReply?: number;
+  awaitingReplyOnDormant?: number;
+  longestWaitDays?: number | null;
+  neverAnswered?: number;
 }
 
 export interface DerivedAlert {
@@ -48,6 +61,17 @@ export interface DerivedAlert {
 }
 
 const PRIORITY_ORDER: AlertPriority[] = ["urgent", "today", "week"];
+
+/**
+ * How long without a sign-in counts as absent.
+ *
+ * It lives HERE, in the module with no server-only imports, so that
+ * adminPerformance and adminDormancy can both read it. Defining it beside the
+ * service-role client instead would have forced a second copy in here — and a
+ * page saying "dormant" while the alert beside it stayed quiet is the exact
+ * disagreement this whole panel keeps removing.
+ */
+export const DORMANT_AFTER_DAYS = 30;
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
 export function deriveAlerts(d: AlertInput): DerivedAlert[] {
@@ -108,14 +132,80 @@ export function deriveAlerts(d: AlertInput): DerivedAlert[] {
     });
   }
 
+  // Someone is being ignored, which outranks any queue depth: the other rows
+  // are work nobody has started, this one is a person who already wrote in and
+  // has been waiting since.
+  if (d.awaitingReply && d.awaitingReply > 0) {
+    const n = d.awaitingReply;
+    const meta: string[] = [];
+    if (d.longestWaitDays) meta.push(`Longest wait ${d.longestWaitDays} days`);
+    if (d.neverAnswered) {
+      meta.push(`${d.neverAnswered} ${plural(d.neverAnswered, "has", "have")} never had a reply from anyone`);
+    }
+    if (d.awaitingReplyOnDormant) {
+      meta.push(`${d.awaitingReplyOnDormant} waiting on a specialist who is not signing in`);
+    }
+    list.push({
+      id: "awaiting-reply",
+      priority: "urgent",
+      title: `${n} ${plural(n, "candidate")} ${plural(n, "is", "are")} waiting on a reply`,
+      meta: meta.length ? meta : ["Nobody has answered them"],
+      sla: { text: "Someone is waiting", tone: "critical" },
+      actionLabel: "Answer them",
+      href: "/admin/messages",
+      bellHref: "/admin/messages",
+    });
+  }
+
+  // An assignment to an absent specialist is worse than none: the candidate
+  // counts as routed everywhere that asks, so no other row here sees them.
+  if (d.assignedToDormant && d.assignedToDormant > 0) {
+    const n = d.assignedToDormant;
+    const who = d.dormantSpecialists ?? 0;
+    const meta = [
+      who > 0
+        ? `Held by ${who} ${plural(who, "specialist")} who ${plural(who, "has", "have")} not signed in for ${DORMANT_AFTER_DAYS}+ days`
+        : `Nobody has signed in to work them for ${DORMANT_AFTER_DAYS}+ days`,
+      "They count as routed everywhere else, so nothing else flags them",
+    ];
+    if (d.longestDormancyDays) meta.push(`Longest absence ${d.longestDormancyDays} days`);
+    list.push({
+      id: "dormant-queues",
+      priority: "urgent",
+      title: `${n} ${plural(n, "candidate")} ${plural(n, "sits", "sit")} with a specialist who is not signing in`,
+      meta,
+      sla: { text: "Nobody working them", tone: "critical" },
+      actionLabel: "Specialist queues",
+      href: "/admin/performance",
+      bellHref: "/admin/performance",
+    });
+  }
+
   if (d.needsRouting > 0) {
     const n = d.needsRouting;
     list.push({
       id: "routing",
       priority: "urgent",
-      title: `${n} ${plural(n, "candidate")} ${plural(n, "has", "have")} no talent specialist`,
-      meta: ["Unrouted candidates sit in nobody's queue"],
-      sla: { text: "Unassigned", tone: "critical" },
+      // Not "has no specialist" — this counts `assignment_pending_review`,
+      // candidates flagged for a routing decision. Someone with no specialist
+      // at all is the row below, and conflating the two hid both.
+      title: `${n} ${plural(n, "candidate")} ${plural(n, "is", "are")} waiting on a routing decision`,
+      meta: ["Flagged for review before their queue is set"],
+      sla: { text: "Decision owed", tone: "critical" },
+      actionLabel: "Route",
+      modal: "route",
+      bellHref: "/admin/triage",
+    });
+  }
+
+  if (d.unassignedLive && d.unassignedLive > 0) {
+    const n = d.unassignedLive;
+    list.push({
+      id: "unassigned-live",
+      priority: "today",
+      title: `${n} live ${plural(n, "candidate")} ${plural(n, "has", "have")} no talent specialist`,
+      meta: ["Visible to clients with nobody owning the relationship"],
+      sla: { text: "Unassigned", tone: "warn" },
       actionLabel: "Route",
       modal: "route",
       bellHref: "/admin/triage",

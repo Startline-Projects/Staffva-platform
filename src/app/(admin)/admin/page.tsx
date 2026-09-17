@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/Toast";
-import { countByPriority, deriveAlerts, type DerivedAlert } from "@/lib/adminAlerts";
+import { countByPriority, deriveAlerts, type AlertInput, type DerivedAlert } from "@/lib/adminAlerts";
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPES
@@ -140,9 +140,9 @@ export default function AdminDashboard() {
 
   const [modal, setModal] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
-  const [extra, setExtra] = useState<{ pendingBans: number; openDisputes: number; vendorsDown: string[] }>({
-    pendingBans: 0, openDisputes: 0, vendorsDown: [],
-  });
+  // Whatever /api/admin/alerts fed deriveAlerts. Null until it answers, so the
+  // rows it owns stay absent rather than rendering as zero.
+  const [extra, setExtra] = useState<AlertInput | null>(null);
   const [routeAssignments, setRouteAssignments] = useState<Record<string, string>>({});
   const [approveSearch, setApproveSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -172,23 +172,23 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Vendor state and open disputes are not in the command-centre payload, and
-  // both belong in the alert list. One extra light call rather than widening
-  // an endpoint that already runs thirty queries.
+  // Vendor state, open disputes and specialist dormancy are not in the
+  // command-centre payload, and all three belong in the alert list. One extra
+  // light call rather than widening an endpoint that already runs thirty
+  // queries.
+  //
+  // It takes the input the route fed deriveAlerts, not the rendered alerts.
+  // This used to recover the numbers by regex-matching the leading digits off
+  // alert titles, so rewording a title silently changed the dashboard's data —
+  // and any row whose title did not happen to start with a number could not be
+  // read back at all.
   useEffect(() => {
     let alive = true;
     fetch("/api/admin/alerts")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!alive || !d) return;
-        const rows = (d.alerts ?? []) as DerivedAlert[];
-        setExtra({
-          pendingBans: rows.some((a) => a.id === "pending-bans")
-            ? Number(rows.find((a) => a.id === "pending-bans")!.title.match(/^\d+/)?.[0] ?? 0) : 0,
-          openDisputes: rows.some((a) => a.id === "disputes")
-            ? Number(rows.find((a) => a.id === "disputes")!.title.match(/^\d+/)?.[0] ?? 0) : 0,
-          vendorsDown: rows.filter((a) => a.id.startsWith("vendor-")).map((a) => a.id.replace("vendor-", "")),
-        });
+        if (!alive || !d?.input) return;
+        setExtra(d.input as AlertInput);
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -338,9 +338,19 @@ export default function AdminDashboard() {
       testLockouts: data.identity.lockouts,
       coldClients: data.warmLeadsCount,
       thinRoles: data.talentPoolHealth.rolesBelow2,
-      pendingBans: extra.pendingBans,
-      openDisputes: extra.openDisputes,
-      vendorsDown: extra.vendorsDown,
+      // The command centre knows none of these; they arrive from the bell's
+      // endpoint. Until it answers, they are absent rather than zero.
+      pendingBans: extra?.pendingBans ?? 0,
+      openDisputes: extra?.openDisputes ?? 0,
+      vendorsDown: extra?.vendorsDown ?? [],
+      assignedToDormant: extra?.assignedToDormant,
+      dormantSpecialists: extra?.dormantSpecialists,
+      longestDormancyDays: extra?.longestDormancyDays,
+      unassignedLive: extra?.unassignedLive,
+      awaitingReply: extra?.awaitingReply,
+      awaitingReplyOnDormant: extra?.awaitingReplyOnDormant,
+      longestWaitDays: extra?.longestWaitDays,
+      neverAnswered: extra?.neverAnswered,
     });
   }, [data, extra]);
 

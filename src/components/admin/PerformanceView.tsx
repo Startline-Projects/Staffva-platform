@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { DORMANT_AFTER_DAYS, type PerformanceReport } from "@/lib/adminPerformance";
+import { type PerformanceReport } from "@/lib/adminPerformance";
+import { DORMANT_AFTER_DAYS } from "@/lib/adminAlerts";
+import DrainQueueButton from "@/components/admin/DrainQueueButton";
 
 const fmtDate = (v: string | null) =>
   v ? new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "never";
@@ -42,7 +44,8 @@ export default function PerformanceView({ report }: { report: PerformanceReport 
               {totals.dormantSpecialists} of the {withQueue.length} specialists holding a queue have
               been away for {DORMANT_AFTER_DAYS} days or more. Routing keeps handing candidates to
               accounts nobody is using, and a candidate in one of those queues is waiting on a
-              person who is not coming back to it.
+              person who is not coming back to it. <strong>Move queue</strong> on any row below
+              hands the whole queue to someone else in one decision.
             </div>
           </div>
         </div>
@@ -89,7 +92,15 @@ export default function PerformanceView({ report }: { report: PerformanceReport 
                       )}
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <Link href={`/admin/recruiters/${s.id}`} className="row-link">Open</Link>
+                      <div className="adm-row-actions">
+                        {/* Only where there is something to move and nobody
+                            moving it. A queue on someone who signs in is
+                            theirs to work, not an admin's to redistribute. */}
+                        {s.assigned > 0 && seenTone(s.daysSinceSignIn) !== "" && (
+                          <DrainQueueButton from={s} specialists={specialists} />
+                        )}
+                        <Link href={`/admin/recruiters/${s.id}`} className="row-link">Open</Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

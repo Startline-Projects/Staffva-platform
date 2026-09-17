@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { DORMANT_AFTER_DAYS } from "@/lib/adminAlerts";
 
 /**
  * How the talent specialists are actually doing.
@@ -49,8 +50,6 @@ export interface PerformanceReport {
   };
   internal: { threads: number; messages: number; members: number };
 }
-
-const DORMANT_DAYS = 30;
 
 function serviceClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -127,7 +126,7 @@ export async function loadPerformance(): Promise<PerformanceReport | null> {
   }).sort((a, b) => b.assigned - a.assigned);
 
   const dormant = specialists.filter(
-    (s) => s.daysSinceSignIn === null || s.daysSinceSignIn >= DORMANT_DAYS
+    (s) => s.daysSinceSignIn === null || s.daysSinceSignIn >= DORMANT_AFTER_DAYS
   );
 
   return {
@@ -146,5 +145,3 @@ export async function loadPerformance(): Promise<PerformanceReport | null> {
     },
   };
 }
-
-export const DORMANT_AFTER_DAYS = DORMANT_DAYS;
