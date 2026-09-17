@@ -26,6 +26,19 @@ export const ROLE_CATEGORY_GROUPS: Array<{ group: string; roles: string[] }> = [
 /** Single flat list of role names for validation. */
 export const ALL_ROLE_NAMES: string[] = ROLE_CATEGORY_GROUPS.flatMap((g) => g.roles);
 
+/**
+ * Which family a role belongs to — "Paralegal" → "Legal".
+ *
+ * AI screening needs this to judge "is this experience related to the role?"
+ * against the right family. Without it the only frame of reference was the
+ * hard-coded one in the prompt, which named Legal and Accounting and so read
+ * every one of the other eleven groups as unrelated work.
+ */
+export function groupForRole(role: string | null | undefined): string | null {
+  if (!role) return null;
+  return ROLE_CATEGORY_GROUPS.find((g) => g.roles.includes(role))?.group ?? null;
+}
+
 export type WorkExperienceEntry = {
   company_name?: string;
   role_title: string;

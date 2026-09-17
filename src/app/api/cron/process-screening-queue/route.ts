@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { describeUsExperience, hasUsExperience } from "@/lib/usExperienceLabels";
+import { groupForRole } from "@/lib/candidateOptions";
+import { SKILLS_BY_ROLE } from "@/lib/roleSkills";
 import { extractText } from "@/lib/anthropic";
 
 function getAdminClient() {
@@ -15,11 +17,53 @@ const MAX_RETRIES = 5;
 const BATCH_SIZE = 25;
 const RATE_LIMIT_BACKOFF_MS = 2 * 60 * 1000; // 2 minutes
 
-const SCREENING_PROMPT = `You are screening offshore professional candidates for U.S. law firms and accounting firms. Based on the candidate application below, return ONLY a valid JSON object with exactly three fields: tag, score, and reason. No other text. No markdown. No explanation outside the JSON.
+/**
+ * The screening rubric.
+ *
+ * The previous one opened "You are screening offshore professional candidates
+ * for U.S. law firms and accounting firms" and tagged Hold for any "role
+ * category completely unrelated to legal or accounting work". StaffVA recruits
+ * across thirteen role families — Tech, Medical, Marketing, Real Estate,
+ * Creative, Sales and the rest — so that clause auto-held four candidates in
+ * five for applying to a job the platform advertises. The landing page says
+ * "from paralegals to specialist VAs"; the screening only believed in the
+ * paralegals.
+ *
+ * Two rules carry the weight here:
+ *
+ *   · Judge the candidate against THE ROLE THEY APPLIED FOR. A software
+ *     engineer is not a weak paralegal. The role family is passed in so
+ *     "related experience" is measured against the right family rather than
+ *     against whatever the prompt happened to name.
+ *
+ *   · Missing information can never produce Hold. This is the whole lesson of
+ *     the placeholder defect: screening ran against a stage-1 record the
+ *     candidate had not filled in yet, the model correctly described an empty
+ *     form, and 85% of the pool was branded unqualified for it. An empty field
+ *     is an unfinished profile, not a weak candidate, and the two must not
+ *     share an outcome.
+ */
+const SCREENING_PROMPT = `You are screening candidates for StaffVA, a marketplace placing offshore professionals with U.S. businesses. Candidates apply across many role families: Legal, Accounting & Finance, Administrative, Sales & Outreach, Marketing & SEO, Scheduling & Support, Medical, Real Estate, HR & Recruitment, Creative & Design, Operations & E-commerce, and Tech.
 
-Scoring rules: Tag as Priority if they have 3+ years experience in paralegal, legal assistant, or bookkeeping roles AND have any prior US client experience AND their bio is written in clear professional English. Tag as Hold if they have under 1 year experience OR their bio has significant grammar issues OR their role category is completely unrelated to legal or accounting work. Tag everything else as Review.
+Judge this candidate ONLY against the role they applied for, shown in the "role" field, and against its family in "role_family". Do not measure them against any other profession. A Software Engineer is not a weak Paralegal — they are a different role and are scored as a Software Engineer.
 
-Score from 1-10 where 10 is a perfect candidate for a U.S. law firm or accounting firm.
+Return ONLY a valid JSON object with exactly three fields: tag, score, and reason. No other text. No markdown. No explanation outside the JSON.
+
+TAG — exactly one of "Priority", "Review", "Hold":
+
+"Priority" — strong for their own role: around 3+ years in that role or an adjacent one in the same family, AND either prior US client experience or skills and tools that genuinely match the role, AND a bio in clear professional English.
+
+"Hold" — positive evidence of a poor fit for the role they applied for: stated experience far below what the role needs, OR a bio whose English would not work in a US client-facing role, OR skills and tools that contradict the stated role.
+
+"Review" — everything else, INCLUDING every candidate whose profile is too incomplete to judge.
+
+Never return "Hold" because information is missing. A blank bio, no skills, no tools, or "Not provided" for US experience means the profile is unfinished, not that the person is unqualified — those are "Review", and the reason must name what is missing rather than describe the candidate as weak.
+
+Judging a role as unsuitable because it is not legal or accounting work is always wrong. Every family listed above is a role this marketplace recruits for.
+
+SCORE — 1 to 10, how strong this candidate is FOR THEIR OWN ROLE. 10 is outstanding for that role. Score the evidence actually present; where the profile is too thin to tell, return 5 and say so in the reason rather than scoring low for the gap.
+
+REASON — one sentence, describing this candidate specifically. If the profile is incomplete, say which fields are missing.
 
 Candidate data:
 `;
@@ -127,13 +171,23 @@ export async function GET(req: NextRequest) {
     }
 
     // Build candidate summary for Claude
+    // `/hrnth` was a typo for `/hr` and went to the model on every call for
+    // months. Also: the field is documented per-hour but is a cycle amount on
+    // some rows, so it is labelled rather than asserted.
+    const role = candidate.role_category as string | null;
+    const expected = role ? SKILLS_BY_ROLE[role] : undefined;
+
     const candidateSummary = JSON.stringify({
       name: candidate.full_name,
       country: candidate.country,
-      role: candidate.role_category,
-      experience: candidate.years_experience,
-      rate: `$${candidate.hourly_rate}/hrnth`,
-      bio: candidate.bio || "No bio provided",
+      role: role ?? "Not provided",
+      role_family: groupForRole(role) ?? "Not recognised",
+      // So "do their skills match the role?" is a question the model can
+      // actually answer, instead of one it has to guess the answer to.
+      skills_typical_for_this_role: expected ?? "unknown for this role",
+      experience: candidate.years_experience || "Not provided",
+      stated_rate: candidate.hourly_rate ? `$${candidate.hourly_rate}` : "Not provided",
+      bio: candidate.bio || "Not provided",
       us_experience: describeUsExperience(candidate.us_client_experience),
       has_us_experience: hasUsExperience(candidate.us_client_experience) ? "yes" : "no",
       skills: candidate.skills || [],
@@ -203,7 +257,14 @@ export async function GET(req: NextRequest) {
       }
 
       const screening = JSON.parse(jsonMatch[0]);
-      const tag = screening.tag || "Review";
+      // Every reader of this column — the triage board, the candidate filter,
+      // the recruiter queue, the reports breakdown — switches on exactly these
+      // three strings and renders nothing for anything else. An unrecognised
+      // tag was written straight through and became an invisible candidate.
+      const raw = typeof screening.tag === "string" ? screening.tag.trim() : "";
+      const tag = (["Priority", "Review", "Hold"] as const).find(
+        (t) => t.toLowerCase() === raw.toLowerCase()
+      ) ?? "Review";
       const score = Math.min(10, Math.max(1, parseInt(screening.score) || 5));
       const reason = (screening.reason || "").slice(0, 500);
 
@@ -274,7 +335,7 @@ async function alertPermanentFailures(supabase: ReturnType<typeof getAdminClient
     .select("id, candidate_id, error_text, retry_count, created_at")
     .eq("status", "failed")
     .gte("retry_count", MAX_RETRIES)
-    .is("processed_at", null)
+    .is("alerted_at", null)
     .limit(20);
 
   if (!failures || failures.length === 0 || !process.env.RESEND_API_KEY) return;
@@ -327,11 +388,17 @@ async function alertPermanentFailures(supabase: ReturnType<typeof getAdminClient
       `,
     }, { recipientKind: "staff", emailType: "screening_queue_failures" });
 
-    // Mark as alerted
+    // Mark as alerted.
+    //
+    // NOT by stamping processed_at, which this used to do. That column is the
+    // answer to "when was this candidate screened", and writing it on rows
+    // that were never screened made a permanently failed screening
+    // indistinguishable from a successful one — including to the staleness
+    // check that decides whether a tag still describes the record.
     for (const f of failures) {
       await supabase
         .from("screening_queue")
-        .update({ processed_at: new Date().toISOString() })
+        .update({ alerted_at: new Date().toISOString() })
         .eq("id", f.id);
     }
   } catch { /* silent */ }
