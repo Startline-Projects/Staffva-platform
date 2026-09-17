@@ -17,9 +17,11 @@ export default function ScreeningHealthPanel({ health }: { health: ScreeningHeal
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [queued, setQueued] = useState<number | null>(null);
+  const [queued, setQueued] = useState<{ n: number; skipped: number } | null>(null);
 
   const staleCount = health.stale.length;
+  // "All" can only ever mean the people there is something to screen for.
+  const screenableCount = health.total - health.unfinishedApplications;
   const holdShare = health.total > 0 ? Math.round((health.tags.Hold / health.total) * 100) : 0;
   const inFlight = health.queue.pending + health.queue.processing + health.queue.rate_limited;
 
@@ -37,7 +39,7 @@ export default function ScreeningHealthPanel({ health }: { health: ScreeningHeal
         setError(body.error ?? "Nothing was queued.");
         return;
       }
-      setQueued(body.queued ?? 0);
+      setQueued({ n: body.queued ?? 0, skipped: body.skippedUnfinished ?? 0 });
       router.refresh();
     } catch {
       setError("The server could not be reached.");
@@ -58,11 +60,18 @@ export default function ScreeningHealthPanel({ health }: { health: ScreeningHeal
 
       {queued !== null ? (
         <p className="rec-prose">
-          <strong>{queued.toLocaleString()}</strong>{" "}
-          {queued === 1 ? "candidate is" : "candidates are"} queued for re-screening. The cron works
+          <strong>{queued.n.toLocaleString()}</strong>{" "}
+          {queued.n === 1 ? "candidate is" : "candidates are"} queued for re-screening. The cron works
           through 25 a minute and writes each new tag as it lands, so the numbers below will move
-          for about {Math.max(1, Math.ceil(queued / 25))} minute{Math.ceil(queued / 25) === 1 ? "" : "s"}.
+          for about {Math.max(1, Math.ceil(queued.n / 25))} minute{Math.ceil(queued.n / 25) === 1 ? "" : "s"}.
           Existing tags stay until a new one replaces them.
+          {queued.skipped > 0 && (
+            <>
+              {" "}{queued.skipped.toLocaleString()} unfinished{" "}
+              {queued.skipped === 1 ? "application was" : "applications were"} left out — there is
+              nothing to screen until {queued.skipped === 1 ? "it is" : "they are"} submitted.
+            </>
+          )}
         </p>
       ) : (
         <>
@@ -113,6 +122,16 @@ export default function ScreeningHealthPanel({ health }: { health: ScreeningHeal
             </p>
           )}
 
+          {health.unfinishedApplications > 0 && (
+            <p className="rec-note-line" style={{ marginBottom: 10 }}>
+              {health.unfinishedApplications.toLocaleString()} candidate
+              {health.unfinishedApplications === 1 ? " has" : "s have"} an unfinished application and{" "}
+              {health.unfinishedApplications === 1 ? "is" : "are"} left out of everything below. Their
+              tags are from the placeholder form, and they stay that way until the candidate submits —
+              there is nothing to re-screen them against.
+            </p>
+          )}
+
           {health.neverQueued > 0 && (
             <p className="rec-note-line" style={{ marginBottom: 10 }}>
               {health.neverQueued.toLocaleString()} candidate
@@ -142,8 +161,8 @@ export default function ScreeningHealthPanel({ health }: { health: ScreeningHeal
               {busy
                 ? "Queueing…"
                 : health.neverQueued > 0
-                  ? `Re-screen all ${health.total.toLocaleString()}, including the ${health.neverQueued} never screened`
-                  : `Re-screen all ${health.total.toLocaleString()}`}
+                  ? `Re-screen all ${screenableCount.toLocaleString()}, including the ${health.neverQueued} never screened`
+                  : `Re-screen all ${screenableCount.toLocaleString()}`}
             </button>
           </div>
 

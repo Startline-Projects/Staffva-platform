@@ -49,8 +49,15 @@ export interface ScreeningHealth {
   staleBeforeProfile: number;
   /** Screened under the previous rubric, whatever the record looked like. */
   staleOldRubric: number;
-  /** Ids worth re-running: the union of the two above. */
+  /** Ids worth re-running: the union of the two above, and only people who can be screened. */
   stale: string[];
+  /**
+   * Candidates who started an application and never finished stage 2. There
+   * is nothing to screen, so they are never stale and never re-queued: the
+   * cron would only defer them, and re-queueing all 59 at once is exactly what
+   * jammed the queue in simulation.
+   */
+  unfinishedApplications: number;
   queue: { pending: number; processing: number; rate_limited: number; failed: number; complete: number };
 }
 
@@ -71,7 +78,7 @@ export async function loadScreeningHealth(): Promise<ScreeningHealth | null> {
   const db = serviceClient();
 
   const [candRes, queueRes] = await Promise.all([
-    db.from("candidates").select("id, screening_tag, stage2_completed_at, profile_completed_at"),
+    db.from("candidates").select("id, screening_tag, application_stage, stage2_completed_at, profile_completed_at"),
     db.from("screening_queue").select("candidate_id, status, processed_at"),
   ]);
   if (candRes.error || !candRes.data) return null;
@@ -91,6 +98,7 @@ export async function loadScreeningHealth(): Promise<ScreeningHealth | null> {
   let neverQueued = 0;
   let staleBeforeProfile = 0;
   let staleOldRubric = 0;
+  let unfinishedApplications = 0;
   const stale: string[] = [];
 
   for (const c of candRes.data) {
@@ -99,6 +107,14 @@ export async function loadScreeningHealth(): Promise<ScreeningHealth | null> {
     else tags.untagged += 1;
 
     const id = c.id as string;
+
+    // Before anything else: a stage-1 record has no data to judge. Counting it
+    // as stale would put it in the re-queue, where the cron can only defer it.
+    if (((c.application_stage as number | null) ?? 0) < 2) {
+      unfinishedApplications += 1;
+      continue;
+    }
+
     if (!screenedAt.has(id)) {
       neverQueued += 1;
       continue;
@@ -131,6 +147,7 @@ export async function loadScreeningHealth(): Promise<ScreeningHealth | null> {
     staleBeforeProfile,
     staleOldRubric,
     stale,
+    unfinishedApplications,
     queue,
   };
 }

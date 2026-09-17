@@ -75,9 +75,14 @@ export async function POST(req: NextRequest) {
       // failure was per-role, and twenty Virtual Assistants all failing the
       // same way looks identical to twenty candidates being weak. Spreading
       // across families is what makes the result legible.
-      const { data, error } = await admin()
-        .from("candidates").select("id, role_category").in("id", health.stale);
-      if (error || !data) return NextResponse.json({ error: "Could not read the candidates." }, { status: 500 });
+      // Chunked for the same reason as the stage check below.
+      const data: { id: string; role_category: string | null }[] = [];
+      for (let i = 0; i < health.stale.length; i += 100) {
+        const { data: page, error } = await admin()
+          .from("candidates").select("id, role_category").in("id", health.stale.slice(i, i + 100));
+        if (error || !page) return NextResponse.json({ error: "Could not read the candidates." }, { status: 500 });
+        data.push(...(page as { id: string; role_category: string | null }[]));
+      }
 
       const seen = new Set<string>();
       const spread: string[] = [];
@@ -93,11 +98,41 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (ids.length === 0) {
-    return NextResponse.json({ queued: 0, message: "Nothing needed re-screening." });
-  }
-
   const db = admin();
+
+  // One filter after every scope has resolved — explicit lists included —
+  // rather than trusting each branch above to have remembered. A candidate who
+  // never finished stage 2 has nothing to screen; the cron can only defer them,
+  // and before its deferral carried a backoff, re-queueing the 59 who exist
+  // today jammed the queue at position 78 and would have stopped screening for
+  // every applicant after them. The backoff fixed the jam. This keeps the
+  // pointless work out of the queue in the first place.
+  //
+  // Chunked: `.in()` goes into the query string, and 257 uuids is ~9.5KB —
+  // around where gateways start refusing the URL outright.
+  const screenable = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: stages, error: stageErr } = await db
+      .from("candidates").select("id, application_stage").in("id", ids.slice(i, i + 100));
+    if (stageErr || !stages) {
+      return NextResponse.json({ error: "Could not check which candidates can be screened." }, { status: 500 });
+    }
+    for (const c of stages) {
+      if (((c.application_stage as number | null) ?? 0) >= 2) screenable.add(c.id as string);
+    }
+  }
+  const skippedUnfinished = ids.filter((id) => !screenable.has(id)).length;
+  ids = ids.filter((id) => screenable.has(id));
+
+  if (ids.length === 0) {
+    return NextResponse.json({
+      queued: 0,
+      skippedUnfinished,
+      message: skippedUnfinished > 0
+        ? "Every selected candidate has an unfinished application, so there is nothing to screen."
+        : "Nothing needed re-screening.",
+    });
+  }
 
   // Upsert on candidate_id: a candidate already holding a queue row is reset
   // to pending rather than given a second one. Two rows for one candidate
@@ -134,11 +169,12 @@ export async function POST(req: NextRequest) {
     subjectType: "candidate",
     subjectId: null,
     summary: `Queued ${ids.length} candidate${ids.length === 1 ? "" : "s"} for re-screening`,
-    detail: { scope: scope ?? "explicit", count: ids.length, candidateIds: ids.slice(0, 50) },
+    detail: { scope: scope ?? "explicit", count: ids.length, skippedUnfinished, candidateIds: ids.slice(0, 50) },
   });
 
   return NextResponse.json({
     queued: ids.length,
+    skippedUnfinished,
     warnings: recorded ? [] : ["the action was not written to the audit log"],
   });
 }
