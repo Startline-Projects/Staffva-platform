@@ -30,6 +30,7 @@ export type AuditAction =
   | "candidate.appeal_decided"
   | "candidate.reassign_bulk"
   | "candidate.rescreen_queued"
+  | "recording.viewed"
   | "ban.confirm"
   | "ban.dismiss"
   | "lockout.lift"
