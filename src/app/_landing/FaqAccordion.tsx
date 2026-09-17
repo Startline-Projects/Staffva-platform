@@ -9,7 +9,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'What does it cost to hire someone?',
-    answer: `<p>Browsing, messaging, and viewing profiles is free. When you're ready to hire, you see the total cost upfront on the checkout screen — the professional's rate plus the service total. <strong>Your payment is held in escrow until you approve delivery.</strong> No subscription. No monthly minimums. You only pay when work is happening.</p>`,
+    answer: `<p>Browsing, messaging, and viewing profiles is free. When you're ready to hire, you see the total cost upfront on the checkout screen — the professional's rate plus the service total. <strong>Your payment is held in escrow until you approve delivery.</strong> No subscription is needed to hire, and there are no monthly minimums. The one optional extra is reading candidates' full interview transcripts, at $10 a month or $50 a year.</p>`,
   },
   {
     question: 'How are candidates vetted?',

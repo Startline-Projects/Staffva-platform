@@ -6,7 +6,17 @@ import { NextResponse, type NextRequest } from "next/server";
 // reason the mfaPending branch spells out: without it, an MFA detour on the
 // way back from Stripe drops ?id_check=returning, and the page it lands on
 // never polls for the result.
-const protectedRoutes = ["/apply", "/inbox", "/messages", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
+const protectedRoutes = [
+  "/apply", "/inbox", "/messages", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment",
+  // The rest of the client portal. These were protected only by the
+  // (client-portal) layout, which redirects to a FIXED /login?next=/team —
+  // and a layout runs before its page, so every page's own
+  // redirect("/login?next=/billing") was unreachable. A signed-out client
+  // opening a bookmarked /billing, or the /approvals link in a "payment
+  // needs funding" email, was sent to the dashboard after signing in.
+  // Listing them here lets the redirect below carry the real destination.
+  "/approvals", "/billing", "/contracts", "/help", "/interviews", "/proposals", "/reviews", "/settings", "/shortlists",
+];
 
 // Routes only for unauthenticated users
 const authRoutes = ["/login", "/signup"];

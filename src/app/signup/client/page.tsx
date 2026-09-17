@@ -370,7 +370,7 @@ export default function ClientSignupPage() {
                   <path d="M9 1.5 2.25 4.5v4.125c0 3.75 2.813 7.125 6.75 7.875 3.938-.75 6.75-4.125 6.75-7.875V4.5L9 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
                   <path d="m6.5 9 1.875 1.875L11.5 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span>Free to sign up. Free to browse, message, and interview. You only pay when you fund an engagement — there&apos;s no subscription.</span>
+                <span>Free to sign up. Free to browse, message, and interview. Hiring costs nothing until you fund an engagement. The one optional extra is reading full interview transcripts, at $10 a month.</span>
               </div>
 
               <div className="form-card">

@@ -96,7 +96,7 @@ export const ARTICLES: HelpArticle[] = [
     title: "What StaffVA charges",
     category: "money",
     summary: "10%, added on top of your hire's rate. They receive their full rate.",
-    source: "src/lib/escrowMoney.ts (PLATFORM_FEE_RATE), src/app/api/escrow/fund, src/lib/payouts.ts",
+    source: "src/lib/escrowMoney.ts (PLATFORM_FEE_RATE), src/app/api/escrow/fund, src/lib/payouts.ts, src/lib/transcriptAccess.ts",
     body: [
       { kind: "p", text: "StaffVA charges 10%, and it is added ON TOP of what you agreed to pay. It is not deducted from your hire." },
       { kind: "p", text: "If you agreed $500 for a pay period, you are charged $550 and your hire receives $500. The rate you negotiate is the rate they get." },
@@ -105,7 +105,7 @@ export const ARTICLES: HelpArticle[] = [
         "Approvals shows the fee-inclusive figure on the button before you fund anything.",
         "Billing shows what you were charged, and the CSV export breaks out their amount, our fee and your total as separate columns.",
       ]},
-      { kind: "note", text: "There is no subscription, no per-seat charge, no posting fee and no charge for browsing, messaging or interviewing. The 10% on released work is the whole of it." },
+      { kind: "note", text: "There is no per-seat charge, no posting fee and no charge for browsing, messaging or interviewing, and hiring never requires a subscription — the 10% on released work is the whole cost of an engagement. The one optional extra is transcript access: $10 a month or $50 a year to read candidates' full screening interviews. Scores and feedback on a profile are free either way." },
     ],
   },
   {
