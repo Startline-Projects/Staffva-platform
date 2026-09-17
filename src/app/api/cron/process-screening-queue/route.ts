@@ -16,6 +16,13 @@ function getAdminClient() {
 const MAX_RETRIES = 5;
 const BATCH_SIZE = 25;
 const RATE_LIMIT_BACKOFF_MS = 2 * 60 * 1000; // 2 minutes
+/**
+ * How long a stage-1 application waits before it is looked at again. Nothing
+ * downstream is gated on screening_tag, so an hour's delay after someone
+ * finishes stage 2 costs nothing — and it keeps an unfinished application from
+ * being claimed sixty times an hour.
+ */
+const DEFER_MS = 60 * 60 * 1000;
 
 /**
  * The screening rubric.
@@ -100,11 +107,23 @@ export async function GET(req: NextRequest) {
     .eq("status", "processing")
     .lt("claimed_at", new Date(now.getTime() - STRANDED_AFTER_MS).toISOString());
 
-  // Select pending + rate_limited items where retry is due
+  // Select pending + rate_limited items where retry is due.
+  //
+  // Pending rows honour next_retry_at too, not only rate-limited ones. The
+  // stage-1 deferral below puts a row back to pending; it used to leave it
+  // there with its original created_at, so it stayed at the head of this
+  // created_at-ordered queue and was claimed again on the very next run. Once
+  // BATCH_SIZE deferred rows reached the head, every run claimed the same 25,
+  // deferred all 25, and screened nobody — permanently, for every candidate
+  // queued behind them, including every new applicant. 59 queued candidates
+  // are at stage 1 today; a bulk re-queue would have jammed at position 78
+  // and stranded 141 of the 194 who can be screened. A deferral now carries a
+  // backoff, and a pending row is not eligible until it has passed.
+  const iso = now.toISOString();
   const { data: items } = await supabase
     .from("screening_queue")
     .select("*")
-    .or(`status.eq.pending,and(status.eq.rate_limited,next_retry_at.lte.${now.toISOString()})`)
+    .or(`and(status.eq.pending,or(next_retry_at.is.null,next_retry_at.lte.${iso})),and(status.eq.rate_limited,next_retry_at.lte.${iso})`)
     .lt("retry_count", MAX_RETRIES)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE);
@@ -151,6 +170,9 @@ export async function GET(req: NextRequest) {
         .update({
           status: "pending",
           claimed_at: null,
+          // Out of the way until then — see the work query above. Without
+          // this the row is the oldest pending one again on the next run.
+          next_retry_at: new Date(Date.now() + DEFER_MS).toISOString(),
           error_text: "deferred: application not yet submitted",
         })
         .eq("id", item.id);
