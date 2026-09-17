@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { countOrNull, sumOrNull } from "@/lib/readCount";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { isLive } from "@/lib/candidateStatus";
 
@@ -79,12 +80,13 @@ async function assertStaff() {
   return { user, role };
 }
 
+/** null = that population could not be counted. `total` is null if any part is. */
 export interface PopulationCounts {
-  candidates: number;
-  clients: number;
-  specialists: number;
-  staff: number;
-  total: number;
+  candidates: number | null;
+  clients: number | null;
+  specialists: number | null;
+  staff: number | null;
+  total: number | null;
 }
 
 export async function loadCounts(): Promise<PopulationCounts | null> {
@@ -99,12 +101,14 @@ export async function loadCounts(): Promise<PopulationCounts | null> {
   ]);
 
   const counts = {
-    candidates: cand.count ?? 0,
-    clients: cli.count ?? 0,
-    specialists: spec.count ?? 0,
-    staff: stf.count ?? 0,
+    candidates: countOrNull(cand),
+    clients: countOrNull(cli),
+    specialists: countOrNull(spec),
+    staff: countOrNull(stf),
   };
-  return { ...counts, total: counts.candidates + counts.clients + counts.specialists + counts.staff };
+  // A total that silently left out a population it could not count would be
+  // wrong by exactly the amount nobody can see.
+  return { ...counts, total: sumOrNull(counts.candidates, counts.clients, counts.specialists, counts.staff) };
 }
 
 function candidateStatus(admin_status: string | null, banPending: boolean): UserRow["status"] {
@@ -143,7 +147,7 @@ export async function loadDirectory(
       .select("id, full_name, display_name, email, role_category, country, admin_status, created_at, profile_photo_url, ban_pending_review", { count: "exact" });
     if (q) sel = sel.or(`full_name.ilike.%${q}%,display_name.ilike.%${q}%,email.ilike.%${q}%`);
     const { data, count, error } = await sel.order("created_at", { ascending: false }).range(from, to);
-    if (error) return null;
+    if (error || count === null) return null;
 
     return {
       rows: (data ?? []).map((c) => ({
@@ -161,7 +165,7 @@ export async function loadDirectory(
         // admin record above works for every candidate regardless.
         publicHref: isLive(c.admin_status) ? `/candidate/${c.id}` : null,
       })),
-      total: count ?? 0,
+      total: count,
       page,
       pageSize: PAGE_SIZE,
     };
@@ -171,7 +175,7 @@ export async function loadDirectory(
     let sel = db.from("clients").select("id, full_name, email, company_name, created_at", { count: "exact" });
     if (q) sel = sel.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,company_name.ilike.%${q}%`);
     const { data, count, error } = await sel.order("created_at", { ascending: false }).range(from, to);
-    if (error) return null;
+    if (error || count === null) return null;
 
     return {
       rows: (data ?? []).map((c) => ({
@@ -188,7 +192,7 @@ export async function loadDirectory(
         hrefLabel: "Record",
         publicHref: null,
       })),
-      total: count ?? 0,
+      total: count,
       page,
       pageSize: PAGE_SIZE,
     };
@@ -201,7 +205,7 @@ export async function loadDirectory(
     .in("role", roles);
   if (q) sel = sel.or(`full_name.ilike.%${q}%,email.ilike.%${q}%`);
   const { data, count, error } = await sel.order("created_at", { ascending: false }).range(from, to);
-  if (error) return null;
+  if (error || count === null) return null;
 
   const ROLE_TEXT: Record<string, string> = {
     recruiter: "Talent specialist",
@@ -228,7 +232,7 @@ export async function loadDirectory(
       hrefLabel: population === "specialists" ? "Record" : "Managers & admins",
       publicHref: null,
     })),
-    total: count ?? 0,
+    total: count,
     page,
     pageSize: PAGE_SIZE,
   };

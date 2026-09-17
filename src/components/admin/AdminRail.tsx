@@ -229,6 +229,9 @@ function NavRow({
       {typeof count === "number" && count > 0 && (
         <span className={`nav-counter${row.tone ? ` ${row.tone}` : ""}`}>{format(count)}</span>
       )}
+      {count === null && (
+        <span className="nav-counter unread" title="This count could not be read — it is not zero." aria-label="count unavailable">?</span>
+      )}
     </Link>
   );
 }

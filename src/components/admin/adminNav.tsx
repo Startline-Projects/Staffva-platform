@@ -31,7 +31,12 @@ export type BadgeKey =
   | "teamInbox"
   | "pendingBans";
 
-export type AdminBadges = Partial<Record<BadgeKey, number>>;
+/**
+ * A missing key is "not loaded yet". null is "the count could not be read" —
+ * the rail marks that row rather than showing nothing, because an absent
+ * counter on Triage or Pending Bans is how those rows say "nothing waiting".
+ */
+export type AdminBadges = Partial<Record<BadgeKey, number | null>>;
 
 export interface AdminNavRow {
   label: string;

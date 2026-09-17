@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { showCount } from "@/lib/readCount";
 
 interface QueueStats {
+  // null = the endpoint could not count that bucket. Rendered as "—", never 0.
   counts: {
-    pending: number;
-    processing: number;
-    complete: number;
-    failed: number;
-    rate_limited: number;
+    pending: number | null;
+    processing: number | null;
+    complete: number | null;
+    failed: number | null;
+    rate_limited: number | null;
   };
-  total: number;
-  processedToday: number;
+  total: number | null;
+  processedToday: number | null;
   recentFailures: {
     id: string;
     candidate_id: string;
@@ -56,7 +58,8 @@ export default function ScreeningQueueWidget() {
   if (!stats) return null;
 
   const { counts } = stats;
-  const activeCount = counts.pending + counts.processing + counts.rate_limited;
+  // Only pulses when work is KNOWN to be in flight; an unread bucket is not activity.
+  const activeCount = (counts.pending ?? 0) + (counts.processing ?? 0) + (counts.rate_limited ?? 0);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
@@ -73,30 +76,30 @@ export default function ScreeningQueueWidget() {
 
       <div className="grid grid-cols-5 gap-2">
         <div className="rounded-lg bg-yellow-50 p-2.5 text-center">
-          <p className="text-lg font-bold text-yellow-700">{counts.pending}</p>
+          <p className="text-lg font-bold text-yellow-700">{showCount(counts.pending)}</p>
           <p className="text-[10px] text-yellow-600 font-medium">Pending</p>
         </div>
         <div className="rounded-lg bg-blue-50 p-2.5 text-center">
-          <p className="text-lg font-bold text-blue-700">{counts.processing}</p>
+          <p className="text-lg font-bold text-blue-700">{showCount(counts.processing)}</p>
           <p className="text-[10px] text-blue-600 font-medium">Processing</p>
         </div>
         <div className="rounded-lg bg-green-50 p-2.5 text-center">
-          <p className="text-lg font-bold text-green-700">{counts.complete}</p>
+          <p className="text-lg font-bold text-green-700">{showCount(counts.complete)}</p>
           <p className="text-[10px] text-green-600 font-medium">Complete</p>
         </div>
         <div className="rounded-lg bg-red-50 p-2.5 text-center">
-          <p className="text-lg font-bold text-red-700">{counts.failed}</p>
+          <p className="text-lg font-bold text-red-700">{showCount(counts.failed)}</p>
           <p className="text-[10px] text-red-600 font-medium">Failed</p>
         </div>
         <div className="rounded-lg bg-amber-50 p-2.5 text-center">
-          <p className="text-lg font-bold text-amber-700">{counts.rate_limited}</p>
+          <p className="text-lg font-bold text-amber-700">{showCount(counts.rate_limited)}</p>
           <p className="text-[10px] text-amber-600 font-medium">Rate Ltd</p>
         </div>
       </div>
 
       <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-        <span>Total: {stats.total}</span>
-        <span>Today: {stats.processedToday} screened</span>
+        <span>Total: {showCount(stats.total)}</span>
+        <span>Today: {showCount(stats.processedToday)} screened</span>
       </div>
 
       {stats.recentFailures.length > 0 && (

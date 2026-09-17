@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { countOrNull } from "@/lib/readCount";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 /**
@@ -31,8 +32,10 @@ export interface ClientRecord {
   lastSignInAt: string | null;
   engagements: { id: string; status: string; createdAt: string; platformFeeUsd: number | null }[];
   jobPosts: { id: string; title: string | null; status: string | null; createdAt: string }[];
-  profileViews: number;
-  shortlists: number;
+  /** null = could not be read. */
+  profileViews: number | null;
+  /** null = could not be read. */
+  shortlists: number | null;
   /**
    * Columns that exist on `clients` but are unset for every client on the
    * platform. The record lists them so a reader can tell "this client has not
@@ -66,8 +69,11 @@ export async function loadClientRecord(id: string): Promise<ClientRecord | null>
     db.from("client_shortlists").select("id", { count: "exact", head: true }).eq("client_id", id),
     Promise.all(
       CLIENT_OPTIONAL_FIELDS.map(async (f) => {
-        const { count } = await db.from("clients").select("id", { count: "exact", head: true }).not(f.column, "is", null);
-        return { label: f.label, used: count ?? 0 };
+        const res = await db.from("clients").select("id", { count: "exact", head: true }).not(f.column, "is", null);
+        // null, not 0, when unread. The filter below is strictly `=== 0`, so an
+        // unread column is never reported as one nobody on the platform uses —
+        // which is a claim about every client, made from a query that failed.
+        return { label: f.label, used: countOrNull(res) };
       })
     ),
   ]);
@@ -86,8 +92,8 @@ export async function loadClientRecord(id: string): Promise<ClientRecord | null>
       platformFeeUsd: e.platform_fee_usd === null ? null : Number(e.platform_fee_usd),
     })),
     jobPosts: (jobRes.data ?? []).map((j) => ({ id: j.id, title: j.title, status: j.status, createdAt: j.created_at })),
-    profileViews: viewRes.count ?? 0,
-    shortlists: shortRes.count ?? 0,
+    profileViews: countOrNull(viewRes),
+    shortlists: countOrNull(shortRes),
     unusedAcrossPlatform: unusedCounts.filter((u) => u.used === 0).map((u) => u.label),
   };
 }
@@ -112,8 +118,10 @@ export interface SpecialistRecord {
    * Candidates matching those categories. StaffVA decides "whose queue is
    * this" two different ways and they do not agree; see the record.
    */
-  categoryQueueTotal: number;
-  messagesSent: number;
+  /** null = could not be read. */
+  categoryQueueTotal: number | null;
+  /** null = could not be read. */
+  messagesSent: number | null;
 }
 
 export async function loadSpecialistRecord(id: string): Promise<SpecialistRecord | null> {
@@ -147,13 +155,13 @@ export async function loadSpecialistRecord(id: string): Promise<SpecialistRecord
 
   const categories = [...new Set((catRes.data ?? []).map((r) => r.role_category).filter(Boolean))];
 
-  let categoryQueueTotal = 0;
+  // No categories claimed is a true zero. A count that failed is not.
+  let categoryQueueTotal: number | null = 0;
   if (categories.length > 0) {
-    const { count } = await db
+    categoryQueueTotal = countOrNull(await db
       .from("candidates")
       .select("id", { count: "exact", head: true })
-      .in("role_category", categories);
-    categoryQueueTotal = count ?? 0;
+      .in("role_category", categories));
   }
 
   const authUser = authRes.data?.user;
@@ -179,6 +187,6 @@ export async function loadSpecialistRecord(id: string): Promise<SpecialistRecord
     },
     categories,
     categoryQueueTotal,
-    messagesSent: msgRes.count ?? 0,
+    messagesSent: countOrNull(msgRes),
   };
 }

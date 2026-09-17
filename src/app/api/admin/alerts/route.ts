@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { countByPriority, deriveAlerts, type AlertInput } from "@/lib/adminAlerts";
 import { loadDormancyFacts } from "@/lib/adminDormancy";
+import { FailedReads } from "@/lib/readCount";
 import { isLive } from "@/lib/candidateStatus";
 
 /**
@@ -57,14 +58,12 @@ export async function GET() {
     db.from("profile_views").select("client_id").gte("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString()),
   ]);
 
-  // A failed count used to become 0 through `?? 0`, and a zero here is an
-  // alert that never appears. Name what could not be read instead.
-  const failedChecks = ([
-    ["candidate total", totalRes], ["profile reviews", reviewRes], ["routing decisions", routingRes],
-    ["screening holds", holdRes], ["test lockouts", lockoutRes], ["ban requests", bansRes],
-    ["open disputes", disputesRes], ["vendor health", vendorsRes], ["role depth", rolesRes],
-    ["clients", clientsRes], ["engagements", engRes],
-  ] as const).filter(([, res]) => Boolean(res.error)).map(([label]) => label as string);
+  // Every number below feeds a threshold, so it has to stay a number — and a
+  // false zero here does not show a wrong figure, it removes a row from a list
+  // of problems. `failed.count()` hands back the zero and records the label in
+  // one act, so no zero can reach deriveAlerts without being reportable. They
+  // were two separate lists once; nothing kept them in step.
+  const failed = new FailedReads();
 
   // null = the read failed. The spread below then contributes nothing and the
   // dormancy rows stay silent, rather than an unread count rendering as an
@@ -74,7 +73,7 @@ export async function GET() {
   // Thin bench depth, same rule the dashboard uses: fewer than two candidates
   // in the pipeline for every one already live, in a category that has any.
   const roleStats = new Map<string, { live: number; pending: number }>();
-  for (const c of rolesRes.data ?? []) {
+  for (const c of failed.rows("role depth", rolesRes)) {
     const key = c.role_category || "Unknown";
     if (!roleStats.has(key)) roleStats.set(key, { live: 0, pending: 0 });
     const e = roleStats.get(key)!;
@@ -85,21 +84,20 @@ export async function GET() {
   for (const [, s] of roleStats) if (s.live > 0 && s.pending / s.live < 2) thinRoles += 1;
 
   // Clients with no active engagement — the "browsed and never hired" set.
-  const activeClients = new Set((engRes.data ?? []).filter((e) => e.status === "active").map((e) => e.client_id));
-  const coldClients = (clientsRes.data ?? []).filter((c) => !activeClients.has(c.id)).length;
+  const activeClients = new Set(failed.rows("engagements", engRes).filter((e) => e.status === "active").map((e) => e.client_id));
+  const coldClients = failed.rows("clients", clientsRes).filter((c) => !activeClients.has(c.id)).length;
 
   const input: AlertInput = {
-    totalCandidates: totalRes.count ?? 0,
-    pendingProfileReview: reviewRes.count ?? 0,
-    needsRouting: routingRes.count ?? 0,
-    screeningHold: holdRes.count ?? 0,
-    testLockouts: lockoutRes.count ?? 0,
+    totalCandidates: failed.count("candidate total", totalRes),
+    pendingProfileReview: failed.count("profile reviews", reviewRes),
+    needsRouting: failed.count("routing decisions", routingRes),
+    screeningHold: failed.count("screening holds", holdRes),
+    testLockouts: failed.count("test lockouts", lockoutRes),
     coldClients,
     thinRoles,
-    pendingBans: bansRes.count ?? 0,
-    openDisputes: disputesRes.count ?? 0,
-    vendorsDown: (vendorsRes.data ?? []).filter((v) => !v.ok).map((v) => v.vendor),
-    failedChecks: dormancy === null ? [...failedChecks, "specialist queues and unanswered messages"] : failedChecks,
+    pendingBans: failed.count("ban requests", bansRes),
+    openDisputes: failed.count("open disputes", disputesRes),
+    vendorsDown: failed.rows("vendor health", vendorsRes).filter((v) => !v.ok).map((v) => v.vendor),
     ...(dormancy
       ? {
           assignedToDormant: dormancy.assignedToDormant,
@@ -113,6 +111,11 @@ export async function GET() {
         }
       : {}),
   };
+
+  if (dormancy === null) failed.note("specialist queues and unanswered messages");
+  // Assigned last: object-literal fields evaluate in order, and this has to see
+  // every label the reads above left behind.
+  input.failedChecks = failed.labels;
 
   const alerts = deriveAlerts(input);
 
@@ -129,6 +132,6 @@ export async function GET() {
     checkedAt: new Date().toISOString(),
     // So the bell can say the dormancy rows are missing rather than absent.
     dormancyRead: dormancy !== null,
-    viewsSeen: (viewsRes.data ?? []).length,
+    viewsSeen: viewsRes.error || !viewsRes.data ? null : viewsRes.data.length,
   });
 }

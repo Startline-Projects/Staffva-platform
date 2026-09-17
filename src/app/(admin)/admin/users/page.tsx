@@ -1,3 +1,4 @@
+import Fig from "@/components/admin/Fig";
 import Link from "next/link";
 import {
   PAGE_SIZE,
@@ -75,15 +76,15 @@ export default async function AdminUsersPage({
           <div className="adm-eyebrow">Directory</div>
           <h1>Everyone on <span className="adm-serif-italic">StaffVA.</span></h1>
           <div className="adm-subhead">
-            <strong>{counts.total.toLocaleString()}</strong> accounts
+            <strong><Fig n={counts.total} /></strong> accounts
             <span className="sep">·</span>
-            {counts.candidates.toLocaleString()} candidates
+            <Fig n={counts.candidates} /> candidates
             <span className="sep">·</span>
-            {counts.clients.toLocaleString()} clients
+            <Fig n={counts.clients} /> clients
             <span className="sep">·</span>
-            {counts.specialists} specialists
+            <Fig n={counts.specialists} /> specialists
             <span className="sep">·</span>
-            {counts.staff} staff
+            <Fig n={counts.staff} /> staff
           </div>
         </div>
       </div>
@@ -106,7 +107,7 @@ export default async function AdminUsersPage({
             className={`users-tab${tab === p.id ? " active" : ""}`}
           >
             {p.label}
-            <span className="tab-count">{counts[p.id].toLocaleString()}</span>
+            <span className="tab-count"><Fig n={counts[p.id]} /></span>
           </Link>
         ))}
       </div>

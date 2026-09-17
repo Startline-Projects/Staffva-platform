@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { countOrNull } from "@/lib/readCount";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 /**
@@ -80,7 +81,13 @@ export interface CandidateRecord {
    * page can say "this person has not sat it" or "nobody has a score right
    * now", and only one of those is about the candidate you are looking at.
    */
-  platform: { total: number; withEnglishScore: number };
+  /**
+   * Platform-wide counts, used to say "nobody has an English score, so this is
+   * not a fact about this person". null = unread — and the view only makes
+   * that claim on a strict `=== 0`, so an unread count falls through to showing
+   * this candidate's own scores instead of asserting something about everyone.
+   */
+  platform: { total: number | null; withEnglishScore: number | null };
   engagements: { id: string; status: string; createdAt: string }[];
   aiInterviews: { id: string; kind: string | null; status: string | null; createdAt: string }[];
   specialists: { id: string; fullName: string | null }[];
@@ -163,6 +170,6 @@ export async function loadCandidateRecord(id: string): Promise<CandidateRecord |
     engagements: (engRes.data ?? []).map((e) => ({ id: e.id, status: e.status, createdAt: e.created_at })),
     aiInterviews: (aiRes.data ?? []).map((a) => ({ id: a.id, kind: a.kind, status: a.status, createdAt: a.created_at })),
     specialists: (specialistsRes.data ?? []).map((p) => ({ id: p.id, fullName: p.full_name })),
-    platform: { total: totalRes.count ?? 0, withEnglishScore: englishRes.count ?? 0 },
+    platform: { total: countOrNull(totalRes), withEnglishScore: countOrNull(englishRes) },
   };
 }

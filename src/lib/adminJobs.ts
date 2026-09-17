@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { countOrNull, rowsOrNull } from "@/lib/readCount";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 /**
@@ -25,7 +26,8 @@ export interface JobRow {
   publishedAt: string | null;
   budgetLabel: string | null;
   hoursLabel: string | null;
-  matches: number;
+  /** null = the match read failed; not "no matches". */
+  matches: number | null;
 }
 
 export interface JobDetail extends JobRow {
@@ -79,8 +81,11 @@ export async function loadJobs(): Promise<JobRow[] | null> {
   const clientIds = [...new Set(jobs.map((j) => j.client_id).filter(Boolean))] as string[];
   const [clientsRes, matchesRes] = await Promise.all([
     clientIds.length ? db.from("clients").select("id, full_name, company_name").in("id", clientIds) : Promise.resolve({ data: [] }),
-    jobs.length ? db.from("job_post_matches").select("job_post_id").in("job_post_id", jobs.map((j) => j.id)) : Promise.resolve({ data: [] }),
+    // No jobs is a true "no matches" — so the stand-in carries `error: null`, the same shape a successful read has.
+    jobs.length ? db.from("job_post_matches").select("job_post_id").in("job_post_id", jobs.map((j) => j.id)) : Promise.resolve({ data: [] as { job_post_id: string }[], error: null }),
   ]);
+  // One read for every job's matches: if it fails, EVERY row would say 0.
+  const matchRows = rowsOrNull(matchesRes);
 
   const clients = new Map((clientsRes.data ?? []).map((c) => [c.id, c.company_name || c.full_name]));
 
@@ -95,7 +100,7 @@ export async function loadJobs(): Promise<JobRow[] | null> {
     publishedAt: j.published_at,
     budgetLabel: budgetLabel(j),
     hoursLabel: hoursLabel(j),
-    matches: (matchesRes.data ?? []).filter((m) => m.job_post_id === j.id).length,
+    matches: matchRows === null ? null : matchRows.filter((m) => m.job_post_id === j.id).length,
   }));
 }
 
@@ -125,6 +130,6 @@ export async function loadJob(id: string): Promise<JobDetail | null> {
     publishedAt: j.published_at,
     budgetLabel: budgetLabel(j),
     hoursLabel: hoursLabel(j),
-    matches: matchesRes.count ?? 0,
+    matches: countOrNull(matchesRes),
   };
 }

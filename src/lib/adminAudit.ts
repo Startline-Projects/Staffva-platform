@@ -148,7 +148,7 @@ export async function loadAuditLog(opts: {
     .order("created_at", { ascending: false })
     .range(from, from + AUDIT_PAGE_SIZE - 1);
 
-  if (error) return null;
+  if (error || count === null) return null;
 
   const rows = data ?? [];
   const actorIds = [...new Set(rows.map((r) => r.actor_id).filter(Boolean))] as string[];
@@ -176,7 +176,7 @@ export async function loadAuditLog(opts: {
       detail: r.detail,
       createdAt: r.created_at,
     })),
-    total: count ?? 0,
+    total: count,
     page: opts.page,
     pageSize: AUDIT_PAGE_SIZE,
     actions,

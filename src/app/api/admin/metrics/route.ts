@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FailedReads, changePercentOrNull, countOrNull } from "@/lib/readCount";
 import { LIVE_STATUS, LIVE_STATUSES, isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -90,22 +91,35 @@ export async function GET() {
     // Calendar link alerts (unacknowledged)
   ]);
 
-  const liveCandidates = liveCandidatesRes.count || 0;
-  const activeEngagements = activeEngRes.count || 0;
-  const mrr = (activeEngDataRes.data || []).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
-  const candidatesThisWeek = candidatesThisWeekRes.count || 0;
-  const candidatesLastWeek = candidatesLastWeekRes.count || 0;
-  const candidatesThisMonth = candidatesThisMonthRes.count || 0;
-  const clientsThisWeek = clientsThisWeekRes.count || 0;
-  const clientsThisMonth = clientsThisMonthRes.count || 0;
-  const uniqueThreads = new Set((threadDataRes.data || []).map((m) => m.thread_id)).size;
-  const pendingReviews = pendingReviewsRes.count || 0;
-  const activeDisputes = activeDisputesRes.count || 0;
+  // Same rule as the command centre: a figure is `number | null`, and every
+  // null leaves its label in `failedReads`. Nothing in this codebase reads this
+  // endpoint any more, which is exactly why its zeros matter — whatever does
+  // read it (a monitor, a script) has no page around it to look wrong.
+  const failed = new FailedReads();
+  const figure = (label: string, res: { count: number | null; error: unknown }): number | null => {
+    const n = countOrNull(res);
+    if (n === null) failed.note(label);
+    return n;
+  };
+
+  const liveCandidates = figure("live candidates", liveCandidatesRes);
+  const activeEngagements = figure("active eng", activeEngRes);
+  const mrr: number | null = activeEngDataRes.error || !activeEngDataRes.data
+    ? (failed.note("platform fees"), null)
+    : activeEngDataRes.data.reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
+  const candidatesThisWeek = figure("candidates this week", candidatesThisWeekRes);
+  const candidatesLastWeek = figure("candidates last week", candidatesLastWeekRes);
+  const candidatesThisMonth = figure("candidates this month", candidatesThisMonthRes);
+  const clientsThisWeek = figure("clients this week", clientsThisWeekRes);
+  const clientsThisMonth = figure("clients this month", clientsThisMonthRes);
+  const uniqueThreads: number | null = threadDataRes.error || !threadDataRes.data
+    ? (failed.note("active conversations"), null)
+    : new Set(threadDataRes.data.map((m) => m.thread_id)).size;
+  const pendingReviews = figure("pending reviews", pendingReviewsRes);
+  const activeDisputes = figure("active disputes", activeDisputesRes);
 
   // Applications week-over-week
-  const appChangePercent = candidatesLastWeek > 0
-    ? Math.round(((candidatesThisWeek - candidatesLastWeek) / candidatesLastWeek) * 100)
-    : candidatesThisWeek > 0 ? 100 : 0;
+  const appChangePercent = changePercentOrNull(candidatesThisWeek, candidatesLastWeek);
 
   // Browsed not hired: clients who viewed profiles but have zero active engagements
   const viewingClientIds = new Set((profileViewsRes.data || []).map((v) => v.client_id));
@@ -166,14 +180,14 @@ export async function GET() {
   // Sparkline data: approximate weekly snapshots
   // For candidates live sparkline: count approved candidates created before each week boundary
   const sparklineWeeks = [0, 1, 2, 3].map((w) => weekBoundary(w));
-  const liveSpark: number[] = [];
+  const liveSpark: (number | null)[] = [];
   for (const boundary of sparklineWeeks) {
-    const { count } = await admin
+    // A point that could not be read is a gap in the line (null), not a dip to zero.
+    liveSpark.push(figure("live candidates history", await admin
       .from("candidates")
       .select("id", { count: "exact", head: true })
       .in("admin_status", LIVE_STATUSES)
-      .lte("updated_at", boundary);
-    liveSpark.push(count || 0);
+      .lte("updated_at", boundary)));
   }
   // Current value is the first, then historical
   liveSpark[0] = liveCandidates;
@@ -181,14 +195,14 @@ export async function GET() {
 
   // Alerts
   const alerts = {
-    banPending: banPendingRes.count || 0,
-    disputesPast48h: disputesPast48Res.count || 0,
-    webhookFailures: webhookFailuresRes.count || 0,
+    banPending: figure("ban pending", banPendingRes),
+    disputesPast48h: figure("disputes past48h", disputesPast48Res),
+    webhookFailures: figure("webhook failures", webhookFailuresRes),
     webhookFailuresList: (webhookFailuresRes.data || []).slice(0, 5),
-    manualReview: manualReviewRes.count || 0,
-    screeningFails: screeningFailsRes.count || 0,
-    stalledRevisions: stalledRevisionsRes.count || 0,
-    payoutNotSetup: payoutNotSetupRes.count || 0,
+    manualReview: figure("manual review", manualReviewRes),
+    screeningFails: figure("screening fails", screeningFailsRes),
+    stalledRevisions: figure("stalled revisions", stalledRevisionsRes),
+    payoutNotSetup: figure("payout not setup", payoutNotSetupRes),
   };
 
   // Talent pool summary for link card
@@ -213,7 +227,7 @@ export async function GET() {
     // Original metrics (backwards compat)
     liveCandidates,
     activeEngagements,
-    mrr: Math.round(mrr),
+    mrr: mrr === null ? null : Math.round(mrr),
     candidatesThisWeek,
     candidatesThisMonth,
     clientsThisWeek,
@@ -239,7 +253,9 @@ export async function GET() {
       rolesBelow2,
     },
     // Talent specialist cards
-    talentSpecialists: talentSpecialistsRes.data || [],
-    // Calendar link alerts (unacknowledged)
+    talentSpecialists: failed.rows("talent specialists", talentSpecialistsRes),
+    // Every read above that failed, by name. A null figure says "unknown";
+    // this says which, in one place, for a caller that checks nothing else.
+    failedReads: failed.labels,
   });
 }

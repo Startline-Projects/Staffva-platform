@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Fig from "@/components/admin/Fig";
 import type { JobDetail } from "@/lib/adminJobs";
 
 const fmtDate = (v: unknown) =>
@@ -68,7 +69,7 @@ export default function JobDetailView({ record }: { record: JobDetail }) {
         <div className="rec-facts">
           <div className="rec-fact"><div className="rec-k">Pay</div><div className="rec-v">{budgetLabel ?? "—"}</div></div>
           <div className="rec-fact"><div className="rec-k">Hours</div><div className="rec-v">{hoursLabel ?? "—"}</div></div>
-          <div className="rec-fact"><div className="rec-k">Matches</div><div className="rec-v">{matches}</div></div>
+          <div className="rec-fact"><div className="rec-k">Matches</div><div className="rec-v"><Fig n={matches} /></div></div>
           <div className="rec-fact"><div className="rec-k">Posted</div><div className="rec-v">{fmtDate(j.published_at ?? j.created_at) ?? "—"}</div></div>
         </div>
       </div>

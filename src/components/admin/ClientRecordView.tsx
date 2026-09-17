@@ -1,3 +1,4 @@
+import Fig from "@/components/admin/Fig";
 import Link from "next/link";
 import type { ClientRecord } from "@/lib/adminPeople";
 
@@ -10,8 +11,6 @@ import type { ClientRecord } from "@/lib/adminPeople";
 
 const fmtDate = (v: unknown): string | null =>
   typeof v === "string" && v ? new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
-
-const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 function initials(name: string, email: string): string {
   const src = name || email;
@@ -123,8 +122,8 @@ export default function ClientRecordView({ record }: { record: ClientRecord }) {
         <div className="rec-grid" style={{ marginBottom: 12 }}>
           <Field k="Engagements" v={engagements.length} mono note={engagements.length ? engagements.map((e) => e.status).join(", ") : null} />
           <Field k="Job posts" v={jobPosts.length} mono />
-          <Field k="Candidate profiles viewed" v={num(profileViews)} mono />
-          <Field k="Shortlists" v={num(shortlists)} mono />
+          <Field k="Candidate profiles viewed" v={<Fig n={profileViews} />} mono />
+          <Field k="Shortlists" v={<Fig n={shortlists} />} mono />
         </div>
 
         {jobPosts.length > 0 && (
@@ -149,7 +148,13 @@ export default function ClientRecordView({ record }: { record: ClientRecord }) {
         {engagements.length === 0 && jobPosts.length === 0 && (
           <div className="rec-empty">
             This client has signed up but has not posted a job or started an engagement.
-            {profileViews > 0 ? ` They have looked at ${profileViews} candidate ${profileViews === 1 ? "profile" : "profiles"}.` : " They have not viewed any candidate profiles."}
+            {profileViews === null
+              // Unread is not "none": the sentence below is a statement about
+              // what this client did, and a failed count supports neither version.
+              ? " Whether they have looked at any candidate profiles could not be read."
+              : profileViews > 0
+                ? ` They have looked at ${profileViews} candidate ${profileViews === 1 ? "profile" : "profiles"}.`
+                : " They have not viewed any candidate profiles."}
           </div>
         )}
       </section>

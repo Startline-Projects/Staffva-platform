@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { FailedReads, changePercentOrNull, countOrNull } from "@/lib/readCount";
+import type { DashboardData } from "@/lib/adminDashboardTypes";
 import { LIVE_STATUS, LIVE_STATUSES, isLive } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -115,26 +117,42 @@ export async function GET() {
     admin.from("candidates").select("id", { count: "exact", head: true }).eq("ban_pending_review", true),
   ]);
 
-  const liveCandidates = liveCandidatesRes.count || 0;
-  const totalCandidates = totalCandidatesRes.count || 0;
-  const activeEngagements = activeEngRes.count || 0;
-  const mrr = (activeEngDataRes.data || []).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
-  const newEngThisWeek = newEngThisWeekRes.count || 0;
-  const pendingProfileReview = pendingProfileReviewRes.count || 0;
+  // Every figure on this dashboard used to arrive through `count || 0`, which
+  // cannot tell a failed read from a true zero — so a database hiccup rendered
+  // as "0 live candidates · $0 MRR", stated with the same confidence as a real
+  // measurement. A figure is now `number | null`, and `figure()` also leaves
+  // the label behind so the page can NAME what it could not read: a null says
+  // "unknown", `failedReads` says why the lists below may be short.
+  const failed = new FailedReads();
+  const figure = (label: string, res: { count: number | null; error: unknown }): number | null => {
+    const n = countOrNull(res);
+    if (n === null) failed.note(label);
+    return n;
+  };
+
+  const liveCandidates = figure("live candidates", liveCandidatesRes);
+  const totalCandidates = figure("candidate total", totalCandidatesRes);
+  const activeEngagements = figure("active engagements", activeEngRes);
+  // No rows read is not "$0 of fees".
+  const mrr: number | null = activeEngDataRes.error || !activeEngDataRes.data
+    ? (failed.note("platform fees"), null)
+    : activeEngDataRes.data.reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
+  const newEngThisWeek = figure("new engagements this week", newEngThisWeekRes);
+  const pendingProfileReview = figure("profile reviews", pendingProfileReviewRes);
 
   // Pipeline
   const pipeline = {
     applied: totalCandidates,
-    englishPass: englishPassRes.count || 0,
-    idVerified: idVerifiedRes.count || 0,
-    profileBuilt: profileBuiltRes.count || 0,
-    aiInterview: aiInterviewRes.count || 0,
+    englishPass: figure("English passes", englishPassRes),
+    idVerified: figure("ID verifications", idVerifiedRes),
+    profileBuilt: figure("profiles built", profileBuiltRes),
+    aiInterview: figure("interviews completed", aiInterviewRes),
     pendingProfileReview,
     live: liveCandidates,
   };
 
   // Platform fee this month from active engagements
-  const platformFeeThisMonth = Math.round(mrr);
+  const platformFeeThisMonth = mrr === null ? null : Math.round(mrr);
 
   // ═══ WARM LEADS — clients who browsed but never hired ═══
   const [clientsDataRes, profileViewsRes, allEngRes] = await Promise.all([
@@ -143,8 +161,8 @@ export async function GET() {
     admin.from("engagements").select("client_id, status, platform_fee_usd"),
   ]);
 
-  const clients = clientsDataRes.data || [];
-  const allEng = allEngRes.data || [];
+  const clients = failed.rows("clients", clientsDataRes);
+  const allEng = failed.rows("engagements", allEngRes);
 
   // Build client engagement map
   const clientEngMap = new Map<string, { active: number; totalFees: number }>();
@@ -157,19 +175,19 @@ export async function GET() {
 
   // Profile views per client
   const clientViewMap = new Map<string, number>();
-  for (const v of profileViewsRes.data || []) {
+  for (const v of failed.rows("profile views", profileViewsRes)) {
     clientViewMap.set(v.client_id, (clientViewMap.get(v.client_id) || 0) + 1);
   }
 
   // Get client last login from profiles
   const clientUserIds = clients.map((c) => c.user_id).filter(Boolean);
-  const { data: clientProfiles } = await admin
+  const clientProfilesRes = await admin
     .from("profiles")
     .select("id, updated_at")
     .in("id", clientUserIds.length > 0 ? clientUserIds : ["__none__"]);
 
   const profileMap = new Map<string, string>();
-  for (const p of clientProfiles || []) profileMap.set(p.id, p.updated_at);
+  for (const p of failed.rows("client last sign-ins", clientProfilesRes)) profileMap.set(p.id, p.updated_at);
 
   // Build warm leads and client health
   const warmLeads: Array<{
@@ -230,46 +248,48 @@ export async function GET() {
   }
 
   // ═══ RECRUITER ALERTS ═══
-  const recruiters = talentSpecialistsRes.data || [];
+  const recruiters = failed.rows("talent specialists", talentSpecialistsRes);
 
   // ═══ PENDING PROFILE REVIEW CANDIDATES (for Review Modal — step 10) ═══
-  const { data: pendingCandidates } = await admin
+  const pendingCandidatesRes = await admin
     .from("candidates")
     .select("id, full_name, display_name, role_category, country, hourly_rate, english_written_tier, english_mc_score, english_comprehension_score, ai_interview_score, years_experience, voice_recording_1_url, voice_recording_2_url, id_verification_status, profile_photo_url")
     .in("admin_status", ["pending_review", "profile_review"])
     .order("created_at", { ascending: true })
     .limit(20);
+  const pendingCandidates = failed.rows("candidates awaiting review", pendingCandidatesRes);
 
   // ═══ SCREENING STATS ═══
   // `head: true` means the rows never come back — only the count does. Reading
   // `.data.length` off it (what this did) is always 0, so "screened today" has
   // been reporting zero since the widget shipped.
-  const { count: screenedTodayCount } = await admin
+  const screenedTodayCount = figure("screened today", await admin
     .from("screening_log")
     .select("id", { count: "exact", head: true })
-    .gte("created_at", new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString());
+    .gte("created_at", new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()));
 
   // ═══ MRR SPARKLINE — approximate weekly revenue for last 8 weeks ═══
   const sparkline: number[] = [];
   for (let w = 7; w >= 0; w--) {
     const start = new Date(now.getTime() - (w + 1) * 7 * 24 * 60 * 60 * 1000).toISOString();
     const end = new Date(now.getTime() - w * 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: weekEng } = await admin
+    const weekEngRes = await admin
       .from("engagements")
       .select("platform_fee_usd")
       .eq("status", "active")
       .lte("created_at", end);
-    const weekMrr = (weekEng || []).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
+    const weekMrr = failed.rows("revenue history", weekEngRes).reduce((s, e) => s + (Number(e.platform_fee_usd) || 0), 0);
     sparkline.push(Math.round(weekMrr));
   }
 
   // ═══ TALENT POOL HEALTH ═══
-  const { data: roleData } = await admin
+  const roleDataRes = await admin
     .from("candidates")
     .select("role_category, admin_status");
+  const roleDataRead = !roleDataRes.error && roleDataRes.data !== null;
 
   const roleStats = new Map<string, { live: number; pending: number }>();
-  for (const c of roleData || []) {
+  for (const c of failed.rows("role depth", roleDataRes)) {
     const role = c.role_category || "Unknown";
     if (!roleStats.has(role)) roleStats.set(role, { live: 0, pending: 0 });
     const entry = roleStats.get(role)!;
@@ -282,40 +302,44 @@ export async function GET() {
   }
 
   // Active conversations count
-  const activeConversations = new Set((threadDataRes.data || []).map((m) => m.thread_id)).size;
+  const activeConversations: number | null = threadDataRes.error || !threadDataRes.data
+    ? (failed.note("active conversations"), null)
+    : new Set(threadDataRes.data.map((m) => m.thread_id)).size;
 
-  // Applications trend
-  const candidatesThisWeek = candidatesThisWeekRes.count || 0;
-  const candidatesLastWeek = candidatesLastWeekRes.count || 0;
-  const appChangePercent = candidatesLastWeek > 0
-    ? Math.round(((candidatesThisWeek - candidatesLastWeek) / candidatesLastWeek) * 100)
-    : candidatesThisWeek > 0 ? 100 : 0;
+  // Applications trend. With one week unread the old arithmetic did not fail —
+  // it reported "+100%" or "−100%" depending on which week came back as zero.
+  const candidatesThisWeek = figure("applications this week", candidatesThisWeekRes);
+  const candidatesLastWeek = figure("applications last week", candidatesLastWeekRes);
+  const appChangePercent = changePercentOrNull(candidatesThisWeek, candidatesLastWeek);
 
-  const clientsThisWeek = clientsThisWeekRes.count || 0;
-  const clientsLastWeek = clientsLastWeekRes.count || 0;
-  const clientWeekChange = clientsLastWeek > 0
-    ? Math.round(((clientsThisWeek - clientsLastWeek) / clientsLastWeek) * 100)
-    : clientsThisWeek > 0 ? 100 : 0;
+  const clientsThisWeek = figure("clients this week", clientsThisWeekRes);
+  const clientsLastWeek = figure("clients last week", clientsLastWeekRes);
+  const clientWeekChange = changePercentOrNull(clientsThisWeek, clientsLastWeek);
 
-  return NextResponse.json({
+  // Read once, used in three places below.
+  const triage = figure("routing decisions", triageRes);
+  const clientsTotal = figure("client total", clientsTotalRes);
+  // A list built from reads that failed is not a short list.
+  const clientListsRead = !clientsDataRes.error && !allEngRes.error;
+
+  const payload = {
     // Score band
-    mrr: Math.round(mrr),
+    mrr: mrr === null ? null : Math.round(mrr),
     mrrSparkline: sparkline,
     liveCandidates,
     activeEngagements,
     newEngThisWeek,
     platformFeeThisMonth,
-    warmLeadsCount: warmLeads.length,
+    warmLeadsCount: clientListsRead ? warmLeads.length : null,
 
     // Pipeline
     pipeline,
 
     // Action cards
-    pendingProfileReview,
-    pendingCandidates: pendingCandidates || [],
+    pendingCandidates,
     warmLeads: warmLeads.slice(0, 20),
     recruiterAlerts: {
-      needsRouting: triageRes.count || 0,
+      needsRouting: triage,
     },
 
     // Screening. `pending`/`processing`/`failed` used to ship as hard-coded
@@ -324,16 +348,16 @@ export async function GET() {
     // measurements. Only the real number is returned now; anything that wants
     // queue depth should read ScreeningQueueWidget's own endpoint.
     screening: {
-      screenedToday: screenedTodayCount || 0,
+      screenedToday: screenedTodayCount,
     },
 
     // Identity. `dupesWeek` used to be returned as a hard zero with a comment
     // saying there is no duplicate-detection table — a rendered metric that
     // could only ever say "0 duplicates". Dropped rather than displayed.
     identity: {
-      lockouts: lockoutsRes.count || 0,
-      flagged: flaggedRes.count || 0,
-      verified: verifiedRes.count || 0,
+      lockouts: figure("test lockouts", lockoutsRes),
+      flagged: figure("screening holds", flaggedRes),
+      verified: figure("verified identities", verifiedRes),
     },
 
     // Platform pulse
@@ -345,28 +369,32 @@ export async function GET() {
       clientsLastWeek,
       clientWeekChange,
       activeConversations,
-      newCandidatesMonth: candidatesThisMonthRes.count || 0,
+      newCandidatesMonth: figure("new candidates this month", candidatesThisMonthRes),
     },
 
     // Client health
     clientHealth: clientHealth.sort((a, b) => b.totalFees - a.totalFees).slice(0, 25),
-    clientsThisMonth: clientsThisMonthRes.count || 0,
-    totalClients: clientsTotalRes.count || 0,
-    talentPoolHealth: { liveCandidates, rolesBelow2 },
+    clientsThisMonth: figure("clients this month", clientsThisMonthRes),
+    totalClients: clientsTotal,
+    talentPoolHealth: { liveCandidates, rolesBelow2: roleDataRead ? rolesBelow2 : null },
 
     // Sidebar badges
     badges: {
         pendingProfileReview,
-      pendingReview: pendingReviewRes.count || 0,
-      clients: clientsTotalRes.count || 0,
+      pendingReview: figure("pending reviews", pendingReviewRes),
+      clients: clientsTotal,
       talentPool: totalCandidates,
-      triage: triageRes.count || 0,
+      triage,
       teamInbox: activeConversations,
-      pendingBans: pendingBansRes.count || 0,
+      pendingBans: figure("ban requests", pendingBansRes),
     },
 
     // Route candidates
-    routeCandidates: routeCandidatesRes.data || [],
+    routeCandidates: failed.rows("candidates to route", routeCandidatesRes),
     recruiters: recruiters.map((r) => ({ id: r.id, name: r.full_name })),
-  });
+    // Last: it has to see every label the reads above left behind.
+    failedReads: failed.labels,
+  } satisfies DashboardData;
+
+  return NextResponse.json(payload);
 }

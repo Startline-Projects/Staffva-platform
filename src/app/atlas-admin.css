@@ -362,6 +362,14 @@
 
 .lp-admin .dash-nav-item .nav-counter.warn { background: var(--amber); color: #fff; }
 .lp-admin .dash-nav-item .nav-counter.urgent { background: var(--danger); color: #fff; }
+/* The count could not be read. Outlined, never filled: a filled pill is a
+   number somebody measured. */
+.lp-admin .dash-nav-item .nav-counter.unread {
+  background: transparent;
+  color: var(--ink-mute);
+  border: 1px dashed var(--line-strong);
+  cursor: help;
+}
 
 .lp-admin .dash-nav-item.active .nav-counter,
 .lp-admin .dash-nav-item.active .nav-counter.warn,
@@ -2477,6 +2485,10 @@
 .lp-admin .rec-v.empty { color: var(--ink-mute); font-style: italic; }
 .lp-admin .rec-v.ok { color: var(--success); font-weight: 600; }
 .lp-admin .rec-v.warn { color: var(--amber); font-weight: 600; }
+/* A figure that could not be read (Fig). Muted and with a help cursor: its
+   title says it is not a zero. */
+.lp-admin .fig-unread { color: var(--ink-mute); font-weight: 400; cursor: help; }
+
 /* A value that could not be read — never styled like a measurement. */
 .lp-admin .rec-v.mute { color: var(--ink-mute); font-weight: 400; font-style: italic; }
 .lp-admin .rec-v.bad { color: var(--danger); font-weight: 600; }

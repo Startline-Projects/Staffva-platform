@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Fig from "@/components/admin/Fig";
 import type { CandidateRecord } from "@/lib/adminCandidate";
 import CandidateActions from "@/components/admin/CandidateActions";
 import { isLive } from "@/lib/candidateStatus";
@@ -252,9 +253,12 @@ export default function CandidateRecordView({
 
       {/* ═══ ASSESSMENTS ═══ */}
       <Section title="Assessments">
+        {/* Strictly zero. An unread count is null, fails this test, and falls
+            through to this candidate's own score fields — rather than hiding
+            them behind a claim about the whole platform that nothing supports. */}
         {platform.withEnglishScore === 0 ? (
           <div className="rec-empty" style={{ marginBottom: 12 }}>
-            <strong>No English score on file — and none of the {platform.total.toLocaleString()} candidates
+            <strong>No English score on file — and none of the <Fig n={platform.total} /> candidates
             on the platform has one.</strong> The scores were cleared platform-wide, so this is not a
             fact about this person. {c.retake_count > 0
               ? `${c.retake_count} retake${c.retake_count === 1 ? "" : "s"} recorded against this account.`

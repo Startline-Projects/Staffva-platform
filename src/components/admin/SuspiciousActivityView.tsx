@@ -1,3 +1,4 @@
+import Fig from "@/components/admin/Fig";
 import Link from "next/link";
 import type { SafetyReport } from "@/lib/adminSafety";
 import { isLive } from "@/lib/candidateStatus";
@@ -8,8 +9,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function SuspiciousActivityView({ report }: { report: SafetyReport }) {
-  const { candidates, totals, actions } = report;
+  const { candidates, totals, actions, windowExitsRead } = report;
   const nothingEverActioned =
+    // Strictly `=== 0`, and these can now be null. A count that could not be
+    // read is not evidence that nothing was ever done, so an unread figure
+    // withholds this claim rather than supporting it — when a failed read
+    // still came back as 0, it would have asserted it.
     actions.bansEverRequested === 0 && actions.rejections === 0 &&
     actions.lockoutsEver === 0 && actions.suspendedStaff === 0;
 
@@ -20,7 +25,7 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
           <div className="adm-eyebrow">Trust &amp; safety</div>
           <h1>Signals, and what they&apos;re <span className="adm-serif-italic">worth.</span></h1>
           <div className="adm-subhead">
-            <strong>{totals.withAnySignal}</strong> of {totals.candidates.toLocaleString()} candidates carry a signal
+            <strong>{totals.withAnySignal}</strong> of <Fig n={totals.candidates} /> candidates carry a signal
             <span className="sep">·</span>
             {totals.liveWithAnySignal} of those are live
           </div>
@@ -57,7 +62,7 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
         <div className="rec-section-head">
           <h2>
             Test-window exits
-            <span className="count">{totals.windowExitEvents} events · {totals.withWindowExits} candidates</span>
+            <span className="count"><Fig n={totals.windowExitEvents} /> events · {totals.withWindowExits} candidates</span>
           </h2>
         </div>
         <div className="rec-empty" style={{ marginBottom: 12 }}>
@@ -91,7 +96,7 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
         <div className="rec-section-head">
           <h2>
             Rate limiting
-            <span className="count">{totals.rateLimitHits} hits · {totals.rateLimitBuckets} buckets</span>
+            <span className="count"><Fig n={totals.rateLimitHits} /> hits · <Fig n={totals.rateLimitBuckets} /> buckets</span>
           </h2>
         </div>
         <div className="rec-empty">
@@ -114,6 +119,12 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
           </div>
         ) : (
           <div className="adm-panel">
+            {!windowExitsRead && (
+              <p className="rec-note-line" style={{ color: "var(--danger)", margin: "0 0 10px" }} role="alert">
+                The window-exit log could not be read, so that column is unread for everyone below. It does not
+                mean nobody left the test window.
+              </p>
+            )}
             <div className="adm-table-wrap">
               <table className="adm-table">
                 <thead>
@@ -140,7 +151,7 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
                           {STATUS_LABEL[c.adminStatus ?? ""] ?? c.adminStatus ?? "—"}
                         </span>
                       </td>
-                      <td className="num" style={{ textAlign: "right" }}>{c.windowExits || "—"}</td>
+                      <td className="num" style={{ textAlign: "right" }}>{windowExitsRead ? (c.windowExits || "—") : <Fig n={null} />}</td>
                       <td className="num" style={{ textAlign: "right" }}>{c.cheatFlagCount || "—"}</td>
                       <td>{c.scoreMismatch ? "yes" : "—"}</td>
                       <td style={{ textAlign: "right" }}>
@@ -159,13 +170,13 @@ export default function SuspiciousActivityView({ report }: { report: SafetyRepor
       <section className="rec-section">
         <div className="rec-section-head"><h2>Enforcement on record</h2></div>
         <div className="rec-grid">
-          <div className="rec-field"><div className="rec-k">Bans awaiting a ruling</div><div className="rec-v">{actions.bansPending}</div></div>
-          <div className="rec-field"><div className="rec-k">Bans ever requested</div><div className="rec-v">{actions.bansEverRequested}</div></div>
-          <div className="rec-field"><div className="rec-k">Applications rejected</div><div className="rec-v">{actions.rejections}</div></div>
-          <div className="rec-field"><div className="rec-k">Appeals filed</div><div className="rec-v">{actions.appeals}</div></div>
-          <div className="rec-field"><div className="rec-k">Test lockouts now</div><div className="rec-v">{actions.lockoutsNow}</div></div>
-          <div className="rec-field"><div className="rec-k">Test lockouts ever</div><div className="rec-v">{actions.lockoutsEver}</div></div>
-          <div className="rec-field"><div className="rec-k">Suspended staff accounts</div><div className="rec-v">{actions.suspendedStaff}</div></div>
+          <div className="rec-field"><div className="rec-k">Bans awaiting a ruling</div><div className="rec-v"><Fig n={actions.bansPending} /></div></div>
+          <div className="rec-field"><div className="rec-k">Bans ever requested</div><div className="rec-v"><Fig n={actions.bansEverRequested} /></div></div>
+          <div className="rec-field"><div className="rec-k">Applications rejected</div><div className="rec-v"><Fig n={actions.rejections} /></div></div>
+          <div className="rec-field"><div className="rec-k">Appeals filed</div><div className="rec-v"><Fig n={actions.appeals} /></div></div>
+          <div className="rec-field"><div className="rec-k">Test lockouts now</div><div className="rec-v"><Fig n={actions.lockoutsNow} /></div></div>
+          <div className="rec-field"><div className="rec-k">Test lockouts ever</div><div className="rec-v"><Fig n={actions.lockoutsEver} /></div></div>
+          <div className="rec-field"><div className="rec-k">Suspended staff accounts</div><div className="rec-v"><Fig n={actions.suspendedStaff} /></div></div>
         </div>
         <p className="staff-legend" style={{ marginTop: 12 }}>
           Pending bans are ruled on from{" "}

@@ -1,3 +1,4 @@
+import Fig from "@/components/admin/Fig";
 import Link from "next/link";
 import type { SpecialistRecord } from "@/lib/adminPeople";
 
@@ -113,7 +114,10 @@ export default function SpecialistRecordView({ record }: { record: SpecialistRec
       </div>
 
       {/* The two-sources problem, stated only when the numbers actually differ. */}
-      {categories.length > 0 && categoryQueueTotal !== directQueue.total && (
+      {/* `null !== 5` is true. Without the null check an unread count would
+          raise this banner — a warning that two mechanisms disagree, produced
+          by one of them not answering. */}
+      {categories.length > 0 && categoryQueueTotal !== null && categoryQueueTotal !== directQueue.total && (
         <div className="prof-banner info">
           <span className="prof-banner-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 16v-5M12 8.2v.1" /></svg>
@@ -123,7 +127,7 @@ export default function SpecialistRecordView({ record }: { record: SpecialistRec
             <div className="prof-banner-text">
               <strong>{directQueue.total}</strong> candidates name this person in{" "}
               <code>candidates.assigned_recruiter</code>, while{" "}
-              <strong>{categoryQueueTotal}</strong> sit in the role categories claimed through{" "}
+              <strong><Fig n={categoryQueueTotal} /></strong> sit in the role categories claimed through{" "}
               <code>recruiter_assignments</code>. Both mechanisms are live and they do not describe
               the same set — the specialists list is built from the second, this record leads with
               the first.
@@ -211,7 +215,7 @@ export default function SpecialistRecordView({ record }: { record: SpecialistRec
         <div className="rec-section-head">
           <h2>
             Category claims
-            {categories.length > 0 && <span className="count">{categoryQueueTotal} candidates in scope</span>}
+            {categories.length > 0 && <span className="count"><Fig n={categoryQueueTotal} /> candidates in scope</span>}
           </h2>
         </div>
         {categories.length > 0 ? (
@@ -231,7 +235,7 @@ export default function SpecialistRecordView({ record }: { record: SpecialistRec
       <section className="rec-section">
         <div className="rec-section-head"><h2>Communication</h2></div>
         <div className="rec-grid">
-          <Field k="Messages sent to candidates" v={messagesSent} mono />
+          <Field k="Messages sent to candidates" v={<Fig n={messagesSent} />} mono />
         </div>
       </section>
     </div>

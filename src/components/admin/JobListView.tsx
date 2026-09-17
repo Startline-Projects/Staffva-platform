@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Fig from "@/components/admin/Fig";
 import type { JobRow } from "@/lib/adminJobs";
 
 const fmtDate = (v: string | null) =>
@@ -57,7 +58,7 @@ export default function JobListView({ rows }: { rows: JobRow[] }) {
                       <td>{r.roleCategory ?? "—"}</td>
                       <td className="num">{r.budgetLabel ?? "—"}</td>
                       <td className="num">{r.hoursLabel ?? "—"}</td>
-                      <td className="num" style={{ textAlign: "right" }}>{r.matches}</td>
+                      <td className="num" style={{ textAlign: "right" }}><Fig n={r.matches} /></td>
                       <td><span className={`adm-pill ${STATUS_TONE[r.status] ?? "mute"}`}>{r.status}</span></td>
                       <td className="num" style={{ textAlign: "right" }}>{fmtDate(r.publishedAt ?? r.createdAt)}</td>
                     </tr>

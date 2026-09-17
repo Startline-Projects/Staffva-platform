@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { countOrNull, sumOrNull } from "@/lib/readCount";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -32,14 +33,16 @@ export async function GET() {
 
   // Get counts by status
   const statuses = ["pending", "processing", "complete", "failed", "rate_limited"];
-  const counts: Record<string, number> = {};
+  // null = that status could not be counted. `count || 0` used to make a
+  // failed read of the FAILED bucket render as "Failed: 0" — the one tile on
+  // this widget whose zero is read as an all-clear.
+  const counts: Record<string, number | null> = {};
 
   for (const status of statuses) {
-    const { count } = await supabase
+    counts[status] = countOrNull(await supabase
       .from("screening_queue")
       .select("*", { count: "exact", head: true })
-      .eq("status", status);
-    counts[status] = count || 0;
+      .eq("status", status));
   }
 
   // Get recent failures
@@ -53,16 +56,16 @@ export async function GET() {
   // Get total processed today
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const { count: processedToday } = await supabase
+  const processedToday = countOrNull(await supabase
     .from("screening_queue")
     .select("*", { count: "exact", head: true })
     .eq("status", "complete")
-    .gte("processed_at", today.toISOString());
+    .gte("processed_at", today.toISOString()));
 
   return NextResponse.json({
     counts,
-    total: Object.values(counts).reduce((a, b) => a + b, 0),
-    processedToday: processedToday || 0,
+    total: sumOrNull(...Object.values(counts)),
+    processedToday,
     recentFailures: recentFailures || [],
   });
 }

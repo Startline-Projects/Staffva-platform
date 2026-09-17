@@ -5,101 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/Toast";
 import { countByPriority, deriveAlerts, type AlertInput, type DerivedAlert } from "@/lib/adminAlerts";
+import type { DashboardData, PendingCandidate } from "@/lib/adminDashboardTypes";
+import Fig from "@/components/admin/Fig";
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════
-
-interface Pipeline {
-  applied: number;
-  englishPass: number;
-  idVerified: number;
-  profileBuilt: number;
-  aiInterview: number;
-  pendingProfileReview: number;
-  live: number;
-}
-
-interface PendingCandidate {
-  id: string;
-  full_name: string;
-  display_name: string;
-  role_category: string;
-  country: string;
-  hourly_rate: number;
-  english_written_tier: string;
-  english_mc_score: number;
-  english_comprehension_score: number;
-  ai_interview_score: number;
-  years_experience: number;
-  voice_recording_1_url: string | null;
-  voice_recording_2_url: string | null;
-  id_verification_status: string;
-  profile_photo_url: string | null;
-}
-
-interface WarmLead {
-  id: string;
-  name: string;
-  activity: string;
-  daysCold: number;
-  isNew: boolean;
-}
-
-interface ClientRow {
-  id: string;
-  name: string;
-  email: string;
-  lastLogin: string;
-  daysSinceLogin: number;
-  browseActivity: string;
-  activeEngagements: number;
-  totalFees: number;
-  joined: string;
-  status: string;
-}
-
-interface RouteCandidate {
-  id: string;
-  full_name: string;
-  display_name: string;
-  role_category: string;
-  country: string;
-  hourly_rate: number;
-  created_at: string;
-}
-
-interface DashboardData {
-  mrr: number;
-  mrrSparkline: number[];
-  liveCandidates: number;
-  activeEngagements: number;
-  newEngThisWeek: number;
-  platformFeeThisMonth: number;
-  warmLeadsCount: number;
-  pipeline: Pipeline;
-  pendingCandidates: PendingCandidate[];
-  warmLeads: WarmLead[];
-  recruiterAlerts: { needsRouting: number };
-  screening: { screenedToday: number };
-  identity: { lockouts: number; flagged: number; verified: number };
-  pulse: {
-    applicationsThisWeek: number;
-    applicationsLastWeek: number;
-    appChangePercent: number;
-    clientsThisWeek: number;
-    clientsLastWeek: number;
-    clientWeekChange: number;
-    activeConversations: number;
-    newCandidatesMonth: number;
-  };
-  clientHealth: ClientRow[];
-  clientsThisMonth: number;
-  totalClients: number;
-  talentPoolHealth: { liveCandidates: number; rolesBelow2: number };
-  routeCandidates: RouteCandidate[];
-  recruiters: { id: string; name: string }[];
-}
 
 /** The shape lives in `src/lib/adminAlerts.ts`; this is only the filter's own union. */
 type Priority = "urgent" | "today" | "week";
@@ -292,7 +203,7 @@ export default function AdminDashboard() {
 
     if (type === "pipeline") {
       csv = "Stage,Count,Percentage\n";
-      const stages: [string, number][] = [
+      const stages: [string, number | null][] = [
         ["Applied", data.pipeline.applied],
         ["English Pass", data.pipeline.englishPass],
         ["ID Verified", data.pipeline.idVerified],
@@ -302,7 +213,11 @@ export default function AdminDashboard() {
         ["Live", data.pipeline.live],
       ];
       for (const [label, count] of stages) {
-        csv += `${label},${count},${data.pipeline.applied > 0 ? ((count / data.pipeline.applied) * 100).toFixed(1) : 0}%\n`;
+        // Blank, not 0, for a stage that could not be read: this file gets
+        // opened in a spreadsheet and summed, and a zero would be added up.
+        const applied = data.pipeline.applied;
+        const pct = count === null || applied === null ? "" : `${applied > 0 ? ((count / applied) * 100).toFixed(1) : 0}%`;
+        csv += `${label},${count ?? ""},${pct}\n`;
       }
       filename = "candidate_pipeline.csv";
     } else if (type === "clients") {
@@ -336,13 +251,17 @@ export default function AdminDashboard() {
   const alerts: DerivedAlert[] = useMemo(() => {
     if (!data) return [];
     return deriveAlerts({
-      totalCandidates: data.pipeline.applied,
-      pendingProfileReview: data.pipeline.pendingProfileReview,
-      needsRouting: data.recruiterAlerts.needsRouting,
-      screeningHold: data.identity.flagged,
-      testLockouts: data.identity.lockouts,
-      coldClients: data.warmLeadsCount,
-      thinRoles: data.talentPoolHealth.rolesBelow2,
+      // These feed thresholds, so they must be numbers. Each `?? 0` here is
+      // paired: the route's `figure()` records a label in `failedReads` every
+      // time it hands back a null, and those labels go into `failedChecks`
+      // below — so no zero reaches deriveAlerts without its failure being named.
+      totalCandidates: data.pipeline.applied ?? 0,
+      pendingProfileReview: data.pipeline.pendingProfileReview ?? 0,
+      needsRouting: data.recruiterAlerts.needsRouting ?? 0,
+      screeningHold: data.identity.flagged ?? 0,
+      testLockouts: data.identity.lockouts ?? 0,
+      coldClients: data.warmLeadsCount ?? 0,
+      thinRoles: data.talentPoolHealth.rolesBelow2 ?? 0,
       // The command centre knows none of these; they arrive from the bell's
       // endpoint. Until it answers, they are absent rather than zero.
       pendingBans: extra?.pendingBans ?? 0,
@@ -356,9 +275,13 @@ export default function AdminDashboard() {
       awaitingReplyOnDormant: extra?.awaitingReplyOnDormant,
       longestWaitDays: extra?.longestWaitDays,
       neverAnswered: extra?.neverAnswered,
-      failedChecks: extraFailed
-        ? ["ban requests", "open disputes", "vendor health", "specialist queues and unanswered messages"]
-        : extra?.failedChecks,
+      failedChecks: [
+        ...(data.failedReads ?? []),
+        ...(extraFailed
+          ? ["ban requests", "open disputes", "vendor health", "specialist queues and unanswered messages"]
+          : extra?.failedChecks ?? []),
+      // The two endpoints read some of the same things; say each once.
+      ].filter((label, i, all) => all.indexOf(label) === i),
     });
   }, [data, extra, extraFailed]);
 
@@ -403,20 +326,31 @@ export default function AdminDashboard() {
     { label: "Under review", count: data.pipeline.pendingProfileReview, tone: "review" as const },
     { label: "Live", count: data.pipeline.live, tone: "terminal" as const },
   ];
-  const totalApplied = data.pipeline.applied || 1;
-  const conversionPct = ((data.pipeline.live / totalApplied) * 100).toFixed(1);
+  // The funnel is arithmetic BETWEEN stages. With one stage unread and
+  // standing in as 0, "biggest drop" would land on that stage every time and
+  // the page would confidently report where candidates get stuck — about a
+  // number nobody read. So the analysis runs only when every stage came back.
+  const applied = data.pipeline.applied;
+  const totalApplied = applied || 1;
+  const funnelRead = pStages.every((st) => st.count !== null);
+  const conversionPct = data.pipeline.live === null || applied === null
+    ? null
+    : ((data.pipeline.live / totalApplied) * 100).toFixed(1);
 
   let biggestDrop = { from: "", to: "", fromPct: 0, toPct: 0, stuck: 0 };
-  for (let i = 0; i < pStages.length - 1; i++) {
-    const drop = pStages[i].count - pStages[i + 1].count;
-    if (drop > biggestDrop.stuck) {
-      biggestDrop = {
-        from: pStages[i].label,
-        to: pStages[i + 1].label,
-        fromPct: Math.round((pStages[i].count / totalApplied) * 100),
-        toPct: Math.round((pStages[i + 1].count / totalApplied) * 100),
-        stuck: drop,
-      };
+  if (funnelRead) {
+    for (let i = 0; i < pStages.length - 1; i++) {
+      const here = pStages[i].count as number, next = pStages[i + 1].count as number;
+      const drop = here - next;
+      if (drop > biggestDrop.stuck) {
+        biggestDrop = {
+          from: pStages[i].label,
+          to: pStages[i + 1].label,
+          fromPct: Math.round((here / totalApplied) * 100),
+          toPct: Math.round((next / totalApplied) * 100),
+          stuck: drop,
+        };
+      }
     }
   }
 
@@ -426,8 +360,9 @@ export default function AdminDashboard() {
   const today = new Date();
   const dateLine = today.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).toUpperCase();
 
-  const delta = (n: number) => (n > 0 ? "up" : n < 0 ? "down" : "flat");
-  const deltaText = (n: number) => (n > 0 ? `+${n}%` : n < 0 ? `${n}%` : "±0%");
+  // An unread week is "flat" in colour and "—" in text — never "±0%", which is a claim.
+  const delta = (n: number | null) => (n === null ? "flat" : n > 0 ? "up" : n < 0 ? "down" : "flat");
+  const deltaText = (n: number | null) => (n === null ? "—" : n > 0 ? `+${n}%` : n < 0 ? `${n}%` : "±0%");
 
   return (
     <div className="adm-body">
@@ -444,7 +379,7 @@ export default function AdminDashboard() {
                 ? "Nothing needs you right now"
                 : `${alerts.length} ${plural(alerts.length, "item")} ${plural(alerts.length, "needs", "need")} your attention`}
               <span className="sep">·</span>
-              {data.pipeline.live} live {plural(data.pipeline.live, "candidate")}
+              <Fig n={data.pipeline.live} /> live {plural(data.pipeline.live ?? 2, "candidate")}
             </div>
           </div>
         </header>
@@ -510,7 +445,7 @@ export default function AdminDashboard() {
           <div className="stat-grid">
             <div className="stat-cell">
               <div className="stat-label">Platform fees · active</div>
-              <div className="stat-value"><span className="currency-prefix">$</span>{data.mrr.toLocaleString()}</div>
+              <div className="stat-value">{data.mrr === null ? <Fig n={null} /> : <><span className="currency-prefix">$</span>{data.mrr.toLocaleString()}</>}</div>
               {spark.length > 1 && (
                 <div className="stat-spark" aria-hidden="true">
                   {spark.map((v, i) => (
@@ -521,26 +456,26 @@ export default function AdminDashboard() {
             </div>
             <div className="stat-cell">
               <div className="stat-label">Live candidates</div>
-              <div className="stat-value">{data.liveCandidates.toLocaleString()}</div>
+              <div className="stat-value"><Fig n={data.liveCandidates} /></div>
               <div className="stat-detail">
-                <strong>{data.pipeline.applied.toLocaleString()}</strong> applied · <strong>{conversionPct}%</strong> reach live
+                <strong><Fig n={data.pipeline.applied} /></strong> applied · <strong>{conversionPct === null ? <Fig n={null} /> : `${conversionPct}%`}</strong> reach live
               </div>
             </div>
             <div className="stat-cell">
               <div className="stat-label">Active engagements</div>
-              <div className="stat-value">{data.activeEngagements.toLocaleString()}</div>
+              <div className="stat-value"><Fig n={data.activeEngagements} /></div>
               <div className="stat-detail">
-                <strong>{data.newEngThisWeek}</strong> started this week
+                <strong><Fig n={data.newEngThisWeek} /></strong> started this week
               </div>
             </div>
             <div className="stat-cell">
               <div className="stat-label">Clients</div>
               <div className="stat-value">
-                {data.totalClients.toLocaleString()}
+                <Fig n={data.totalClients} />
                 <span className={`delta ${delta(data.pulse.clientWeekChange)}`}>{deltaText(data.pulse.clientWeekChange)}</span>
               </div>
               <div className="stat-detail">
-                <strong>{data.clientsThisMonth}</strong> joined this month
+                <strong><Fig n={data.clientsThisMonth} /></strong> joined this month
               </div>
             </div>
           </div>
@@ -564,13 +499,19 @@ export default function AdminDashboard() {
                     <div className="adm-funnel-track">
                       <div
                         className={`adm-funnel-fill${s.tone ? ` ${s.tone}` : ""}`}
-                        style={{ width: `${totalApplied > 0 ? (s.count / totalApplied) * 100 : 0}%` }}
+                        style={{ width: `${s.count !== null && totalApplied > 0 ? (s.count / totalApplied) * 100 : 0}%` }}
                       />
                     </div>
-                    <span className="adm-funnel-count">{s.count.toLocaleString()}</span>
+                    <span className="adm-funnel-count"><Fig n={s.count} /></span>
                   </div>
                 ))}
               </div>
+              {!funnelRead && (
+                <p className="adm-funnel-note">
+                  One or more stages could not be read, so no drop-off is named: with a stage standing in as zero,
+                  the biggest drop would always land on it.
+                </p>
+              )}
               {biggestDrop.stuck > 0 && (
                 <p className="adm-funnel-note">
                   Biggest drop-off: <strong>{biggestDrop.from} → {biggestDrop.to}</strong> ({biggestDrop.fromPct}% → {biggestDrop.toPct}%).{" "}
@@ -590,19 +531,19 @@ export default function AdminDashboard() {
                 <div className="adm-metric-grid">
                   <div className="adm-metric static">
                     <div className="adm-metric-label">Screened today</div>
-                    <div className="adm-metric-value">{data.screening.screenedToday.toLocaleString()}</div>
+                    <div className="adm-metric-value"><Fig n={data.screening.screenedToday} /></div>
                   </div>
                   <div className="adm-metric static">
                     <div className="adm-metric-label">Flagged · hold</div>
-                    <div className="adm-metric-value">{data.identity.flagged.toLocaleString()}</div>
+                    <div className="adm-metric-value"><Fig n={data.identity.flagged} /></div>
                   </div>
                   <div className="adm-metric static">
                     <div className="adm-metric-label">ID verified</div>
-                    <div className="adm-metric-value">{data.identity.verified.toLocaleString()}</div>
+                    <div className="adm-metric-value"><Fig n={data.identity.verified} /></div>
                   </div>
                   <Link href="/admin/lockouts" className="adm-metric" style={{ display: "block", textDecoration: "none" }}>
                     <div className="adm-metric-label">Test lockouts</div>
-                    <div className="adm-metric-value">{data.identity.lockouts.toLocaleString()}</div>
+                    <div className="adm-metric-value"><Fig n={data.identity.lockouts} /></div>
                   </Link>
                 </div>
               </div>
@@ -614,25 +555,25 @@ export default function AdminDashboard() {
                 <div className="adm-metric-grid">
                   <div className="adm-metric static">
                     <div className="adm-metric-label">Applications</div>
-                    <div className="adm-metric-value">{data.pulse.applicationsThisWeek}</div>
+                    <div className="adm-metric-value"><Fig n={data.pulse.applicationsThisWeek} /></div>
                     <div className={`adm-metric-trend ${delta(data.pulse.appChangePercent)}`}>
                       {deltaText(data.pulse.appChangePercent)} vs last week
                     </div>
                   </div>
                   <div className="adm-metric static">
                     <div className="adm-metric-label">New clients</div>
-                    <div className="adm-metric-value">{data.pulse.clientsThisWeek}</div>
+                    <div className="adm-metric-value"><Fig n={data.pulse.clientsThisWeek} /></div>
                     <div className={`adm-metric-trend ${delta(data.pulse.clientWeekChange)}`}>
                       {deltaText(data.pulse.clientWeekChange)} vs last week
                     </div>
                   </div>
                   <div className="adm-metric static">
                     <div className="adm-metric-label">Live conversations</div>
-                    <div className="adm-metric-value">{data.pulse.activeConversations}</div>
+                    <div className="adm-metric-value"><Fig n={data.pulse.activeConversations} /></div>
                   </div>
                   <div className="adm-metric static">
                     <div className="adm-metric-label">New candidates · month</div>
-                    <div className="adm-metric-value">{data.pulse.newCandidatesMonth}</div>
+                    <div className="adm-metric-value"><Fig n={data.pulse.newCandidatesMonth} /></div>
                   </div>
                 </div>
               </div>
@@ -714,27 +655,27 @@ export default function AdminDashboard() {
           <div className="rail-glance-body">
             <div className="rail-glance-row">
               <span className="k">Awaiting review</span>
-              <span className={`v${data.pipeline.pendingProfileReview > 0 ? " warn" : ""}`}>{data.pipeline.pendingProfileReview}</span>
+              <span className={`v${(data.pipeline.pendingProfileReview ?? 0) > 0 ? " warn" : ""}`}><Fig n={data.pipeline.pendingProfileReview} /></span>
             </div>
             <div className="rail-glance-row">
               <span className="k">Unrouted</span>
-              <span className={`v${data.recruiterAlerts.needsRouting > 0 ? " bad" : ""}`}>{data.recruiterAlerts.needsRouting}</span>
+              <span className={`v${(data.recruiterAlerts.needsRouting ?? 0) > 0 ? " bad" : ""}`}><Fig n={data.recruiterAlerts.needsRouting} /></span>
             </div>
             <div className="rail-glance-row">
               <span className="k">Screened today</span>
-              <span className="v">{data.screening.screenedToday}</span>
+              <span className="v"><Fig n={data.screening.screenedToday} /></span>
             </div>
             <div className="rail-glance-row">
               <span className="k">Flagged · hold</span>
-              <span className={`v${data.identity.flagged > 0 ? " warn" : ""}`}>{data.identity.flagged}</span>
+              <span className={`v${(data.identity.flagged ?? 0) > 0 ? " warn" : ""}`}><Fig n={data.identity.flagged} /></span>
             </div>
             <div className="rail-glance-row">
               <span className="k">Test lockouts</span>
-              <span className="v">{data.identity.lockouts}</span>
+              <span className="v"><Fig n={data.identity.lockouts} /></span>
             </div>
             <div className="rail-glance-row">
               <span className="k">Cold clients</span>
-              <span className="v">{data.warmLeadsCount}</span>
+              <span className="v"><Fig n={data.warmLeadsCount} /></span>
             </div>
           </div>
         </div>
@@ -844,18 +785,24 @@ export default function AdminDashboard() {
         >
           <div className="adm-funnel">
             {pStages.map((s) => {
-              const pct = totalApplied > 0 ? (s.count / totalApplied) * 100 : 0;
+              const pct = s.count !== null && totalApplied > 0 ? (s.count / totalApplied) * 100 : 0;
               return (
                 <div key={s.label} className="adm-funnel-row">
                   <span className="adm-funnel-label">{s.label}</span>
                   <div className="adm-funnel-track">
                     <div className={`adm-funnel-fill${s.tone ? ` ${s.tone}` : ""}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="adm-funnel-count">{s.count.toLocaleString()}</span>
+                  <span className="adm-funnel-count"><Fig n={s.count} /></span>
                 </div>
               );
             })}
           </div>
+          {!funnelRead && (
+            <p className="adm-funnel-note">
+              One or more stages could not be read, so no drop-off is named: with a stage standing in as zero,
+              the biggest drop would always land on it.
+            </p>
+          )}
           {biggestDrop.stuck > 0 && (
             <p className="adm-funnel-note">
               <strong>Biggest drop-off:</strong> {biggestDrop.from} → {biggestDrop.to} ({biggestDrop.fromPct}% → {biggestDrop.toPct}%).{" "}
@@ -912,7 +859,7 @@ export default function AdminDashboard() {
           footer={<button className="adm-btn" onClick={() => setModal(null)}>Cancel</button>}
         >
           {[
-            { type: "pipeline", title: "Candidate pipeline", desc: `${data.pipeline.applied.toLocaleString()} candidates by stage` },
+            { type: "pipeline", title: "Candidate pipeline", desc: data.pipeline.applied === null ? "Candidates by stage" : `${data.pipeline.applied.toLocaleString()} candidates by stage` },
             { type: "clients", title: "Client health", desc: `${data.clientHealth.length} clients with activity and fees` },
           ].map((opt) => (
             <button key={opt.type} type="button" className="adm-audio" onClick={() => exportCSV(opt.type)}>

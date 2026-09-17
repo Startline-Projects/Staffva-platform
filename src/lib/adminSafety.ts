@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { isLive } from "@/lib/candidateStatus";
+import { countOrNull, rowsOrNull } from "@/lib/readCount";
 
 /**
  * The integrity signals StaffVA actually records, and what each one is worth.
@@ -33,25 +34,30 @@ export interface FlaggedCandidate {
 
 export interface SafetyReport {
   candidates: FlaggedCandidate[];
+  /**
+   * false = the cheat_log read failed, so every candidate's windowExits below
+   * is 0 because nothing was counted, not because nothing happened.
+   */
+  windowExitsRead: boolean;
   totals: {
-    candidates: number;
+    candidates: number | null;
     withAnySignal: number;
     withWindowExits: number;
     withScoreMismatch: number;
     liveWithAnySignal: number;
-    windowExitEvents: number;
-    rateLimitBuckets: number;
-    rateLimitHits: number;
+    windowExitEvents: number | null;
+    rateLimitBuckets: number | null;
+    rateLimitHits: number | null;
   };
   /** Actions ever taken: bans, rejections, appeals, lockouts, suspensions. */
   actions: {
-    bansPending: number;
-    bansEverRequested: number;
-    rejections: number;
-    appeals: number;
-    lockoutsNow: number;
-    lockoutsEver: number;
-    suspendedStaff: number;
+    bansPending: number | null;
+    bansEverRequested: number | null;
+    rejections: number | null;
+    appeals: number | null;
+    lockoutsNow: number | null;
+    lockoutsEver: number | null;
+    suspendedStaff: number | null;
   };
 }
 
@@ -90,8 +96,14 @@ export async function loadSafetyReport(): Promise<SafetyReport | null> {
 
   if (flaggedRes.error) return null;
 
+  // Side reads. The flagged list above is the page; these decorate it, so a
+  // failure here must not take the page down — but it must not read as zero
+  // either.
+  const logRows = rowsOrNull(logRes);
+  const rateRowsRead = rowsOrNull(rateRes);
+
   const exitsByCandidate = new Map<string, number>();
-  for (const row of logRes.data ?? []) {
+  for (const row of logRows ?? []) {
     exitsByCandidate.set(row.candidate_id, (exitsByCandidate.get(row.candidate_id) ?? 0) + 1);
   }
 
@@ -107,28 +119,28 @@ export async function loadSafetyReport(): Promise<SafetyReport | null> {
     }))
     .sort((a, b) => b.windowExits - a.windowExits || b.cheatFlagCount - a.cheatFlagCount);
 
-  const rateRows = rateRes.data ?? [];
 
   return {
     candidates,
+    windowExitsRead: logRows !== null,
     totals: {
-      candidates: totalRes.count ?? 0,
+      candidates: countOrNull(totalRes),
       withAnySignal: candidates.length,
       withWindowExits: candidates.filter((c) => c.cheatFlagCount > 0).length,
       withScoreMismatch: candidates.filter((c) => c.scoreMismatch).length,
       liveWithAnySignal: candidates.filter((c) => isLive(c.adminStatus)).length,
-      windowExitEvents: (logRes.data ?? []).length,
-      rateLimitBuckets: rateRows.length,
-      rateLimitHits: rateRows.reduce((s, r) => s + (r.hits ?? 0), 0),
+      windowExitEvents: logRows === null ? null : logRows.length,
+      rateLimitBuckets: rateRowsRead === null ? null : rateRowsRead.length,
+      rateLimitHits: rateRowsRead === null ? null : rateRowsRead.reduce((s, r) => s + (r.hits ?? 0), 0),
     },
     actions: {
-      bansPending: banPendingRes.count ?? 0,
-      bansEverRequested: banEverRes.count ?? 0,
-      rejections: rejectedRes.count ?? 0,
-      appeals: appealsRes.count ?? 0,
-      lockoutsNow: lockNowRes.count ?? 0,
-      lockoutsEver: lockEverRes.count ?? 0,
-      suspendedStaff: suspendedRes.count ?? 0,
+      bansPending: countOrNull(banPendingRes),
+      bansEverRequested: countOrNull(banEverRes),
+      rejections: countOrNull(rejectedRes),
+      appeals: countOrNull(appealsRes),
+      lockoutsNow: countOrNull(lockNowRes),
+      lockoutsEver: countOrNull(lockEverRes),
+      suspendedStaff: countOrNull(suspendedRes),
     },
   };
 }

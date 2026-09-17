@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { countOrNull } from "@/lib/readCount";
 import { LIVE_STATUSES } from "@/lib/candidateStatus";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -117,13 +118,13 @@ export async function GET(request: Request) {
   // Per-tag counts for the filter tabs. These were derived from the fully
   // loaded list, so they silently became "counts of whatever happened to be on
   // this page" the moment pagination existed. Counted in the database instead.
-  const tagCounts: Record<string, number> = {};
+  // null = that tab could not be counted; the page shows "—" rather than 0.
+  const tagCounts: Record<string, number | null> = {};
   await Promise.all(
     ["Priority", "Review", "Hold"].map(async (tag) => {
-      const { count } = await applyFilters(
+      tagCounts[tag] = countOrNull(await applyFilters(
         supabase.from("candidates").select("id", { count: "exact", head: true })
-      ).eq("screening_tag", tag);
-      tagCounts[tag] = count ?? 0;
+      ).eq("screening_tag", tag));
     })
   );
 

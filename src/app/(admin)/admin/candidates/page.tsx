@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { showCount } from "@/lib/readCount";
 import { isLive } from "@/lib/candidateStatus";
 import { createClient } from "@/lib/supabase/client";
 import AudioPlayer from "@/components/AudioPlayer";
@@ -305,7 +306,8 @@ export default function CandidateReviewPage() {
   // no longer has to hold every candidate in memory to render correctly.
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
+  // A missing key is "not loaded yet" and a null is "could not be counted" — neither is 0.
+  const [tagCounts, setTagCounts] = useState<Record<string, number | null>>({});
   const PAGE_SIZE = 100;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -608,7 +610,7 @@ export default function CandidateReviewPage() {
                   <span className="ml-1.5 text-[10px] opacity-70">
                     {/* Counted in the database. Counting the loaded rows would
                         now report "how many are on this page". */}
-                    {tagCounts[tag] ?? 0}
+                    {showCount(tagCounts[tag])}
                   </span>
                 )}
               </button>
