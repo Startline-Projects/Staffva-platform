@@ -226,7 +226,7 @@ export function deriveAlerts(d: AlertInput): DerivedAlert[] {
         ? `Screening has tagged ${share}% of candidates Hold (${n.toLocaleString()} of ${pool.toLocaleString()})`
         : `${n} ${plural(n, "candidate")} flagged Hold by screening`,
       meta: dominant
-        ? ["A tag on most of the pool is not sorting anything — worth re-running rather than working through"]
+        ? ["A tag on most of the pool is not sorting anything. Most of these were scored before the candidate filled their profile in, or under the old legal-and-accounting-only rubric — both are re-runnable"]
         : ["Screening tag: Hold"],
       sla: dominant ? undefined : { text: "Needs a human", tone: "warn" },
       actionLabel: "See the split",

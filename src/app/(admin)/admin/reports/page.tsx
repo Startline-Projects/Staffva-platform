@@ -1,5 +1,7 @@
 import { findDimension, loadReport } from "@/lib/adminReports";
 import ReportView from "@/components/admin/ReportView";
+import { loadScreeningHealth } from "@/lib/adminScreening";
+import ScreeningHealthPanel from "@/components/admin/ScreeningHealthPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,11 @@ export default async function ReportsPage({
 
   const report = await loadReport(dimension, from, to);
 
+  // The screening breakdown is the one dimension where the distribution is
+  // mostly an artefact rather than a finding, and it is where the dashboard
+  // alert sends people. It gets the explanation and the re-run beside it.
+  const health = dimension.id === "cand_screening" ? await loadScreeningHealth() : null;
+
   if (!report) {
     return (
       <div className="adm-state error" role="alert">
@@ -29,5 +36,10 @@ export default async function ReportsPage({
     );
   }
 
-  return <ReportView report={report} />;
+  return (
+    <>
+      {health && <ScreeningHealthPanel health={health} />}
+      <ReportView report={report} />
+    </>
+  );
 }
