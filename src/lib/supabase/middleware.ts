@@ -9,7 +9,13 @@ import { routeByHost } from "@/lib/englishTestHost";
 // reason the mfaPending branch spells out: without it, an MFA detour on the
 // way back from Stripe drops ?id_check=returning, and the page it lands on
 // never polls for the result.
-const protectedRoutes = ["/apply", "/inbox", "/admin", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
+// "/pending-bans" and "/talent-pool" are admin pages that live outside /admin.
+// The (admin) layout already bounced a signed-out visitor from them, so they
+// were never open — but only by that one layer, and its bare redirect("/login")
+// drops `next`, so signing in from either landed you on the dashboard instead
+// of where you were going. Segment matching means /api/talent-pool and
+// /api/admin/pending-bans are not caught by these.
+const protectedRoutes = ["/apply", "/inbox", "/admin", "/pending-bans", "/talent-pool", "/team", "/hire", "/candidate/dashboard", "/verify", "/verify-id", "/verify-phone", "/assessment"];
 
 /**
  * Match a route prefix on SEGMENT boundaries, not raw characters.

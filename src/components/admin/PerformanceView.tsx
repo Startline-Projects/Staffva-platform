@@ -124,15 +124,15 @@ export default function PerformanceView({ report }: { report: PerformanceReport 
         <div className="rec-grid">
           <div className="rec-field">
             <div className="rec-k">Internal threads</div>
-            <div className="rec-v">{internal.threads}</div>
+            <div className={`rec-v${internal.threads === null ? " mute" : ""}`}>{internal.threads ?? "could not be read"}</div>
           </div>
           <div className="rec-field">
             <div className="rec-k">Internal messages</div>
-            <div className="rec-v">{internal.messages}</div>
+            <div className={`rec-v${internal.messages === null ? " mute" : ""}`}>{internal.messages ?? "could not be read"}</div>
           </div>
           <div className="rec-field">
             <div className="rec-k">Thread memberships</div>
-            <div className="rec-v">{internal.members}</div>
+            <div className={`rec-v${internal.members === null ? " mute" : ""}`}>{internal.members ?? "could not be read"}</div>
           </div>
           <div className="rec-field">
             <div className="rec-k">Messages to candidates</div>

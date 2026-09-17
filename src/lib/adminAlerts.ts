@@ -44,6 +44,14 @@ export interface AlertInput {
   awaitingReplyOnDormant?: number;
   longestWaitDays?: number | null;
   neverAnswered?: number;
+  /**
+   * Checks whose read failed, named for a person ("open disputes"). Every
+   * count above arrives as a plain number, so a failed read is
+   * indistinguishable from a true zero once it gets here — and for this list a
+   * false zero does not show a wrong number, it removes a row. A bell whose
+   * dispute check errored would simply not mention disputes.
+   */
+  failedChecks?: string[];
 }
 
 export interface DerivedAlert {
@@ -76,6 +84,25 @@ const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : ma
 
 export function deriveAlerts(d: AlertInput): DerivedAlert[] {
   const list: DerivedAlert[] = [];
+
+  // First, because it qualifies everything under it: an empty list below this
+  // row is not an all-clear.
+  if (d.failedChecks && d.failedChecks.length > 0) {
+    const n = d.failedChecks.length;
+    list.push({
+      id: "checks-failed",
+      priority: "urgent",
+      title: `${n} ${plural(n, "check")} could not be read`,
+      meta: [
+        `Not checked: ${d.failedChecks.join(", ")}`,
+        "Anything missing below may be missing because nobody could look, not because it is clear",
+      ],
+      sla: { text: "Unknown", tone: "critical" },
+      actionLabel: "Vendor health",
+      href: "/admin/vendors",
+      bellHref: "/admin/vendors",
+    });
+  }
 
   for (const vendor of d.vendorsDown) {
     list.push({

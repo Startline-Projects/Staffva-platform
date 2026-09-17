@@ -143,6 +143,10 @@ export default function AdminDashboard() {
   // Whatever /api/admin/alerts fed deriveAlerts. Null until it answers, so the
   // rows it owns stay absent rather than rendering as zero.
   const [extra, setExtra] = useState<AlertInput | null>(null);
+  // Distinct from "not loaded yet": the alerts endpoint was asked and did not
+  // answer. Without this the rows it owns just stay absent, which on a list of
+  // problems reads as there being none.
+  const [extraFailed, setExtraFailed] = useState(false);
   const [routeAssignments, setRouteAssignments] = useState<Record<string, string>>({});
   const [approveSearch, setApproveSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -187,10 +191,11 @@ export default function AdminDashboard() {
     fetch("/api/admin/alerts")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!alive || !d?.input) return;
+        if (!alive) return;
+        if (!d?.input) { setExtraFailed(true); return; }
         setExtra(d.input as AlertInput);
       })
-      .catch(() => {});
+      .catch(() => { if (alive) setExtraFailed(true); });
     return () => { alive = false; };
   }, []);
 
@@ -351,8 +356,11 @@ export default function AdminDashboard() {
       awaitingReplyOnDormant: extra?.awaitingReplyOnDormant,
       longestWaitDays: extra?.longestWaitDays,
       neverAnswered: extra?.neverAnswered,
+      failedChecks: extraFailed
+        ? ["ban requests", "open disputes", "vendor health", "specialist queues and unanswered messages"]
+        : extra?.failedChecks,
     });
-  }, [data, extra]);
+  }, [data, extra, extraFailed]);
 
   const counts = useMemo(() => countByPriority(alerts), [alerts]);
 

@@ -48,7 +48,8 @@ export interface PerformanceReport {
     messagesSent: number;
     reassignments: number;
   };
-  internal: { threads: number; messages: number; members: number };
+  /** null = that count could not be read. Never folded into zero — see `countOrNull`. */
+  internal: { threads: number | null; messages: number | null; members: number | null };
 }
 
 function serviceClient() {
@@ -82,8 +83,19 @@ export async function loadPerformance(): Promise<PerformanceReport | null> {
     db.from("recruiter_reassignment_log").select("from_recruiter_id, to_recruiter_id"),
     db.from("internal_threads").select("id", { count: "exact", head: true }),
     db.from("internal_messages").select("id", { count: "exact", head: true }),
-    db.from("internal_thread_members").select("id", { count: "exact", head: true }),
+    // Keyed on (thread_id, profile_id) — there is no `id` column. Selecting one
+    // made PostgREST answer 400 with an empty message, `count` came back null,
+    // and `?? 0` rendered the failure as "0 memberships" on a table holding 11.
+    db.from("internal_thread_members").select("thread_id", { count: "exact", head: true }),
   ]);
+
+  /**
+   * A head-count that failed is not a count of zero. `res.count ?? 0` cannot
+   * tell the two apart, which is how a broken query sat on this page looking
+   * like a quiet team. The view says "could not be read" for a null.
+   */
+  const countOrNull = (res: { count: number | null; error: unknown }): number | null =>
+    res.error || res.count === null ? null : res.count;
 
   const tally = <T,>(rows: T[] | null, key: (r: T) => string | null | undefined) => {
     const m = new Map<string, number>();
@@ -139,9 +151,9 @@ export async function loadPerformance(): Promise<PerformanceReport | null> {
       reassignments: (reassignRes.data ?? []).length,
     },
     internal: {
-      threads: threadsRes.count ?? 0,
-      messages: msgCountRes.count ?? 0,
-      members: membersRes.count ?? 0,
+      threads: countOrNull(threadsRes),
+      messages: countOrNull(msgCountRes),
+      members: countOrNull(membersRes),
     },
   };
 }

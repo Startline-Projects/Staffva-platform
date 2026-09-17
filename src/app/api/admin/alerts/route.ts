@@ -57,6 +57,15 @@ export async function GET() {
     db.from("profile_views").select("client_id").gte("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString()),
   ]);
 
+  // A failed count used to become 0 through `?? 0`, and a zero here is an
+  // alert that never appears. Name what could not be read instead.
+  const failedChecks = ([
+    ["candidate total", totalRes], ["profile reviews", reviewRes], ["routing decisions", routingRes],
+    ["screening holds", holdRes], ["test lockouts", lockoutRes], ["ban requests", bansRes],
+    ["open disputes", disputesRes], ["vendor health", vendorsRes], ["role depth", rolesRes],
+    ["clients", clientsRes], ["engagements", engRes],
+  ] as const).filter(([, res]) => Boolean(res.error)).map(([label]) => label as string);
+
   // null = the read failed. The spread below then contributes nothing and the
   // dormancy rows stay silent, rather than an unread count rendering as an
   // all-clear.
@@ -90,6 +99,7 @@ export async function GET() {
     pendingBans: bansRes.count ?? 0,
     openDisputes: disputesRes.count ?? 0,
     vendorsDown: (vendorsRes.data ?? []).filter((v) => !v.ok).map((v) => v.vendor),
+    failedChecks: dormancy === null ? [...failedChecks, "specialist queues and unanswered messages"] : failedChecks,
     ...(dormancy
       ? {
           assignedToDormant: dormancy.assignedToDormant,

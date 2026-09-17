@@ -2477,6 +2477,8 @@
 .lp-admin .rec-v.empty { color: var(--ink-mute); font-style: italic; }
 .lp-admin .rec-v.ok { color: var(--success); font-weight: 600; }
 .lp-admin .rec-v.warn { color: var(--amber); font-weight: 600; }
+/* A value that could not be read — never styled like a measurement. */
+.lp-admin .rec-v.mute { color: var(--ink-mute); font-weight: 400; font-style: italic; }
 .lp-admin .rec-v.bad { color: var(--danger); font-weight: 600; }
 
 .lp-admin .rec-note-line {
